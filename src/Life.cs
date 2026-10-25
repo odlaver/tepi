@@ -381,6 +381,7 @@ namespace Tepi
                     a.Tool = tool;
                     a.Detail = Detail(tool, input);
                     a.Note = Fmt.OneLine(Json.Str(input, "description"), 160);
+                    if (a.Note.Length == 0) a.Note = ChangeSummary(tool, input);
                     a.Key = AgentHub.Describe(tool, input);
                     approvals.Add(a);
                     s.State = AgentState.Waiting;
@@ -423,6 +424,20 @@ namespace Tepi
             if (url.Length > 0) return url;
             return Fmt.OneLine(Json.Encode(input), 400);
         }
+
+        // File edits show their size; the content itself stays in the terminal
+        static string ChangeSummary(string tool, Dictionary<string, object> input)
+        {
+            if (input == null) return "";
+            if (tool == "Edit")
+                return "ganti " + LineCount(Json.Str(input, "old_string")) + " baris jadi " + LineCount(Json.Str(input, "new_string")) + " baris, isi di terminal";
+            if (tool == "Write") return "tulis " + LineCount(Json.Str(input, "content")) + " baris, isi di terminal";
+            if (tool == "MultiEdit") return Json.Arr(input, "edits").Length + " perubahan, isi di terminal";
+            if (tool == "NotebookEdit") return "ubah sel notebook, isi di terminal";
+            return "";
+        }
+
+        static int LineCount(string s) { return s.Length == 0 ? 0 : s.Split('\n').Length; }
 
         bool HasApproval(string sessionId) { return approvals.Exists(a => a.SessionId == sessionId); }
 

@@ -20,7 +20,7 @@ namespace Tepi
                 case View.Lyric: return new SizeF(LyricWidth(), 38);
                 case View.Track: return new SizeF(384, 80);
                 case View.Agent: return new SizeF(AgentWidth(), 38);
-                case View.Approve: return new SizeF(452, 172);
+                case View.Approve: return new SizeF(ApproveW, ApproveHeight());
                 case View.Done: return new SizeF(414, 70);
                 case View.Notif: return new SizeF(404, 66);
                 case View.Volume: return new SizeF(300, 44);
@@ -342,35 +342,71 @@ namespace Tepi
             if (n > 1) p.TextRight("+" + (n - 1), Ink.Small(11.5f), p.T.Sub, w - 16, cy);
         }
 
+        const int ApproveMaxLines = 10;
+        const float ApproveW = 452;
+        readonly StringFormat approveMeasure = new StringFormat(StringFormat.GenericTypographic);
+
+        string ApproveText(Approval a) { return a.Detail.Length > 0 ? a.Detail : a.Tool; }
+
+        // Wrapped line count of what will run, measured once
+        int ApproveLines(Approval a)
+        {
+            if (a.Lines > 0 || p.G == null) return Math.Max(1, a.Lines);
+            int chars, lines;
+            p.G.MeasureString(ApproveText(a), Ink.Mono(12f), new SizeF(ApproveW - 56, 100000), approveMeasure, out chars, out lines);
+            a.Lines = Math.Max(1, lines);
+            return a.Lines;
+        }
+
+        float ApproveLineH() { return p.G == null ? 15.5f : Ink.Mono(12f).GetHeight(p.G); }
+
+        float ApproveHeight()
+        {
+            if (approvals.Count == 0) return 172;
+            int total = ApproveLines(approvals[0]), shown = Math.Min(total, ApproveMaxLines);
+            return 64 + shown * ApproveLineH() + 20 + (total > shown ? 22 : 0) + 10 + 32 + 14;
+        }
+
         void DrawApprove(float w, float h)
         {
             if (approvals.Count == 0) return;
             var a = approvals[0];
             string who = a.Project + (a.Profile.Length > 0 ? " · " + a.Profile : "");
             if (approvals.Count > 1) who = "1/" + approvals.Count + " · " + who;
-            p.Text("Claude minta izin", Ink.Semi(14.5f), p.T.Text, 24, 28, w - 200, StringAlignment.Near);
+            p.Text(a.Agent + " minta izin", Ink.Semi(14.5f), p.T.Text, 24, 28, w - 200, StringAlignment.Near);
             p.TextRight(who, Ink.Small(11.5f), p.T.Sub, w - 24, 28);
             string label = AgentHub.ToolLabel(a.Tool);
             p.Text(label, Ink.Semi(12f), p.T.Text, 24, 51, 140, StringAlignment.Near);
             float lx = 24 + p.Measure(label, Ink.Semi(12f)) + 8;
             p.Text(a.Note, Ink.Text(12f), p.T.Sub, lx, 51, w - lx - 24, StringAlignment.Near);
 
-            var box = new RectangleF(16, 64, w - 32, 54);
+            // The whole command must be readable before it can be allowed
+            int total = ApproveLines(a), shown = Math.Min(total, ApproveMaxLines);
+            bool clipped = total > shown;
+            float lineH = ApproveLineH();
+            var box = new RectangleF(16, 64, w - 32, shown * lineH + 20);
             p.FillRound(box, 12, p.T.Fill);
-            p.TextBox(a.Detail.Length > 0 ? a.Detail : a.Tool, Ink.Mono(12f), p.T.Text, new RectangleF(box.X + 12, box.Y + 10, box.Width - 24, 36));
+            p.TextBox(ApproveText(a), Ink.Mono(12f), p.T.Text, new RectangleF(box.X + 12, box.Y + 10, box.Width - 24, shown * lineH + 1));
+            float y = box.Bottom + 10;
+            if (clipped)
+            {
+                p.Text("Masih ada " + (total - shown) + " baris lagi. Baca utuh di terminal.", Ink.Small(11.5f), p.T.Text, 24, y + 4, w - 48, StringAlignment.Near);
+                y += 22;
+            }
 
-            var allow = new RectangleF(w - 16 - 112, 128, 112, 32);
-            var deny = new RectangleF(allow.X - 8 - 92, 128, 92, 32);
-            p.FillRound(allow, 10, Hover("allow") ? Ink.A(p.T.Text, 0.82f) : p.T.Text);
-            p.TextCenter("Izinkan", Ink.Semi(13f), p.T.Bg, allow.X + allow.Width / 2, allow.Y + 16);
+            var allow = new RectangleF(w - 16 - 112, y, 112, 32);
+            var deny = new RectangleF(allow.X - 8 - 92, y, 92, 32);
+            if (clipped) p.StrokeRound(allow, 10, p.T.Faint, 1.2f);
+            else p.FillRound(allow, 10, Hover("allow") ? Ink.A(p.T.Text, 0.82f) : p.T.Text);
+            p.TextCenter("Izinkan", Ink.Semi(13f), clipped ? p.T.Faint : p.T.Bg, allow.X + allow.Width / 2, allow.Y + 16);
             if (Hover("deny")) p.FillRound(deny, 10, p.T.Fill);
             p.StrokeRound(deny, 10, p.T.Sub, 1.2f);
             p.TextCenter("Tolak", Ink.Semi(13f), p.T.Text, deny.X + deny.Width / 2, deny.Y + 16);
-            var term = new RectangleF(14, 128, 140, 32);
+            var term = new RectangleF(14, y, 140, 32);
             if (Hover("term")) p.FillRound(term, 10, p.T.Fill);
             p.Icon(Ink.IcoTerminal, 12f, p.T.Sub, term.X + 18, term.Y + 16);
-            p.Text("Jawab di terminal", Ink.Small(12f), Hover("term") ? p.T.Text : p.T.Sub, term.X + 32, term.Y + 16);
-            AddHit(allow, "allow", delegate { Decide(a, "allow"); });
+            p.Text("Jawab di terminal", Ink.Small(12f), Hover("term") || clipped ? p.T.Text : p.T.Sub, term.X + 32, term.Y + 16);
+            if (!clipped) AddHit(allow, "allow", delegate { Decide(a, "allow"); });
             AddHit(deny, "deny", delegate { Decide(a, "deny"); });
             AddHit(term, "term", delegate { Decide(a, null); });
         }

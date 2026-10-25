@@ -22,7 +22,8 @@ namespace Tepi
     // Permission prompt held until answered
     class Approval
     {
-        public string SessionId = "", Project = "", Profile = "", Tool = "", Detail = "", Note = "", Key = "";
+        public string SessionId = "", Project = "", Profile = "", Tool = "", Detail = "", Note = "", Key = "", Agent = "Claude";
+        public int Lines;
         public DateTime CreatedUtc = DateTime.UtcNow;
         public readonly ManualResetEvent Answered = new ManualResetEvent(false);
         public string Decision; // allow, deny, or null for the terminal prompt

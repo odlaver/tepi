@@ -28,7 +28,7 @@ namespace Tepi
         }
     }
 
-    // Media sessions; Spotify wins ties
+    // Media sessions from any player
     class MediaService
     {
         public event Action<MediaInfo> Changed;
@@ -70,7 +70,7 @@ namespace Tepi
             {
                 manager = Await(GlobalSystemMediaTransportControlsSessionManager.RequestAsync());
                 manager.CurrentSessionChanged += delegate { signal.Set(); };
-                manager.SessionsChanged += delegate { signal.Set(); };
+                manager.SessionsChanged += delegate { lock (watched) watched.Clear(); signal.Set(); };
             }
             catch (Exception ex) { Log.Write("media unavailable: " + ex.Message); return; }
 
@@ -86,21 +86,33 @@ namespace Tepi
             }
         }
 
+        readonly HashSet<string> watched = new HashSet<string>();
+
+        // Whatever is audible wins, from any player; else Windows' current session
         GlobalSystemMediaTransportControlsSession Pick()
         {
             var current = manager.GetCurrentSession();
-            GlobalSystemMediaTransportControlsSession spotify = null;
+            GlobalSystemMediaTransportControlsSession playing = current != null && IsPlaying(current) ? current : null;
             try
             {
                 foreach (var s in manager.GetSessions())
-                    if ((s.SourceAppUserModelId ?? "").IndexOf("spotify", StringComparison.OrdinalIgnoreCase) >= 0) { spotify = s; break; }
+                {
+                    // Hear every player start or stop, not just the shown one
+                    string id = s.SourceAppUserModelId ?? "";
+                    bool fresh;
+                    lock (watched) fresh = watched.Add(id);
+                    if (fresh) s.PlaybackInfoChanged += OnPlayback;
+                    if (playing == null && IsPlaying(s)) playing = s;
+                }
             }
             catch (Exception) { }
-            if (spotify == null) return current;
-            if (current == null || ReferenceEquals(current, spotify)) return spotify;
-            bool currentPlaying = current.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
-            bool spotifyPlaying = spotify.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
-            return spotifyPlaying || !currentPlaying ? spotify : current;
+            return playing ?? current;
+        }
+
+        static bool IsPlaying(GlobalSystemMediaTransportControlsSession s)
+        {
+            try { return s.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing; }
+            catch (Exception) { return false; }
         }
 
         void RunCommands()
