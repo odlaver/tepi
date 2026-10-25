@@ -27,7 +27,7 @@ namespace Tepi
                 case PageHome:
                     return HomeHeight();
                 case PageMusic:
-                    return mediaInfo.Present && mediaInfo.Title.Length > 0 ? 340 : 214;
+                    return MusicHeight();
                 case PageAgents:
                     if (sessions.Count == 0 || (hub != null && hub.Error != null)) return 214;
                     return Clamp(PanelTop + 14 + sessions.Count * 56, 150, 360);
@@ -42,6 +42,8 @@ namespace Tepi
                     return Clamp(PanelTop + 14 + notifs.Count * 50, 150, 372);
             }
         }
+
+        float MusicHeight() { return mediaInfo.Present && mediaInfo.Title.Length > 0 ? 340 : 214; }
 
         int DefaultPage(bool hover) { return PageHome; }
 
@@ -97,7 +99,7 @@ namespace Tepi
             float k = Ease.OutCubic((float)((now - pageSwitchUtc).TotalSeconds / 0.34));
             float musicVis = page == PageMusic ? (prevPage == PageMusic ? 1 : k) : prevPage == PageMusic ? 1 - k : 0;
             double t0 = Prof.T();
-            if (mediaInfo.Present) DrawBackdrop(w, h, musicVis);
+            if (mediaInfo.Present) DrawBackdrop(musicVis);
             Prof.Add("backdrop", t0);
             t0 = Prof.T();
             DrawTabs(w, now);
@@ -524,14 +526,12 @@ namespace Tepi
                 bool urgent = left.TotalHours < 24;
                 var wf = Ink.Semi(11.5f);
                 float ww = p.Measure(when, wf) + (urgent ? 18 : 0);
+                var btn = new RectangleF(right - 116, cy - 15, 116, 30);
                 if (hover)
                 {
-                    var btn = new RectangleF(right - 116, cy - 15, 116, 30);
                     if (Hover(doneId)) p.FillRound(btn, 10, p.T.FillHover);
                     p.StrokeRound(btn, 10, p.T.Sub, 1.2f);
                     p.TextCenter("Tandai selesai", Ink.Semi(12f), p.T.Text, btn.X + btn.Width / 2, cy);
-                    var task = t;
-                    AddHit(btn, doneId, delegate { MarkDone(task); });
                     ww = 116;
                 }
                 else if (urgent)
@@ -546,7 +546,9 @@ namespace Tepi
                 p.Text(course, Ink.Small(11f), p.T.Sub, tx, cy - 10, right - ww - tx - 12, StringAlignment.Near);
                 p.Text(t.Title, Ink.Semi(13f), p.T.Text, tx, cy + 9, right - ww - tx - 12, StringAlignment.Near);
                 string url = t.Url;
-                AddHit(new RectangleF(row.X, row.Y, row.Width - ww - 16, row.Height), rowId, delegate { OpenUrl(url); });
+                AddHit(row, rowId, delegate { OpenUrl(url); });
+                var task = t;
+                AddHit(btn, doneId, delegate { MarkDone(task); });
             }
             g.Restore(st);
         }
@@ -606,17 +608,18 @@ namespace Tepi
                 float tx = row.X + 50;
                 p.Text(item.Title.Length > 0 ? item.Title : item.AppName, Ink.Semi(12.5f), p.T.Text, tx, cy - 9, row.Right - tx - 80, StringAlignment.Near);
                 p.Text(NotifBody(item), Ink.Text(11.5f), p.T.Sub, tx, cy + 9, row.Right - tx - 44, StringAlignment.Near);
+                var x = new RectangleF(row.Right - 36, cy - 14, 28, 28);
                 if (hover)
                 {
-                    var x = new RectangleF(row.Right - 34, cy - 12, 24, 24);
-                    p.Circle(x.X + 12, x.Y + 12, 12, Hover(del) ? p.T.FillHover : p.T.Fill);
-                    p.Cross(x.X + 12, x.Y + 12, 10, p.T.Sub);
-                    var victim = item;
-                    AddHit(x, del, delegate { RemoveNotifs(new List<NotifItem> { victim }); });
+                    p.Circle(x.X + 14, x.Y + 14, 12, Hover(del) ? p.T.FillHover : p.T.Fill);
+                    p.Cross(x.X + 14, x.Y + 14, 10, p.T.Sub);
                 }
                 else p.TextRight(Fmt.Ago(item.Time), Ink.Small(11f), p.T.Sub, row.Right - 12, cy - 9);
                 var open = item;
-                AddHit(new RectangleF(row.X, row.Y, row.Width - 40, row.Height), id, delegate { OpenNotifApp(open); });
+                AddHit(row, id, delegate { OpenNotifApp(open); });
+                // Added last so it wins over the row
+                var victim = item;
+                AddHit(x, del, delegate { RemoveNotifs(new List<NotifItem> { victim }); });
             }
             g.Restore(st);
         }

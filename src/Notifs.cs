@@ -17,7 +17,7 @@ namespace Tepi
         public uint Id;
         public string AppId = "", AppName = "", Title = "", Body = "";
         public DateTime Time;
-        public bool Chat;
+        public bool Chat, Held;
         public Bitmap Logo;
     }
 
@@ -75,6 +75,17 @@ namespace Tepi
         }
 
         public static void Remove(uint id) { UserNotificationListener.Current.RemoveNotification(id); }
+
+        // Off: Windows drops the toast after ~6 s
+        public static bool Kept(string appId)
+        {
+            try
+            {
+                using (var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\" + appId))
+                    return k == null || Convert.ToInt32(k.GetValue("ShowInActionCenter", 1)) != 0;
+            }
+            catch (Exception) { return true; }
+        }
 
         static bool IsChat(string app, string text)
         {
@@ -162,7 +173,7 @@ namespace Tepi
         }
     }
 
-    // Poller woken by the folder watcher
+    // Folder events miss DB writes; key checked each second (~8 µs)
     class NotifWatcher
     {
         public event Action<UserNotificationListenerAccessStatus, List<NotifItem>> Updated;
@@ -206,8 +217,7 @@ namespace Tepi
             DateTime nextFull = DateTime.MinValue;
             while (true)
             {
-                wake.WaitOne(10000);
-                Thread.Sleep(350);
+                if (wake.WaitOne(1000)) Thread.Sleep(350);
                 if (!enabled) continue;
                 try
                 {

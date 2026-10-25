@@ -240,7 +240,7 @@ namespace Tepi
         {
             int bx = (int)Math.Round(bounds.X * scale), by = (int)Math.Round(bounds.Y * scale);
             int bw = (int)Math.Ceiling(bounds.Width * scale), bh = (int)Math.Ceiling(bounds.Height * scale);
-            var bd = current == View.Panel && page == PageMusic && mediaInfo.Present ? BackdropFor(bounds.Width, bounds.Height) : null;
+            var bd = current == View.Panel && page == PageMusic && mediaInfo.Present ? BackdropFor() : null;
             string key = bx + "," + by + "," + bw + "," + bh + "," + extra.ToString("0.00") + Ink.Light;
             if (!ReferenceEquals(frost, psFrost) || !ReferenceEquals(bd, psBackdrop) || key != psKey || panelSurface == null)
             {
@@ -253,10 +253,11 @@ namespace Tepi
                     pg.DrawImage(frost, new Rectangle(0, 0, bw, bh), bx - fx, by, bw, bh, GraphicsUnit.Pixel);
                     pg.CompositingMode = CompositingMode.SourceOver;
                     using (var tb = new SolidBrush(Ink.A(tone.Bg, extra))) pg.FillRectangle(tb, 0, 0, bw, bh);
-                    if (bd != null) pg.DrawImage(bd, new Rectangle(0, 0, bd.Width, bd.Height), 0, 0, bd.Width, bd.Height, GraphicsUnit.Pixel);
+                    // Same layer order as the live path
                     int sh2 = (int)Math.Ceiling(Math.Min(bounds.Height, 64) * scale);
-                    using (var lg = new LinearGradientBrush(new Rectangle(0, -1, bw, sh2 + 2), Color.FromArgb(26, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f))
+                    using (var lg = new LinearGradientBrush(new Rectangle(0, -1, bw, sh2 + 2), Color.FromArgb(tone.Bg.R > 128 ? 70 : 26, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f))
                         pg.FillRectangle(lg, 0, 0, bw, sh2);
+                    if (bd != null) pg.DrawImage(bd, new Rectangle(0, 0, bd.Width, bd.Height), 0, 0, bd.Width, bd.Height, GraphicsUnit.Pixel);
                 }
                 psFrost = frost;
                 psBackdrop = bd;

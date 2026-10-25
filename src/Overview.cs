@@ -48,8 +48,8 @@ namespace Tepi
                     DrawAlbumLayout(PanelW, 340, now, 0);
                     DrawLyricsLayout(PanelW, 340, now, 0);
                     // Warm every font size used
-                    const string sample = "Ag 0123456789 .,:·…%+";
-                    foreach (var px in new[] { 14f, 14.5f, 15.5f, 17f, 18f, 20f, 22f }) p.Text(sample, Ink.Display(px), p.T.Text, 0, 20);
+                    const string sample = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789 .,:;·…%+-'\"!?()";
+                    foreach (var px in new[] { 12f, 12.5f, 13f, 13.5f, 14f, 14.5f, 15f, 15.5f, 17f, 18f, 20f, 22f }) p.Text(sample, Ink.Display(px), p.T.Text, 0, 20);
                     foreach (var px in new[] { 10.5f, 11f, 11.5f, 12f, 12.5f, 13f, 13.5f, 14f, 14.5f, 15f }) p.Text(sample, Ink.Semi(px), p.T.Text, 0, 20);
                     foreach (var px in new[] { 9.5f, 10.5f, 11f, 11.5f, 12f }) p.Text(sample, Ink.Small(px), p.T.Text, 0, 20);
                     foreach (var px in new[] { 11.5f, 12f, 12.5f, 13f, 13.5f, 14f, 15f }) p.Text(sample, Ink.Text(px), p.T.Text, 0, 20);

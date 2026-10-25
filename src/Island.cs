@@ -288,7 +288,11 @@ namespace Tepi
                 previous = current;
                 current = want;
                 switchedUtc = DateTime.UtcNow;
-                if (want == View.Panel) panelOpenedUtc = switchedUtc;
+                if (want == View.Panel)
+                {
+                    panelOpenedUtc = switchedUtc;
+                    if (mediaInfo.Present) BackdropFor(); // ready before the music tab
+                }
             }
             SizeF size = ViewSize(current);
             // Jelly: leading axis moves first

@@ -46,10 +46,10 @@ namespace Tepi
         }
 
         // Blurred cover behind the whole panel
-        void DrawBackdrop(float w, float h, float alpha)
+        void DrawBackdrop(float alpha)
         {
             if (alpha <= 0.01f || current != View.Panel || backdropInSurface) return;
-            var baked = BackdropFor(w, h);
+            var baked = BackdropFor();
             if (baked == null) return;
             int pw = baked.Width, ph = baked.Height;
             var pts = new[] { new PointF(0, 0) };
@@ -73,12 +73,12 @@ namespace Tepi
         bool backdropBaking;
         string backdropWant;
 
-        // Backdrop baked off the UI thread
-        Bitmap BackdropFor(float w, float h)
+        // Baked once at final size, off-thread
+        Bitmap BackdropFor()
         {
             var src = mediaInfo.Cover;
             if (src == null) return null;
-            int pw = (int)Math.Ceiling(w * scale), ph = (int)Math.Ceiling(h * scale);
+            int pw = (int)Math.Ceiling(PanelW * scale), ph = (int)Math.Ceiling(MusicHeight() * scale);
             string key = pw + "x" + ph + Ink.Light;
             if (ReferenceEquals(src, blurSource) && key == blurKey) return blurCache;
             string want = key + "|" + System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(src);

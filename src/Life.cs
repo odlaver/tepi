@@ -213,10 +213,21 @@ namespace Tepi
             notifAccess = access;
             if (list == null || !NotifOn) { Kick(); return; }
             var visible = list.FindAll(n => n.Chat);
+            // Toasts Windows doesn't keep stay here
+            var live = new HashSet<uint>();
+            foreach (var n in visible) live.Add(n.Id);
+            foreach (var n in notifs)
+                if (!live.Contains(n.Id) && (n.Held || !NotifSource.Kept(n.AppId)))
+                {
+                    n.Held = true;
+                    visible.Add(n);
+                }
+            visible.Sort((a, b) => b.Time.CompareTo(a.Time));
+            if (visible.Count > 40) visible.RemoveRange(40, visible.Count - 40);
             var fresh = new List<NotifItem>();
             if (notifPrimed)
                 foreach (var n in visible)
-                    if (!seenNotifs.Contains(n.Id) && (DateTime.UtcNow - n.Time).TotalMinutes < 3) fresh.Add(n);
+                    if (!n.Held && !seenNotifs.Contains(n.Id) && (DateTime.UtcNow - n.Time).TotalMinutes < 3) fresh.Add(n);
             seenNotifs.Clear();
             foreach (var n in list) seenNotifs.Add(n.Id);
             notifPrimed = true;
@@ -244,6 +255,7 @@ namespace Tepi
         {
             try { Process.Start("explorer.exe", "shell:AppsFolder\\" + item.AppId); }
             catch (Exception ex) { Log.Write("open app: " + ex.Message); }
+            notifs.RemoveAll(n => n.Held && n.AppId == item.AppId);
             unread = 0;
             expanded = false;
             if (toast != null && toast.View == View.Notif) DismissToast();
@@ -255,7 +267,7 @@ namespace Tepi
             foreach (var n in items) notifs.Remove(n);
             unread = Math.Min(unread, notifs.Count);
             Kick();
-            var ids = items.ConvertAll(n => n.Id);
+            var ids = items.FindAll(n => !n.Held).ConvertAll(n => n.Id);
             ThreadPool.QueueUserWorkItem(delegate
             {
                 foreach (var id in ids)
@@ -347,6 +359,7 @@ namespace Tepi
 
         void OnHook(HookEvent ev)
         {
+            if (ev.SessionId.Length == 0) return;
             var s = SessionFor(ev);
             var input = Json.Obj(ev.Data, "tool_input");
             string tool = Json.Str(ev.Data, "tool_name");

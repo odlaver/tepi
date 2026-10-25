@@ -116,7 +116,7 @@ namespace Tepi
                     string got;
                     // Browsers send Origin; hooks never do
                     if (parts.Length < 2 || parts[0] != "POST" || parts[1] != "/hook" || headers.ContainsKey("Origin") ||
-                        !headers.TryGetValue("X-Tepi-Token", out got) || got != token)
+                        !headers.TryGetValue("X-Tepi-Token", out got) || !SameToken(got, token))
                     {
                         Reply(stream, 403, "");
                         return;
@@ -154,6 +154,15 @@ namespace Tepi
             if (a.Decision == "deny")
                 return "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{\"behavior\":\"deny\",\"message\":\"Ditolak dari Tepi.\"}}}";
             return "";
+        }
+
+        // Constant time, so the token can't be guessed byte by byte
+        static bool SameToken(string a, string b)
+        {
+            if (a == null || b == null || a.Length != b.Length) return false;
+            int diff = 0;
+            for (int i = 0; i < a.Length; i++) diff |= a[i] ^ b[i];
+            return diff == 0;
         }
 
         // Claude Code dropped the hook request
