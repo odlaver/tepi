@@ -314,10 +314,10 @@ namespace Tepi
         void ShowCodeStep()
         {
             codeStep = true;
-            hint.Text = "Kode 6 angka terkirim ke " + address;
+            hint.Text = "Kode masuk terkirim ke " + address;
             field.Text = "";
-            field.MaxLength = 10;
-            Native.SendMessage(field.Handle, 0x1501, (IntPtr)1, "6 angka");
+            field.MaxLength = 14;
+            Native.SendMessage(field.Handle, 0x1501, (IntPtr)1, "Kode dari email");
             primary.Text = "Masuk";
             back.Visible = true;
             status.Text = "";
@@ -340,7 +340,8 @@ namespace Tepi
                 });
                 return;
             }
-            if (!Regex.IsMatch(value, @"^\d{6,10}$")) { status.Text = "Kode berisi 6 angka"; return; }
+            value = value.Replace(" ", "").Replace("-", "");
+            if (!Regex.IsMatch(value, @"^\d{6,10}$")) { status.Text = "Kode berisi 6 sampai 10 angka"; return; }
             Busy("Memeriksa kode…");
             ThreadPool.QueueUserWorkItem(delegate
             {
