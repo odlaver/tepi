@@ -18,7 +18,7 @@ Native C# tanpa browser engine. File exe sekitar 200 KB, memori sekitar 6 sampai
 
 ## Pasang
 
-1. Unduh `Tepi.exe` dari halaman [Releases](../../releases).
+1. Unduh [**Tepi.exe**](https://github.com/odlaver/tepi/raw/main/Tepi.exe) (langsung terunduh sekali klik), atau dari halaman [Releases](../../releases).
 2. Jalankan. Karena exe belum ditandatangani, Windows SmartScreen bisa memunculkan peringatan: pilih **More info** lalu **Run anyway**. Kalau ragu, build sendiri dari sumbernya (lihat [Build sendiri](#build-sendiri)).
 3. Ikon Tepi muncul di system tray. Di Windows 11 ikonnya bisa tersembunyi di balik panah **^** di taskbar.
 
