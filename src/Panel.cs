@@ -406,7 +406,7 @@ namespace Tepi
             var list = SortedSessions();
             if (list.Count == 0)
             {
-                Empty(w, Ink.IcoTerminal, "Belum ada sesi Claude Code", hooksOn ? "Hook terpasang di " + hookProfiles + " profil" : "Hook belum terpasang · tray > Hubungkan Claude Code");
+                Empty(w, Ink.IcoTerminal, "Belum ada sesi agen", linked.Length > 0 ? "Terhubung: " + linked : "Belum terhubung · tray > Hubungkan agen");
                 return;
             }
             const float rowH = 56;
@@ -617,7 +617,7 @@ namespace Tepi
                 else p.TextRight(Fmt.Ago(item.Time), Ink.Small(11f), p.T.Sub, row.Right - 12, cy - 9);
                 var open = item;
                 AddHit(row, id, delegate { OpenNotifApp(open); });
-                // Added last so it wins over the row
+                // Added last: wins over the row
                 var victim = item;
                 AddHit(x, del, delegate { RemoveNotifs(new List<NotifItem> { victim }); });
             }

@@ -71,7 +71,7 @@ namespace Tepi
             notifWatcher.Enabled = NotifOn;
             notifWatcher.Start();
             StartAgents();
-            // Works out of the box; settings.ini may point elsewhere
+            // Default works; settings.ini may override
             kulia = new KuliaClient(settings.Has("kulia.url") ? settings.Get("kulia.url", "") : KuliaClient.DefaultUrl,
                                     settings.Has("kulia.key") ? settings.Get("kulia.key", "") : KuliaClient.DefaultKey);
             if (kulia.SignedIn) RefreshTasks(false);
@@ -253,8 +253,12 @@ namespace Tepi
 
         void OpenNotifApp(NotifItem item)
         {
-            try { Process.Start("explorer.exe", "shell:AppsFolder\\" + item.AppId); }
-            catch (Exception ex) { Log.Write("open app: " + ex.Message); }
+            // Quoted; a stray quote can't add arguments
+            if (item.AppId.Length > 0 && item.AppId.IndexOfAny(new[] { '"', '\r', '\n' }) < 0)
+            {
+                try { Process.Start("explorer.exe", "\"shell:AppsFolder\\" + item.AppId + "\""); }
+                catch (Exception ex) { Log.Write("open app: " + ex.Message); }
+            }
             notifs.RemoveAll(n => n.Held && n.AppId == item.AppId);
             unread = 0;
             expanded = false;
@@ -295,7 +299,7 @@ namespace Tepi
             hub.Received += ev => Post(() => OnHook(ev));
             hub.Expired += a => Post(() => DropApproval(a));
             hub.Start();
-            HooksInstalled();
+            CheckLinks();
         }
 
         bool hooksOn;
@@ -322,6 +326,7 @@ namespace Tepi
                     HookSetup.Remove(hub.Port);
                     HooksInstalled();
                     ShowInfo(Ink.IcoTerminal, "Claude Code dilepas", "hook Tepi dihapus", true);
+                    CheckLinks();
                     return;
                 }
                 string err = HookSetup.Install(hub.Port, settings.Get("agent.token", ""));
@@ -334,6 +339,48 @@ namespace Tepi
                 Log.Write("hook setup: " + ex);
                 ShowInfo(Ink.IcoTerminal, "Belum terhubung", Fmt.OneLine(ex.Message, 60), true);
             }
+            CheckLinks();
+        }
+
+        string linked = "";
+
+        // Agent names with hooks in place
+        void CheckLinks()
+        {
+            var names = new List<string>();
+            if (HooksInstalled()) names.Add("Claude Code");
+            foreach (var id in AgentSetup.Ids)
+            {
+                try { if (AgentSetup.Installed(id)) names.Add(AgentSetup.Label(id)); }
+                catch (Exception ex) { Log.Write("agent check: " + ex.Message); }
+            }
+            linked = string.Join(", ", names);
+        }
+
+        // Applies to that agent's new sessions
+        void ToggleAgent(string id)
+        {
+            string name = AgentSetup.Label(id);
+            try
+            {
+                if (AgentSetup.Installed(id))
+                {
+                    AgentSetup.Remove(id);
+                    ShowInfo(Ink.IcoTerminal, name + " dilepas", "hook Tepi dihapus", true);
+                }
+                else
+                {
+                    string err = AgentSetup.Install(id);
+                    if (err != null) ShowInfo(Ink.IcoTerminal, "Belum terhubung", err, true);
+                    else ShowInfo(Ink.IcoTerminal, name + " terhubung", id == "codex" ? "percayai lewat /hooks di Codex" : "pantau saja · berlaku di sesi baru", true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("agent setup: " + ex);
+                ShowInfo(Ink.IcoTerminal, "Belum terhubung", Fmt.OneLine(ex.Message, 60), true);
+            }
+            CheckLinks();
         }
 
         AgentSession SessionFor(HookEvent ev)
@@ -359,8 +406,13 @@ namespace Tepi
 
         void OnHook(HookEvent ev)
         {
-            if (ev.SessionId.Length == 0) return;
+            if ((ev.Agent != "claude" && !AgentAdapters.Normalize(ev)) || ev.SessionId.Length == 0)
+            {
+                if (ev.Approval != null) ev.Approval.Answer(null);
+                return;
+            }
             var s = SessionFor(ev);
+            if (ev.Agent != "claude") s.Profile = AgentAdapters.Label(ev.Agent);
             var input = Json.Obj(ev.Data, "tool_input");
             string tool = Json.Str(ev.Data, "tool_name");
             switch (ev.Name)
@@ -385,10 +437,15 @@ namespace Tepi
                 case "PostToolUse":
                 case "PostToolUseFailure":
                     SettleApprovals(s.Id, tool, AgentHub.Describe(tool, input));
-                    if (s.State == AgentState.Waiting) s.State = AgentState.Working;
+                    if (s.State == AgentState.Waiting)
+                    {
+                        s.State = AgentState.Working;
+                        s.Activity = AgentHub.Describe(tool, input);
+                    }
                     break;
                 case "PermissionRequest":
                     var a = ev.Approval;
+                    a.Agent = AgentAdapters.Label(ev.Agent);
                     a.Project = s.Project;
                     a.Profile = s.Profile;
                     a.Tool = tool;
@@ -427,26 +484,47 @@ namespace Tepi
             Kick();
         }
 
+        // Everything that will run or be written
         static string Detail(string tool, Dictionary<string, object> input)
         {
             if (input == null) return "";
-            if (tool == "Bash" || tool == "PowerShell") return Json.Str(input, "command");
-            string path = Json.Str(input, "file_path");
-            if (path.Length > 0) return path;
-            string url = Json.Str(input, "url");
-            if (url.Length > 0) return url;
-            return Fmt.OneLine(Json.Encode(input), 400);
+            string d = Plain(input, "command");
+            if (tool != "Bash" && tool != "PowerShell") d = null;
+            string path = Plain(input, "file_path");
+            if (d == null && path != null)
+            {
+                if (tool == "Edit")
+                    d = path + (Json.Str(input, "replace_all") == "True" ? " · semua kemunculan" : "") + "\n" +
+                        Prefix("- ", Plain(input, "old_string")) + "\n" + Prefix("+ ", Plain(input, "new_string"));
+                else if (tool == "Write") d = path + "\n" + (Plain(input, "content") ?? "");
+                else if (tool == "Read") d = path;
+            }
+            if (d == null && tool == "WebFetch") d = Plain(input, "url");
+            if (d == null) d = Json.Encode(input);
+            // Far past the 10 lines that keep Izinkan on
+            return d.Length > 8000 ? d.Substring(0, 8000) + "…" : d;
         }
 
-        // File edits show their size; the content itself stays in the terminal
+        static string Plain(Dictionary<string, object> input, string key)
+        {
+            object v;
+            return input.TryGetValue(key, out v) ? v as string : null;
+        }
+
+        static string Prefix(string mark, string text)
+        {
+            return mark + (text ?? "").Replace("\r", "").Replace("\n", "\n" + mark);
+        }
+
+        // Size note beside the tool name
         static string ChangeSummary(string tool, Dictionary<string, object> input)
         {
             if (input == null) return "";
             if (tool == "Edit")
-                return "ganti " + LineCount(Json.Str(input, "old_string")) + " baris jadi " + LineCount(Json.Str(input, "new_string")) + " baris, isi di terminal";
-            if (tool == "Write") return "tulis " + LineCount(Json.Str(input, "content")) + " baris, isi di terminal";
-            if (tool == "MultiEdit") return Json.Arr(input, "edits").Length + " perubahan, isi di terminal";
-            if (tool == "NotebookEdit") return "ubah sel notebook, isi di terminal";
+                return "ganti " + LineCount(Json.Str(input, "old_string")) + " baris jadi " + LineCount(Json.Str(input, "new_string")) + " baris";
+            if (tool == "Write") return "tulis " + LineCount(Json.Str(input, "content")) + " baris";
+            if (tool == "MultiEdit") return Json.Arr(input, "edits").Length + " perubahan";
+            if (tool == "NotebookEdit") return "ubah sel notebook";
             return "";
         }
 
@@ -619,9 +697,12 @@ namespace Tepi
             }
         }
 
+        // Web links only; a path would run
         static void OpenUrl(string url)
         {
-            try { Process.Start(url); } catch (Exception ex) { Log.Write("open url: " + ex.Message); }
+            Uri u;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out u) || (u.Scheme != Uri.UriSchemeHttps && u.Scheme != Uri.UriSchemeHttp)) return;
+            try { Process.Start(u.AbsoluteUri); } catch (Exception ex) { Log.Write("open url: " + ex.Message); }
         }
     }
 }

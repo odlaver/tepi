@@ -88,7 +88,7 @@ namespace Tepi
 
         readonly HashSet<string> watched = new HashSet<string>();
 
-        // Whatever is audible wins, from any player; else Windows' current session
+        // Audible player wins, else current session
         GlobalSystemMediaTransportControlsSession Pick()
         {
             var current = manager.GetCurrentSession();
@@ -97,7 +97,7 @@ namespace Tepi
             {
                 foreach (var s in manager.GetSessions())
                 {
-                    // Hear every player start or stop, not just the shown one
+                    // Watch every player, not just shown
                     string id = s.SourceAppUserModelId ?? "";
                     bool fresh;
                     lock (watched) fresh = watched.Add(id);

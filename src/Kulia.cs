@@ -22,7 +22,7 @@ namespace Tepi
     // OTP login, then PostgREST under RLS
     class KuliaClient
     {
-        // Public client config, the same values kulia.live ships to browsers
+        // Public client config, same as kulia.live
         public const string DefaultUrl = "https://ptsopuwxpogqgnaazyer.supabase.co";
         public const string DefaultKey = "sb_publishable_LKZS4deN4E3z7zH-EKP2KQ_zQ38JkH_";
 

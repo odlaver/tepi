@@ -151,21 +151,21 @@ namespace Tepi
             return hooks;
         }
 
-        static object Get(object o, string key)
+        internal static object Get(object o, string key)
         {
             var d = o as Dictionary<string, object>;
             object v;
             return d != null && d.TryGetValue(key, out v) ? v : null;
         }
 
-        static IEnumerable<object> AsList(object o)
+        internal static IEnumerable<object> AsList(object o)
         {
             var e = o as IEnumerable;
             if (e == null || o is string || o is IDictionary) yield break;
             foreach (var x in e) yield return x;
         }
 
-        static Dictionary<string, object> Load(string file)
+        internal static Dictionary<string, object> Load(string file)
         {
             try
             {
@@ -175,13 +175,13 @@ namespace Tepi
             catch (Exception ex) { Log.Write("hook setup read: " + ex.Message); return null; }
         }
 
-        static void Backup(string file)
+        internal static void Backup(string file)
         {
             string bak = file + ".bak-tepi";
             if (File.Exists(file) && !File.Exists(bak)) File.Copy(file, bak);
         }
 
-        static void Save(string file, Dictionary<string, object> root)
+        internal static void Save(string file, Dictionary<string, object> root)
         {
             var sb = new StringBuilder();
             Write(sb, root, 0);

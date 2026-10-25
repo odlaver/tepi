@@ -76,7 +76,7 @@ namespace Tepi
 
         public static void Remove(uint id) { UserNotificationListener.Current.RemoveNotification(id); }
 
-        // Off: Windows drops the toast after ~6 s
+        // Off: Windows drops it after ~6 s
         public static bool Kept(string appId)
         {
             try
@@ -173,7 +173,7 @@ namespace Tepi
         }
     }
 
-    // Folder events miss DB writes; key checked each second (~8 µs)
+    // DB key polled each second (~8 µs)
     class NotifWatcher
     {
         public event Action<UserNotificationListenerAccessStatus, List<NotifItem>> Updated;

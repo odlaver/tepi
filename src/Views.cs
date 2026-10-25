@@ -348,7 +348,7 @@ namespace Tepi
 
         string ApproveText(Approval a) { return a.Detail.Length > 0 ? a.Detail : a.Tool; }
 
-        // Wrapped line count of what will run, measured once
+        // Wrapped line count, measured once
         int ApproveLines(Approval a)
         {
             if (a.Lines > 0 || p.G == null) return Math.Max(1, a.Lines);
@@ -359,6 +359,14 @@ namespace Tepi
         }
 
         float ApproveLineH() { return p.G == null ? 15.5f : Ink.Mono(12f).GetHeight(p.G); }
+
+        // New card: a stray click can't allow
+        const double ArmSeconds = 0.8;
+
+        bool ApproveArming(DateTime now)
+        {
+            return approvals.Count > 0 && approvals[0].ShownUtc != default(DateTime) && (now - approvals[0].ShownUtc).TotalSeconds < ArmSeconds + 0.05;
+        }
 
         float ApproveHeight()
         {
@@ -371,6 +379,8 @@ namespace Tepi
         {
             if (approvals.Count == 0) return;
             var a = approvals[0];
+            if (a.ShownUtc == default(DateTime)) a.ShownUtc = DateTime.UtcNow;
+            bool armed = (DateTime.UtcNow - a.ShownUtc).TotalSeconds >= ArmSeconds;
             string who = a.Project + (a.Profile.Length > 0 ? " · " + a.Profile : "");
             if (approvals.Count > 1) who = "1/" + approvals.Count + " · " + who;
             p.Text(a.Agent + " minta izin", Ink.Semi(14.5f), p.T.Text, 24, 28, w - 200, StringAlignment.Near);
@@ -380,7 +390,7 @@ namespace Tepi
             float lx = 24 + p.Measure(label, Ink.Semi(12f)) + 8;
             p.Text(a.Note, Ink.Text(12f), p.T.Sub, lx, 51, w - lx - 24, StringAlignment.Near);
 
-            // The whole command must be readable before it can be allowed
+            // Whole command readable before allowing
             int total = ApproveLines(a), shown = Math.Min(total, ApproveMaxLines);
             bool clipped = total > shown;
             float lineH = ApproveLineH();
@@ -396,9 +406,10 @@ namespace Tepi
 
             var allow = new RectangleF(w - 16 - 112, y, 112, 32);
             var deny = new RectangleF(allow.X - 8 - 92, y, 92, 32);
-            if (clipped) p.StrokeRound(allow, 10, p.T.Faint, 1.2f);
+            bool locked = clipped || !armed;
+            if (locked) p.StrokeRound(allow, 10, p.T.Faint, 1.2f);
             else p.FillRound(allow, 10, Hover("allow") ? Ink.A(p.T.Text, 0.82f) : p.T.Text);
-            p.TextCenter("Izinkan", Ink.Semi(13f), clipped ? p.T.Faint : p.T.Bg, allow.X + allow.Width / 2, allow.Y + 16);
+            p.TextCenter("Izinkan", Ink.Semi(13f), locked ? p.T.Faint : p.T.Bg, allow.X + allow.Width / 2, allow.Y + 16);
             if (Hover("deny")) p.FillRound(deny, 10, p.T.Fill);
             p.StrokeRound(deny, 10, p.T.Sub, 1.2f);
             p.TextCenter("Tolak", Ink.Semi(13f), p.T.Text, deny.X + deny.Width / 2, deny.Y + 16);
@@ -406,7 +417,7 @@ namespace Tepi
             if (Hover("term")) p.FillRound(term, 10, p.T.Fill);
             p.Icon(Ink.IcoTerminal, 12f, p.T.Sub, term.X + 18, term.Y + 16);
             p.Text("Jawab di terminal", Ink.Small(12f), Hover("term") || clipped ? p.T.Text : p.T.Sub, term.X + 32, term.Y + 16);
-            if (!clipped) AddHit(allow, "allow", delegate { Decide(a, "allow"); });
+            if (!locked) AddHit(allow, "allow", delegate { Decide(a, "allow"); });
             AddHit(deny, "deny", delegate { Decide(a, "deny"); });
             AddHit(term, "term", delegate { Decide(a, null); });
         }

@@ -24,9 +24,9 @@ namespace Tepi
     {
         public string SessionId = "", Project = "", Profile = "", Tool = "", Detail = "", Note = "", Key = "", Agent = "Claude";
         public int Lines;
-        public DateTime CreatedUtc = DateTime.UtcNow;
+        public DateTime CreatedUtc = DateTime.UtcNow, ShownUtc;
         public readonly ManualResetEvent Answered = new ManualResetEvent(false);
-        public string Decision; // allow, deny, or null for the terminal prompt
+        public string Decision; // allow, deny, or null = terminal
         public volatile bool Closed;
 
         public void Answer(string decision)
@@ -40,7 +40,7 @@ namespace Tepi
 
     class HookEvent
     {
-        public string Name = "", SessionId = "";
+        public string Agent = "claude", Name = "", SessionId = "";
         public Dictionary<string, object> Data;
         public Approval Approval;
     }
@@ -113,9 +113,11 @@ namespace Tepi
                         int colon = lines[i].IndexOf(':');
                         if (colon > 0) headers[lines[i].Substring(0, colon).Trim()] = lines[i].Substring(colon + 1).Trim();
                     }
-                    string got;
+                    string got, path = parts.Length >= 2 ? parts[1] : "";
+                    // "/hook": Claude; "/hook/<agent>": relay
+                    string agent = path == "/hook" ? "claude" : path.StartsWith("/hook/") ? Uri.UnescapeDataString(path.Substring(6)).ToLowerInvariant() : null;
                     // Browsers send Origin; hooks never do
-                    if (parts.Length < 2 || parts[0] != "POST" || parts[1] != "/hook" || headers.ContainsKey("Origin") ||
+                    if (parts[0] != "POST" || agent == null || agent.Length == 0 || agent.Length > 32 || headers.ContainsKey("Origin") ||
                         !headers.TryGetValue("X-Tepi-Token", out got) || !SameToken(got, token))
                     {
                         Reply(stream, 403, "");
@@ -125,7 +127,7 @@ namespace Tepi
                     try { data = Json.Parse(Encoding.UTF8.GetString(body)) as Dictionary<string, object>; }
                     catch (ArgumentException) { data = null; }
                     if (data == null) { Reply(stream, 400, ""); return; }
-                    var ev = new HookEvent { Name = Json.Str(data, "hook_event_name"), SessionId = Json.Str(data, "session_id"), Data = data };
+                    var ev = new HookEvent { Agent = agent, Name = Json.Str(data, "hook_event_name"), SessionId = Json.Str(data, "session_id"), Data = data };
 
                     if (ev.Name != "PermissionRequest")
                     {
@@ -156,7 +158,7 @@ namespace Tepi
             return "";
         }
 
-        // Constant time, so the token can't be guessed byte by byte
+        // Constant time: no byte-by-byte guessing
         static bool SameToken(string a, string b)
         {
             if (a == null || b == null || a.Length != b.Length) return false;

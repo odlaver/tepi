@@ -430,7 +430,7 @@ namespace Tepi
         {
             return !sw.Settled || !sh.Settled || !sr.Settled || !bubble.Settled || !opacity.Settled || !topGap.Settled ||
                    (flipLinear != 0 && flipLinear != 1) || (now - switchedUtc).TotalSeconds < 0.5 ||
-                   (toast != null && (now - toast.ShownUtc).TotalSeconds < 1.2) || PanelMoving() || ViewsMoving(now) || clockRoller.Moving(now);
+                   (toast != null && (now - toast.ShownUtc).TotalSeconds < 1.2) || PanelMoving() || ViewsMoving(now) || clockRoller.Moving(now) || ApproveArming(now);
         }
 
         // Rendering
@@ -953,7 +953,7 @@ namespace Tepi
             var contentItem = new ToolStripMenuItem("Tampilkan isi pesan", null, delegate { settings.Toggle("notif.content", true); Kick(); });
             var kuliaItem = new ToolStripMenuItem("Kulia");
             var glassItem = new ToolStripMenuItem("Efek kaca", null, delegate { ToggleGlass(); });
-            var hookItem = new ToolStripMenuItem("Hubungkan Claude Code", null, delegate { ToggleHooks(); });
+            var hookItem = new ToolStripMenuItem("Hubungkan agen");
             var dataItem = new ToolStripMenuItem("Buka folder data", null, delegate
             {
                 try { Process.Start("explorer.exe", "\"" + Settings.Dir + "\""); } catch (Exception ex) { Log.Write("open dir: " + ex.Message); }
@@ -970,7 +970,23 @@ namespace Tepi
                 notifItem.Checked = NotifOn;
                 contentItem.Checked = settings.GetBool("notif.content", true);
                 contentItem.Enabled = NotifOn;
-                hookItem.Checked = HooksInstalled();
+                CheckLinks();
+                hookItem.DropDownItems.Clear();
+                hookItem.DropDownItems.Add(new ToolStripMenuItem("Claude Code" + (hookProfiles > 0 ? "" : " · tidak ditemukan"), null, delegate { ToggleHooks(); })
+                {
+                    Checked = hooksOn,
+                    Enabled = hookProfiles > 0
+                });
+                foreach (var agentId in AgentSetup.Ids)
+                {
+                    string id = agentId;
+                    bool present = AgentSetup.Present(id);
+                    hookItem.DropDownItems.Add(new ToolStripMenuItem(AgentSetup.Label(id) + (present ? "" : " · tidak ditemukan"), null, delegate { ToggleAgent(id); })
+                    {
+                        Checked = present && linked.Contains(AgentSetup.Label(id)),
+                        Enabled = present
+                    });
+                }
                 kuliaItem.DropDownItems.Clear();
                 if (kulia != null && kulia.SignedIn)
                 {
