@@ -22,6 +22,7 @@ namespace Tepi
         public LyricState State;
         public List<LyricLine> Lines = new List<LyricLine>();
         public DateTime FailedUtc;
+        public int Fails;
 
         // Line sung at posMs, or -1
         public int IndexAt(double posMs)
@@ -60,11 +61,14 @@ namespace Tepi
         {
             if (!m.Present || m.Title.Length == 0) return null;
             Lyrics l;
+            int fails;
             lock (memory)
             {
                 if (memory.TryGetValue(m.Key, out l))
                 {
-                    bool retry = l.State == LyricState.Failed && (DateTime.UtcNow - l.FailedUtc).TotalSeconds > 30;
+                    // Busy server: back off 30 s, 1, 2, 4 min, up to 10
+                    double wait = Math.Min(600, 30 * Math.Pow(2, Math.Max(0, l.Fails - 1)));
+                    bool retry = l.State == LyricState.Failed && (DateTime.UtcNow - l.FailedUtc).TotalSeconds > wait;
                     if (!retry) return l;
                 }
                 // Ads and podcasts: no point asking
@@ -75,6 +79,7 @@ namespace Tepi
                     return l;
                 }
                 if (m.DurationMs <= 0) return null;
+                fails = l != null && l.State == LyricState.Failed ? l.Fails : 0;
                 if (memory.Count > 24) memory.Clear(); // disk cache keeps the rest
                 l = new Lyrics { Key = m.Key, State = LyricState.Loading };
                 memory[m.Key] = l;
@@ -84,6 +89,7 @@ namespace Tepi
             ThreadPool.QueueUserWorkItem(delegate
             {
                 var result = Fetch(key, title, artist, duration);
+                if (result.State == LyricState.Failed) result.Fails = fails + 1;
                 lock (memory) memory[key] = result;
                 var h = Ready;
                 if (h != null) h(result);

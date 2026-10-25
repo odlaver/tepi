@@ -16,6 +16,7 @@ namespace Tepi
         public AgentState State;
         public string Tool = "", Activity = "", LastMessage = "";
         public bool Failed;
+        public IntPtr Window;
         public DateTime StartedUtc, LastUtc, TurnStartedUtc;
     }
 
@@ -43,6 +44,7 @@ namespace Tepi
         public string Agent = "claude", Name = "", SessionId = "";
         public Dictionary<string, object> Data;
         public Approval Approval;
+        public IntPtr Window;
     }
 
     // Hook server; approvals wait for clicks
@@ -89,7 +91,8 @@ namespace Tepi
             {
                 TcpClient c;
                 try { c = listener.AcceptTcpClient(); }
-                catch (Exception ex) { Log.Write("hook accept: " + ex.Message); return; }
+                catch (ObjectDisposedException) { return; }
+                catch (Exception ex) { Log.Write("hook accept: " + ex.Message); Thread.Sleep(500); continue; }
                 ThreadPool.QueueUserWorkItem(delegate { Serve(c); });
             }
         }
@@ -128,6 +131,9 @@ namespace Tepi
                     catch (ArgumentException) { data = null; }
                     if (data == null) { Reply(stream, 400, ""); return; }
                     var ev = new HookEvent { Agent = agent, Name = Json.Str(data, "hook_event_name"), SessionId = Json.Str(data, "session_id"), Data = data };
+                    // Remember where the agent runs, for click-to-focus
+                    try { ev.Window = TerminalFinder.ForConnection((IPEndPoint)client.Client.RemoteEndPoint, port); }
+                    catch (Exception ex) { Log.Write("terminal lookup: " + ex.Message); }
 
                     if (ev.Name != "PermissionRequest")
                     {

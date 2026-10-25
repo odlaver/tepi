@@ -419,6 +419,11 @@ namespace Tepi
                 float y = area.Y + i * rowH - agentScroll.Value;
                 if (y + rowH < area.Top || y > area.Bottom) continue;
                 float cy = y + rowH / 2;
+                var row = new RectangleF(14, y + 3, w - 28, rowH - 6);
+                string rowId = "agent" + i;
+                if (Hover(rowId)) p.FillRound(row, 14, p.T.Fill);
+                var session = s;
+                AddHit(row, rowId, delegate { if (!FocusTerminal(session)) ShowInfo(Ink.IcoTerminal, "Terminal tidak ditemukan", session.Project, true); });
                 DrawStateMark(s, 36, cy);
                 var semi = Ink.Semi(13.5f);
                 p.Text(s.Project, semi, p.T.Text, 60, cy - 10, 220, StringAlignment.Near);

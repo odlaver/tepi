@@ -208,8 +208,9 @@ namespace Tepi
                     var r = Call("PATCH", "/rest/v1/personal_tasks?id=eq." + task.Id,
                         Json.Encode(new Dictionary<string, object> { { "status", status }, { "updated_at", stamp } }),
                         new Dictionary<string, string> { { "Prefer", "return=representation" } });
+                    if (!r.Ok) return false;
                     var rows = Json.Parse(r.Body) as object[];
-                    return r.Ok && rows != null && rows.Length > 0;
+                    return rows != null && rows.Length > 0;
                 }
                 var u = Call("POST", "/rest/v1/task_progress?on_conflict=user_id,task_id",
                     Json.Encode(new Dictionary<string, object> { { "user_id", userId }, { "task_id", task.Id }, { "status", status }, { "updated_at", stamp } }),
@@ -333,7 +334,8 @@ namespace Tepi
                 Busy("Mengirim kode…");
                 ThreadPool.QueueUserWorkItem(delegate
                 {
-                    string err = client.SendCode(address);
+                    string err;
+                    try { err = client.SendCode(address); } catch (Exception ex) { err = "Gagal mengirim kode"; Log.Write("kulia otp: " + ex.Message); }
                     Finish(err, delegate { ShowCodeStep(); });
                 });
                 return;
@@ -342,7 +344,8 @@ namespace Tepi
             Busy("Memeriksa kode…");
             ThreadPool.QueueUserWorkItem(delegate
             {
-                string err = client.Verify(address, value);
+                string err;
+                try { err = client.Verify(address, value); } catch (Exception ex) { err = "Gagal memeriksa kode"; Log.Write("kulia verify: " + ex.Message); }
                 Finish(err, delegate { DialogResult = DialogResult.OK; Close(); });
             });
         }

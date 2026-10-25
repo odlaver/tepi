@@ -70,7 +70,17 @@ namespace Tepi
             t.Start();
         }
 
+        // Restart after a failure instead of going quiet
         void Run()
+        {
+            while (true)
+            {
+                Watch();
+                Thread.Sleep(5000);
+            }
+        }
+
+        void Watch()
         {
             try
             {

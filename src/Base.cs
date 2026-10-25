@@ -265,7 +265,7 @@ namespace Tepi
             req.Method = method;
             req.Timeout = timeoutMs;
             req.ReadWriteTimeout = timeoutMs;
-            req.UserAgent = "Tepi/1.0 (Windows)";
+            req.UserAgent = "Tepi/1.1 (+https://github.com/odlaver/tepi)";
             if (headers != null)
                 foreach (var h in headers)
                 {
@@ -295,6 +295,8 @@ namespace Tepi
                 try { using (var sr = new StreamReader(http.GetResponseStream(), Encoding.UTF8)) result.Body = sr.ReadToEnd(); }
                 catch (Exception) { }
             }
+            // Dropped mid-body and the like: treat as no response
+            catch (Exception ex) { result.Status = 0; result.Body = ex.Message; }
             return result;
         }
     }

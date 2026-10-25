@@ -436,7 +436,7 @@ namespace Tepi
             p.Text(title, Ink.Semi(13.5f), p.T.Text, 60, cy - 10, w - 60 - 70, StringAlignment.Near);
             if (s.TurnStartedUtc > DateTime.MinValue) p.TextRight(Duration(s.LastUtc - s.TurnStartedUtc), Ink.Small(11.5f), p.T.Sub, w - 22, cy - 10);
             p.Text(s.LastMessage.Length > 0 ? s.LastMessage : "Menunggu balasanmu", Ink.Text(12f), p.T.Sub, 60, cy + 10, w - 60 - 22, StringAlignment.Near);
-            AddHit(new RectangleF(0, 0, w, h), "done", delegate { Expand(PageAgents); });
+            AddHit(new RectangleF(0, 0, w, h), "done", delegate { if (!FocusTerminal(s)) Expand(PageAgents); });
         }
 
         static string Duration(TimeSpan t)

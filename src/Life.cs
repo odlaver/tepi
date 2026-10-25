@@ -75,6 +75,44 @@ namespace Tepi
             kulia = new KuliaClient(settings.Has("kulia.url") ? settings.Get("kulia.url", "") : KuliaClient.DefaultUrl,
                                     settings.Has("kulia.key") ? settings.Get("kulia.key", "") : KuliaClient.DefaultKey);
             if (kulia.SignedIn) RefreshTasks(false);
+            StartUpdateCheck();
+        }
+
+        // Daily release check; never downloads anything
+        public const string AppVersion = "1.1.1";
+        string newVersion, newUrl;
+
+        void StartUpdateCheck()
+        {
+            if (!settings.GetBool("update.check", true)) return;
+            var t = new System.Windows.Forms.Timer { Interval = 60000 };
+            t.Tick += delegate { t.Interval = 24 * 3600 * 1000; CheckUpdate(); };
+            t.Start();
+        }
+
+        void CheckUpdate()
+        {
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                try
+                {
+                    var r = Web.Send("GET", "https://api.github.com/repos/odlaver/tepi/releases/latest", null, null, 10000);
+                    if (!r.Ok) return;
+                    var o = Json.Parse(r.Body);
+                    string tag = Json.Str(o, "tag_name").TrimStart('v'), url = Json.Str(o, "html_url");
+                    Version latest, mine;
+                    if (!Version.TryParse(tag, out latest) || !Version.TryParse(AppVersion, out mine) || latest <= mine) return;
+                    if (!url.StartsWith("https://github.com/odlaver/tepi/")) return;
+                    Post(() =>
+                    {
+                        bool first = newVersion != tag;
+                        newVersion = tag;
+                        newUrl = url;
+                        if (first) ShowInfo(Ink.IcoRefresh, "Tepi " + tag + " tersedia", "tray › Unduh pembaruan", true);
+                    });
+                }
+                catch (Exception ex) { Log.Write("update: " + ex.Message); }
+            });
         }
 
         // Every second; true if redraw needed
@@ -223,11 +261,16 @@ namespace Tepi
                     visible.Add(n);
                 }
             visible.Sort((a, b) => b.Time.CompareTo(a.Time));
+            // Apps re-post the same message: keep the newest copy, toast once
+            var known = new HashSet<string>();
+            foreach (var n in notifs) known.Add(NotifKey(n));
+            var keys = new HashSet<string>();
+            visible.RemoveAll(n => !keys.Add(NotifKey(n)));
             if (visible.Count > 40) visible.RemoveRange(40, visible.Count - 40);
             var fresh = new List<NotifItem>();
             if (notifPrimed)
                 foreach (var n in visible)
-                    if (!n.Held && !seenNotifs.Contains(n.Id) && (DateTime.UtcNow - n.Time).TotalMinutes < 3) fresh.Add(n);
+                    if (!n.Held && !seenNotifs.Contains(n.Id) && !known.Contains(NotifKey(n)) && (DateTime.UtcNow - n.Time).TotalMinutes < 3) fresh.Add(n);
             seenNotifs.Clear();
             foreach (var n in list) seenNotifs.Add(n.Id);
             notifPrimed = true;
@@ -250,6 +293,8 @@ namespace Tepi
             }
             Kick();
         }
+
+        static string NotifKey(NotifItem n) { return n.AppId + "\n" + n.Title + "\n" + n.Body; }
 
         void OpenNotifApp(NotifItem item)
         {
@@ -413,6 +458,7 @@ namespace Tepi
             }
             var s = SessionFor(ev);
             if (ev.Agent != "claude") s.Profile = AgentAdapters.Label(ev.Agent);
+            if (ev.Window != IntPtr.Zero) s.Window = ev.Window;
             var input = Json.Obj(ev.Data, "tool_input");
             string tool = Json.Str(ev.Data, "tool_name");
             switch (ev.Name)
@@ -485,6 +531,16 @@ namespace Tepi
         }
 
         // Everything that will run or be written
+        // Bring the session's terminal forward
+        bool FocusTerminal(AgentSession s)
+        {
+            if (s == null || !TerminalFinder.Focus(s.Window)) return false;
+            expanded = false;
+            if (toast != null && toast.View == View.Done) DismissToast();
+            Kick();
+            return true;
+        }
+
         static string Detail(string tool, Dictionary<string, object> input)
         {
             if (input == null) return "";
@@ -611,7 +667,9 @@ namespace Tepi
             ThreadPool.QueueUserWorkItem(delegate
             {
                 string err;
-                var list = kulia.Feed(out err);
+                List<KuliaTask> list;
+                try { list = kulia.Feed(out err); }
+                catch (Exception ex) { Log.Write("kulia feed: " + ex.Message); list = null; err = "Kulia sedang bermasalah · dicoba lagi otomatis"; }
                 Post(() =>
                 {
                     tasksLoading = false;
@@ -646,7 +704,11 @@ namespace Tepi
         void SignOutKulia()
         {
             var k = kulia;
-            ThreadPool.QueueUserWorkItem(delegate { k.SignOut(); Post(Kick); });
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                try { k.SignOut(); } catch (Exception ex) { Log.Write("kulia signout: " + ex.Message); }
+                Post(Kick);
+            });
             tasks = null;
             tasksError = null;
             Kick();
@@ -660,7 +722,9 @@ namespace Tepi
             Kick();
             ThreadPool.QueueUserWorkItem(delegate
             {
-                bool ok = kulia.SetStatus(task, "selesai");
+                bool ok;
+                try { ok = kulia.SetStatus(task, "selesai"); }
+                catch (Exception ex) { Log.Write("kulia status: " + ex.Message); ok = false; }
                 Post(() =>
                 {
                     if (ok) ShowInfo('\0', "Ditandai selesai", task.Title, true);

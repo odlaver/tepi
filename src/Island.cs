@@ -146,6 +146,7 @@ namespace Tepi
         {
             base.OnLoad(e);
             BuildTray();
+            if (!RegisterHotKey(Handle, HideHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.H)) Log.Write("hotkey Ctrl+Alt+H taken");
             StartGlass();
             StartFeeds();
             EnsureDisc(64);
@@ -189,6 +190,9 @@ namespace Tepi
                     return;
                 case AppBarMsg:
                     if (m.WParam.ToInt64() == 2) { fsTimer.Stop(); fsTimer.Start(); }
+                    return;
+                case 0x0312: // WM_HOTKEY
+                    if (m.WParam.ToInt32() == HideHotkey) ToggleHidden();
                     return;
                 case Native.WM_DPICHANGED:
                 case Native.WM_DISPLAYCHANGE:
@@ -305,7 +309,7 @@ namespace Tepi
             if (current != View.Panel) DropBackdrop();
             sr.Target = ViewRadius(current, size);
             bubble.Target = BubbleKind() != View.Idle ? 1 : 0;
-            opacity.Target = fullscreen && current != View.Approve ? 0 : 1;
+            opacity.Target = (fullscreen || hiddenByUser) && current != View.Approve ? 0 : 1;
             spectrum.SetActive(VisualizerVisible() && !spectrum.Failed);
             if (!animating)
             {
@@ -743,7 +747,7 @@ namespace Tepi
             return s.Contains(pt) || (!bubbleRect.IsEmpty && bubbleRect.Contains(pt));
         }
 
-        bool CanExpand() { return approvals.Count == 0 && (toast == null || !toast.Interactive); }
+        bool CanExpand() { return !hiddenByUser && approvals.Count == 0 && (toast == null || !toast.Interactive); }
 
         void Expand(int pg)
         {
@@ -834,6 +838,19 @@ namespace Tepi
             vol = Ease.Clamp01(vol + e.Delta / 120f * 0.04f);
             volBar.Target = vol;
             volume.Set(vol);
+        }
+
+        // Hide on demand; permission cards still show
+        const int HideHotkey = 1;
+        bool hiddenByUser;
+
+        [DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr hWnd, int id, uint modifiers, uint vk);
+
+        void ToggleHidden()
+        {
+            hiddenByUser = !hiddenByUser;
+            if (hiddenByUser) expanded = false;
+            Kick();
         }
 
         // Toasts
@@ -958,12 +975,17 @@ namespace Tepi
             {
                 try { Process.Start("explorer.exe", "\"" + Settings.Dir + "\""); } catch (Exception ex) { Log.Write("open dir: " + ex.Message); }
             });
+            var updateItem = new ToolStripMenuItem("Unduh pembaruan", null, delegate { if (newUrl != null) OpenUrl(newUrl); }) { Visible = false };
+            var hideItem = new ToolStripMenuItem("Sembunyikan island", null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+H" };
             var exit = new ToolStripMenuItem("Keluar", null, delegate { Close(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), hookItem, kuliaItem, new ToolStripSeparator(), glassItem, lightItem, lyricItem, vizItem, notifItem, contentItem, autoItem, new ToolStripSeparator(), dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, hookItem, kuliaItem, new ToolStripSeparator(), glassItem, lightItem, lyricItem, vizItem, notifItem, contentItem, autoItem, new ToolStripSeparator(), dataItem, exit });
             menu.Opening += delegate
             {
                 try { autoItem.Checked = AutoStart.Enabled; } catch (Exception) { }
                 lightItem.Checked = Ink.Light;
+                hideItem.Checked = hiddenByUser;
+                updateItem.Visible = newVersion != null;
+                if (newVersion != null) updateItem.Text = "Unduh Tepi " + newVersion;
                 glassItem.Checked = GlassOn;
                 lyricItem.Checked = settings.GetBool("lyrics", true);
                 vizItem.Checked = settings.GetBool("visualizer", true);

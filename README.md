@@ -24,11 +24,14 @@ Native C# tanpa browser engine. File exe sekitar 200 KB, memori sekitar 6 sampai
 
 Syarat: Windows 10 versi 2004 atau lebih baru, atau Windows 11, 64-bit. .NET Framework 4.8 sudah bawaan Windows.
 
+Tepi memberi tahu sendiri kalau ada versi baru. Kalau mau dikabari lewat email juga, klik **Watch › Custom › Releases** di repo ini.
+
 ## Cara pakai
 
 - **Arahkan kursor** ke island untuk membuka panel. Ikon di atas panel berpindah antara Ringkasan, Musik, Agen, Tugas, dan Pesan.
 - **Scroll** di atas island untuk mengubah volume.
-- **Klik kanan** island atau ikon tray untuk menu: Hubungkan agen, Kulia, Efek kaca, Island terang, Lirik di island, Visualizer, Notifikasi pesan, Tampilkan isi pesan, Mulai bersama Windows.
+- **Klik kanan** island atau ikon tray untuk menu: Sembunyikan island, Hubungkan agen, Kulia, Efek kaca, Island terang, Lirik di island, Visualizer, Notifikasi pesan, Tampilkan isi pesan, Mulai bersama Windows.
+- **Ctrl+Alt+H** menyembunyikan atau memunculkan island. Kartu izin agent tetap muncul walau island disembunyikan.
 - Di tab **Musik**, tombol di kanan atas mengganti tata letak antara lirik dan kartu album. Klik baris lirik untuk loncat ke bagian lagu itu.
 
 ### Menghubungkan agent
@@ -48,6 +51,7 @@ Klik nama yang sama sekali lagi untuk melepasnya. Sebelum mengubah berkas, Tepi 
 Cara kerjanya:
 
 - Claude Code mengirim event ke `http://127.0.0.1:47821/hook`. Agent lain menjalankan `Tepi.exe --relay <agent>`, yang meneruskan event ke alamat yang sama. Semua request memakai token acak yang dibuat saat Tepi pertama kali jalan. Request tanpa token yang benar, atau yang datang dari browser, ditolak.
+- Klik sesi di tab **Agen**, atau toast **Selesai**, untuk membuka jendela terminal sesi itu. Kalau beberapa sesi ada di tab berbeda dalam satu jendela Windows Terminal, yang dibuka jendelanya.
 - Saat agent minta izin, island berbalik putih dan menahan permintaan itu sampai kamu memilih. Kalau tidak dijawab dalam 110 detik, atau kamu memilih **Jawab di terminal**, keputusan kembali ke prompt biasa di terminal.
 - Kalau Tepi sedang tidak jalan, agent tetap bekerja seperti biasa tanpa pesan galat.
 - Hook menyimpan lokasi `Tepi.exe`. Kalau exe dipindah, lepas lalu hubungkan lagi dari menu.
@@ -59,6 +63,8 @@ Cara kerjanya:
 - Tepi hanya membaca notifikasi yang ditampilkan Windows. Chat yang kamu mute di WhatsApp tidak memunculkan notifikasi, jadi tidak ikut tampil.
 - Supaya tidak muncul dobel dengan popup Windows: **Pengaturan > Sistem > Notifikasi**, pilih aplikasinya, lalu matikan **Tampilkan banner notifikasi**.
 - Pesan tetap ada di Tepi sampai kamu membuka aplikasinya dari Tepi atau menghapusnya, termasuk dari aplikasi yang tidak menyimpan notifikasi di pusat notifikasi. Pesan seperti ini hilang kalau Tepi ditutup.
+- Supaya pesan WhatsApp ikut hilang saat sudah dibaca di HP atau WhatsApp Web, nyalakan **Pengaturan > Sistem > Notifikasi > WhatsApp > Tampilkan notifikasi di pusat notifikasi**. Tanpa itu, Windows membuang notifikasinya sebelum WhatsApp sempat menariknya.
+- Pesan yang dikirim ulang aplikasi dengan isi yang persis sama hanya muncul sekali.
 - Kalau pesan WhatsApp tidak pernah muncul sama sekali, cek **Pengaturan > Sistem > Notifikasi > WhatsApp** dan pastikan notifikasinya menyala.
 - Isi pesan tidak disimpan ke disk dan tidak dikirim ke mana pun.
 
@@ -75,6 +81,7 @@ Sesi login disimpan terenkripsi dengan DPAPI Windows dan hanya bisa dibuka oleh 
 ## Privasi
 
 - Ke LRCLIB hanya terkirim judul, artis, dan durasi lagu. Lirik yang ditemukan disimpan di `%APPDATA%\Tepi\lyrics` supaya tidak diambil ulang.
+- Sekali sehari Tepi menanyakan versi rilis terbaru ke `api.github.com`. Tidak ada data lain yang dikirim. Matikan dengan `update.check=0`.
 - Data Kulia hanya diambil dari server Kulia dengan akunmu sendiri.
 - Efek kaca membaca layar di belakang island untuk membuat latar buramnya. Karena itu island tidak ikut terekam saat screenshot atau screen share. Matikan **Efek kaca** di menu kalau island perlu ikut terekam.
 - Semua pengaturan dan cache ada di `%APPDATA%\Tepi`.
@@ -85,7 +92,7 @@ Sesi login disimpan terenkripsi dengan DPAPI Windows dan hanya bisa dibuka oleh 
 - Kartu izin menampilkan perintah atau isi perubahan berkas secara utuh. **Izinkan** terkunci kalau isinya lebih dari 10 baris (jawab di terminal untuk membacanya utuh), dan juga selama 0,8 detik pertama setelah kartu muncul supaya klik yang kebetulan mendarat di sana tidak ikut mengizinkan.
 - Kalau Tepi tidak jalan atau tidak menjawab, agent kembali ke prompt izinnya sendiri. Tepi tidak pernah mengizinkan apa pun tanpa klikmu.
 - Tautan tugas Kulia hanya dibuka kalau alamatnya `http` atau `https`.
-- Tidak ada pembaruan otomatis. Exe hanya berubah kalau kamu mengunduh rilis baru. Cocokkan SHA-256 yang tertulis di halaman rilis, atau build sendiri dari sumbernya.
+- Tidak ada pembaruan otomatis. Kalau ada versi baru, Tepi hanya memberi tahu dan menampilkan **Unduh Tepi x.y.z** di menu tray, yang membuka halaman rilis di repo ini. Exe hanya berubah kalau kamu mengunduh rilis baru. Cocokkan SHA-256 yang tertulis di halaman rilis, atau build sendiri dari sumbernya.
 - Menemukan celah? Laporkan secara privat lewat tab **Security > Report a vulnerability** di repo ini, jangan lewat issue publik.
 
 ## Build sendiri
@@ -113,6 +120,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `notif.content` | `1` | Tampilkan isi pesan |
 | `agent.port` | `47821` | Port server hook |
 | `agent.wait` | `110` | Detik menahan permintaan izin |
+| `update.check` | `1` | Cek versi baru sekali sehari |
 | `kulia.url`, `kulia.key` | server kulia.live | Arahkan ke instance Kulia lain |
 
 Variabel lingkungan untuk pengembangan:
