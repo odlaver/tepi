@@ -54,14 +54,13 @@ Cara kerjanya:
 
 ### Kulia
 
-Tab Tugas butuh alamat Supabase dan publishable key milik Kulia. Isi keduanya di `%APPDATA%\Tepi\settings.ini`:
+1. Buka tab **Tugas** (atau klik kanan ikon Tepi, lalu **Kulia > Masuk ke Kulia**).
+2. Isi email yang kamu pakai di [kulia.live](https://kulia.live).
+3. Masukkan kode 6 angka yang dikirim ke email itu.
 
-```ini
-kulia.url=https://<project>.supabase.co
-kulia.key=sb_publishable_...
-```
+Selesai. Tugas aktifmu langsung tampil dan diperbarui tiap 10 menit. Kalau belum punya akun, daftar dulu di kulia.live.
 
-Setelah itu buka tab **Tugas**, pilih **Masuk ke Kulia**, isi email akun Kulia, lalu masukkan kode 6 angka yang dikirim ke email itu. Sesi login disimpan terenkripsi dengan DPAPI Windows dan hanya bisa dibuka oleh akun Windows-mu.
+Sesi login disimpan terenkripsi dengan DPAPI Windows dan hanya bisa dibuka oleh akun Windows-mu. Untuk keluar: klik kanan ikon Tepi, lalu **Kulia > Keluar dari Kulia**.
 
 ## Privasi
 
@@ -95,7 +94,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `notif.content` | `1` | Tampilkan isi pesan |
 | `agent.port` | `47821` | Port server hook |
 | `agent.wait` | `110` | Detik menahan permintaan izin |
-| `kulia.url`, `kulia.key` | kosong | Koneksi Kulia |
+| `kulia.url`, `kulia.key` | server kulia.live | Arahkan ke instance Kulia lain |
 
 Variabel lingkungan untuk pengembangan:
 

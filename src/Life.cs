@@ -71,7 +71,9 @@ namespace Tepi
             notifWatcher.Enabled = NotifOn;
             notifWatcher.Start();
             StartAgents();
-            kulia = new KuliaClient(settings.Get("kulia.url", ""), settings.Get("kulia.key", ""));
+            // Works out of the box; settings.ini may point elsewhere
+            kulia = new KuliaClient(settings.Has("kulia.url") ? settings.Get("kulia.url", "") : KuliaClient.DefaultUrl,
+                                    settings.Has("kulia.key") ? settings.Get("kulia.key", "") : KuliaClient.DefaultKey);
             if (kulia.SignedIn) RefreshTasks(false);
         }
 

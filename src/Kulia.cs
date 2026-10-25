@@ -22,6 +22,10 @@ namespace Tepi
     // OTP login, then PostgREST under RLS
     class KuliaClient
     {
+        // Public client config, the same values kulia.live ships to browsers
+        public const string DefaultUrl = "https://ptsopuwxpogqgnaazyer.supabase.co";
+        public const string DefaultKey = "sb_publishable_LKZS4deN4E3z7zH-EKP2KQ_zQ38JkH_";
+
         static readonly string SessionFile = Path.Combine(Settings.Dir, "kulia.session");
         readonly string url, key;
         readonly object sync = new object();
