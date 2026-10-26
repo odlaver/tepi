@@ -15,6 +15,8 @@ namespace Tepi
             public string Partial, Final, Name;
             public long Size, LastSize;
             public double Speed;
+            public int Percent = -1;
+            public DateTime Seen;
         }
 
         static readonly string[] PartialExt = { ".crdownload", ".part", ".partial", ".download", ".opdownload" };
@@ -77,9 +79,8 @@ namespace Tepi
         // Polls only while something is downloading
         void DownloadTick(object sender, EventArgs e)
         {
-            if (downloadDir == null) return;
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            try
+            if (downloadDir != null) try
             {
                 foreach (var path in Directory.EnumerateFiles(downloadDir))
                 {
@@ -105,6 +106,12 @@ namespace Tepi
             {
                 if (seen.Contains(gone)) continue;
                 var d = downloads[gone];
+                // Script progress expires when it goes quiet
+                if (d.Percent >= 0)
+                {
+                    if ((DateTime.UtcNow - d.Seen).TotalMinutes > 2) downloads.Remove(gone);
+                    continue;
+                }
                 downloads.Remove(gone);
                 // Final file present means it finished, else cancelled
                 if (File.Exists(d.Final) && !d.Name.StartsWith("Unconfirmed ", StringComparison.Ordinal)) DownloadDone(d);
@@ -132,13 +139,13 @@ namespace Tepi
         {
             Download best = null;
             foreach (var d in downloads.Values)
-                if (d.Size > 0 && (best == null || d.Speed > best.Speed)) best = d;
+                if ((d.Size > 0 || d.Percent >= 0) && (best == null || d.Speed > best.Speed)) best = d;
             return best;
         }
 
         string DownloadStats(Download d)
         {
-            string s = Fmt.Bytes(d.Size);
+            string s = d.Percent >= 0 ? d.Percent + "%" : Fmt.Bytes(d.Size);
             if (d.Speed > 1024) s += " · " + Fmt.Bytes((long)d.Speed) + Lang.T("/dtk");
             if (downloads.Count > 1) s += " · +" + (downloads.Count - 1);
             return s;
@@ -156,13 +163,18 @@ namespace Tepi
             var d = ActiveDownload();
             if (d == null) return;
             float cy = h / 2;
-            p.Icon(IcoDownload, 13f, p.T.Text, 21, cy);
+            p.Icon(d.Percent >= 0 ? Ink.IcoRefresh : IcoDownload, 13f, p.T.Text, 21, cy);
             string stats = DownloadStats(d);
             float sw = p.Measure(stats, Ink.Semi(12f));
             p.Text(d.Name, Ink.Semi(12.5f), p.T.Text, 38, cy, w - 38 - sw - 30, StringAlignment.Near);
             p.TextRight(stats, Ink.Semi(12f), p.T.Sub, w - 18, cy);
+            if (d.Percent >= 0)
+            {
+                p.FillRound(new RectangleF(38, h - 7, w - 56, 2), 1, p.T.Line);
+                p.FillRound(new RectangleF(38, h - 7, Math.Max(2, (w - 56) * d.Percent / 100f), 2), 1, p.T.Accent);
+            }
             string dir = downloadDir;
-            AddHit(new RectangleF(0, 0, w, h), "download", delegate { try { Process.Start("explorer.exe", "\"" + dir + "\""); } catch (Exception) { } });
+            if (d.Percent < 0) AddHit(new RectangleF(0, 0, w, h), "download", delegate { try { Process.Start("explorer.exe", "\"" + dir + "\""); } catch (Exception) { } });
         }
     }
 }

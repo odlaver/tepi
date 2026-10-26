@@ -462,6 +462,7 @@ namespace Tepi
 
         void OnHook(HookEvent ev)
         {
+            if (ev.Agent == "plugin") { OnPlugin(ev); return; }
             if ((ev.Agent != "claude" && !AgentAdapters.Normalize(ev)) || ev.SessionId.Length == 0)
             {
                 if (ev.Approval != null) ev.Approval.Answer(null);

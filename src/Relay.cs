@@ -34,7 +34,7 @@ namespace Tepi
             if (body != null && body.Length > 0 && Running())
             {
                 if (ev != null) body = WithEvent(body, ev);
-                answer = Post(agent, body, reply ? 125000 : 2000);
+                answer = Post("/hook/" + Uri.EscapeDataString(agent), body, reply ? 125000 : 2000);
             }
             if (!reply) answer = "";
             if (json && answer.Trim().Length == 0) answer = "{}";
@@ -51,7 +51,7 @@ namespace Tepi
         }
 
         // Refused localhost connects stall ~1 s
-        static bool Running()
+        public static bool Running()
         {
             Mutex m;
             if (!Mutex.TryOpenExisting(@"Local\TepiIsland", out m)) return false;
@@ -72,7 +72,7 @@ namespace Tepi
         }
 
         // Raw socket skips proxy lookup
-        static string Post(string agent, byte[] body, int timeoutMs)
+        public static string Post(string path, byte[] body, int timeoutMs)
         {
             var s = new Settings();
             string token = s.Get("agent.token", "");
@@ -86,7 +86,7 @@ namespace Tepi
                     c.EndConnect(ar);
                     c.SendTimeout = c.ReceiveTimeout = timeoutMs;
                     var st = c.GetStream();
-                    var head = Encoding.ASCII.GetBytes("POST /hook/" + Uri.EscapeDataString(agent) + " HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Tepi-Token: " + token +
+                    var head = Encoding.ASCII.GetBytes("POST " + path + " HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Tepi-Token: " + token +
                                                       "\r\nContent-Type: application/json\r\nContent-Length: " + body.Length + "\r\nConnection: close\r\n\r\n");
                     st.Write(head, 0, head.Length);
                     st.Write(body, 0, body.Length);

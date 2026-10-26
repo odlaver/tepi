@@ -120,7 +120,7 @@ namespace Tepi
                     }
                     string got, path = parts.Length >= 2 ? parts[1] : "";
                     // "/hook": Claude; "/hook/<agent>": relay
-                    string agent = path == "/hook" ? "claude" : path.StartsWith("/hook/") ? Uri.UnescapeDataString(path.Substring(6)).ToLowerInvariant() : null;
+                    string agent = path == "/hook" ? "claude" : path == "/notify" ? "plugin" : path.StartsWith("/hook/") ? Uri.UnescapeDataString(path.Substring(6)).ToLowerInvariant() : null;
                     // Browsers send Origin; hooks never do
                     if (parts[0] != "POST" || agent == null || agent.Length == 0 || agent.Length > 32 || headers.ContainsKey("Origin") ||
                         !headers.TryGetValue("X-Tepi-Token", out got) || !SameToken(got, token))
