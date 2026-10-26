@@ -471,6 +471,7 @@ namespace Tepi
             var s = SessionFor(ev);
             if (ev.Agent != "claude") s.Profile = AgentAdapters.Label(ev.Agent);
             if (ev.Window != IntPtr.Zero) s.Window = ev.Window;
+            if (ev.Pid > 0 && (s.Pid == 0 || ev.Window != IntPtr.Zero)) s.Pid = ev.Pid;
             var input = Json.Obj(ev.Data, "tool_input");
             string tool = Json.Str(ev.Data, "tool_name");
             switch (ev.Name)
@@ -571,7 +572,12 @@ namespace Tepi
         // Bring the session's terminal forward
         bool FocusTerminal(AgentSession s)
         {
-            if (s == null || !TerminalFinder.Focus(s.Window)) return false;
+            if (s == null) return false;
+            if (!TerminalFinder.Focus(s.Window))
+            {
+                s.Window = TerminalFinder.ForPid(s.Pid);
+                if (!TerminalFinder.Focus(s.Window)) return false;
+            }
             expanded = false;
             if (toast != null && toast.View == View.Done) DismissToast();
             Kick();

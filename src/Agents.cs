@@ -17,6 +17,7 @@ namespace Tepi
         public string Tool = "", Activity = "", LastMessage = "";
         public bool Failed;
         public IntPtr Window;
+        public int Pid;
         public readonly HashSet<string> Files = new HashSet<string>();
         public int Commands;
         public DateTime StartedUtc, LastUtc, TurnStartedUtc;
@@ -47,6 +48,7 @@ namespace Tepi
         public Dictionary<string, object> Data;
         public Approval Approval;
         public IntPtr Window;
+        public int Pid;
     }
 
     // Hook server; approvals wait for clicks
@@ -136,7 +138,7 @@ namespace Tepi
                     if (data == null) { Reply(stream, 400, ""); return; }
                     var ev = new HookEvent { Agent = agent, Name = Json.Str(data, "hook_event_name"), SessionId = Json.Str(data, "session_id"), Data = data };
                     // Remember where the agent runs, for click-to-focus
-                    try { ev.Window = TerminalFinder.ForConnection((IPEndPoint)client.Client.RemoteEndPoint, port); }
+                    try { ev.Window = TerminalFinder.ForConnection((IPEndPoint)client.Client.RemoteEndPoint, port, out ev.Pid); }
                     catch (Exception ex) { Log.Write("terminal lookup: " + ex.Message); }
 
                     if (ev.Name != "PermissionRequest" || agent == "plugin")

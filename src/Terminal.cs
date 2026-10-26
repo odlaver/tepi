@@ -40,9 +40,9 @@ namespace Tepi
         static readonly object sync = new object();
         static readonly Dictionary<int, IntPtr> byPid = new Dictionary<int, IntPtr>();
 
-        public static IntPtr ForConnection(IPEndPoint client, int serverPort)
+        public static IntPtr ForConnection(IPEndPoint client, int serverPort, out int pid)
         {
-            int pid = PidOf(client.Port, serverPort);
+            pid = PidOf(client.Port, serverPort);
             if (pid <= 0) return IntPtr.Zero;
             lock (sync)
             {
@@ -78,27 +78,16 @@ namespace Tepi
 
         static int Port(int raw) { return ((raw & 0xFF) << 8) | ((raw >> 8) & 0xFF); }
 
-        // Classic console first, else the nearest ancestor with a window
+        // Walk up: each process's console, else its own window.
+        // Hook helpers (node, curl) have no console; their claude parent does.
         static IntPtr WindowFor(int pid)
         {
-            FreeConsole();
-            if (AttachConsole((uint)pid))
-            {
-                IntPtr c = GetConsoleWindow();
-                FreeConsole();
-                if (c != IntPtr.Zero)
-                {
-                    var cls = new StringBuilder(64);
-                    GetClassName(c, cls, 64);
-                    // ConPTY: the stand-in window is owned by the real terminal
-                    IntPtr owner = cls.ToString() == "PseudoConsoleWindow" ? GetWindow(c, 4) : c;
-                    if (owner != IntPtr.Zero && IsWindowVisible(owner)) return owner;
-                }
-            }
             var parents = ParentMap();
             int self = Process.GetCurrentProcess().Id, cur = pid;
             for (int depth = 0; depth < 16 && cur > 4; depth++)
             {
+                IntPtr con = ConsoleOwner(cur);
+                if (con != IntPtr.Zero) return con;
                 try
                 {
                     using (var p = Process.GetProcessById(cur))
@@ -117,6 +106,20 @@ namespace Tepi
             return IntPtr.Zero;
         }
 
+        // ConPTY: the stand-in window is owned by the real terminal
+        static IntPtr ConsoleOwner(int pid)
+        {
+            FreeConsole();
+            if (!AttachConsole((uint)pid)) return IntPtr.Zero;
+            IntPtr c = GetConsoleWindow();
+            FreeConsole();
+            if (c == IntPtr.Zero) return IntPtr.Zero;
+            var cls = new StringBuilder(64);
+            GetClassName(c, cls, 64);
+            IntPtr owner = cls.ToString() == "PseudoConsoleWindow" ? GetWindow(c, 4) : c;
+            return owner != IntPtr.Zero && IsWindowVisible(owner) ? owner : IntPtr.Zero;
+        }
+
         static Dictionary<int, uint> ParentMap()
         {
             var map = new Dictionary<int, uint>();
@@ -130,6 +133,13 @@ namespace Tepi
             }
             finally { CloseHandle(snap); }
             return map;
+        }
+
+        // Second chance at click time
+        public static IntPtr ForPid(int pid)
+        {
+            if (pid <= 0) return IntPtr.Zero;
+            lock (sync) return WindowFor(pid);
         }
 
         public static bool Focus(IntPtr h)
