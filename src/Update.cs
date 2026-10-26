@@ -85,6 +85,13 @@ namespace Tepi
             string exe = Application.ExecutablePath, dir = Path.GetDirectoryName(exe);
             string fresh = Path.Combine(dir, "Tepi.new.exe"), old = Path.Combine(dir, "Tepi.old.exe");
             File.WriteAllBytes(fresh, data);
+            // Once releases are signed, the next one must be signed by the same publisher
+            string mine = Signature.Signer(exe);
+            if (mine != null && Signature.Signer(fresh) != mine)
+            {
+                try { File.Delete(fresh); } catch (IOException) { }
+                return "tanda tangan tidak cocok";
+            }
             if (File.Exists(old)) File.Delete(old);
             // A running exe can be renamed, not overwritten
             MoveRetry(exe, old);
