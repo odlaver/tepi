@@ -13,7 +13,7 @@ using WinTimer = System.Windows.Forms.Timer;
 
 namespace Tepi
 {
-    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Focus, Prompter, Class, Panel }
+    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Focus, Prompter, Class, Download, Panel }
 
     class Toast
     {
@@ -149,6 +149,7 @@ namespace Tepi
             LoadLayout();
             BuildTray();
             ApplyClips();
+            ApplyDownloads();
             if (!RegisterHotKey(Handle, HideHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.H)) Log.Write("hotkey Ctrl+Alt+H taken");
             StartGlass();
             StartFeeds();
@@ -302,6 +303,7 @@ namespace Tepi
             if (toast != null) return toast.View;
             if (FocusOn && !MediaVisible()) return View.Focus;
             if (MediaVisible()) return LyricOnIsland() ? View.Lyric : View.Media;
+            if (ActiveDownload() != null) return View.Download;
             if (ClassNow() != null) return View.Class;
             if (BusySession() != null) return View.Agent;
             if (SoonTask() != null) return View.Task;
@@ -313,6 +315,7 @@ namespace Tepi
         {
             if (current != View.Media && current != View.Lyric) return View.Idle;
             if (BusySession() != null) return View.Agent;
+            if (ActiveDownload() != null) return View.Download;
             if (FocusOn) return View.Focus;
             if (SoonTask() != null) return View.Task;
             return View.Idle;

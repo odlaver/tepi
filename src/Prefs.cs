@@ -44,6 +44,7 @@ namespace Tepi
             else if (key == "notif") notifWatcher.Enabled = NotifOn;
             else if (key == "lyrics.online") { lyrics = null; SyncLyrics(); }
             else if (key == "clipboard") ApplyClips();
+            else if (key == "downloads") ApplyDownloads();
             Kick();
         }
 

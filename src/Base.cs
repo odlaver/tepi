@@ -376,6 +376,14 @@ namespace Tepi
     {
         public static readonly CultureInfo Id = new CultureInfo("id-ID");
 
+        public static string Bytes(long n)
+        {
+            if (n < 1024) return n + " B";
+            if (n < 1024 * 1024) return (n / 1024.0).ToString("0", Id) + " KB";
+            if (n < 1024L * 1024 * 1024) return (n / 1048576.0).ToString(n < 100L * 1048576 ? "0.0" : "0", Id) + " MB";
+            return (n / 1073741824.0).ToString("0.00", Id) + " GB";
+        }
+
         public static string Hm(DateTime local) { return local.ToString("HH.mm", CultureInfo.InvariantCulture); }
 
         public static string Ago(DateTime utc)

@@ -33,6 +33,7 @@ namespace Tepi
                 case View.Focus: return new SizeF(FocusWidth(), 38);
                 case View.Prompter: return new SizeF(PrompterW, PrompterH);
                 case View.Class: return new SizeF(ClassWidth(), 38);
+                case View.Download: return new SizeF(DownloadWidth(), 38);
                 default: return new SizeF(PanelW, PanelHeight());
             }
         }
@@ -74,6 +75,7 @@ namespace Tepi
                 case View.Focus: DrawFocus(w, h, now); break;
                 case View.Prompter: DrawPrompter(w, h, now); break;
                 case View.Class: DrawClass(w, h, now); break;
+                case View.Download: DrawDownload(w, h, now); break;
                 case View.Panel: DrawPanel(w, h, now); break;
             }
         }
@@ -543,7 +545,7 @@ namespace Tepi
         {
             if (toast == null || p.G == null) return 220;
             float t = p.Measure(toast.Title, Ink.Semi(13.5f)) + (toast.Detail.Length > 0 ? 14 + Math.Min(200, p.Measure(toast.Detail, Ink.Text(12.5f))) : 0);
-            return Clamp(t + (toast.Glyph != '\0' ? 62 : 44), 160, 460);
+            return Clamp(t + (toast.Glyph != '\0' ? 72 : 46), 160, 460);
         }
 
         void DrawInfo(float w, float h)
@@ -558,6 +560,8 @@ namespace Tepi
                 float dx = x + p.Measure(toast.Title, semi) + 14;
                 p.Text(toast.Detail, Ink.Text(12.5f), p.T.Sub, dx, cy, w - dx - 20, StringAlignment.Near);
             }
+            var act = toast.Data as Action;
+            if (act != null) AddHit(new RectangleF(0, 0, w, h), "infoAct", delegate { act(); DismissToast(); });
         }
 
         // Kulia
@@ -617,6 +621,7 @@ namespace Tepi
                 if (s != null && s.State == AgentState.Waiting) p.Icon(Ink.IcoTerminal, 12f, p.T.Text, bx, cy);
                 else p.Orbit(bx, cy, 7f, orbitPhase, p.T.Text);
             }
+            else if (kind == View.Download) p.Icon(IcoDownload, 12f, p.T.Text, bx, cy);
             else if (kind == View.Focus) DrawFocusRing(bx, cy, 7f);
             else if (kind == View.Task)
             {
