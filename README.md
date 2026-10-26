@@ -12,9 +12,12 @@ Native C# tanpa browser engine. File exe sekitar 200 KB, memori sekitar 6 sampai
 | Musik dan lirik | Semua pemutar yang muncul di kontrol media Windows: Spotify, YouTube dan YouTube Music di browser, Apple Music, Media Player, VLC, dan lainnya. Yang sedang berbunyi yang ditampilkan. Lirik tersinkron dari LRCLIB menyapu kata demi kata di island. Panel musik punya dua tata letak: teleprompter lirik atau kartu album dengan piringan hitam yang berputar. Visualizer membaca suara yang benar-benar diputar. |
 | Agent coding | Claude Code, Codex, Gemini CLI, dan Antigravity. Status setiap sesi (sedang bekerja, menunggu izin, selesai beserta ringkasan balasannya). Permintaan izin dari Claude Code dan Codex bisa dijawab **Izinkan** atau **Tolak** langsung dari island, tanpa membuka terminal. |
 | Tugas Kulia | Tugas aktif dari [Kulia](https://kulia.live) dengan tenggatnya, pengingat 60 menit sebelum tenggat, dan tombol tandai selesai. |
+| Jadwal kuliah | Kelas tujuh hari ke depan dari Kulia. Kartu di atas menunjukkan kelas berikutnya dan berapa menit lagi, deretan hari untuk memilih tanggal, lalu satu baris per kelas berisi jam, mata kuliah, dan ruang. Kelas batal dicoret, ujian ditandai. Pengingat muncul 15 menit sebelum kelas. |
 | Pesan | WhatsApp, Telegram, Discord, Teams, Slack, email, dan aplikasi chat lain dari pusat notifikasi Windows. Di Ringkasan, pesan dikelompokkan per pengirim. |
+| Teleprompter | Tempel naskah, dan island menggulirkannya pelan di tepi atas layar, dekat kamera. Kecepatan dihitung dalam kata per menit. Naskah tidak ikut terekam saat screen share atau rekam layar. |
+| Fokus | Timer 25 atau 50 menit, lalu istirahat. |
 | Aktivitas sistem | Volume, charger dan baterai, Wi-Fi, serta aplikasi yang memakai mikrofon atau kamera. |
-| Tampilan | Efek kaca yang tembus samar ke layar di belakangnya, tema gelap atau terang, dan otomatis menyingkir saat ada aplikasi layar penuh. |
+| Tampilan | Menempel di tepi atas layar atau mengambang, efek kaca, tema gelap atau terang, warna aksen, posisi kiri sampai kanan, lebar panel, serta tab mana yang tampil dan urutannya. Otomatis menyingkir saat ada aplikasi layar penuh. |
 
 ## Pasang
 
@@ -28,13 +31,35 @@ Tepi memberi tahu sendiri kalau ada versi baru. Kalau mau dikabari lewat email j
 
 ## Cara pakai
 
-- **Arahkan kursor** ke island untuk membuka panel. Ikon di atas panel berpindah antara Ringkasan, Musik, Agen, Tugas, dan Pesan.
+- **Arahkan kursor** ke island untuk membuka panel. Ikon di atas panel berpindah antara Ringkasan, Musik, Agen, Tugas, Pesan, dan Jadwal.
 - **Scroll** di atas island untuk mengubah volume.
-- **Klik kanan** island atau ikon tray untuk menu: Sembunyikan island, Fokus, Hubungkan agen, Kulia, Efek kaca, Island terang, Warna aksen, Lirik di island, Cari lirik online, Visualizer, Notifikasi pesan, Tampilkan isi pesan, Layar (kalau monitornya lebih dari satu), Mulai bersama Windows.
+- **Klik kanan** island atau ikon tray untuk menu: Sembunyikan island, Fokus, Teleprompter, Hubungkan agen, Kulia, Pengaturan, Buka folder data.
 - **Fokus** di menu tray memulai timer 25 atau 50 menit, lalu istirahat 5 menit. Timer tampil di island, atau sebagai cincin di samping pil musik.
-- **Warna aksen** mewarnai tab aktif, visualizer, dan bilah progres. Pilih **Monokrom** untuk kembali hitam-putih.
 - **Ctrl+Alt+H** menyembunyikan atau memunculkan island. Kartu izin agent tetap muncul walau island disembunyikan.
 - Di tab **Musik**, tombol di kanan atas mengganti tata letak antara lirik dan kartu album. Klik baris lirik untuk loncat ke bagian lagu itu.
+- Di tab **Jadwal**, klik hari di deretan tengah untuk melihat kelas tanggal itu.
+
+### Pengaturan
+
+Klik kanan ikon Tepi, lalu **Pengaturan**. Setiap perubahan langsung berlaku tanpa perlu menyimpan.
+
+- **Tampilan**: tema, warna aksen, monitor, efek kaca, dan menempel di tepi atas.
+- **Tata letak**: posisi island dari kiri sampai kanan, dan lebar panel 440 sampai 560 px. Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
+- **Tab panel**: centang tab yang mau ditampilkan, urutkan dengan **Naik** dan **Turun**, lalu pilih tab yang terbuka pertama.
+- **Island**: lirik, lirik online, visualizer, notifikasi pesan, isi pesan, mulai bersama Windows, dan lama istirahat fokus.
+
+### Teleprompter
+
+1. Klik kanan ikon Tepi, lalu **Teleprompter**.
+2. Tempel naskah, atur kecepatan (kata per menit) dan ukuran huruf, lalu **Mulai** (atau Ctrl+Enter).
+
+Selama naskah berjalan:
+
+- Klik island, atau tekan **Ctrl+Alt+Spasi** dari aplikasi mana pun, untuk jeda dan lanjut.
+- Scroll di atas island untuk mundur atau maju beberapa baris.
+- Arahkan kursor ke island untuk tombol pelan, jeda, cepat, dan tutup.
+- Panel dan toast tidak muncul supaya naskah tidak tertutup. Kartu izin agent tetap muncul.
+- Naskah terakhir disimpan di `%APPDATA%\Tepi\prompter.txt` dan terisi lagi saat Teleprompter dibuka.
 
 ### Menghubungkan agent
 
@@ -75,9 +100,9 @@ Cara kerjanya:
 
 1. Buka tab **Tugas** (atau klik kanan ikon Tepi, lalu **Kulia > Masuk ke Kulia**).
 2. Isi email yang kamu pakai di [kulia.live](https://kulia.live).
-3. Masukkan kode 6 angka yang dikirim ke email itu.
+3. Masukkan kode yang dikirim ke email itu.
 
-Selesai. Tugas aktifmu langsung tampil dan diperbarui tiap 10 menit. Kalau belum punya akun, daftar dulu di kulia.live.
+Selesai. Tugas aktif dan jadwal kelasmu langsung tampil, lalu diperbarui tiap 10 menit. Kalau belum punya akun, daftar dulu di kulia.live.
 
 Sesi login disimpan terenkripsi dengan DPAPI Windows dan hanya bisa dibuka oleh akun Windows-mu. Untuk keluar: klik kanan ikon Tepi, lalu **Kulia > Keluar dari Kulia**.
 
@@ -87,13 +112,14 @@ Tepi hanya menghubungi tiga layanan luar, dan masing-masing bisa dimatikan:
 
 | Layanan | Data yang dikirim | Kapan | Cara mematikan |
 |---|---|---|---|
-| [LRCLIB](https://lrclib.net) | Judul, artis, dan durasi lagu | Saat lagu baru diputar | Menu tray > **Cari lirik online** |
-| [Kulia](https://kulia.live) | Email, kode masuk, dan permintaan daftar tugasmu | Hanya kalau kamu masuk ke Kulia | Menu tray > **Kulia > Keluar dari Kulia** |
+| [LRCLIB](https://lrclib.net) | Judul, artis, dan durasi lagu | Saat lagu baru diputar | **Pengaturan > Cari lirik online** |
+| [Kulia](https://kulia.live) | Email, kode masuk, dan permintaan daftar tugas serta jadwalmu | Hanya kalau kamu masuk ke Kulia | Menu tray > **Kulia > Keluar dari Kulia** |
 | GitHub API | Permintaan versi rilis terbaru | Sekali sehari | `update.check=0` di `settings.ini` |
 
 - Isi pesan, data agent, dan isi layar tidak pernah dikirim ke mana pun. Server hook hanya bisa dijangkau dari komputer ini.
 - Lirik yang ditemukan disimpan di `%APPDATA%\Tepi\lyrics` supaya tidak diambil ulang.
-- Efek kaca membaca layar di belakang island untuk membuat latar buramnya. Karena itu island tidak ikut terekam saat screenshot atau screen share. Matikan **Efek kaca** di menu kalau island perlu ikut terekam.
+- Efek kaca membaca layar di belakang island untuk membuat latar buramnya. Karena itu island tidak ikut terekam saat screenshot atau screen share. Matikan **Efek kaca** di Pengaturan kalau island perlu ikut terekam. Selama teleprompter berjalan, island selalu disembunyikan dari rekaman.
+- Naskah teleprompter hanya disimpan di komputer ini.
 - Semua pengaturan dan cache ada di `%APPDATA%\Tepi`.
 
 ## Keamanan
@@ -145,6 +171,13 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `accent` | kosong | Warna aksen, misalnya `#4C8DFF`; kosong untuk monokrom |
 | `monitor` | kosong | Monitor tempat island tampil; kosong untuk monitor utama |
 | `focus.break` | `5` | Menit istirahat setelah fokus |
+| `dock` | `1` | Menempel di tepi atas; `0` untuk mengambang |
+| `position` | `0` | Geser island, `-40` (kiri) sampai `40` (kanan), persen dari ruang kosong |
+| `panel.width` | `488` | Lebar panel, `440` sampai `560` |
+| `tabs` | `0,1,2,3,4,5` | Tab yang tampil dan urutannya: 0 Ringkasan, 1 Musik, 2 Agen, 3 Tugas, 4 Pesan, 5 Jadwal |
+| `panel.page` | `-1` | Tab yang terbuka pertama; `-1` untuk tab pertama di urutan |
+| `prompter.wpm` | `140` | Kecepatan teleprompter, kata per menit |
+| `prompter.size` | `19` | Ukuran huruf teleprompter, px |
 | `kulia.url`, `kulia.key` | server kulia.live | Arahkan ke instance Kulia lain |
 
 Variabel lingkungan untuk pengembangan:
