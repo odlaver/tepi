@@ -119,10 +119,13 @@ namespace Tepi
 
             // Day chips
             var chosen = ChosenDay();
+            var days = ScheduleDays();
+            var labels = ChipLabels(days, nowLocal.Date, w - 32);
             float cx = 16, cy = PanelTop + HeroH + ChipsH / 2 - 2;
-            foreach (var day in ScheduleDays())
+            for (int di = 0; di < days.Count; di++)
             {
-                string label = day == nowLocal.Date ? "Hari ini" : day == nowLocal.Date.AddDays(1) ? "Besok" : day.ToString("ddd d", Fmt.Id);
+                var day = days[di];
+                string label = labels[di];
                 float cw = p.Measure(label, Ink.Semi(11.5f)) + 24;
                 if (cx + cw > w - 16) break;
                 var chip = new RectangleF(cx, cy - 13, cw, 26);
@@ -172,10 +175,31 @@ namespace Tepi
             g.Restore(st);
         }
 
+        // Shorter labels until every day fits
+        string[] ChipLabels(List<DateTime> days, DateTime today, float room)
+        {
+            var formats = new Func<DateTime, string>[]
+            {
+                d => d == today ? Lang.T("Hari ini") : d == today.AddDays(1) ? Lang.T("Besok") : d.ToString("ddd d", Fmt.Id),
+                d => d.ToString("ddd d", Fmt.Id),
+                d => d.ToString("ddd", Fmt.Id),
+            };
+            string[] labels = null;
+            foreach (var format in formats)
+            {
+                labels = days.ConvertAll(d => format(d)).ToArray();
+                float total = -6;
+                foreach (var l in labels) total += p.Measure(l, Ink.Semi(11.5f)) + 30;
+                if (total <= room) break;
+            }
+            return labels;
+        }
+
         // Once per class, 15 minutes before it starts
         void CheckClasses(DateTime nowUtc)
         {
-            if (classes == null) return;
+            // Held while a script runs; fires after if still due
+            if (classes == null || PrompterOn) return;
             var now = nowUtc.ToLocalTime();
             foreach (var c in classes)
             {

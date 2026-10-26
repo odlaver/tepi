@@ -108,7 +108,19 @@ namespace Tepi
                 int y = 20;
                 Heading("Tampilan", x, ref y);
                 var theme = Combo(x, ref y, "Tema", new[] { "Gelap", "Terang" }, Ink.Light ? 1 : 0);
-                theme.SelectedIndexChanged += delegate { if (!loading) island.SetLight(theme.SelectedIndex == 1); };
+                theme.SelectedIndexChanged += delegate
+                {
+                    if (loading) return;
+                    island.SetLight(theme.SelectedIndex == 1);
+                    // Rebuild in the new colours, same spot
+                    var at = Location;
+                    BeginInvoke((Action)delegate
+                    {
+                        Close();
+                        island.OpenPrefs();
+                        island.prefs.Location = at;
+                    });
+                };
 
                 var names = new List<string>();
                 int accentAt = 0;

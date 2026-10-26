@@ -149,7 +149,6 @@ namespace Tepi
             LoadLayout();
             BuildTray();
             if (!RegisterHotKey(Handle, HideHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.H)) Log.Write("hotkey Ctrl+Alt+H taken");
-            if (!RegisterHotKey(Handle, PrompterHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.Space)) Log.Write("hotkey Ctrl+Alt+Space taken");
             StartGlass();
             StartFeeds();
             EnsureDisc(64);
@@ -314,9 +313,12 @@ namespace Tepi
             return View.Idle;
         }
 
+        bool frameDirty;
+
         void Kick()
         {
             if (g == null) return;
+            frameDirty = true;
             View want = DesiredView();
             if (want != current)
             {
@@ -457,6 +459,10 @@ namespace Tepi
                 windowShown = true;
             }
 
+            // Prompter redraws only when its picture changes
+            if (current == View.Prompter && !frameDirty && !Moving(now) && PrompterKey() == prompterDrawn) return Live(now) ? Ambient : Stopped;
+            frameDirty = false;
+            if (current == View.Prompter) prompterDrawn = PrompterKey();
             try { Render(now); }
             catch (Exception ex) { Log.Write("render: " + ex); }
             CountFrame(t, (clock.Elapsed.TotalSeconds - t) * 1000);
