@@ -21,7 +21,7 @@ namespace Tepi
 
     class ClassSlot
     {
-        public string Title = "", Room = "", Kind = "";
+        public string Title = "", Room = "", Kind = "", Url = "";
         public bool Online, Personal, Cancelled, Exam;
         public DateTime Start, End;
     }
@@ -183,7 +183,7 @@ namespace Tepi
                 var course = new object[0];
                 if (ids.Count > 0)
                 {
-                    var cr = Call("GET", "/rest/v1/course_schedules?select=weekday,starts_at,ends_at,room,kind,mode,class_date,class_label," +
+                    var cr = Call("GET", "/rest/v1/course_schedules?select=weekday,starts_at,ends_at,room,kind,mode,meeting_url,class_date,class_label," +
                         "cohort_courses!inner(is_active,courses(name,short_name)),schedule_confirmations(class_date,status)" +
                         "&cohort_courses.is_active=eq.true&cohort_course_id=in.(" + string.Join(",", ids) + ")", null, null);
                     if (!cr.Ok) { error = "Jadwal gagal dimuat (" + cr.Status + ")."; return null; }
@@ -224,6 +224,8 @@ namespace Tepi
                     var slot = Slot(day, wib, r, name.Length > 0 ? name : "Mata kuliah");
                     slot.Kind = Json.Str(r, "kind");
                     slot.Online = Json.Str(r, "mode") == "online";
+                    string link = Json.Str(r, "meeting_url");
+                    if (slot.Online && link.StartsWith("https://", StringComparison.Ordinal)) slot.Url = link;
                     foreach (var cf in Json.Arr(r, "schedule_confirmations"))
                         if (Json.Str(cf, "class_date") == date)
                         {

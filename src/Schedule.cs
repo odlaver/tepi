@@ -70,7 +70,7 @@ namespace Tepi
         {
             var parts = new List<string>();
             if (c.Room.Length > 0) parts.Add(c.Room);
-            if (c.Online) parts.Add("daring");
+            if (c.Online) parts.Add(c.Url.Length > 0 ? Lang.T("daring · tautan") : Lang.T("daring"));
             if (c.Kind == "praktikum" || c.Kind == "responsi") parts.Add(c.Kind);
             if (c.Personal) parts.Add("pribadi");
             return string.Join(" · ", parts);
@@ -114,6 +114,14 @@ namespace Tepi
                 p.TextRight(Fmt.Hm(next.Start) + "–" + Fmt.Hm(next.End), Ink.Semi(12.5f), p.T.Text, hero.Right - 16, hero.Y + 40);
                 string note = SlotNote(next);
                 if (note.Length > 0) p.Text(note, Ink.Small(11f), p.T.Sub, hero.X + 16, hero.Y + 60, hero.Width - 32, StringAlignment.Near);
+                if (next.Url.Length > 0)
+                {
+                    var join = new RectangleF(hero.Right - 92, hero.Y + 50, 76, 22);
+                    p.FillRound(join, 11, Hover("joinNext") ? p.T.Text : p.T.Accent);
+                    p.TextCenter(Lang.T("Buka kelas"), Ink.Semi(10.5f), Hover("joinNext") ? p.T.Bg : p.T.OnAccent, join.X + join.Width / 2, join.Y + 11);
+                    string url = next.Url;
+                    AddHit(join, "joinNext", delegate { OpenUrl(url); });
+                }
             }
             else p.Text("Tidak ada kelas lagi minggu ini", Ink.Semi(13f), p.T.Sub, hero.X + 16, hero.Y + hero.Height / 2, hero.Width - 32, StringAlignment.Near);
 
@@ -150,6 +158,13 @@ namespace Tepi
                 float rc = y + ClassRowH / 2;
                 if (y + ClassRowH > area.Top && y < area.Bottom)
                 {
+                    if (c.Url.Length > 0)
+                    {
+                        var row = new RectangleF(14, y + 2, w - 28, ClassRowH - 4);
+                        string rowId = "class" + c.Start.Ticks, url = c.Url;
+                        if (Hover(rowId)) p.FillRound(row, 12, p.T.Fill);
+                        if (row.Bottom <= area.Bottom && row.Top >= area.Top) AddHit(row, rowId, delegate { OpenUrl(url); });
+                    }
                     bool live = !c.Cancelled && nowLocal >= c.Start && nowLocal < c.End;
                     var ink = c.Cancelled || nowLocal >= c.End ? p.T.Faint : p.T.Text;
                     p.Text(Fmt.Hm(c.Start), Ink.Semi(12.5f), live ? p.T.Accent : ink, 26, rc, 52, StringAlignment.Near);
@@ -173,6 +188,43 @@ namespace Tepi
                 y += ClassRowH;
             }
             g.Restore(st);
+        }
+
+        // Class running now, shown on the island
+        ClassSlot ClassNow()
+        {
+            if (classes == null || !settings.GetBool("class.island", true)) return null;
+            var now = DateTime.Now;
+            foreach (var c in classes) if (!c.Cancelled && now >= c.Start && now < c.End) return c;
+            return null;
+        }
+
+        float ClassWidth()
+        {
+            var c = ClassNow();
+            if (c == null || p.G == null) return 240;
+            return Clamp(p.Measure(c.Title, Ink.Semi(12.5f)) + p.Measure(Lang.F("sampai {0}", Fmt.Hm(c.End)), Ink.Semi(12f)) + 84, 220, 440);
+        }
+
+        readonly Roller classRoller = new Roller();
+
+        void DrawClass(float w, float h, DateTime now)
+        {
+            var c = ClassNow();
+            if (c == null) return;
+            float cy = h / 2;
+            // Ring empties as the class runs
+            var rect = new RectangleF(12.5f, cy - 7.5f, 15, 15);
+            g.DrawEllipse(p.P(p.T.Line, 2f), rect);
+            float left = (float)Ease.Clamp01((float)((c.End - DateTime.Now).TotalSeconds / Math.Max(1, (c.End - c.Start).TotalSeconds)));
+            if (left > 0.003f) g.DrawArc(p.P(p.T.Accent, 2.2f), rect, -90, -360 * left);
+            classRoller.Set(Lang.F("sampai {0}", Fmt.Hm(c.End)));
+            var f = Ink.Semi(12f);
+            float rw = classRoller.Width(p, f);
+            p.Text(c.Title, Ink.Semi(12.5f), p.T.Text, 38, cy, w - 38 - rw - 30, StringAlignment.Near);
+            classRoller.Draw(p, f, p.T.Sub, w - 18, cy, StringAlignment.Far, now);
+            string url = c.Url;
+            AddHit(new RectangleF(0, 0, w, h), "classNow", delegate { if (url.Length > 0) OpenUrl(url); else Expand(PageSchedule); });
         }
 
         // Shorter labels until every day fits

@@ -32,6 +32,7 @@ namespace Tepi
                 case View.Deadline: return new SizeF(414, 74);
                 case View.Focus: return new SizeF(FocusWidth(), 38);
                 case View.Prompter: return new SizeF(PrompterW, PrompterH);
+                case View.Class: return new SizeF(ClassWidth(), 38);
                 default: return new SizeF(PanelW, PanelHeight());
             }
         }
@@ -72,6 +73,7 @@ namespace Tepi
                 case View.Deadline: DrawDeadline(w, h); break;
                 case View.Focus: DrawFocus(w, h, now); break;
                 case View.Prompter: DrawPrompter(w, h, now); break;
+                case View.Class: DrawClass(w, h, now); break;
                 case View.Panel: DrawPanel(w, h, now); break;
             }
         }
