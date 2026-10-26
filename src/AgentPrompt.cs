@@ -102,7 +102,7 @@ namespace Tepi
 
         public AgentPromptBox(string project, bool sharedWindow)
         {
-            Text = Lang.T("Kirim ke agent");
+            Text = Lang.T("Chat dengan agent");
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;

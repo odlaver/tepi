@@ -122,6 +122,8 @@ namespace Tepi
             { "Menunggu balasanmu", "Waiting for your reply" },
             { "Kirim", "Send" },
             { "Kirim ke agent", "Send to agent" },
+            { "Chat", "Chat" },
+            { "Chat dengan agent", "Chat with agent" },
             { "Terminal tidak bisa dibuka", "Couldn't bring the terminal forward" },
             { "Jendela ini punya beberapa sesi. Teks masuk ke tab yang sedang aktif.", "This window has several sessions. The text goes to the active tab." },
             { "Agent minta izin. Buka tab Agen atau jawab di terminal.", "An agent asks for permission. Open the Agents tab or answer in the terminal." },

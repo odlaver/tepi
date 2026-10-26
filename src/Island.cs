@@ -435,10 +435,12 @@ namespace Tepi
         }
 
         // Return idle memory to Windows
-        void Trim()
+        void Trim() { Trim(false); }
+
+        void Trim(bool force)
         {
             trimTimer.Stop();
-            if ((DateTime.UtcNow - lastTrimUtc).TotalSeconds < 15) return;
+            if (!force && (DateTime.UtcNow - lastTrimUtc).TotalSeconds < 15) return;
             lastTrimUtc = DateTime.UtcNow;
             GC.Collect();
             GC.WaitForPendingFinalizers();
@@ -985,6 +987,7 @@ namespace Tepi
             clockRoller.Set(hm);
             redraw |= LifeTick();
             redraw |= FocusTick(DateTime.UtcNow);
+            MemoryWatch();
             if (redraw || expanded || DesiredView() != current) Kick();
         }
 

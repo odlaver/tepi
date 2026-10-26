@@ -79,7 +79,7 @@ namespace Tepi
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "1.5.0";
+        public const string AppVersion = "1.5.1";
         string newVersion, newUrl;
 
         void StartUpdateCheck()

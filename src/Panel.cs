@@ -516,7 +516,7 @@ namespace Tepi
                 {
                     var send = new RectangleF(w - 26 - 58, cy - 21, 58, 22);
                     p.FillRound(send, 11, Hover(sendId) ? p.T.Text : p.T.Accent);
-                    p.TextCenter(Lang.T("Kirim"), Ink.Semi(10.5f), Hover(sendId) ? p.T.Bg : p.T.OnAccent, send.X + send.Width / 2, send.Y + 11);
+                    p.TextCenter(Lang.T("Chat"), Ink.Semi(10.5f), Hover(sendId) ? p.T.Bg : p.T.OnAccent, send.X + send.Width / 2, send.Y + 11);
                     AddHit(send, sendId, delegate { AskAgent(session); });
                 }
                 else p.TextRight(StateWord(s), Ink.Small(11f), p.T.Sub, w - 26, cy - 10);

@@ -2,7 +2,7 @@
 
 Dynamic island monokrom untuk Windows. Tepi duduk di tepi atas layar dan membesar saat ada yang terjadi: lagu yang sedang diputar beserta liriknya, agent coding (Claude Code, Codex, Gemini CLI, Antigravity) yang sedang bekerja atau minta izin, tugas kuliah yang mendekati tenggat, dan pesan yang masuk.
 
-Native C# tanpa browser engine. File exe sekitar 300 KB, memori sekitar 6 sampai 14 MB. Tampilan tersedia dalam bahasa Indonesia dan Inggris.
+Native C# tanpa browser engine. File exe sekitar 300 KB. Memori di Task Manager rata-rata sekitar 8 MB dan dijaga di bawah 14 MB, dengan puncak singkat sekitar 16 MB saat panel dipakai terus-menerus. Tampilan tersedia dalam bahasa Indonesia dan Inggris.
 
 ## Fitur
 
@@ -89,11 +89,11 @@ Naskah mulai setelah hitung mundur 3 detik. Selama naskah berjalan:
 - Panel dan toast tidak muncul supaya naskah tidak tertutup. Kartu izin agent tetap muncul, dan pengingat kelas ditunda sampai teleprompter ditutup.
 - Naskah terakhir disimpan di `%APPDATA%\Tepi\prompter.txt` dan terisi lagi saat Teleprompter dibuka.
 
-### Kirim prompt ke agent
+### Chat ke agent
 
-Di tab **Agen**, arahkan kursor ke sebuah sesi lalu klik **Kirim**. Tulis prompt, tekan Enter. Tepi membawa terminal sesi itu ke depan, lalu mengetik prompt dan menekan Enter. Kalau terminalnya tidak bisa dibawa ke depan, tidak ada yang diketik.
+Di tab **Agen**, arahkan kursor ke sebuah sesi lalu klik **Chat**. Tulis prompt, tekan Enter. Tepi membawa terminal sesi itu ke depan, lalu mengetik prompt dan menekan Enter. Kalau terminalnya tidak bisa dibawa ke depan, tidak ada yang diketik.
 
-Kalau beberapa sesi berjalan di tab berbeda dalam satu jendela Windows Terminal, prompt masuk ke tab yang sedang aktif. Kotak kirim mengingatkan hal ini. Tekan panah atas dan bawah di kotak kirim untuk memanggil prompt yang pernah dikirim (hanya di memori, hilang saat Tepi ditutup).
+Kalau beberapa sesi berjalan di tab berbeda dalam satu jendela Windows Terminal, prompt masuk ke tab yang sedang aktif. Kotak chat mengingatkan hal ini. Tekan panah atas dan bawah di kotak chat untuk memanggil prompt yang pernah dikirim (hanya di memori, hilang saat Tepi ditutup).
 
 ### Menjawab izin
 
@@ -184,7 +184,7 @@ Tepi hanya menghubungi tiga layanan luar, dan masing-masing bisa dimatikan:
 - Tautan tugas Kulia hanya dibuka kalau alamatnya `http` atau `https`.
 - Tidak ada pembaruan diam-diam. Exe hanya berubah saat kamu klik **Perbarui ke Tepi x.y.z**. Tepi hanya menerima `Tepi.exe` dari alamat rilis repo ini, mengunduhnya lewat HTTPS, lalu mencocokkan SHA-256-nya dengan digest yang dicatat GitHub untuk berkas itu. Kalau tidak cocok, exe lama tidak disentuh dan halaman rilis dibuka. Exe lama disimpan sebagai `Tepi.old.exe` sampai Tepi baru jalan, lalu dihapus. Kalau folder exe tidak bisa ditulis (misalnya di Program Files), Tepi membuka halaman rilis. Begitu rilis Tepi ditandatangani (Authenticode), exe baru juga wajib bertanda tangan sah dari penerbit yang sama dengan exe yang sedang jalan.
 - `Tepi.exe --notify` dan `/notify` dijaga token yang sama dengan hook agent. Teks dari skrip dibersihkan dari karakter kontrol, dipotong panjangnya, dan dibatasi satu toast per setengah detik.
-- **Kirim** di tab Agen hanya mengetik setelah Windows memastikan terminal sesi itu sudah di depan.
+- **Chat** di tab Agen hanya mengetik setelah Windows memastikan terminal sesi itu sudah di depan.
 - Menemukan celah? Laporkan secara privat lewat tab **Security > Report a vulnerability** di repo ini, jangan lewat issue publik.
 
 ## Tanda tangan kode

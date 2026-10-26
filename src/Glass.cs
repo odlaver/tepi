@@ -28,6 +28,9 @@ namespace Tepi
         volatile bool frostRun;
         volatile int frostNeedH;
         Bitmap frost;
+        // Last frost, reused by the next capture instead of a new bitmap
+        Bitmap frostSpare;
+        int frostGen;
         int frostH;
         bool excluded;
 
@@ -65,6 +68,8 @@ namespace Tepi
                 frostWake.Set();
                 frostThread = null;
                 if (frost != null) { frost.Dispose(); frost = null; }
+                var spare = System.Threading.Interlocked.Exchange(ref frostSpare, null);
+                if (spare != null) spare.Dispose();
             }
             Kick();
         }
@@ -151,13 +156,20 @@ namespace Tepi
                     lastW = w;
                     lastH = h;
                     // Full size, base tint baked in
-                    var frame = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
+                    var frame = System.Threading.Interlocked.Exchange(ref frostSpare, null);
+                    if (frame == null || frame.Width != w || frame.Height != h)
+                    {
+                        if (frame != null) frame.Dispose();
+                        frame = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
+                    }
                     using (var fg = Graphics.FromImage(frame))
                     {
+                        fg.CompositingMode = CompositingMode.SourceCopy;
                         fg.InterpolationMode = InterpolationMode.HighQualityBicubic;
                         fg.PixelOffsetMode = PixelOffsetMode.Half;
                         float f = FrostDiv / 2f;
                         fg.DrawImage(tiny, new RectangleF(-f, -f, w + f * 2, h + f * 2));
+                        fg.CompositingMode = CompositingMode.SourceOver;
                         using (var tintBrush = new SolidBrush(Ink.A(Ink.Base.Bg, BaseTint))) fg.FillRectangle(tintBrush, 0, 0, w, h);
                     }
                     int fl = left, fw = w, fh = h;
@@ -165,10 +177,15 @@ namespace Tepi
                     {
                         var old = frost;
                         frost = frame;
+                        frostGen++;
                         frostLeft = fl;
                         frostW = fw;
                         frostH = fh;
-                        if (old != null) old.Dispose();
+                        if (old != null)
+                        {
+                            var prev = System.Threading.Interlocked.Exchange(ref frostSpare, old);
+                            if (prev != null) prev.Dispose();
+                        }
                         Kick();
                     });
                 }
@@ -260,7 +277,7 @@ namespace Tepi
 
         // Two cached surfaces: plain and with the cover backdrop, so the
         // mid-switch swap never rebakes during the animation
-        class Surface { public Bitmap Image, Frost, Backdrop; public string Key; }
+        class Surface { public Bitmap Image, Backdrop; public int FrostGen; public string Key; }
         readonly Surface[] surfaces = { new Surface(), new Surface() };
         bool backdropInSurface;
 
@@ -278,14 +295,18 @@ namespace Tepi
 
         bool SurfaceFresh(Surface s, Bitmap bd, string key)
         {
-            return s.Image != null && ReferenceEquals(frost, s.Frost) && ReferenceEquals(bd, s.Backdrop) && key == s.Key;
+            return s.Image != null && frost != null && s.FrostGen == frostGen && ReferenceEquals(bd, s.Backdrop) && key == s.Key;
         }
 
         void BakeSurface(Surface s, Bitmap bd, string key, int bx, int by, int bw, int bh, int fx, float boundsH, Tone tone, float extra)
         {
             double tb0 = Prof.T();
-            if (s.Image != null) s.Image.Dispose();
-            s.Image = new Bitmap(bw, bh, PixelFormat.Format32bppPArgb);
+            // Same size: paint over the old bake instead of allocating
+            if (s.Image == null || s.Image.Width != bw || s.Image.Height != bh)
+            {
+                if (s.Image != null) s.Image.Dispose();
+                s.Image = new Bitmap(bw, bh, PixelFormat.Format32bppPArgb);
+            }
             using (var pg = Graphics.FromImage(s.Image))
             {
                 pg.CompositingMode = CompositingMode.SourceCopy;
@@ -298,7 +319,7 @@ namespace Tepi
                     pg.FillRectangle(lg, 0, 0, bw, sh2);
                 if (bd != null) pg.DrawImage(bd, new Rectangle(0, 0, bd.Width, bd.Height), 0, 0, bd.Width, bd.Height, GraphicsUnit.Pixel);
             }
-            s.Frost = frost;
+            s.FrostGen = frostGen;
             s.Backdrop = bd;
             s.Key = key;
             Prof.Add("surfaceBake", tb0);

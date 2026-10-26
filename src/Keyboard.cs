@@ -134,7 +134,7 @@ namespace Tepi
                 case "term": return Lang.T("Terminal");
                 case "hideIsland": return Lang.T("Sembunyikan island");
             }
-            if (id.StartsWith("send", StringComparison.Ordinal)) return Lang.T("Kirim");
+            if (id.StartsWith("send", StringComparison.Ordinal)) return Lang.T("Chat");
             return "";
         }
 
