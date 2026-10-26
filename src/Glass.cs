@@ -37,11 +37,11 @@ namespace Tepi
 
         void ApplyGlass()
         {
-            bool on = GlassOn;
-            // Island must not capture itself
-            if (on != excluded)
+            bool on = GlassOn, hide = on || PrompterOn;
+            // Glass and scripts stay out of captures
+            if (hide != excluded)
             {
-                if (Native.SetWindowDisplayAffinity(Handle, on ? Native.WDA_EXCLUDEFROMCAPTURE : 0)) excluded = on;
+                if (Native.SetWindowDisplayAffinity(Handle, hide ? Native.WDA_EXCLUDEFROMCAPTURE : 0)) excluded = hide;
                 else Log.Write("display affinity failed: " + Marshal.GetLastWin32Error());
             }
             if (on && frostThread == null)

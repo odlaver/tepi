@@ -13,7 +13,7 @@ using WinTimer = System.Windows.Forms.Timer;
 
 namespace Tepi
 {
-    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Focus, Panel }
+    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Focus, Prompter, Panel }
 
     class Toast
     {
@@ -148,6 +148,7 @@ namespace Tepi
             base.OnLoad(e);
             BuildTray();
             if (!RegisterHotKey(Handle, HideHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.H)) Log.Write("hotkey Ctrl+Alt+H taken");
+            if (!RegisterHotKey(Handle, PrompterHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.Space)) Log.Write("hotkey Ctrl+Alt+Space taken");
             StartGlass();
             StartFeeds();
             EnsureDisc(64);
@@ -194,6 +195,7 @@ namespace Tepi
                     return;
                 case 0x0312: // WM_HOTKEY
                     if (m.WParam.ToInt32() == HideHotkey) ToggleHidden();
+                    else if (m.WParam.ToInt32() == PrompterHotkey) TogglePrompter();
                     return;
                 case Native.WM_DPICHANGED:
                 case Native.WM_DISPLAYCHANGE:
@@ -291,6 +293,7 @@ namespace Tepi
         View DesiredView()
         {
             if (approvals.Count > 0) return View.Approve;
+            if (PrompterOn) return View.Prompter;
             if (expanded) return View.Panel;
             if (toast != null) return toast.View;
             if (FocusOn && !MediaVisible()) return View.Focus;
@@ -435,6 +438,7 @@ namespace Tepi
             lastT = t;
             sw.Step(dt); sh.Step(dt); sr.Step(dt); bubble.Step(dt); opacity.Step(dt); topGap.Step(dt);
             StepPanel(dt);
+            StepPrompter(dt);
             StepViews(dt, now);
             float flipTarget = current == View.Approve ? 1 : 0;
             if (flipLinear != flipTarget) flipLinear = flipTarget > flipLinear ? Math.Min(1, flipLinear + dt / 0.55f) : Math.Max(0, flipLinear - dt / 0.45f);
@@ -778,7 +782,7 @@ namespace Tepi
             return s.Contains(pt) || (!bubbleRect.IsEmpty && bubbleRect.Contains(pt));
         }
 
-        bool CanExpand() { return !hiddenByUser && approvals.Count == 0 && (toast == null || !toast.Interactive); }
+        bool CanExpand() { return !hiddenByUser && !PrompterOn && approvals.Count == 0 && (toast == null || !toast.Interactive); }
 
         void Expand(int pg)
         {
@@ -852,6 +856,7 @@ namespace Tepi
                     break;
                 }
             }
+            else if (id == null && current == View.Prompter && InShape(pt)) TogglePrompter();
             else if (id == null && !expanded && InShape(pt) && CanExpand())
             {
                 hoverTimer.Stop();
@@ -865,6 +870,7 @@ namespace Tepi
         protected override void OnMouseWheel(MouseEventArgs e)
         {
             base.OnMouseWheel(e);
+            if (current == View.Prompter) { ScrollPrompter(e.Delta); return; }
             if (expanded && ScrollPanel(e.Delta)) return;
             vol = Ease.Clamp01(vol + e.Delta / 120f * 0.04f);
             volBar.Target = vol;
@@ -1013,16 +1019,18 @@ namespace Tepi
             var updateItem = new ToolStripMenuItem("Unduh pembaruan", null, delegate { if (newUrl != null) OpenUrl(newUrl); }) { Visible = false };
             var dockItem = new ToolStripMenuItem("Menempel di tepi atas", null, delegate { settings.Toggle("dock", true); ResetFrost(); Kick(); });
             var hideItem = new ToolStripMenuItem("Sembunyikan island", null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+H" };
+            var prompterItem = new ToolStripMenuItem("Teleprompter", null, delegate { if (PrompterOn) StopPrompter(); else OpenPrompter(); });
             var focusItem = new ToolStripMenuItem("Fokus");
             var accentItem = new ToolStripMenuItem("Warna aksen");
             var screenItem = new ToolStripMenuItem("Layar");
             var exit = new ToolStripMenuItem("Keluar", null, delegate { Close(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, focusItem, hookItem, kuliaItem, new ToolStripSeparator(), glassItem, dockItem, lightItem, accentItem, lyricItem, onlineItem, vizItem, notifItem, contentItem, screenItem, autoItem, new ToolStripSeparator(), dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, focusItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), glassItem, dockItem, lightItem, accentItem, lyricItem, onlineItem, vizItem, notifItem, contentItem, screenItem, autoItem, new ToolStripSeparator(), dataItem, exit });
             menu.Opening += delegate
             {
                 try { autoItem.Checked = AutoStart.Enabled; } catch (Exception) { }
                 lightItem.Checked = Ink.Light;
                 hideItem.Checked = hiddenByUser;
+                prompterItem.Checked = PrompterOn;
                 dockItem.Checked = Docked;
                 FillTrayExtras(focusItem, accentItem, screenItem);
                 updateItem.Visible = newVersion != null;

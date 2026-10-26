@@ -31,6 +31,7 @@ namespace Tepi
                 case View.Task: return new SizeF(TaskWidth(), 38);
                 case View.Deadline: return new SizeF(414, 74);
                 case View.Focus: return new SizeF(FocusWidth(), 38);
+                case View.Prompter: return new SizeF(PrompterW, PrompterH);
                 default: return new SizeF(PanelW, PanelHeight());
             }
         }
@@ -44,7 +45,8 @@ namespace Tepi
                 case View.Track:
                 case View.Done:
                 case View.Notif:
-                case View.Deadline: return 26;
+                case View.Deadline:
+                case View.Prompter: return 26;
             }
             return s.Height / 2;
         }
@@ -69,6 +71,7 @@ namespace Tepi
                 case View.Task: DrawTask(w, h, now); break;
                 case View.Deadline: DrawDeadline(w, h); break;
                 case View.Focus: DrawFocus(w, h, now); break;
+                case View.Prompter: DrawPrompter(w, h, now); break;
                 case View.Panel: DrawPanel(w, h, now); break;
             }
         }
@@ -112,7 +115,7 @@ namespace Tepi
 
         bool Live(DateTime now)
         {
-            if (VisualizerVisible() || current == View.Lyric || current == View.Approve || current == View.Agent) return true;
+            if (VisualizerVisible() || current == View.Lyric || current == View.Approve || current == View.Agent || PrompterRunning()) return true;
             if (current == View.Media && mediaInfo.Playing) return true;
             if (BubbleKind() == View.Agent) return true;
             foreach (var b in bands) if (b > 0.004f) return true;
