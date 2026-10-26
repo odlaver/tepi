@@ -103,12 +103,16 @@ namespace Tepi
                     Version latest, mine;
                     if (!Version.TryParse(tag, out latest) || !Version.TryParse(AppVersion, out mine) || latest <= mine) return;
                     if (!url.StartsWith("https://github.com/odlaver/tepi/")) return;
+                    string asset, digest;
+                    ReadAsset(o, out asset, out digest);
                     Post(() =>
                     {
                         bool first = newVersion != tag;
                         newVersion = tag;
                         newUrl = url;
-                        if (first) ShowInfo(Ink.IcoRefresh, "Tepi " + tag + " tersedia", "tray › Unduh pembaruan", true);
+                        newAsset = asset;
+                        newDigest = digest;
+                        if (first) ShowInfo(Ink.IcoRefresh, Lang.F("Tepi {0} tersedia", tag), Lang.T("tray › Perbarui"), true);
                     });
                 }
                 catch (Exception ex) { Log.Write("update: " + ex.Message); }

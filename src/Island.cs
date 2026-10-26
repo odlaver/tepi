@@ -146,6 +146,7 @@ namespace Tepi
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            CleanUpdate();
             LoadLayout();
             BuildTray();
             ApplyClips();
@@ -1013,7 +1014,7 @@ namespace Tepi
             {
                 try { Process.Start("explorer.exe", "\"" + Settings.Dir + "\""); } catch (Exception ex) { Log.Write("open dir: " + ex.Message); }
             });
-            var updateItem = new ToolStripMenuItem("Unduh pembaruan", null, delegate { if (newUrl != null) OpenUrl(newUrl); }) { Visible = false };
+            var updateItem = new ToolStripMenuItem(Lang.T("Perbarui"), null, delegate { InstallUpdate(); }) { Visible = false };
             var hideItem = new ToolStripMenuItem("Sembunyikan island", null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+H" };
             var prompterItem = new ToolStripMenuItem("Teleprompter", null, delegate { if (PrompterOn) StopPrompter(); else OpenPrompter(); });
             var focusItem = new ToolStripMenuItem("Fokus");
@@ -1026,7 +1027,7 @@ namespace Tepi
                 prompterItem.Checked = PrompterOn;
                 FillFocusMenu(focusItem);
                 updateItem.Visible = newVersion != null;
-                if (newVersion != null) updateItem.Text = "Unduh Tepi " + newVersion;
+                if (newVersion != null) updateItem.Text = Lang.F(newAsset != null ? "Perbarui ke Tepi {0}" : "Unduh Tepi {0}", newVersion);
                 CheckLinks();
                 hookItem.DropDownItems.Clear();
                 hookItem.DropDownItems.Add(new ToolStripMenuItem("Claude Code" + (hookProfiles > 0 ? "" : " · tidak ditemukan"), null, delegate { ToggleHooks(); })

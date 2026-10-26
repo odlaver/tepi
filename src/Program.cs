@@ -19,6 +19,13 @@ namespace Tepi
         [MethodImpl(MethodImplOptions.NoInlining)]
         static int RunIsland()
         {
+            // After an update: wait for the old copy to quit
+            int old;
+            if (Environment.GetCommandLineArgs().Length > 2 && Environment.GetCommandLineArgs()[1] == "--after" && int.TryParse(Environment.GetCommandLineArgs()[2], out old))
+            {
+                try { using (var prev = System.Diagnostics.Process.GetProcessById(old)) prev.WaitForExit(15000); }
+                catch (ArgumentException) { }
+            }
             bool created;
             using (var mutex = new Mutex(true, @"Local\TepiIsland", out created))
             {
