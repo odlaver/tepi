@@ -310,7 +310,10 @@ namespace Tepi
             var bd = BackdropShown(DateTime.UtcNow) ? cover : null;
             string key = bx + "," + by + "," + bw + "," + bh + "," + extra.ToString("0.00") + Ink.Light;
             var use = surfaces[bd != null ? 1 : 0];
-            if (!SurfaceFresh(use, bd, key)) BakeSurface(use, bd, key, bx, by, bw, bh, fx, bounds.Height, tone, extra);
+            bool moving = PanelMoving() || !sh.Settled;
+            // Only the screen behind changed: keep the old copy until things rest
+            bool staleOk = moving && use.Image != null && use.Key == key && ReferenceEquals(use.Backdrop, bd);
+            if (!SurfaceFresh(use, bd, key) && !staleOk) BakeSurface(use, bd, key, bx, by, bw, bh, fx, bounds.Height, tone, extra);
             Blit(use.Image, bx, by, true);
             backdropInSurface = bd != null;
             // Ready the other one while nothing moves

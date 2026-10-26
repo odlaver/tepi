@@ -11,34 +11,51 @@ namespace Tepi
         string classesError;
         readonly HashSet<string> warnedClasses = new HashSet<string>();
         readonly Spring scheduleScroll = new Spring(0, 300, 34, 0.2f);
-        const float ClassRowH = 48, DayHeadH = 30;
+        const float ClassRowH = 34;
 
-        // Rows and day headers, top to bottom
-        List<object> ScheduleRows()
+        DateTime scheduleDay;
+        const float HeroH = 82, ChipsH = 40;
+
+        // Days with classes, soonest first, at most six
+        List<DateTime> ScheduleDays()
         {
-            var rows = new List<object>();
-            if (classes == null) return rows;
-            DateTime day = DateTime.MinValue;
-            foreach (var c in classes)
-            {
-                if (c.Start.Date != day) { day = c.Start.Date; rows.Add(day); }
-                rows.Add(c);
-            }
-            return rows;
+            var days = new List<DateTime>();
+            if (classes != null)
+                foreach (var c in classes)
+                    if (!days.Contains(c.Start.Date) && days.Count < 6) days.Add(c.Start.Date);
+            return days;
         }
 
-        float ScheduleContentH()
+        DateTime ChosenDay()
         {
-            float h = 0;
-            foreach (var r in ScheduleRows()) h += r is DateTime ? DayHeadH : ClassRowH;
-            return h;
+            var days = ScheduleDays();
+            if (days.Count == 0) return DateTime.Now.Date;
+            if (days.Contains(scheduleDay)) return scheduleDay;
+            var next = NextClass();
+            return next != null && days.Contains(next.Start.Date) ? next.Start.Date : days[0];
         }
+
+        List<ClassSlot> DayClasses()
+        {
+            var day = ChosenDay();
+            return classes == null ? new List<ClassSlot>() : classes.FindAll(c => c.Start.Date == day);
+        }
+
+        ClassSlot NextClass()
+        {
+            if (classes == null) return null;
+            var now = DateTime.Now;
+            foreach (var c in classes) if (!c.Cancelled && c.End > now) return c;
+            return null;
+        }
+
+        float ScheduleContentH() { return DayClasses().Count * ClassRowH; }
 
         float ScheduleHeight()
         {
             if (kulia == null || !kulia.Configured || !kulia.SignedIn) return 214;
             if (classes == null || classes.Count == 0) return 214;
-            return Clamp(PanelTop + 14 + ScheduleContentH(), 150, 372);
+            return Clamp(PanelTop + 8 + HeroH + ChipsH + ScheduleContentH() + 12, 150, 372);
         }
 
         static string DayName(DateTime day)
@@ -82,42 +99,73 @@ namespace Tepi
                 Empty(w, Ink.IcoCalendar, "Tidak ada kelas", "7 hari ke depan kosong");
                 return;
             }
-            var area = new RectangleF(10, PanelTop + 2, w - 20, h - PanelTop - 12);
+            var nowLocal = DateTime.Now;
+            // Hero: the class that matters next
+            var next = NextClass();
+            var hero = new RectangleF(16, PanelTop + 4, w - 32, HeroH - 8);
+            p.FillRound(hero, 18, p.T.Fill);
+            if (next != null)
+            {
+                bool live = nowLocal >= next.Start;
+                string when = live ? "Sedang berlangsung · sampai " + Fmt.Hm(next.End)
+                                   : "Berikutnya · " + (next.Start.Date == nowLocal.Date ? Fmt.Left(next.Start - nowLocal) + " lagi" : DayName(next.Start.Date).ToLower());
+                p.Text(when, Ink.Small(11f), live ? p.T.Accent : p.T.Sub, hero.X + 16, hero.Y + 18, hero.Width - 32, StringAlignment.Near);
+                p.Text(next.Title, Ink.Semi(15f), p.T.Text, hero.X + 16, hero.Y + 40, hero.Width - 150, StringAlignment.Near);
+                p.TextRight(Fmt.Hm(next.Start) + "–" + Fmt.Hm(next.End), Ink.Semi(12.5f), p.T.Text, hero.Right - 16, hero.Y + 40);
+                string note = SlotNote(next);
+                if (note.Length > 0) p.Text(note, Ink.Small(11f), p.T.Sub, hero.X + 16, hero.Y + 60, hero.Width - 32, StringAlignment.Near);
+            }
+            else p.Text("Tidak ada kelas lagi minggu ini", Ink.Semi(13f), p.T.Sub, hero.X + 16, hero.Y + hero.Height / 2, hero.Width - 32, StringAlignment.Near);
+
+            // Day chips
+            var chosen = ChosenDay();
+            float cx = 16, cy = PanelTop + HeroH + ChipsH / 2 - 2;
+            foreach (var day in ScheduleDays())
+            {
+                string label = day == nowLocal.Date ? "Hari ini" : day == nowLocal.Date.AddDays(1) ? "Besok" : day.ToString("ddd d", Fmt.Id);
+                float cw = p.Measure(label, Ink.Semi(11.5f)) + 24;
+                if (cx + cw > w - 16) break;
+                var chip = new RectangleF(cx, cy - 13, cw, 26);
+                string id = "day" + day.ToString("yyyyMMdd");
+                bool on = day == chosen;
+                if (on) p.FillRound(chip, 13, p.T.Accent);
+                else if (Hover(id)) p.FillRound(chip, 13, p.T.FillHover);
+                else p.StrokeRound(chip, 13, p.T.Line, 1f);
+                p.TextCenter(label, Ink.Semi(11.5f), on ? p.T.OnAccent : p.T.Sub, chip.X + cw / 2, cy);
+                var pick = day;
+                AddHit(chip, id, delegate { scheduleDay = pick; scheduleScroll.Snap(0); Kick(); });
+                cx += cw + 6;
+            }
+
+            // Classes of the chosen day, one line each
+            var area = new RectangleF(10, PanelTop + HeroH + ChipsH, w - 20, h - PanelTop - HeroH - ChipsH - 8);
             var st = g.Save();
             g.IntersectClip(area);
             float y = area.Y - scheduleScroll.Value;
-            var nowLocal = DateTime.Now;
-            foreach (var r in ScheduleRows())
+            foreach (var c in DayClasses())
             {
-                if (r is DateTime)
-                {
-                    if (y + DayHeadH > area.Top && y < area.Bottom)
-                        p.Text(DayName((DateTime)r), Ink.Small(11f), p.T.Faint, 26, y + DayHeadH / 2 + 4, w - 52, StringAlignment.Near);
-                    y += DayHeadH;
-                    continue;
-                }
-                var c = (ClassSlot)r;
+                float rc = y + ClassRowH / 2;
                 if (y + ClassRowH > area.Top && y < area.Bottom)
                 {
-                    float cy = y + ClassRowH / 2;
                     bool live = !c.Cancelled && nowLocal >= c.Start && nowLocal < c.End;
-                    if (live) p.FillRound(new RectangleF(14, y + 2, w - 28, ClassRowH - 4), 14, p.T.Fill);
-                    var faded = c.Cancelled ? p.T.Faint : p.T.Text;
-                    p.Text(Fmt.Hm(c.Start), Ink.Semi(13f), faded, 26, cy - 9, 70, StringAlignment.Near);
-                    p.Text(Fmt.Hm(c.End), Ink.Small(11f), p.T.Faint, 26, cy + 10, 70, StringAlignment.Near);
+                    var ink = c.Cancelled || nowLocal >= c.End ? p.T.Faint : p.T.Text;
+                    p.Text(Fmt.Hm(c.Start), Ink.Semi(12.5f), live ? p.T.Accent : ink, 26, rc, 52, StringAlignment.Near);
                     string tag = c.Cancelled ? "batal" : c.Exam ? "ujian" : live ? "sekarang" : "";
-                    float tagW = tag.Length > 0 ? p.Measure(tag, Ink.Semi(11f)) + 20 : 0;
+                    string room = SlotNote(c);
+                    float roomW = room.Length > 0 ? Math.Min(150, p.Measure(room, Ink.Small(11f))) : 0;
+                    float tagW = tag.Length > 0 ? p.Measure(tag, Ink.Semi(10.5f)) + 16 : 0;
+                    float right = w - 26;
                     if (tag.Length > 0)
                     {
-                        var pill = new RectangleF(w - 26 - tagW, cy - 11, tagW, 22);
-                        if (c.Cancelled) p.StrokeRound(pill, 11, p.T.Faint, 1.2f);
-                        else p.FillRound(pill, 11, p.T.Accent);
-                        p.TextCenter(tag, Ink.Semi(11f), c.Cancelled ? p.T.Faint : p.T.OnAccent, pill.X + pill.Width / 2, cy);
+                        var pill = new RectangleF(right - tagW, rc - 10, tagW, 20);
+                        if (c.Cancelled) p.StrokeRound(pill, 10, p.T.Faint, 1f); else p.FillRound(pill, 10, p.T.Accent);
+                        p.TextCenter(tag, Ink.Semi(10.5f), c.Cancelled ? p.T.Faint : p.T.OnAccent, pill.X + tagW / 2, rc);
+                        right -= tagW + 8;
                     }
-                    float tx = 90, tw = w - tx - 26 - (tagW > 0 ? tagW + 10 : 0);
-                    p.Text(c.Title, Ink.Semi(13f), faded, tx, cy - 9, tw, StringAlignment.Near);
-                    p.Text(SlotNote(c), Ink.Small(11f), p.T.Sub, tx, cy + 10, tw, StringAlignment.Near);
-                    if (c.Cancelled) g.DrawLine(p.P(p.T.Faint, 1.2f), tx, cy - 9, tx + Math.Min(tw, p.Measure(c.Title, Ink.Semi(13f))), cy - 9);
+                    if (roomW > 0) p.Text(room, Ink.Small(11f), p.T.Faint, right, rc, roomW, StringAlignment.Far);
+                    float tx = 84, tw = right - roomW - 12 - tx;
+                    p.Text(c.Title, Ink.Semi(12.5f), ink, tx, rc, tw, StringAlignment.Near);
+                    if (c.Cancelled) g.DrawLine(p.P(p.T.Faint, 1f), tx, rc, tx + Math.Min(tw, p.Measure(c.Title, Ink.Semi(12.5f))), rc);
                 }
                 y += ClassRowH;
             }
