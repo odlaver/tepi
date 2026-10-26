@@ -53,7 +53,9 @@ namespace Tepi
 
         float ScheduleHeight()
         {
-            if (kulia == null || !kulia.Configured || !kulia.SignedIn) return 214;
+            if (kulia == null || !kulia.Configured) return 214;
+            // Room for the sign-in button
+            if (!kulia.SignedIn || (classes == null && classesError != null)) return 252;
             if (classes == null || classes.Count == 0) return 214;
             return Clamp(PanelTop + 8 + HeroH + ChipsH + ScheduleContentH() + 12, 150, 372);
         }

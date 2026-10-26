@@ -16,13 +16,21 @@ namespace Tepi
             return RunIsland();
         }
 
+        // Old copy may still be closing after an update
+        static bool Take(Mutex m)
+        {
+            try { return m.WaitOne(20000); }
+            catch (AbandonedMutexException) { return true; }
+        }
+
         // Relay path never loads WinForms
         [MethodImpl(MethodImplOptions.NoInlining)]
         static int RunIsland()
         {
             // After an update: wait for the old copy to quit
-            int old;
-            if (Environment.GetCommandLineArgs().Length > 2 && Environment.GetCommandLineArgs()[1] == "--after" && int.TryParse(Environment.GetCommandLineArgs()[2], out old))
+            int old = 0;
+            bool after = Environment.GetCommandLineArgs().Length > 2 && Environment.GetCommandLineArgs()[1] == "--after" && int.TryParse(Environment.GetCommandLineArgs()[2], out old);
+            if (after)
             {
                 try { using (var prev = System.Diagnostics.Process.GetProcessById(old)) prev.WaitForExit(15000); }
                 catch (ArgumentException) { }
@@ -30,7 +38,7 @@ namespace Tepi
             bool created;
             using (var mutex = new Mutex(true, @"Local\TepiIsland", out created))
             {
-                if (!created) return 0;
+                if (!created && !(after && Take(mutex))) return 0;
                 // Full collections must not block a frame
                 System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
                 try { Native.SetProcessDpiAwarenessContext(new IntPtr(-4)); }

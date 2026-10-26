@@ -306,9 +306,9 @@ namespace Tepi
             if (FocusOn && !MediaVisible()) return View.Focus;
             if (MediaVisible()) return LyricOnIsland() ? View.Lyric : View.Media;
             if (ActiveDownload() != null) return View.Download;
-            if (ClassNow() != null) return View.Class;
             if (BusySession() != null) return View.Agent;
             if (SoonTask() != null) return View.Task;
+            if (ClassNow() != null) return View.Class;
             return View.Idle;
         }
 
@@ -1011,6 +1011,7 @@ namespace Tepi
             // Rebuilt when the language changes
             if (tray != null) { tray.Visible = false; tray.Dispose(); }
             if (menu != null) menu.Dispose();
+            if (trayIcon != null) trayIcon.Dispose();
             menu = new ContextMenuStrip { ShowCheckMargin = true, ShowImageMargin = false };
             var title = new ToolStripMenuItem("Tepi") { Enabled = false };
             var kuliaItem = new ToolStripMenuItem("Kulia");

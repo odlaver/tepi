@@ -16,7 +16,7 @@ namespace Tepi
             public long Size, LastSize;
             public double Speed;
             public int Percent = -1;
-            public DateTime Seen;
+            public DateTime Seen, FirstUtc;
         }
 
         static readonly string[] PartialExt = { ".crdownload", ".part", ".partial", ".download", ".opdownload" };
@@ -42,16 +42,23 @@ namespace Tepi
         void ApplyDownloads()
         {
             bool want = DownloadsOn;
+            // Script progress needs the tick even with downloads off
+            downloadTimer.Tick -= DownloadTick;
+            downloadTimer.Tick += DownloadTick;
             if (want && downloadWatcher == null)
             {
                 downloadDir = DownloadsFolder();
                 if (downloadDir == null || !Directory.Exists(downloadDir)) return;
-                downloadTimer.Tick -= DownloadTick;
-                downloadTimer.Tick += DownloadTick;
                 try
                 {
                     downloadWatcher = new FileSystemWatcher(downloadDir) { IncludeSubdirectories = false, NotifyFilter = NotifyFilters.FileName };
-                    FileSystemEventHandler wake = (s, e) => Post(delegate { if (!downloadTimer.Enabled) DownloadTick(null, null); });
+                    // Only partial files wake a scan
+                    FileSystemEventHandler wake = (s, e) =>
+                    {
+                        var r = e as RenamedEventArgs;
+                        if (FinalName(e.FullPath) == null && (r == null || FinalName(r.OldFullPath) == null)) return;
+                        Post(delegate { if (!downloadTimer.Enabled) DownloadTick(null, null); });
+                    };
                     downloadWatcher.Created += wake;
                     downloadWatcher.Renamed += (s, e) => wake(s, e);
                     downloadWatcher.EnableRaisingEvents = true;
@@ -92,7 +99,7 @@ namespace Tepi
                     Download d;
                     if (!downloads.TryGetValue(path, out d))
                     {
-                        d = new Download { Partial = path, Final = final, Name = Path.GetFileName(final), LastSize = size };
+                        d = new Download { Partial = path, Final = final, Name = Path.GetFileName(final), LastSize = size, FirstUtc = DateTime.UtcNow };
                         downloads[path] = d;
                     }
                     double rate = Math.Max(0, size - d.LastSize) / (downloadTimer.Interval / 1000.0);
@@ -114,11 +121,23 @@ namespace Tepi
                 }
                 downloads.Remove(gone);
                 // Final file present means it finished, else cancelled
-                if (File.Exists(d.Final) && !d.Name.StartsWith("Unconfirmed ", StringComparison.Ordinal)) DownloadDone(d);
+                if (Finished(d)) DownloadDone(d);
             }
             if (downloads.Count > 0) { if (!downloadTimer.Enabled) downloadTimer.Start(); }
             else downloadTimer.Stop();
             Kick();
+        }
+
+        // Fresh, non-empty final file; an old same-named file does not count
+        static bool Finished(Download d)
+        {
+            if (d.Name.StartsWith("Unconfirmed ", StringComparison.Ordinal)) return false;
+            try
+            {
+                var f = new FileInfo(d.Final);
+                return f.Exists && f.Length > 0 && f.LastWriteTimeUtc >= d.FirstUtc.AddSeconds(-10);
+            }
+            catch (IOException) { return false; }
         }
 
         void DownloadDone(Download d)

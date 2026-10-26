@@ -48,6 +48,7 @@ namespace Tepi
                 {
                     updating = false;
                     if (error == null) { Log.Write("update: installed " + version); Close(); return; }
+                    if (error == Restart) { ShowInfo(Ink.IcoRefresh, Lang.F("Tepi {0} terpasang", version), Lang.T("buka ulang Tepi"), true); return; }
                     Log.Write("update failed: " + error);
                     ShowInfo(Ink.IcoRefresh, Lang.T("Pembaruan gagal"), Lang.T("halaman rilis dibuka"), true);
                     if (newUrl != null) OpenUrl(newUrl);
@@ -61,6 +62,8 @@ namespace Tepi
             var req = (HttpWebRequest)WebRequest.Create(url);
             req.UserAgent = "Tepi/" + AppVersion;
             req.Timeout = 60000;
+            req.ReadWriteTimeout = 30000;
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             using (var res = (HttpWebResponse)req.GetResponse())
             using (var stream = res.GetResponseStream())
             using (var mem = new MemoryStream())
@@ -84,11 +87,26 @@ namespace Tepi
             File.WriteAllBytes(fresh, data);
             if (File.Exists(old)) File.Delete(old);
             // A running exe can be renamed, not overwritten
-            File.Move(exe, old);
-            try { File.Move(fresh, exe); }
-            catch { File.Move(old, exe); throw; }
-            Process.Start(new ProcessStartInfo(exe, "--after " + Process.GetCurrentProcess().Id) { UseShellExecute = false, WorkingDirectory = dir });
+            MoveRetry(exe, old);
+            try { MoveRetry(fresh, exe); }
+            catch { MoveRetry(old, exe); throw; }
+            try { Process.Start(new ProcessStartInfo(exe, "--after " + Process.GetCurrentProcess().Id) { UseShellExecute = false, WorkingDirectory = dir }); }
+            catch (Exception ex) { Log.Write("update restart: " + ex.Message); return Restart; }
             return null;
+        }
+
+        const string Restart = "restart";
+
+        // Antivirus may hold a fresh exe for a moment
+        static void MoveRetry(string from, string to)
+        {
+            for (int i = 0; ; i++)
+            {
+                try { File.Move(from, to); return; }
+                catch (IOException) { if (i >= 9) throw; }
+                catch (UnauthorizedAccessException) { if (i >= 9) throw; }
+                Thread.Sleep(300);
+            }
         }
 
         // Leftover from the previous version

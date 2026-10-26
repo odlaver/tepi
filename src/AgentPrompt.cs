@@ -44,7 +44,9 @@ namespace Tepi
 
         bool SendToAgent(AgentSession s, string text)
         {
-            text = text.Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ').Trim();
+            var clean = new System.Text.StringBuilder(text.Length);
+            foreach (char ch in text) clean.Append(char.IsControl(ch) ? ' ' : ch);
+            text = clean.ToString().Trim();
             if (text.Length == 0) return true;
             if (text.Length > PromptMax) text = text.Substring(0, PromptMax);
             if (!TerminalFinder.Focus(s.Window)) return false;
@@ -57,7 +59,9 @@ namespace Tepi
                 front = GetAncestor(GetForegroundWindow(), 3) == want;
             }
             if (!front) return false;
-            for (int i = 0; i < 25 && (GetAsyncKeyState(0x0D) & 0x8000) != 0; i++) Thread.Sleep(20);
+            // Held Shift/Ctrl/Alt/Enter would change the keystrokes
+            for (int i = 0; i < 40 && AnyHeld(0x0D, 0x10, 0x11, 0x12, 0x5B, 0x5C); i++) Thread.Sleep(20);
+            if (AnyHeld(0x10, 0x11, 0x12, 0x5B, 0x5C)) return false;
 
             var inputs = new INPUT[text.Length * 2 + 2];
             for (int i = 0; i < text.Length; i++)
@@ -70,6 +74,12 @@ namespace Tepi
             uint sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
             if (sent != inputs.Length) Log.Write("send prompt: " + sent + "/" + inputs.Length + " err " + Marshal.GetLastWin32Error());
             return sent == inputs.Length;
+        }
+
+        static bool AnyHeld(params int[] keys)
+        {
+            foreach (int k in keys) if ((GetAsyncKeyState(k) & 0x8000) != 0) return true;
+            return false;
         }
 
         static INPUT Key(ushort vk, char ch, uint flags)

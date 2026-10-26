@@ -28,12 +28,12 @@ namespace Tepi
             bool want = ClipsOn;
             if (want == clipListening) return;
             if (want) clipListening = AddClipboardFormatListener(Handle);
-            else { RemoveClipboardFormatListener(Handle); clipListening = false; clips.Clear(); }
+            else { RemoveClipboardFormatListener(Handle); clipListening = false; clipRetry.Stop(); clips.Clear(); }
             clipRetry.Tick -= ClipRetryTick;
             clipRetry.Tick += ClipRetryTick;
         }
 
-        void ClipRetryTick(object sender, EventArgs e) { clipRetry.Stop(); ReadClipboard(false); }
+        void ClipRetryTick(object sender, EventArgs e) { clipRetry.Stop(); if (clipListening) ReadClipboard(false); }
 
         // WM_CLIPBOARDUPDATE
         void OnClipboardUpdate() { if (clipListening) ReadClipboard(true); }

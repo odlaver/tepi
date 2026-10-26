@@ -79,7 +79,7 @@ namespace Tepi
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "1.4.0";
+        public const string AppVersion = "1.4.1";
         string newVersion, newUrl;
 
         void StartUpdateCheck()
@@ -428,7 +428,7 @@ namespace Tepi
                 {
                     string err = AgentSetup.Install(id);
                     if (err != null) ShowInfo(Ink.IcoTerminal, Lang.T("Belum terhubung"), err, true);
-                    else ShowInfo(Ink.IcoTerminal, name + " terhubung", id == "codex" ? Lang.T("percayai lewat /hooks di Codex") : Lang.T("pantau saja · berlaku di sesi baru"), true);
+                    else ShowInfo(Ink.IcoTerminal, Lang.F("{0} terhubung", name), id == "codex" ? Lang.T("percayai lewat /hooks di Codex") : Lang.T("pantau saja · berlaku di sesi baru"), true);
                 }
             }
             catch (Exception ex)
@@ -760,13 +760,13 @@ namespace Tepi
         void MarkDone(KuliaTask task)
         {
             string old = task.Status;
-            task.Status = Lang.T("selesai");
+            task.Status = "selesai";
             if (tasks != null) tasks.Remove(task);
             Kick();
             ThreadPool.QueueUserWorkItem(delegate
             {
                 bool ok;
-                try { ok = kulia.SetStatus(task, Lang.T("selesai")); }
+                try { ok = kulia.SetStatus(task, "selesai"); }
                 catch (Exception ex) { Log.Write("kulia status: " + ex.Message); ok = false; }
                 Post(() =>
                 {

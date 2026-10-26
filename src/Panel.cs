@@ -643,7 +643,7 @@ namespace Tepi
         {
             var left = dueUtc - nowUtc;
             var local = dueUtc.ToLocalTime();
-            if (left.TotalMinutes < 0) return "lewat " + Fmt.Ago(dueUtc).Replace(" lalu", "");
+            if (left.TotalMinutes < 0) return Lang.F("lewat {0}", Fmt.Ago(dueUtc).Replace(Lang.English ? " ago" : " lalu", ""));
             if (left.TotalMinutes < 60) return (int)Math.Max(1, left.TotalMinutes) + Lang.T(" menit lagi");
             if (left.TotalHours < 12) return (int)left.TotalHours + Lang.T(" jam lagi");
             var today = DateTime.Now.Date;

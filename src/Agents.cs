@@ -121,6 +121,8 @@ namespace Tepi
                     string got, path = parts.Length >= 2 ? parts[1] : "";
                     // "/hook": Claude; "/hook/<agent>": relay
                     string agent = path == "/hook" ? "claude" : path == "/notify" ? "plugin" : path.StartsWith("/hook/") ? Uri.UnescapeDataString(path.Substring(6)).ToLowerInvariant() : null;
+                    // Scripts only through /notify
+                    if (agent == "plugin" && path != "/notify") agent = null;
                     // Browsers send Origin; hooks never do
                     if (parts[0] != "POST" || agent == null || agent.Length == 0 || agent.Length > 32 || headers.ContainsKey("Origin") ||
                         !headers.TryGetValue("X-Tepi-Token", out got) || !SameToken(got, token))
@@ -137,7 +139,7 @@ namespace Tepi
                     try { ev.Window = TerminalFinder.ForConnection((IPEndPoint)client.Client.RemoteEndPoint, port); }
                     catch (Exception ex) { Log.Write("terminal lookup: " + ex.Message); }
 
-                    if (ev.Name != "PermissionRequest")
+                    if (ev.Name != "PermissionRequest" || agent == "plugin")
                     {
                         Reply(stream, 200, "");
                         Raise(ev);

@@ -181,7 +181,7 @@ namespace Tepi
             prompterMarks.Clear();
             foreach (int m in marks) if (prompterMarks.Count == 0 || prompterMarks[prompterMarks.Count - 1] < m * PrompterLineH) prompterMarks.Add(m * PrompterLineH);
             prompterNextMark = 0;
-            while (prompterNextMark < prompterMarks.Count && prompterMarks[prompterNextMark] < prompterPos) prompterNextMark++;
+            while (prompterNextMark < prompterMarks.Count && prompterMarks[prompterNextMark] <= prompterPos) prompterNextMark++;
         }
 
         // Words wider than a line are split by characters
@@ -200,8 +200,11 @@ namespace Tepi
 
         void DrawPrompter(float w, float h, DateTime now)
         {
+            // Fading out after Stop: nothing left to draw
+            if (prompterText == null) return;
             var f = Ink.Semi(PrompterPx);
-            float lh = PrompterLineH, textW = w - PrompterPad * 2;
+            // Wrap at the final width so a morph never reflows the script
+            float lh = PrompterLineH, textW = PrompterW - PrompterPad * 2;
             if (prompterLines == null || prompterWrapW != textW || prompterWrapPx != PrompterPx) WrapPrompter(textW, f);
 
             var st = g.Save();
@@ -214,7 +217,7 @@ namespace Tepi
 
             // Progress along the bottom edge
             float end = PrompterEnd(), done = end <= 0 ? 1 : Ease.Clamp01(prompterPos / end);
-            var track = new RectangleF(PrompterPad, h - 8, textW, 2);
+            var track = new RectangleF(PrompterPad, h - 8, w - PrompterPad * 2, 2);
             p.FillRound(track, 1, p.T.Line);
             if (done > 0) p.FillRound(new RectangleF(track.X, track.Y, Math.Max(2, track.Width * done), 2), 1, p.T.Accent);
 

@@ -31,13 +31,21 @@ namespace Tepi
             {
                 string key = "plugin:" + id;
                 Download d;
-                if (!downloads.TryGetValue(key, out d)) downloads[key] = d = new Download { Partial = key };
+                if (!downloads.TryGetValue(key, out d))
+                {
+                    int bars = 0;
+                    foreach (var x in downloads.Values) if (x.Percent >= 0) bars++;
+                    if (bars >= 8) return;
+                    downloads[key] = d = new Download { Partial = key };
+                }
                 d.Name = title;
                 d.Percent = Math.Max(0, Math.Min(100, progress));
                 d.Seen = DateTime.UtcNow;
                 if (d.Percent >= 100)
                 {
                     downloads.Remove(key);
+                    if ((DateTime.UtcNow - lastPluginUtc).TotalSeconds >= 0.5) lastPluginUtc = DateTime.UtcNow;
+                    else { Kick(); return; }
                     ShowInfo('', title, detail.Length > 0 ? detail : Lang.T("selesai"), true);
                 }
                 if (downloads.Count > 0 && !downloadTimer.Enabled) downloadTimer.Start();

@@ -43,7 +43,12 @@ namespace Tepi
             else if (key == "dock") ResetFrost();
             else if (key == "notif") notifWatcher.Enabled = NotifOn;
             else if (key == "lyrics.online") { lyrics = null; SyncLyrics(); }
-            else if (key == "clipboard") ApplyClips();
+            else if (key == "clipboard")
+            {
+                ApplyClips();
+                // Older saved tab lists lack the clipboard tab
+                if (on && Array.IndexOf(tabs, PageClips) < 0) SetLayout("tabs", string.Join(",", tabs) + "," + PageClips);
+            }
             else if (key == "downloads") ApplyDownloads();
             else if (key == "capture.show") ApplyGlass();
             Kick();

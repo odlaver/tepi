@@ -408,8 +408,8 @@ namespace Tepi
         {
             if (t.TotalMinutes < 1) return "<1m";
             if (t.TotalHours < 1) return (int)t.TotalMinutes + "m";
-            if (t.TotalHours < 24) return (int)t.TotalHours + "j " + t.Minutes + "m";
-            return (int)t.TotalDays + "h";
+            if (t.TotalHours < 24) return (int)t.TotalHours + (Lang.English ? "h " : "j ") + t.Minutes + "m";
+            return (int)t.TotalDays + (Lang.English ? "d" : "h");
         }
 
         public static string OneLine(string s, int max)
