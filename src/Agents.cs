@@ -17,6 +17,8 @@ namespace Tepi
         public string Tool = "", Activity = "", LastMessage = "";
         public bool Failed;
         public IntPtr Window;
+        public readonly HashSet<string> Files = new HashSet<string>();
+        public int Commands;
         public DateTime StartedUtc, LastUtc, TurnStartedUtc;
     }
 
@@ -263,7 +265,7 @@ namespace Tepi
                 case "Read":
                 case "Write":
                 case "Edit":
-                case "NotebookEdit": return Path.GetFileName(Json.Str(input, "file_path").TrimEnd('\\', '/'));
+                case "NotebookEdit": return LastPart(Json.Str(input, "file_path"));
                 case "Grep": return Json.Str(input, "pattern");
                 case "Glob": return Json.Str(input, "pattern");
                 case "WebFetch":
@@ -280,6 +282,13 @@ namespace Tepi
                 return bits.Length >= 3 ? bits[1] + " · " + bits[2] : tool;
             }
             return "";
+        }
+
+        // Last path segment; never throws on odd characters
+        public static string LastPart(string path)
+        {
+            string p = (path ?? "").TrimEnd('\\', '/');
+            return p.Substring(Math.Max(p.LastIndexOf('\\'), p.LastIndexOf('/')) + 1);
         }
 
         public static string ToolLabel(string tool)

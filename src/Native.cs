@@ -117,7 +117,8 @@ namespace Tepi
         }
 
         // Fullscreen app on the primary monitor
-        public static bool IsFullscreenOnPrimary()
+        // Foreground app covering the island's monitor
+        public static bool IsFullscreenOn(IntPtr monitor)
         {
             int quns;
             if (SHQueryUserNotificationState(out quns) == 0 && (quns == 3 || quns == 4)) return true;
@@ -135,7 +136,8 @@ namespace Tepi
             if (!GetWindowRect(hwnd, out r)) return false;
             var mi = new MONITORINFO();
             mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
-            if (!GetMonitorInfo(MonitorFromWindow(hwnd, 2), ref mi) || (mi.dwFlags & 1) == 0) return false;
+            IntPtr on = MonitorFromWindow(hwnd, 2);
+            if (on != monitor || !GetMonitorInfo(on, ref mi)) return false;
             return r.Left <= mi.rcMonitor.Left && r.Top <= mi.rcMonitor.Top && r.Right >= mi.rcMonitor.Right && r.Bottom >= mi.rcMonitor.Bottom;
         }
 

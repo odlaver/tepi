@@ -201,7 +201,7 @@ namespace Tepi
             if (mediaInfo.DurationMs > 0)
             {
                 float f = (float)(mediaInfo.Position(now) / mediaInfo.DurationMs);
-                p.Circle(x0 + (x1 - x0) * Ease.Clamp01(f), y + 2, Hover("seek") ? 6.5f : 4.5f, p.T.Text);
+                p.Circle(x0 + (x1 - x0) * Ease.Clamp01(f), y + 2, Hover("seek") ? 6.5f : 4.5f, p.T.Accent);
             }
             p.Text(Fmt.Clock(mediaInfo.Position(now)), Ink.Small(11f), p.T.Sub, x0, y + 18);
             if (mediaInfo.DurationMs > 0) p.TextRight(Fmt.Clock(mediaInfo.DurationMs), Ink.Small(11f), p.T.Sub, x1, y + 18);
@@ -307,8 +307,8 @@ namespace Tepi
                 float v = playing ? bands[band] : 0;
                 float bh = 3 + v * (maxH - 3);
                 float bx = x + i * (bw + gap);
-                p.FillRound(new RectangleF(bx, baseY - bh, bw, bh), bw / 2, Ink.A(p.T.Text, 0.45f + 0.55f * v));
-                p.FillRound(new RectangleF(bx, baseY + 3, bw, bh * 0.35f), bw / 2, Ink.A(p.T.Text, 0.12f));
+                p.FillRound(new RectangleF(bx, baseY - bh, bw, bh), bw / 2, Ink.A(p.T.Accent, 0.45f + 0.55f * v));
+                p.FillRound(new RectangleF(bx, baseY + 3, bw, bh * 0.35f), bw / 2, Ink.A(p.T.Accent, 0.12f));
             }
         }
 

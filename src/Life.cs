@@ -79,7 +79,7 @@ namespace Tepi
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "1.1.2";
+        public const string AppVersion = "1.2.0";
         string newVersion, newUrl;
 
         void StartUpdateCheck()
@@ -446,7 +446,7 @@ namespace Tepi
             if (cwd.Length > 0)
             {
                 s.Cwd = cwd;
-                string name = System.IO.Path.GetFileName(cwd.TrimEnd('\\', '/'));
+                string name = AgentHub.LastPart(cwd);
                 s.Project = name.Length > 0 ? name : cwd;
             }
             string profile = AgentHub.ProfileOf(Json.Str(ev.Data, "transcript_path"));
@@ -485,9 +485,12 @@ namespace Tepi
                     s.State = AgentState.Working;
                     s.Tool = tool;
                     s.Activity = AgentHub.Describe(tool, input);
+                    // Codex has no PostToolUse hook here
+                    if (ev.Agent == "codex") Tally(s, tool, input);
                     break;
                 case "PostToolUse":
                 case "PostToolUseFailure":
+                    if (ev.Name == "PostToolUse") Tally(s, tool, input);
                     SettleApprovals(s.Id, tool, AgentHub.Describe(tool, input));
                     if (s.State == AgentState.Waiting)
                     {
@@ -537,6 +540,28 @@ namespace Tepi
         }
 
         // Everything that will run or be written
+        // Counts behind the session summary
+        static void Tally(AgentSession s, string tool, Dictionary<string, object> input)
+        {
+            if (tool == "Bash" || tool == "PowerShell") s.Commands++;
+            else if (tool == "Edit" || tool == "Write" || tool == "MultiEdit" || tool == "NotebookEdit")
+            {
+                string f = Json.Str(input, "file_path");
+                if (f.Length == 0) f = Json.Str(input, "notebook_path");
+                if (f.Length > 0) s.Files.Add(f.ToLowerInvariant());
+            }
+        }
+
+        static string Summary(AgentSession s, DateTime now)
+        {
+            var parts = new List<string>();
+            int min = Math.Max(0, (int)(now - s.StartedUtc).TotalMinutes);
+            parts.Add(min < 1 ? "baru" : min < 60 ? min + " mnt" : (min / 60) + " j " + (min % 60) + " mnt");
+            if (s.Files.Count > 0) parts.Add(s.Files.Count + " berkas");
+            if (s.Commands > 0) parts.Add(s.Commands + " perintah");
+            return string.Join(" · ", parts);
+        }
+
         // Bring the session's terminal forward
         bool FocusTerminal(AgentSession s)
         {

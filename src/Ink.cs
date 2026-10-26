@@ -11,10 +11,12 @@ namespace Tepi
     class Tone
     {
         public Color Bg, Text, Sub, Faint, Fill, FillHover, Line;
+        // Accent: pill, bars, progress; ink on top of it
+        public Color Accent, OnAccent, Progress;
 
         public static Tone Dark()
         {
-            return new Tone
+            return Defaults(new Tone
             {
                 Bg = Color.FromArgb(255, 0, 0, 0),
                 Text = Color.FromArgb(255, 244, 244, 244),
@@ -23,12 +25,20 @@ namespace Tepi
                 Fill = Color.FromArgb(30, 255, 255, 255),
                 FillHover = Color.FromArgb(52, 255, 255, 255),
                 Line = Color.FromArgb(38, 255, 255, 255),
-            };
+            });
+        }
+
+        static Tone Defaults(Tone t)
+        {
+            t.Accent = t.Text;
+            t.OnAccent = t.Bg;
+            t.Progress = t.Sub;
+            return t;
         }
 
         public static Tone Paper()
         {
-            return new Tone
+            return Defaults(new Tone
             {
                 Bg = Color.FromArgb(255, 245, 245, 245),
                 Text = Color.FromArgb(255, 10, 10, 10),
@@ -37,7 +47,7 @@ namespace Tepi
                 Fill = Color.FromArgb(22, 0, 0, 0),
                 FillHover = Color.FromArgb(42, 0, 0, 0),
                 Line = Color.FromArgb(34, 0, 0, 0),
-            };
+            });
         }
     }
 
@@ -46,11 +56,34 @@ namespace Tepi
         public static Tone Base = Tone.Dark(), Flip = Tone.Paper();
         public static bool Light;
 
+        static Color? accent;
+
         public static void Apply(bool light)
         {
             Light = light;
             Base = light ? Tone.Paper() : Tone.Dark();
             Flip = light ? Tone.Dark() : Tone.Paper();
+            foreach (var t in new[] { Base, Flip }) { t.Accent = t.Text; t.OnAccent = t.Bg; t.Progress = t.Sub; }
+            if (accent.HasValue)
+            {
+                var c = accent.Value;
+                Base.Accent = Base.Progress = c;
+                // Dark ink on light accents
+                Base.OnAccent = c.R * 0.299 + c.G * 0.587 + c.B * 0.114 > 150 ? Color.FromArgb(255, 10, 10, 10) : Color.FromArgb(255, 250, 250, 250);
+            }
+        }
+
+        // "#RRGGBB", or empty for monochrome
+        public static void SetAccent(string hex)
+        {
+            accent = null;
+            if (hex != null && hex.Length == 7 && hex[0] == '#')
+            {
+                int v;
+                if (int.TryParse(hex.Substring(1), System.Globalization.NumberStyles.HexNumber, null, out v))
+                    accent = Color.FromArgb(255, (v >> 16) & 255, (v >> 8) & 255, v & 255);
+            }
+            Apply(Light);
         }
 
         // Segoe Fluent Icons code points

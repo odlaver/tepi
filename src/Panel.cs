@@ -171,14 +171,14 @@ namespace Tepi
                 int to = i;
                 AddHit(r, "tab" + i, delegate { SetPage(to, false); });
             }
-            p.FillRound(pill, TabH / 2, p.T.Text);
-            if (tabX.Settled && tabW.Settled) DrawTabIcon(page, rects[page].X + rects[page].Width / 2, rects[page].Y + rects[page].Height / 2, p.T.Bg);
+            p.FillRound(pill, TabH / 2, p.T.Accent);
+            if (tabX.Settled && tabW.Settled) DrawTabIcon(page, rects[page].X + rects[page].Width / 2, rects[page].Y + rects[page].Height / 2, p.T.OnAccent);
             else
             {
                 // Icons under the sliding pill flip colour
                 var st = g.Save();
                 using (var clip = Ink.Round(pill, TabH / 2)) g.SetClip(clip, CombineMode.Intersect);
-                for (int i = 0; i < rects.Length; i++) DrawTabIcon(i, rects[i].X + rects[i].Width / 2, rects[i].Y + rects[i].Height / 2, p.T.Bg);
+                for (int i = 0; i < rects.Length; i++) DrawTabIcon(i, rects[i].X + rects[i].Width / 2, rects[i].Y + rects[i].Height / 2, p.T.OnAccent);
                 g.Restore(st);
             }
             for (int i = 0; i < rects.Length; i++)
@@ -433,10 +433,14 @@ namespace Tepi
                     p.Text(s.Profile, Ink.Small(11f), p.T.Sub, px, cy - 9.5f, 120, StringAlignment.Near);
                 }
                 p.TextRight(StateWord(s), Ink.Small(11f), p.T.Sub, w - 26, cy - 10);
+                string meta = Summary(s, DateTime.UtcNow);
+                var mf = Ink.Small(11f);
+                float lineW = w - 60 - 26 - p.Measure(meta, mf) - 14;
+                p.TextRight(meta, mf, p.T.Faint, w - 26, cy + 10);
                 if ((s.State == AgentState.Done || s.State == AgentState.Ended) && s.LastMessage.Length > 0)
-                    p.Text(s.LastMessage, Ink.Text(12f), p.T.Sub, 60, cy + 10, w - 60 - 26, StringAlignment.Near);
+                    p.Text(s.LastMessage, Ink.Text(12f), p.T.Sub, 60, cy + 10, lineW, StringAlignment.Near);
                 else
-                    p.Text(AgentLine(s), Ink.Mono(11.5f), p.T.Sub, 60, cy + 10, w - 60 - 26, StringAlignment.Near);
+                    p.Text(AgentLine(s), Ink.Mono(11.5f), p.T.Sub, 60, cy + 10, lineW, StringAlignment.Near);
                 if (i < list.Count - 1) g.DrawLine(p.P(p.T.Line, 1f), 60, y + rowH - 0.5f, w - 26, y + rowH - 0.5f);
             }
             g.Restore(st);

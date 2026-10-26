@@ -30,7 +30,9 @@ Tepi memberi tahu sendiri kalau ada versi baru. Kalau mau dikabari lewat email j
 
 - **Arahkan kursor** ke island untuk membuka panel. Ikon di atas panel berpindah antara Ringkasan, Musik, Agen, Tugas, dan Pesan.
 - **Scroll** di atas island untuk mengubah volume.
-- **Klik kanan** island atau ikon tray untuk menu: Sembunyikan island, Hubungkan agen, Kulia, Efek kaca, Island terang, Lirik di island, Visualizer, Notifikasi pesan, Tampilkan isi pesan, Mulai bersama Windows.
+- **Klik kanan** island atau ikon tray untuk menu: Sembunyikan island, Fokus, Hubungkan agen, Kulia, Efek kaca, Island terang, Warna aksen, Lirik di island, Cari lirik online, Visualizer, Notifikasi pesan, Tampilkan isi pesan, Layar (kalau monitornya lebih dari satu), Mulai bersama Windows.
+- **Fokus** di menu tray memulai timer 25 atau 50 menit, lalu istirahat 5 menit. Timer tampil di island, atau sebagai cincin di samping pil musik.
+- **Warna aksen** mewarnai tab aktif, visualizer, dan bilah progres. Pilih **Monokrom** untuk kembali hitam-putih.
 - **Ctrl+Alt+H** menyembunyikan atau memunculkan island. Kartu izin agent tetap muncul walau island disembunyikan.
 - Di tab **Musik**, tombol di kanan atas mengganti tata letak antara lirik dan kartu album. Klik baris lirik untuk loncat ke bagian lagu itu.
 
@@ -51,6 +53,7 @@ Klik nama yang sama sekali lagi untuk melepasnya. Sebelum mengubah berkas, Tepi 
 Cara kerjanya:
 
 - Claude Code mengirim event ke `http://127.0.0.1:47821/hook`. Agent lain menjalankan `Tepi.exe --relay <agent>`, yang meneruskan event ke alamat yang sama. Semua request memakai token acak yang dibuat saat Tepi pertama kali jalan. Request tanpa token yang benar, atau yang datang dari browser, ditolak.
+- Tab **Agen** menampilkan durasi setiap sesi, jumlah berkas yang diubah, dan jumlah perintah yang dijalankan.
 - Klik sesi di tab **Agen**, atau toast **Selesai**, untuk membuka jendela terminal sesi itu. Kalau beberapa sesi ada di tab berbeda dalam satu jendela Windows Terminal, yang dibuka jendelanya.
 - Saat agent minta izin, island berbalik putih dan menahan permintaan itu sampai kamu memilih. Kalau tidak dijawab dalam 110 detik, atau kamu memilih **Jawab di terminal**, keputusan kembali ke prompt biasa di terminal.
 - Kalau Tepi sedang tidak jalan, agent tetap bekerja seperti biasa tanpa pesan galat.
@@ -139,6 +142,9 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `agent.port` | `47821` | Port server hook |
 | `agent.wait` | `110` | Detik menahan permintaan izin |
 | `update.check` | `1` | Cek versi baru sekali sehari |
+| `accent` | kosong | Warna aksen, misalnya `#4C8DFF`; kosong untuk monokrom |
+| `monitor` | kosong | Monitor tempat island tampil; kosong untuk monitor utama |
+| `focus.break` | `5` | Menit istirahat setelah fokus |
 | `kulia.url`, `kulia.key` | server kulia.live | Arahkan ke instance Kulia lain |
 
 Variabel lingkungan untuk pengembangan:

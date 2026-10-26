@@ -30,6 +30,7 @@ namespace Tepi
                 case View.Info: return new SizeF(InfoWidth(), 42);
                 case View.Task: return new SizeF(TaskWidth(), 38);
                 case View.Deadline: return new SizeF(414, 74);
+                case View.Focus: return new SizeF(FocusWidth(), 38);
                 default: return new SizeF(PanelW, PanelHeight());
             }
         }
@@ -67,6 +68,7 @@ namespace Tepi
                 case View.Info: DrawInfo(w, h); break;
                 case View.Task: DrawTask(w, h, now); break;
                 case View.Deadline: DrawDeadline(w, h); break;
+                case View.Focus: DrawFocus(w, h, now); break;
                 case View.Panel: DrawPanel(w, h, now); break;
             }
         }
@@ -228,7 +230,7 @@ namespace Tepi
                 float v = playing ? bands[Math.Min(Spectrum.Bands - 1, band)] : 0;
                 float bh = 3f + v * (maxH - 3f);
                 float x = right - (count - i) * (barW + gap) + gap;
-                p.FillRound(new RectangleF(x, cy - bh / 2, barW, bh), barW / 2, Ink.A(p.T.Text, playing ? 0.5f + 0.5f * v : 0.35f));
+                p.FillRound(new RectangleF(x, cy - bh / 2, barW, bh), barW / 2, Ink.A(p.T.Accent, playing ? 0.5f + 0.5f * v : 0.35f));
             }
         }
 
@@ -237,7 +239,7 @@ namespace Tepi
             if (mediaInfo.DurationMs <= 0) return;
             float f = (float)(mediaInfo.Position(now) / mediaInfo.DurationMs);
             p.FillRound(new RectangleF(x0, y, x1 - x0, thickness), thickness / 2, p.T.Line);
-            p.FillRound(new RectangleF(x0, y, Math.Max(thickness, (x1 - x0) * Ease.Clamp01(f)), thickness), thickness / 2, p.T.Sub);
+            p.FillRound(new RectangleF(x0, y, Math.Max(thickness, (x1 - x0) * Ease.Clamp01(f)), thickness), thickness / 2, p.T.Progress);
         }
 
         void DrawMedia(float w, float h, DateTime now)
@@ -610,6 +612,7 @@ namespace Tepi
                 if (s != null && s.State == AgentState.Waiting) p.Icon(Ink.IcoTerminal, 12f, p.T.Text, bx, cy);
                 else p.Orbit(bx, cy, 7f, orbitPhase, p.T.Text);
             }
+            else if (kind == View.Focus) DrawFocusRing(bx, cy, 7f);
             else if (kind == View.Task)
             {
                 var t = SoonTask();

@@ -13,7 +13,7 @@ using WinTimer = System.Windows.Forms.Timer;
 
 namespace Tepi
 {
-    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Panel }
+    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Focus, Panel }
 
     class Toast
     {
@@ -95,6 +95,7 @@ namespace Tepi
 
             Ink.Init();
             Ink.Apply(settings.Get("theme", "gelap") == "terang");
+            Ink.SetAccent(settings.Get("accent", ""));
             clockTimer.Tick += delegate { ClockTick(); };
             toastTimer.Tick += delegate { toastTimer.Stop(); DismissToast(); };
             hoverTimer.Tick += delegate
@@ -211,6 +212,29 @@ namespace Tepi
 
         void OnDisplaySettings(object sender, EventArgs e) { Post(OnDisplayChanged); }
 
+        IntPtr monitorHandle;
+
+        // Monitor picked in the tray, else the primary
+        IntPtr ChosenMonitor()
+        {
+            string want = settings.Get("monitor", "");
+            if (want.Length > 0)
+                foreach (var s in Screen.AllScreens)
+                    if (s.DeviceName == want)
+                        return Native.MonitorFromPoint(new Native.POINT(s.Bounds.Left + s.Bounds.Width / 2, s.Bounds.Top + s.Bounds.Height / 2), 2);
+            return Native.MonitorFromPoint(new Native.POINT(0, 0), 1);
+        }
+
+        void UseMonitor(string device)
+        {
+            settings.Set("monitor", device);
+            settings.Save();
+            UpdateMonitor();
+            ResetFrost();
+            CheckFullscreen();
+            Kick();
+        }
+
         void OnDisplayChanged()
         {
             UpdateMonitor();
@@ -219,7 +243,8 @@ namespace Tepi
 
         void UpdateMonitor()
         {
-            IntPtr mon = Native.MonitorFromPoint(new Native.POINT(0, 0), 1);
+            IntPtr mon = ChosenMonitor();
+            monitorHandle = mon;
             var mi = new Native.MONITORINFO { cbSize = Marshal.SizeOf(typeof(Native.MONITORINFO)) };
             Native.GetMonitorInfo(mon, ref mi);
             monitorPx = Rectangle.FromLTRB(mi.rcMonitor.Left, mi.rcMonitor.Top, mi.rcMonitor.Right, mi.rcMonitor.Bottom);
@@ -268,6 +293,7 @@ namespace Tepi
             if (approvals.Count > 0) return View.Approve;
             if (expanded) return View.Panel;
             if (toast != null) return toast.View;
+            if (FocusOn && !MediaVisible()) return View.Focus;
             if (MediaVisible()) return LyricOnIsland() ? View.Lyric : View.Media;
             if (BusySession() != null) return View.Agent;
             if (SoonTask() != null) return View.Task;
@@ -279,6 +305,7 @@ namespace Tepi
         {
             if (current != View.Media && current != View.Lyric) return View.Idle;
             if (BusySession() != null) return View.Agent;
+            if (FocusOn) return View.Focus;
             if (SoonTask() != null) return View.Task;
             return View.Idle;
         }
@@ -384,7 +411,8 @@ namespace Tepi
             int mode = Frame();
             if (mode == Motion) { ambientTimer.Stop(); animating = true; }
             else if (mode == Stopped) { ambientTimer.Stop(); trimTimer.Stop(); trimTimer.Start(); }
-            if ((DateTime.UtcNow - lastTrimUtc).TotalSeconds > 90) Trim();
+            // Keeps Task Manager memory near 5-11 MB while music plays
+            if ((DateTime.UtcNow - lastTrimUtc).TotalSeconds > 45) Trim();
         }
 
         // Return idle memory to Windows
@@ -434,7 +462,7 @@ namespace Tepi
         {
             return !sw.Settled || !sh.Settled || !sr.Settled || !bubble.Settled || !opacity.Settled || !topGap.Settled ||
                    (flipLinear != 0 && flipLinear != 1) || (now - switchedUtc).TotalSeconds < 0.5 ||
-                   (toast != null && (now - toast.ShownUtc).TotalSeconds < 1.2) || PanelMoving() || ViewsMoving(now) || clockRoller.Moving(now) || ApproveArming(now);
+                   (toast != null && (now - toast.ShownUtc).TotalSeconds < 1.2) || PanelMoving() || ViewsMoving(now) || clockRoller.Moving(now) || ApproveArming(now) || (FocusOn && focusRoller.Moving(now));
         }
 
         // Rendering
@@ -901,7 +929,7 @@ namespace Tepi
 
         void CheckFullscreen()
         {
-            bool fs = Native.IsFullscreenOnPrimary();
+            bool fs = Native.IsFullscreenOn(monitorHandle);
             if (!fs && windowShown) Native.SetWindowPos(Handle, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
             if (fs == fullscreen) return;
             fullscreen = fs;
@@ -915,6 +943,7 @@ namespace Tepi
             bool redraw = hm != clockRoller.Value;
             clockRoller.Set(hm);
             redraw |= LifeTick();
+            redraw |= FocusTick(DateTime.UtcNow);
             if (redraw || expanded || DesiredView() != current) Kick();
         }
 
@@ -978,13 +1007,17 @@ namespace Tepi
             });
             var updateItem = new ToolStripMenuItem("Unduh pembaruan", null, delegate { if (newUrl != null) OpenUrl(newUrl); }) { Visible = false };
             var hideItem = new ToolStripMenuItem("Sembunyikan island", null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+H" };
+            var focusItem = new ToolStripMenuItem("Fokus");
+            var accentItem = new ToolStripMenuItem("Warna aksen");
+            var screenItem = new ToolStripMenuItem("Layar");
             var exit = new ToolStripMenuItem("Keluar", null, delegate { Close(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, hookItem, kuliaItem, new ToolStripSeparator(), glassItem, lightItem, lyricItem, onlineItem, vizItem, notifItem, contentItem, autoItem, new ToolStripSeparator(), dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, focusItem, hookItem, kuliaItem, new ToolStripSeparator(), glassItem, lightItem, accentItem, lyricItem, onlineItem, vizItem, notifItem, contentItem, screenItem, autoItem, new ToolStripSeparator(), dataItem, exit });
             menu.Opening += delegate
             {
                 try { autoItem.Checked = AutoStart.Enabled; } catch (Exception) { }
                 lightItem.Checked = Ink.Light;
                 hideItem.Checked = hiddenByUser;
+                FillTrayExtras(focusItem, accentItem, screenItem);
                 updateItem.Visible = newVersion != null;
                 if (newVersion != null) updateItem.Text = "Unduh Tepi " + newVersion;
                 glassItem.Checked = GlassOn;
@@ -1023,6 +1056,54 @@ namespace Tepi
             trayIcon = MakeTrayIcon();
             tray = new NotifyIcon { Icon = trayIcon, Text = "Tepi", ContextMenuStrip = menu, Visible = true };
             tray.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) Expand(DefaultPage(false)); };
+        }
+
+        static readonly string[][] Accents =
+        {
+            new[] { "Monokrom", "" }, new[] { "Biru", "#4C8DFF" }, new[] { "Hijau", "#3DD68C" }, new[] { "Kuning", "#FFD24A" },
+            new[] { "Oranye", "#FF9F43" }, new[] { "Merah muda", "#FF6B9A" }, new[] { "Ungu", "#A78BFA" },
+        };
+
+        // Rebuilt each time the menu opens
+        void FillTrayExtras(ToolStripMenuItem focusItem, ToolStripMenuItem accentItem, ToolStripMenuItem screenItem)
+        {
+            focusItem.DropDownItems.Clear();
+            focusItem.Checked = FocusOn;
+            foreach (var m in new[] { 25, 50 })
+            {
+                int minutes = m;
+                focusItem.DropDownItems.Add(new ToolStripMenuItem(minutes + " menit", null, delegate { StartFocus(minutes); }));
+            }
+            focusItem.DropDownItems.Add(new ToolStripMenuItem("Hentikan", null, delegate { StopFocus(); }) { Enabled = FocusOn });
+
+            accentItem.DropDownItems.Clear();
+            string current = settings.Get("accent", "");
+            foreach (var a in Accents)
+            {
+                var pick = a;
+                accentItem.DropDownItems.Add(new ToolStripMenuItem(pick[0], null, delegate
+                {
+                    settings.Set("accent", pick[1]);
+                    settings.Save();
+                    Ink.SetAccent(pick[1]);
+                    Kick();
+                }) { Checked = current == pick[1] });
+            }
+
+            screenItem.DropDownItems.Clear();
+            var screens = Screen.AllScreens;
+            screenItem.Visible = screens.Length > 1;
+            string chosen = settings.Get("monitor", "");
+            bool known = Array.Exists(screens, sc => sc.DeviceName == chosen);
+            for (int i = 0; i < screens.Length; i++)
+            {
+                var sc = screens[i];
+                string label = "Layar " + (i + 1) + (sc.Primary ? " · utama" : "") + " · " + sc.Bounds.Width + "×" + sc.Bounds.Height;
+                screenItem.DropDownItems.Add(new ToolStripMenuItem(label, null, delegate { UseMonitor(sc.Primary ? "" : sc.DeviceName); })
+                {
+                    Checked = known ? sc.DeviceName == chosen : sc.Primary
+                });
+            }
         }
 
         // Placeholder mark: the island's own pill shape
