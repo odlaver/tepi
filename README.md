@@ -10,18 +10,18 @@ Native C# tanpa browser engine. File exe sekitar 300 KB, memori sekitar 6 sampai
 |---|---|
 | Ringkasan | Satu layar berisi lagu yang diputar, siapa saja yang mengirim pesan, dan tugas terdekat beserta tenggatnya. |
 | Musik dan lirik | Semua pemutar yang muncul di kontrol media Windows: Spotify, YouTube dan YouTube Music di browser, Apple Music, Media Player, VLC, dan lainnya. Yang sedang berbunyi yang ditampilkan. Lirik tersinkron dari LRCLIB menyapu kata demi kata di island. Panel musik punya dua tata letak: teleprompter lirik atau kartu album dengan piringan hitam yang berputar. Visualizer membaca suara yang benar-benar diputar. |
-| Agent coding | Claude Code, Codex, Gemini CLI, dan Antigravity. Status setiap sesi (sedang bekerja, menunggu izin, selesai beserta ringkasan balasannya). Permintaan izin dari Claude Code dan Codex bisa dijawab **Izinkan** atau **Tolak** langsung dari island, tanpa membuka terminal. Prompt singkat bisa dikirim ke terminal sesi dari tab Agen. |
+| Agent coding | Claude Code, Codex, Gemini CLI, dan Antigravity. Status setiap sesi (sedang bekerja, menunggu izin, selesai beserta ringkasan balasannya). Permintaan izin dari Claude Code dan Codex bisa dijawab **Izinkan**, **Selalu**, atau **Tolak** langsung dari island, tanpa membuka terminal, dan diff panjang bisa digulir sampai habis sebelum diizinkan. Prompt singkat bisa dikirim ke terminal sesi dari tab Agen. |
 | Tugas Kulia | Tugas aktif dari [Kulia](https://kulia.live) dengan tenggatnya, pengingat 60 menit sebelum tenggat, dan tombol tandai selesai. |
 | Jadwal kuliah | Kelas tujuh hari ke depan dari Kulia. Kartu di atas menunjukkan kelas berikutnya dan berapa menit lagi, deretan hari untuk memilih tanggal, lalu satu baris per kelas berisi jam, mata kuliah, dan ruang. Kelas batal dicoret, ujian ditandai, kelas daring punya tombol **Buka kelas**. Selama kelas berjalan, island menampilkannya beserta sisa waktunya. Pengingat muncul 15 menit sebelum kelas. |
 | Pesan | WhatsApp, Telegram, Discord, Teams, Slack, email, dan aplikasi chat lain dari pusat notifikasi Windows. Di Ringkasan, pesan dikelompokkan per pengirim. |
 | Clipboard | 25 teks terakhir yang kamu salin, klik untuk menyalinnya lagi. Hanya di memori, dan mati sampai kamu menyalakannya. |
 | Unduhan | Unduhan di Chrome, Edge, Firefox, Brave, dan Opera tampil di island beserta ukuran dan kecepatannya. Klik toast **Unduhan selesai** untuk membuka foldernya. |
-| Teleprompter | Tempel naskah, dan island menggulirkannya pelan di tepi atas layar, dekat kamera. Kecepatan dihitung dalam kata per menit. Ada hitung mundur, mode cermin untuk teleprompter kaca, penanda `[jeda]`, dan sisa waktu baca. Naskah tidak ikut terekam saat screen share atau rekam layar. |
+| Teleprompter | Tempel naskah, dan island menggulirkannya pelan di tepi atas layar, dekat kamera. Kecepatan dihitung dalam kata per menit. Ada hitung mundur, mode cermin untuk teleprompter kaca, penanda `[jeda]`, sisa waktu baca, beberapa naskah tersimpan, dan impor dari `.txt` atau `.md`. Naskah tidak ikut terekam saat screen share atau rekam layar. |
 | Fokus | Timer 25 atau 50 menit, lalu istirahat. |
 | Skrip | Skrip apa pun bisa memunculkan toast atau bilah progres di island lewat `Tepi.exe --notify`. |
 | Aktivitas sistem | Volume, charger dan baterai, Wi-Fi, serta aplikasi yang memakai mikrofon atau kamera. |
 | Tampilan | Menempel di tepi atas layar atau mengambang, efek kaca, tema gelap atau terang, warna aksen, posisi kiri sampai kanan, lebar panel, serta tab mana yang tampil dan urutannya. Otomatis menyingkir saat ada aplikasi layar penuh. |
-| Aksesibilitas | Toast dan permintaan izin dibacakan oleh pembaca layar (Narrator, NVDA). Island bisa dipilih ikut terekam atau tidak saat screenshot dan rekam layar. |
+| Aksesibilitas | Seluruh island bisa dipakai dengan keyboard (Ctrl+Alt+I). Toast, tab, tombol, dan permintaan izin dibacakan oleh pembaca layar (Narrator, NVDA). Island bisa dipilih ikut terekam atau tidak saat screenshot dan rekam layar. |
 
 ## Pasang
 
@@ -37,9 +37,9 @@ Tepi memberi tahu sendiri kalau ada versi baru. Klik kanan ikon Tepi, lalu **Per
 
 - **Arahkan kursor** ke island untuk membuka panel. Ikon di atas panel berpindah antara Ringkasan, Musik, Agen, Tugas, Pesan, Jadwal, dan Clipboard.
 - **Scroll** di atas island untuk mengubah volume.
-- **Klik kanan** island atau ikon tray untuk menu: Sembunyikan island, Fokus, Teleprompter, Hubungkan agen, Kulia, Pengaturan, Buka folder data.
+- **Klik kanan** island atau ikon tray untuk menu: Sembunyikan island, Navigasi keyboard, Fokus, Teleprompter, Hubungkan agen, Kulia, Pengaturan, Buka folder data.
 - **Fokus** di menu tray memulai timer 25 atau 50 menit, lalu istirahat 5 menit. Timer tampil di island, atau sebagai cincin di samping pil musik.
-- **Ctrl+Alt+H** menyembunyikan atau memunculkan island. Kartu izin agent tetap muncul walau island disembunyikan.
+- **Sembunyikan island**: klik ikon mata di pojok kiri atas panel, atau tekan **Ctrl+Alt+H**. Untuk memunculkannya lagi, klik ikon Tepi di tray atau tekan Ctrl+Alt+H. Kartu izin agent tetap muncul walau island disembunyikan.
 - Di tab **Musik**, tombol di kanan atas mengganti tata letak antara lirik dan kartu album. Klik baris lirik untuk loncat ke bagian lagu itu.
 - Di tab **Jadwal**, klik hari di deretan tengah untuk melihat kelas tanggal itu. Kelas daring yang punya tautan bisa diklik untuk membukanya.
 - Di tab **Clipboard**, klik teks untuk menyalinnya lagi. Tombol tempat sampah di kanan atas menghapus semuanya.
@@ -56,10 +56,28 @@ Klik kanan ikon Tepi, lalu **Pengaturan**. Setiap perubahan langsung berlaku tan
 
 Island yang ikut terekam tidak bisa memakai efek kaca, karena efek kaca membaca layar di belakangnya dan akan ikut membaca dirinya sendiri. Selama opsi itu menyala, latarnya polos.
 
+### Navigasi keyboard
+
+Tekan **Ctrl+Alt+I** dari aplikasi mana pun. Panel terbuka dan island menerima keyboard:
+
+| Tombol | Fungsi |
+|---|---|
+| Tab, Shift+Tab | Pindah ke tombol berikutnya atau sebelumnya. Tombol yang dipilih diberi garis tepi. |
+| Kiri, Kanan | Pindah tab panel |
+| 1 sampai 9 | Langsung ke tab ke-n |
+| Atas, Bawah | Gulir daftar, diff di kartu izin, atau naskah teleprompter |
+| Enter, Spasi | Tekan tombol yang dipilih |
+| Esc | Keluar, fokus kembali ke jendela sebelumnya |
+
+Kartu izin agent juga bisa dijawab dengan cara ini. Jeda 0,8 detik sebelum **Izinkan** bisa ditekan tetap berlaku. Kalau pembaca layar aktif, nama tab dan tombol dibacakan.
+
 ### Teleprompter
 
 1. Klik kanan ikon Tepi, lalu **Teleprompter**.
-2. Tempel naskah, atur kecepatan (kata per menit) dan ukuran huruf, nyalakan **Cermin** kalau memakai teleprompter kaca, lalu **Mulai** (atau Ctrl+Enter).
+2. Pilih naskah tersimpan, tempel naskah baru, atau klik **Impor** untuk membuka berkas `.txt` atau `.md`. Format Markdown (judul, tebal, tautan, blok kode) dibuang, tinggal teks yang dibaca.
+3. Atur kecepatan (kata per menit) dan ukuran huruf, nyalakan **Cermin** kalau memakai teleprompter kaca, lalu **Mulai** (atau Ctrl+Enter).
+
+**Simpan** menyimpan naskah dengan nama baris pertamanya, atau menimpa naskah yang sedang dipilih. **Hapus** menghapus naskah yang dipilih. Naskah tersimpan ada di `%APPDATA%\Tepi\naskah`.
 
 Naskah mulai setelah hitung mundur 3 detik. Selama naskah berjalan:
 
@@ -75,7 +93,14 @@ Naskah mulai setelah hitung mundur 3 detik. Selama naskah berjalan:
 
 Di tab **Agen**, arahkan kursor ke sebuah sesi lalu klik **Kirim**. Tulis prompt, tekan Enter. Tepi membawa terminal sesi itu ke depan, lalu mengetik prompt dan menekan Enter. Kalau terminalnya tidak bisa dibawa ke depan, tidak ada yang diketik.
 
-Kalau beberapa sesi berjalan di tab berbeda dalam satu jendela Windows Terminal, prompt masuk ke tab yang sedang aktif. Kotak kirim mengingatkan hal ini.
+Kalau beberapa sesi berjalan di tab berbeda dalam satu jendela Windows Terminal, prompt masuk ke tab yang sedang aktif. Kotak kirim mengingatkan hal ini. Tekan panah atas dan bawah di kotak kirim untuk memanggil prompt yang pernah dikirim (hanya di memori, hilang saat Tepi ditutup).
+
+### Menjawab izin
+
+- **Izinkan** dan **Tolak** menjawab permintaan itu saja.
+- **Selalu** mengizinkan permintaan itu, lalu mengizinkan otomatis permintaan yang persis sama (alat dan isi perintahnya sama) di sesi yang sama. Ingatan ini hilang saat sesi selesai.
+- **Terminal** mengembalikan keputusan ke prompt di terminal.
+- Diff atau perintah yang lebih dari 10 baris bisa digulir di dalam kartu. **Izinkan** dan **Selalu** baru terbuka setelah digulir sampai akhir. Yang lebih dari 300 baris tetap dijawab di terminal.
 
 ### Skrip
 
@@ -157,20 +182,20 @@ Tepi hanya menghubungi tiga layanan luar, dan masing-masing bisa dimatikan:
 - Kartu izin menampilkan perintah atau isi perubahan berkas secara utuh. **Izinkan** terkunci kalau isinya lebih dari 10 baris (jawab di terminal untuk membacanya utuh), dan juga selama 0,8 detik pertama setelah kartu muncul supaya klik yang kebetulan mendarat di sana tidak ikut mengizinkan.
 - Kalau Tepi tidak jalan atau tidak menjawab, agent kembali ke prompt izinnya sendiri. Tepi tidak pernah mengizinkan apa pun tanpa klikmu.
 - Tautan tugas Kulia hanya dibuka kalau alamatnya `http` atau `https`.
-- Tidak ada pembaruan diam-diam. Exe hanya berubah saat kamu klik **Perbarui ke Tepi x.y.z**. Tepi hanya menerima `Tepi.exe` dari alamat rilis repo ini, mengunduhnya lewat HTTPS, lalu mencocokkan SHA-256-nya dengan digest yang dicatat GitHub untuk berkas itu. Kalau tidak cocok, exe lama tidak disentuh dan halaman rilis dibuka. Exe lama disimpan sebagai `Tepi.old.exe` sampai Tepi baru jalan, lalu dihapus. Kalau folder exe tidak bisa ditulis (misalnya di Program Files), Tepi membuka halaman rilis.
+- Tidak ada pembaruan diam-diam. Exe hanya berubah saat kamu klik **Perbarui ke Tepi x.y.z**. Tepi hanya menerima `Tepi.exe` dari alamat rilis repo ini, mengunduhnya lewat HTTPS, lalu mencocokkan SHA-256-nya dengan digest yang dicatat GitHub untuk berkas itu. Kalau tidak cocok, exe lama tidak disentuh dan halaman rilis dibuka. Exe lama disimpan sebagai `Tepi.old.exe` sampai Tepi baru jalan, lalu dihapus. Kalau folder exe tidak bisa ditulis (misalnya di Program Files), Tepi membuka halaman rilis. Begitu rilis Tepi ditandatangani (Authenticode), exe baru juga wajib bertanda tangan sah dari penerbit yang sama dengan exe yang sedang jalan.
 - `Tepi.exe --notify` dan `/notify` dijaga token yang sama dengan hook agent. Teks dari skrip dibersihkan dari karakter kontrol, dipotong panjangnya, dan dibatasi satu toast per setengah detik.
 - **Kirim** di tab Agen hanya mengetik setelah Windows memastikan terminal sesi itu sudah di depan.
 - Menemukan celah? Laporkan secara privat lewat tab **Security > Report a vulnerability** di repo ini, jangan lewat issue publik.
 
-## Code signing policy
+## Tanda tangan kode
 
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). The application to SignPath Foundation is in progress; signed releases will say so in their release notes.
+Rilis Tepi belum ditandatangani, karena itu SmartScreen bisa memperingatkan saat pertama dijalankan. Cara memastikan exe yang kamu pegang asli:
 
-- Committers and reviewers: [odlaver](https://github.com/odlaver)
-- Approvers: [odlaver](https://github.com/odlaver)
-- Builds: every release binary is built from this repository by [GitHub Actions](.github/workflows/build.yml).
+- Setiap exe rilis dibangun dari repo ini oleh [GitHub Actions](.github/workflows/build.yml).
+- SHA-256 tertulis di catatan setiap rilis, dan GitHub mencatat digest yang sama untuk berkasnya. Cek dengan `Get-FileHash Tepi.exe` di PowerShell.
+- Atau build sendiri dari sumbernya (lihat [Build sendiri](#build-sendiri)).
 
-Privacy policy: this program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it, except the three services listed under [Privasi](#privasi), each of which can be turned off.
+Tepi tidak mengirim data apa pun ke luar kecuali tiga layanan di bagian [Privasi](#privasi), dan semuanya bisa dimatikan.
 
 ## Build sendiri
 
