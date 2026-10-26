@@ -153,6 +153,7 @@ namespace Tepi
             ApplyClips();
             ApplyDownloads();
             if (!RegisterHotKey(Handle, HideHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.H)) Log.Write("hotkey Ctrl+Alt+H taken");
+            if (!RegisterHotKey(Handle, KeysHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.I)) Log.Write("hotkey Ctrl+Alt+I taken");
             StartGlass();
             StartFeeds();
             EnsureDisc(64);
@@ -203,6 +204,7 @@ namespace Tepi
                 case 0x0312: // WM_HOTKEY
                     if (m.WParam.ToInt32() == HideHotkey) ToggleHidden();
                     else if (m.WParam.ToInt32() == PrompterHotkey) TogglePrompter();
+                    else if (m.WParam.ToInt32() == KeysHotkey) EnterKeyboard();
                     return;
                 case Native.WM_DPICHANGED:
                 case Native.WM_DISPLAYCHANGE:
@@ -760,6 +762,7 @@ namespace Tepi
             // Fade/slide only; scaling breaks glyph cache
             if (previous != current && outA > 0.01f) DrawViewAt(previous, outA, -(1 - outA) * 6, false, now);
             DrawViewAt(current, inA, (1 - Ease.OutBack(inA)) * 8, registerHits && inA > 0.8f, now);
+            if (registerHits) DrawFocusRing();
         }
 
         void DrawViewAt(View v, float alpha, float dy, bool registerHits, DateTime now)
@@ -784,7 +787,7 @@ namespace Tepi
         void AddHit(RectangleF local, string id, Action act)
         {
             // No pointer, no hits to allocate
-            if (!hitsOn || !pointerInside) return;
+            if (!hitsOn || !(pointerInside || keyboardMode)) return;
             local.Offset(originX, originY);
             hits.Add(new Hit { Rect = local, Id = id, Act = act });
         }
@@ -1031,11 +1034,12 @@ namespace Tepi
             });
             var updateItem = new ToolStripMenuItem(Lang.T("Perbarui"), null, delegate { InstallUpdate(); }) { Visible = false };
             var hideItem = new ToolStripMenuItem(Lang.T("Sembunyikan island"), null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+H" };
+            var keysItem = new ToolStripMenuItem(Lang.T("Navigasi keyboard"), null, delegate { EnterKeyboard(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+I" };
             var prompterItem = new ToolStripMenuItem(Lang.T("Teleprompter"), null, delegate { if (PrompterOn) StopPrompter(); else OpenPrompter(); });
             var focusItem = new ToolStripMenuItem(Lang.T("Fokus"));
             var exit = new ToolStripMenuItem(Lang.T("Keluar"), null, delegate { Close(); });
             var prefsItem = new ToolStripMenuItem(Lang.T("Pengaturan…"), null, delegate { OpenPrefs(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, focusItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, keysItem, focusItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
             menu.Opening += delegate
             {
                 hideItem.Checked = hiddenByUser;

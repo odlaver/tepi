@@ -22,20 +22,27 @@ namespace Tepi
         void AnnounceView(View v)
         {
             if (!settings.GetBool("a11y.announce", true) || !ScreenReaderOn()) return;
-            Post(() =>
+            Post(() => Speak(Describe(v), v == View.Approve));
+        }
+
+        void Announce(string text)
+        {
+            if (!settings.GetBool("a11y.announce", true) || !ScreenReaderOn()) return;
+            Speak(text, false);
+        }
+
+        void Speak(string text, bool important)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            try
             {
-                string text = Describe(v);
-                if (text.Length == 0) return;
-                try
-                {
-                    AccessibilityObject.RaiseAutomationNotification(
-                        System.Windows.Forms.Automation.AutomationNotificationKind.Other,
-                        v == View.Approve ? System.Windows.Forms.Automation.AutomationNotificationProcessing.ImportantMostRecent
-                                          : System.Windows.Forms.Automation.AutomationNotificationProcessing.MostRecent,
-                        text);
-                }
-                catch (Exception ex) { Log.Write("announce: " + ex.Message); }
-            });
+                AccessibilityObject.RaiseAutomationNotification(
+                    System.Windows.Forms.Automation.AutomationNotificationKind.Other,
+                    important ? System.Windows.Forms.Automation.AutomationNotificationProcessing.ImportantMostRecent
+                              : System.Windows.Forms.Automation.AutomationNotificationProcessing.MostRecent,
+                    text);
+            }
+            catch (Exception ex) { Log.Write("announce: " + ex.Message); }
         }
 
         string Describe(View v)
