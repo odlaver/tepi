@@ -80,9 +80,16 @@ Sesi login disimpan terenkripsi dengan DPAPI Windows dan hanya bisa dibuka oleh 
 
 ## Privasi
 
-- Ke LRCLIB hanya terkirim judul, artis, dan durasi lagu. Lirik yang ditemukan disimpan di `%APPDATA%\Tepi\lyrics` supaya tidak diambil ulang.
-- Sekali sehari Tepi menanyakan versi rilis terbaru ke `api.github.com`. Tidak ada data lain yang dikirim. Matikan dengan `update.check=0`.
-- Data Kulia hanya diambil dari server Kulia dengan akunmu sendiri.
+Tepi hanya menghubungi tiga layanan luar, dan masing-masing bisa dimatikan:
+
+| Layanan | Data yang dikirim | Kapan | Cara mematikan |
+|---|---|---|---|
+| [LRCLIB](https://lrclib.net) | Judul, artis, dan durasi lagu | Saat lagu baru diputar | Menu tray > **Cari lirik online** |
+| [Kulia](https://kulia.live) | Email, kode masuk, dan permintaan daftar tugasmu | Hanya kalau kamu masuk ke Kulia | Menu tray > **Kulia > Keluar dari Kulia** |
+| GitHub API | Permintaan versi rilis terbaru | Sekali sehari | `update.check=0` di `settings.ini` |
+
+- Isi pesan, data agent, dan isi layar tidak pernah dikirim ke mana pun. Server hook hanya bisa dijangkau dari komputer ini.
+- Lirik yang ditemukan disimpan di `%APPDATA%\Tepi\lyrics` supaya tidak diambil ulang.
 - Efek kaca membaca layar di belakang island untuk membuat latar buramnya. Karena itu island tidak ikut terekam saat screenshot atau screen share. Matikan **Efek kaca** di menu kalau island perlu ikut terekam.
 - Semua pengaturan dan cache ada di `%APPDATA%\Tepi`.
 
@@ -94,6 +101,16 @@ Sesi login disimpan terenkripsi dengan DPAPI Windows dan hanya bisa dibuka oleh 
 - Tautan tugas Kulia hanya dibuka kalau alamatnya `http` atau `https`.
 - Tidak ada pembaruan otomatis. Kalau ada versi baru, Tepi hanya memberi tahu dan menampilkan **Unduh Tepi x.y.z** di menu tray, yang membuka halaman rilis di repo ini. Exe hanya berubah kalau kamu mengunduh rilis baru. Cocokkan SHA-256 yang tertulis di halaman rilis, atau build sendiri dari sumbernya.
 - Menemukan celah? Laporkan secara privat lewat tab **Security > Report a vulnerability** di repo ini, jangan lewat issue publik.
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org). The application to SignPath Foundation is in progress; signed releases will say so in their release notes.
+
+- Committers and reviewers: [odlaver](https://github.com/odlaver)
+- Approvers: [odlaver](https://github.com/odlaver)
+- Builds: every release binary is built from this repository by [GitHub Actions](.github/workflows/build.yml).
+
+Privacy policy: this program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it, except the three services listed under [Privasi](#privasi), each of which can be turned off.
 
 ## Build sendiri
 
@@ -114,6 +131,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `glass` | `1` | Efek kaca |
 | `theme` | `gelap` | `gelap` atau `terang` |
 | `lyrics` | `1` | Lirik tersinkron di island |
+| `lyrics.online` | `1` | Cari lirik di LRCLIB |
 | `visualizer` | `1` | Visualizer musik |
 | `music.view` | `auto` | `auto`, `lyrics`, atau `album` |
 | `notif` | `1` | Notifikasi pesan |

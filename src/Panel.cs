@@ -328,7 +328,7 @@ namespace Tepi
             if (lyrics.State == LyricState.Plain) { DrawPlainLyrics(box); return; }
             if (lyrics.State != LyricState.Synced)
             {
-                string msg = lyrics.State == LyricState.Failed ? "LRCLIB tidak terjangkau · dicoba lagi otomatis" : "Lirik tidak ditemukan di LRCLIB";
+                string msg = lyrics.State == LyricState.Failed ? "LRCLIB tidak terjangkau · dicoba lagi otomatis" : !settings.GetBool("lyrics.online", true) ? "Pencarian lirik online dimatikan" : "Lirik tidak ditemukan di LRCLIB";
                 p.TextBox(msg, Ink.Text(12.5f), p.T.Sub, new RectangleF(box.X, box.Y + 16, box.Width, 40));
                 return;
             }

@@ -174,6 +174,12 @@ namespace Tepi
         void SyncLyrics()
         {
             if (!mediaInfo.Present) return;
+            // Privacy switch: nothing goes to LRCLIB
+            if (!settings.GetBool("lyrics.online", true))
+            {
+                if (lyrics == null || lyrics.Key != mediaInfo.Key) lyrics = new Lyrics { Key = mediaInfo.Key, State = LyricState.Missing };
+                return;
+            }
             if (lyrics != null && lyrics.Key == mediaInfo.Key && lyrics.State != LyricState.Failed) return;
             var l = lyricsSvc.Get(mediaInfo);
             if (l == null) return;

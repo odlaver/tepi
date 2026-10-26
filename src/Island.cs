@@ -965,6 +965,7 @@ namespace Tepi
                 Kick();
             });
             var lyricItem = new ToolStripMenuItem("Lirik di island", null, delegate { settings.Toggle("lyrics", true); Kick(); });
+            var onlineItem = new ToolStripMenuItem("Cari lirik online", null, delegate { settings.Toggle("lyrics.online", true); lyrics = null; SyncLyrics(); Kick(); });
             var vizItem = new ToolStripMenuItem("Visualizer", null, delegate { settings.Toggle("visualizer", true); Kick(); });
             var notifItem = new ToolStripMenuItem("Notifikasi pesan", null, delegate { settings.Toggle("notif", true); notifWatcher.Enabled = NotifOn; Kick(); });
             var contentItem = new ToolStripMenuItem("Tampilkan isi pesan", null, delegate { settings.Toggle("notif.content", true); Kick(); });
@@ -978,7 +979,7 @@ namespace Tepi
             var updateItem = new ToolStripMenuItem("Unduh pembaruan", null, delegate { if (newUrl != null) OpenUrl(newUrl); }) { Visible = false };
             var hideItem = new ToolStripMenuItem("Sembunyikan island", null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+H" };
             var exit = new ToolStripMenuItem("Keluar", null, delegate { Close(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, hookItem, kuliaItem, new ToolStripSeparator(), glassItem, lightItem, lyricItem, vizItem, notifItem, contentItem, autoItem, new ToolStripSeparator(), dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, hookItem, kuliaItem, new ToolStripSeparator(), glassItem, lightItem, lyricItem, onlineItem, vizItem, notifItem, contentItem, autoItem, new ToolStripSeparator(), dataItem, exit });
             menu.Opening += delegate
             {
                 try { autoItem.Checked = AutoStart.Enabled; } catch (Exception) { }
@@ -988,6 +989,7 @@ namespace Tepi
                 if (newVersion != null) updateItem.Text = "Unduh Tepi " + newVersion;
                 glassItem.Checked = GlassOn;
                 lyricItem.Checked = settings.GetBool("lyrics", true);
+                onlineItem.Checked = settings.GetBool("lyrics.online", true);
                 vizItem.Checked = settings.GetBool("visualizer", true);
                 notifItem.Checked = NotifOn;
                 contentItem.Checked = settings.GetBool("notif.content", true);

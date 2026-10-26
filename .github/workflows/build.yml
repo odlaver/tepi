@@ -1,0 +1,24 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Tepi.exe from source
+        shell: cmd
+        run: build.cmd
+      - name: SHA-256
+        shell: pwsh
+        run: (Get-FileHash Tepi.exe -Algorithm SHA256).Hash
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tepi
+          path: Tepi.exe
+          if-no-files-found: error
