@@ -69,18 +69,18 @@ namespace Tepi
         {
             var r = Web.Send("POST", url + "/auth/v1/otp", Headers(false), Json.Encode(new Dictionary<string, object> { { "email", address }, { "create_user", false } }), 15000);
             if (r.Ok) return null;
-            if (r.Status == 0) return "Kulia tidak terjangkau";
-            if (r.Status == 429) return "Kode baru bisa diminta lagi dalam ±1 menit";
-            if (r.Body.IndexOf("signup", StringComparison.OrdinalIgnoreCase) >= 0 || r.Status == 422) return "Email ini belum terdaftar di Kulia";
-            return "Kode gagal terkirim (" + r.Status + ")";
+            if (r.Status == 0) return Lang.T("Kulia tidak terjangkau");
+            if (r.Status == 429) return Lang.T("Kode baru bisa diminta lagi dalam ±1 menit");
+            if (r.Body.IndexOf("signup", StringComparison.OrdinalIgnoreCase) >= 0 || r.Status == 422) return Lang.T("Email ini belum terdaftar di Kulia");
+            return Lang.T("Kode gagal terkirim (") + r.Status + ")";
         }
 
         public string Verify(string address, string code)
         {
             var r = Web.Send("POST", url + "/auth/v1/verify", Headers(false),
                 Json.Encode(new Dictionary<string, object> { { "type", "email" }, { "email", address }, { "token", code } }), 15000);
-            if (r.Status == 0) return "Kulia tidak terjangkau";
-            if (!r.Ok) return "Kode salah atau kedaluwarsa";
+            if (r.Status == 0) return Lang.T("Kulia tidak terjangkau");
+            if (!r.Ok) return Lang.T("Kode salah atau kedaluwarsa");
             lock (sync)
             {
                 Take(Json.Parse(r.Body));
@@ -122,18 +122,18 @@ namespace Tepi
         // Refresh tokens rotate: save each one
         string EnsureAccess()
         {
-            if (refresh == null) return "Belum masuk ke Kulia.";
+            if (refresh == null) return Lang.T("Belum masuk ke Kulia.");
             if (access != null && DateTime.UtcNow < accessUntilUtc) return null;
             var r = Web.Send("POST", url + "/auth/v1/token?grant_type=refresh_token", Headers(false),
                 Json.Encode(new Dictionary<string, object> { { "refresh_token", refresh } }), 15000);
-            if (r.Status == 0) return "Kulia tidak terjangkau · dicoba lagi otomatis";
+            if (r.Status == 0) return Lang.T("Kulia tidak terjangkau · dicoba lagi otomatis");
             if (r.Status == 400 || r.Status == 401)
             {
                 access = refresh = null;
                 Vault.Delete(SessionFile);
-                return "Sesi Kulia habis";
+                return Lang.T("Sesi Kulia habis");
             }
-            if (!r.Ok) return "Kulia sedang bermasalah (" + r.Status + ").";
+            if (!r.Ok) return Lang.T("Kulia sedang bermasalah (") + r.Status + ").";
             Take(Json.Parse(r.Body));
             Persist();
             return null;
@@ -177,7 +177,7 @@ namespace Tepi
                 if (error != null) return null;
                 EnsureClass();
                 var en = Call("GET", "/rest/v1/enrollments?select=cohort_course_id&user_id=eq." + userId, null, null);
-                if (!en.Ok) { error = en.Status == 0 ? "Kulia tidak terjangkau · dicoba lagi otomatis" : "Jadwal gagal dimuat (" + en.Status + ")."; return null; }
+                if (!en.Ok) { error = en.Status == 0 ? Lang.T("Kulia tidak terjangkau · dicoba lagi otomatis") : Lang.T("Jadwal gagal dimuat (") + en.Status + ")."; return null; }
                 var ids = new List<string>();
                 foreach (var row in Rows(en.Body)) ids.Add(Json.Str(row, "cohort_course_id"));
                 var course = new object[0];
@@ -186,7 +186,7 @@ namespace Tepi
                     var cr = Call("GET", "/rest/v1/course_schedules?select=weekday,starts_at,ends_at,room,kind,mode,meeting_url,class_date,class_label," +
                         "cohort_courses!inner(is_active,courses(name,short_name)),schedule_confirmations(class_date,status)" +
                         "&cohort_courses.is_active=eq.true&cohort_course_id=in.(" + string.Join(",", ids) + ")", null, null);
-                    if (!cr.Ok) { error = "Jadwal gagal dimuat (" + cr.Status + ")."; return null; }
+                    if (!cr.Ok) { error = Lang.T("Jadwal gagal dimuat (") + cr.Status + ")."; return null; }
                     course = Rows(cr.Body);
                 }
                 var pr = Call("GET", "/rest/v1/personal_schedules?select=id,title,category,weekday,event_date,starts_at,ends_at,room", null, null);
@@ -221,7 +221,7 @@ namespace Tepi
                     var c = Json.Obj(Json.Obj(r, "cohort_courses"), "courses");
                     string name = Json.Str(c, "short_name");
                     if (name.Length == 0) name = Json.Str(c, "name");
-                    var slot = Slot(day, wib, r, name.Length > 0 ? name : "Mata kuliah");
+                    var slot = Slot(day, wib, r, name.Length > 0 ? name : Lang.T("Mata kuliah"));
                     slot.Kind = Json.Str(r, "kind");
                     slot.Online = Json.Str(r, "mode") == "online";
                     string link = Json.Str(r, "meeting_url");
@@ -271,8 +271,8 @@ namespace Tepi
                 if (error != null) return null;
                 EnsureClass();
                 var r = Call("POST", "/rest/v1/rpc/my_feed", "{}", null);
-                if (r.Status == 0) { error = "Kulia tidak terjangkau · dicoba lagi otomatis"; return null; }
-                if (!r.Ok) { error = "Kulia menolak permintaan (" + r.Status + ")."; return null; }
+                if (r.Status == 0) { error = Lang.T("Kulia tidak terjangkau · dicoba lagi otomatis"); return null; }
+                if (!r.Ok) { error = Lang.T("Kulia menolak permintaan (") + r.Status + ")."; return null; }
                 return Parse(Json.Parse(r.Body));
             }
         }
@@ -294,7 +294,7 @@ namespace Tepi
                 list.Add(task);
             }
             foreach (var t in Json.Arr(bundle, "personal"))
-                list.Add(new KuliaTask { Id = Json.Str(t, "id"), Title = Json.Str(t, "title"), Course = "Pribadi", Status = Json.Str(t, "status"), DeadlineUtc = Json.Time(t, "deadline_at"), Personal = true });
+                list.Add(new KuliaTask { Id = Json.Str(t, "id"), Title = Json.Str(t, "title"), Course = Lang.T("Pribadi"), Status = Json.Str(t, "status"), DeadlineUtc = Json.Time(t, "deadline_at"), Personal = true });
 
             var now = DateTime.UtcNow;
             list = list.FindAll(t => !t.Closed && t.DeadlineUtc != DateTime.MinValue && (t.Kind != "ujian" || t.DeadlineUtc > now) && t.DeadlineUtc > now.AddDays(-14));
@@ -340,7 +340,7 @@ namespace Tepi
         public KuliaLogin(KuliaClient client)
         {
             this.client = client;
-            Text = "Masuk ke Kulia";
+            Text = Lang.T("Masuk ke Kulia");
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
@@ -357,7 +357,7 @@ namespace Tepi
 
             heading.SetBounds(24, 20, 352, 30);
             heading.Font = Ink.Display(20f);
-            heading.Text = "Masuk ke Kulia";
+            heading.Text = Lang.T("Masuk ke Kulia");
             hint.SetBounds(24, 54, 352, 40);
             hint.ForeColor = sub;
             field.SetBounds(24, 100, 352, 30);
@@ -374,7 +374,7 @@ namespace Tepi
             Style(back, bg, fg);
             back.FlatAppearance.BorderColor = sub;
             back.FlatAppearance.BorderSize = 1;
-            back.Text = "Ganti email";
+            back.Text = Lang.T("Ganti email");
             back.Click += delegate { ShowEmailStep(); };
             primary.Click += delegate { Submit(); };
             AcceptButton = primary;
@@ -406,11 +406,11 @@ namespace Tepi
         void ShowEmailStep()
         {
             codeStep = false;
-            hint.Text = "Email akun kulia.live";
+            hint.Text = Lang.T("Email akun kulia.live");
             field.Text = address ?? client.Email;
             field.MaxLength = 120;
             Native.SendMessage(field.Handle, 0x1501, (IntPtr)1, "email@contoh.com");
-            primary.Text = "Kirim kode";
+            primary.Text = Lang.T("Kirim kode");
             back.Visible = false;
             status.Text = "";
             field.Focus();
@@ -419,11 +419,11 @@ namespace Tepi
         void ShowCodeStep()
         {
             codeStep = true;
-            hint.Text = "Kode masuk terkirim ke " + address;
+            hint.Text = Lang.T("Kode masuk terkirim ke ") + address;
             field.Text = "";
             field.MaxLength = 14;
-            Native.SendMessage(field.Handle, 0x1501, (IntPtr)1, "Kode dari email");
-            primary.Text = "Masuk";
+            Native.SendMessage(field.Handle, 0x1501, (IntPtr)1, Lang.T("Kode dari email"));
+            primary.Text = Lang.T("Masuk");
             back.Visible = true;
             status.Text = "";
             field.Focus();
@@ -434,9 +434,9 @@ namespace Tepi
             string value = field.Text.Trim();
             if (!codeStep)
             {
-                if (!Regex.IsMatch(value, @"^[^@\s]+@[^@\s]+\.[^@\s]+$")) { status.Text = "Format email belum lengkap"; return; }
+                if (!Regex.IsMatch(value, @"^[^@\s]+@[^@\s]+\.[^@\s]+$")) { status.Text = Lang.T("Format email belum lengkap"); return; }
                 address = value;
-                Busy("Mengirim kode…");
+                Busy(Lang.T("Mengirim kode…"));
                 ThreadPool.QueueUserWorkItem(delegate
                 {
                     string err;
@@ -446,8 +446,8 @@ namespace Tepi
                 return;
             }
             value = value.Replace(" ", "").Replace("-", "");
-            if (!Regex.IsMatch(value, @"^\d{6,10}$")) { status.Text = "Kode berisi 6 sampai 10 angka"; return; }
-            Busy("Memeriksa kode…");
+            if (!Regex.IsMatch(value, @"^\d{6,10}$")) { status.Text = Lang.T("Kode berisi 6 sampai 10 angka"); return; }
+            Busy(Lang.T("Memeriksa kode…"));
             ThreadPool.QueueUserWorkItem(delegate
             {
                 string err;

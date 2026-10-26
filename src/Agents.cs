@@ -79,7 +79,7 @@ namespace Tepi
             }
             catch (Exception ex)
             {
-                Error = "Port " + port + " sudah dipakai aplikasi lain";
+                Error = Lang.T("Port ") + port + Lang.T(" sudah dipakai aplikasi lain");
                 Log.Write("hook server: " + ex.Message);
                 return;
             }
@@ -297,13 +297,13 @@ namespace Tepi
             {
                 case "Bash": return "Bash";
                 case "PowerShell": return "PowerShell";
-                case "Read": return "Baca";
-                case "Write": return "Tulis";
+                case "Read": return Lang.T("Baca");
+                case "Write": return Lang.T("Tulis");
                 case "Edit": return "Edit";
-                case "Grep": return "Cari";
-                case "Glob": return "Cari berkas";
-                case "WebFetch": return "Buka web";
-                case "WebSearch": return "Cari web";
+                case "Grep": return Lang.T("Cari");
+                case "Glob": return Lang.T("Cari berkas");
+                case "WebFetch": return Lang.T("Buka web");
+                case "WebSearch": return Lang.T("Cari web");
                 case "Agent":
                 case "Task": return "Subagent";
                 case "TodoWrite": return "Todo";

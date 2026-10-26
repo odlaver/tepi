@@ -301,7 +301,7 @@ namespace Tepi
 
         public PrompterSetup(string text, int wpm, int px, bool mirrored)
         {
-            Text = "Teleprompter";
+            Text = Lang.T("Teleprompter");
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
@@ -316,7 +316,7 @@ namespace Tepi
             ForeColor = fg;
             Font = Ink.Text(14f);
 
-            var heading = new Label { Text = "Teleprompter", Font = Ink.Display(20f) };
+            var heading = new Label { Text = Lang.T("Teleprompter"), Font = Ink.Display(20f) };
             heading.SetBounds(24, 18, 472, 30);
             script.SetBounds(24, 56, 472, 220);
             script.Multiline = true;

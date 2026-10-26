@@ -46,7 +46,7 @@ namespace Tepi
             {
                 string file = Path.Combine(dir, "settings.json");
                 var root = File.Exists(file) ? Load(file) : new Dictionary<string, object>();
-                if (root == null) return "settings.json di " + Path.GetFileName(dir) + " tidak terbaca";
+                if (root == null) return Lang.T("settings.json di ") + Path.GetFileName(dir) + Lang.T(" tidak terbaca");
                 Backup(file);
                 var hooks = Hooks(root, true);
                 foreach (var ev in Events)
@@ -58,7 +58,7 @@ namespace Tepi
                 Save(file, root);
                 done++;
             }
-            return done == 0 ? "Profil Claude Code tidak ditemukan" : null;
+            return done == 0 ? Lang.T("Profil Claude Code tidak ditemukan") : null;
         }
 
         public static void Remove(int port)

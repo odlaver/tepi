@@ -141,11 +141,11 @@ namespace Tepi
         void DrawHomeMessages(RectangleF col)
         {
             var senders = Senders();
-            HomeHeader(col, "Pesan", senders.Count > 0 ? notifs.Count.ToString() : "", "homeMsgs", PageMessages);
+            HomeHeader(col, Lang.T("Pesan"), senders.Count > 0 ? notifs.Count.ToString() : "", "homeMsgs", PageMessages);
             float y = col.Y + 26;
             if (!NotifOn || senders.Count == 0)
             {
-                p.Text(NotifOn ? "Tidak ada pesan baru" : "Notifikasi mati", Ink.Small(11.5f), p.T.Sub, col.X + 4, y + 14, col.Width - 8, StringAlignment.Near);
+                p.Text(NotifOn ? Lang.T("Tidak ada pesan baru") : Lang.T("Notifikasi mati"), Ink.Small(11.5f), p.T.Sub, col.X + 4, y + 14, col.Width - 8, StringAlignment.Near);
                 return;
             }
             for (int i = 0; i < Math.Min(4, senders.Count); i++)
@@ -175,12 +175,12 @@ namespace Tepi
 
         void DrawHomeTasks(RectangleF col)
         {
-            HomeHeader(col, "Tugas", tasks != null && tasks.Count > 0 ? tasks.Count.ToString() : "", "homeTasks", PageTasks);
+            HomeHeader(col, Lang.T("Tugas"), tasks != null && tasks.Count > 0 ? tasks.Count.ToString() : "", "homeTasks", PageTasks);
             float y = col.Y + 26;
             string empty = null;
-            if (kulia == null || !kulia.SignedIn) empty = "Kulia belum tersambung";
-            else if (tasks == null) empty = tasksError ?? "Memuat…";
-            else if (tasks.Count == 0) empty = "Tidak ada tugas aktif";
+            if (kulia == null || !kulia.SignedIn) empty = Lang.T("Kulia belum tersambung");
+            else if (tasks == null) empty = tasksError ?? Lang.T("Memuat…");
+            else if (tasks.Count == 0) empty = Lang.T("Tidak ada tugas aktif");
             if (empty != null)
             {
                 p.Text(empty, Ink.Small(11.5f), p.T.Sub, col.X + 4, y + 14, col.Width - 8, StringAlignment.Near);

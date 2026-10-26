@@ -231,10 +231,10 @@ namespace Tepi
             if (t != null)
             {
                 t.Flag = b.Online;
-                if (!b.Any) { t.Title = "Jaringan terputus"; t.Detail = a.Name; }
-                else if (!b.Online) { t.Title = "Tanpa internet"; t.Detail = b.Name; }
-                else if (b.Wifi) { t.Title = "Wi-Fi tersambung"; t.Detail = b.Name; }
-                else { t.Title = "Tersambung"; t.Detail = b.Name.Length > 0 ? b.Name : "LAN"; }
+                if (!b.Any) { t.Title = Lang.T("Jaringan terputus"); t.Detail = a.Name; }
+                else if (!b.Online) { t.Title = Lang.T("Tanpa internet"); t.Detail = b.Name; }
+                else if (b.Wifi) { t.Title = Lang.T("Wi-Fi tersambung"); t.Detail = b.Name; }
+                else { t.Title = Lang.T("Tersambung"); t.Detail = b.Name.Length > 0 ? b.Name : "LAN"; }
             }
             if (!a.Online && b.Online && tasksError != null) RefreshTasks(false);
             Kick();
@@ -381,19 +381,19 @@ namespace Tepi
                 {
                     HookSetup.Remove(hub.Port);
                     HooksInstalled();
-                    ShowInfo(Ink.IcoTerminal, "Claude Code dilepas", "hook Tepi dihapus", true);
+                    ShowInfo(Ink.IcoTerminal, Lang.T("Claude Code dilepas"), Lang.T("hook Tepi dihapus"), true);
                     CheckLinks();
                     return;
                 }
                 string err = HookSetup.Install(hub.Port, settings.Get("agent.token", ""));
                 HooksInstalled();
-                if (err != null) ShowInfo(Ink.IcoTerminal, "Belum terhubung", err, true);
-                else ShowInfo(Ink.IcoTerminal, "Claude Code terhubung", hookProfiles + " profil · berlaku di sesi baru", true);
+                if (err != null) ShowInfo(Ink.IcoTerminal, Lang.T("Belum terhubung"), err, true);
+                else ShowInfo(Ink.IcoTerminal, Lang.T("Claude Code terhubung"), hookProfiles + Lang.T(" profil · berlaku di sesi baru"), true);
             }
             catch (Exception ex)
             {
                 Log.Write("hook setup: " + ex);
-                ShowInfo(Ink.IcoTerminal, "Belum terhubung", Fmt.OneLine(ex.Message, 60), true);
+                ShowInfo(Ink.IcoTerminal, Lang.T("Belum terhubung"), Fmt.OneLine(ex.Message, 60), true);
             }
             CheckLinks();
         }
@@ -422,19 +422,19 @@ namespace Tepi
                 if (AgentSetup.Installed(id))
                 {
                     AgentSetup.Remove(id);
-                    ShowInfo(Ink.IcoTerminal, name + " dilepas", "hook Tepi dihapus", true);
+                    ShowInfo(Ink.IcoTerminal, name + Lang.T(" dilepas"), Lang.T("hook Tepi dihapus"), true);
                 }
                 else
                 {
                     string err = AgentSetup.Install(id);
-                    if (err != null) ShowInfo(Ink.IcoTerminal, "Belum terhubung", err, true);
-                    else ShowInfo(Ink.IcoTerminal, name + " terhubung", id == "codex" ? "percayai lewat /hooks di Codex" : "pantau saja · berlaku di sesi baru", true);
+                    if (err != null) ShowInfo(Ink.IcoTerminal, Lang.T("Belum terhubung"), err, true);
+                    else ShowInfo(Ink.IcoTerminal, name + " terhubung", id == "codex" ? Lang.T("percayai lewat /hooks di Codex") : Lang.T("pantau saja · berlaku di sesi baru"), true);
                 }
             }
             catch (Exception ex)
             {
                 Log.Write("agent setup: " + ex);
-                ShowInfo(Ink.IcoTerminal, "Belum terhubung", Fmt.OneLine(ex.Message, 60), true);
+                ShowInfo(Ink.IcoTerminal, Lang.T("Belum terhubung"), Fmt.OneLine(ex.Message, 60), true);
             }
             CheckLinks();
         }
@@ -477,14 +477,14 @@ namespace Tepi
             {
                 case "SessionStart":
                     s.State = AgentState.Ready;
-                    s.Activity = "Siap";
+                    s.Activity = Lang.T("Siap");
                     break;
                 case "UserPromptSubmit":
                     SettleApprovals(s.Id, null, null);
                     s.State = AgentState.Working;
                     s.TurnStartedUtc = DateTime.UtcNow;
                     s.Tool = "";
-                    s.Activity = "Berpikir";
+                    s.Activity = Lang.T("Berpikir");
                     s.Failed = false;
                     break;
                 case "PreToolUse":
@@ -525,7 +525,7 @@ namespace Tepi
                     if (Json.Str(ev.Data, "notification_type") == "permission_prompt" && !HasApproval(s.Id))
                     {
                         s.State = AgentState.Waiting;
-                        s.Activity = "Menunggu izin di terminal";
+                        s.Activity = Lang.T("Menunggu izin di terminal");
                     }
                     break;
                 case "Stop":
@@ -562,9 +562,9 @@ namespace Tepi
         {
             var parts = new List<string>();
             int min = Math.Max(0, (int)(now - s.StartedUtc).TotalMinutes);
-            parts.Add(min < 1 ? "baru" : min < 60 ? min + " mnt" : (min / 60) + " j " + (min % 60) + " mnt");
-            if (s.Files.Count > 0) parts.Add(s.Files.Count + " berkas");
-            if (s.Commands > 0) parts.Add(s.Commands + " perintah");
+            parts.Add(min < 1 ? Lang.T("baru") : min < 60 ? min + Lang.T(" mnt") : (min / 60) + Lang.T(" j ") + (min % 60) + Lang.T(" mnt"));
+            if (s.Files.Count > 0) parts.Add(s.Files.Count + Lang.T(" berkas"));
+            if (s.Commands > 0) parts.Add(s.Commands + Lang.T(" perintah"));
             return string.Join(" · ", parts);
         }
 
@@ -587,7 +587,7 @@ namespace Tepi
             if (d == null && path != null)
             {
                 if (tool == "Edit")
-                    d = path + (Json.Str(input, "replace_all") == "True" ? " · semua kemunculan" : "") + "\n" +
+                    d = path + (Json.Str(input, "replace_all") == "True" ? Lang.T(" · semua kemunculan") : "") + "\n" +
                         Prefix("- ", Plain(input, "old_string")) + "\n" + Prefix("+ ", Plain(input, "new_string"));
                 else if (tool == "Write") d = path + "\n" + (Plain(input, "content") ?? "");
                 else if (tool == "Read") d = path;
@@ -614,10 +614,10 @@ namespace Tepi
         {
             if (input == null) return "";
             if (tool == "Edit")
-                return "ganti " + LineCount(Json.Str(input, "old_string")) + " baris jadi " + LineCount(Json.Str(input, "new_string")) + " baris";
-            if (tool == "Write") return "tulis " + LineCount(Json.Str(input, "content")) + " baris";
-            if (tool == "MultiEdit") return Json.Arr(input, "edits").Length + " perubahan";
-            if (tool == "NotebookEdit") return "ubah sel notebook";
+                return Lang.T("ganti ") + LineCount(Json.Str(input, "old_string")) + Lang.T(" baris jadi ") + LineCount(Json.Str(input, "new_string")) + Lang.T(" baris");
+            if (tool == "Write") return Lang.T("tulis ") + LineCount(Json.Str(input, "content")) + Lang.T(" baris");
+            if (tool == "MultiEdit") return Json.Arr(input, "edits").Length + Lang.T(" perubahan");
+            if (tool == "NotebookEdit") return Lang.T("ubah sel notebook");
             return "";
         }
 
@@ -646,7 +646,7 @@ namespace Tepi
             if (sessions.TryGetValue(a.SessionId, out s) && !HasApproval(s.Id))
             {
                 s.State = decision == null ? AgentState.Waiting : AgentState.Working;
-                if (decision == null) s.Activity = "Menunggu izin di terminal";
+                if (decision == null) s.Activity = Lang.T("Menunggu izin di terminal");
             }
             Kick();
         }
@@ -718,7 +718,7 @@ namespace Tepi
                     else if (list != null) classesError = schedErr;
                     else tasksError = err;
                     nextTasksUtc = DateTime.UtcNow.AddMinutes(list != null ? 10 : 2);
-                    if (manual && list != null) ShowInfo(Ink.IcoRefresh, "Tugas diperbarui", list.Count + " aktif");
+                    if (manual && list != null) ShowInfo(Ink.IcoRefresh, Lang.T("Tugas diperbarui"), list.Count + Lang.T(" aktif"));
                     Kick();
                 });
             });
@@ -728,7 +728,7 @@ namespace Tepi
         {
             if (kulia == null || !kulia.Configured)
             {
-                ShowInfo(Ink.IcoLock, "Kulia belum diatur", "kulia.url / kulia.key kosong", true);
+                ShowInfo(Ink.IcoLock, Lang.T("Kulia belum diatur"), Lang.T("kulia.url / kulia.key kosong"), true);
                 return;
             }
             expanded = false;
@@ -740,7 +740,7 @@ namespace Tepi
             tasks = null;
             tasksError = null;
             RefreshTasks(false);
-            ShowInfo('\0', "Kulia tersambung", kulia.Email, true);
+            ShowInfo('\0', Lang.T("Kulia tersambung"), kulia.Email, true);
         }
 
         void SignOutKulia()
@@ -760,21 +760,21 @@ namespace Tepi
         void MarkDone(KuliaTask task)
         {
             string old = task.Status;
-            task.Status = "selesai";
+            task.Status = Lang.T("selesai");
             if (tasks != null) tasks.Remove(task);
             Kick();
             ThreadPool.QueueUserWorkItem(delegate
             {
                 bool ok;
-                try { ok = kulia.SetStatus(task, "selesai"); }
+                try { ok = kulia.SetStatus(task, Lang.T("selesai")); }
                 catch (Exception ex) { Log.Write("kulia status: " + ex.Message); ok = false; }
                 Post(() =>
                 {
-                    if (ok) ShowInfo('\0', "Ditandai selesai", task.Title, true);
+                    if (ok) ShowInfo('\0', Lang.T("Ditandai selesai"), task.Title, true);
                     else
                     {
                         task.Status = old;
-                        ShowInfo(Ink.IcoLock, "Gagal tersimpan di Kulia", task.Title, true);
+                        ShowInfo(Ink.IcoLock, Lang.T("Gagal tersimpan di Kulia"), task.Title, true);
                         RefreshTasks(false);
                     }
                 });

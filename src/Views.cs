@@ -329,7 +329,7 @@ namespace Tepi
 
         static string AgentLine(AgentSession s)
         {
-            if (s.State == AgentState.Waiting) return s.Activity.Length > 0 ? s.Activity : "Menunggu izin";
+            if (s.State == AgentState.Waiting) return s.Activity.Length > 0 ? s.Activity : Lang.T("Menunggu izin");
             if (s.Tool.Length == 0) return s.Activity;
             string label = AgentHub.ToolLabel(s.Tool);
             return s.Activity.Length > 0 ? label + " " + s.Activity : label;
@@ -392,7 +392,7 @@ namespace Tepi
             bool armed = (DateTime.UtcNow - a.ShownUtc).TotalSeconds >= ArmSeconds;
             string who = a.Project + (a.Profile.Length > 0 ? " · " + a.Profile : "");
             if (approvals.Count > 1) who = "1/" + approvals.Count + " · " + who;
-            p.Text(a.Agent + " minta izin", Ink.Semi(14.5f), p.T.Text, 24, 28, w - 200, StringAlignment.Near);
+            p.Text(a.Agent + Lang.T(" minta izin"), Ink.Semi(14.5f), p.T.Text, 24, 28, w - 200, StringAlignment.Near);
             p.TextRight(who, Ink.Small(11.5f), p.T.Sub, w - 24, 28);
             string label = AgentHub.ToolLabel(a.Tool);
             p.Text(label, Ink.Semi(12f), p.T.Text, 24, 51, 140, StringAlignment.Near);
@@ -409,7 +409,7 @@ namespace Tepi
             float y = box.Bottom + 10;
             if (clipped)
             {
-                p.Text("Masih ada " + (total - shown) + " baris lagi. Baca utuh di terminal.", Ink.Small(11.5f), p.T.Text, 24, y + 4, w - 48, StringAlignment.Near);
+                p.Text(Lang.T("Masih ada ") + (total - shown) + Lang.T(" baris lagi. Baca utuh di terminal."), Ink.Small(11.5f), p.T.Text, 24, y + 4, w - 48, StringAlignment.Near);
                 y += 22;
             }
 
@@ -418,14 +418,14 @@ namespace Tepi
             bool locked = clipped || !armed;
             if (locked) p.StrokeRound(allow, 10, p.T.Faint, 1.2f);
             else p.FillRound(allow, 10, Hover("allow") ? Ink.A(p.T.Text, 0.82f) : p.T.Text);
-            p.TextCenter("Izinkan", Ink.Semi(13f), locked ? p.T.Faint : p.T.Bg, allow.X + allow.Width / 2, allow.Y + 16);
+            p.TextCenter(Lang.T("Izinkan"), Ink.Semi(13f), locked ? p.T.Faint : p.T.Bg, allow.X + allow.Width / 2, allow.Y + 16);
             if (Hover("deny")) p.FillRound(deny, 10, p.T.Fill);
             p.StrokeRound(deny, 10, p.T.Sub, 1.2f);
-            p.TextCenter("Tolak", Ink.Semi(13f), p.T.Text, deny.X + deny.Width / 2, deny.Y + 16);
+            p.TextCenter(Lang.T("Tolak"), Ink.Semi(13f), p.T.Text, deny.X + deny.Width / 2, deny.Y + 16);
             var term = new RectangleF(14, y, 140, 32);
             if (Hover("term")) p.FillRound(term, 10, p.T.Fill);
             p.Icon(Ink.IcoTerminal, 12f, p.T.Sub, term.X + 18, term.Y + 16);
-            p.Text("Jawab di terminal", Ink.Small(12f), Hover("term") || clipped ? p.T.Text : p.T.Sub, term.X + 32, term.Y + 16);
+            p.Text(Lang.T("Jawab di terminal"), Ink.Small(12f), Hover("term") || clipped ? p.T.Text : p.T.Sub, term.X + 32, term.Y + 16);
             if (!locked) AddHit(allow, "allow", delegate { Decide(a, "allow"); });
             AddHit(deny, "deny", delegate { Decide(a, "deny"); });
             AddHit(term, "term", delegate { Decide(a, null); });
@@ -441,18 +441,18 @@ namespace Tepi
             p.Circle(34, cy, 15 * pop, p.T.Text);
             if (s.Failed) p.Cross(34, cy, 13, p.T.Bg);
             else p.Check(34, cy, 14, p.T.Bg, Ease.OutCubic(k - 0.15f));
-            string title = (s.Failed ? "Berhenti, ada galat · " : "Selesai · ") + s.Project;
+            string title = (s.Failed ? Lang.T("Berhenti, ada galat · ") : Lang.T("Selesai · ")) + s.Project;
             p.Text(title, Ink.Semi(13.5f), p.T.Text, 60, cy - 10, w - 60 - 70, StringAlignment.Near);
             if (s.TurnStartedUtc > DateTime.MinValue) p.TextRight(Duration(s.LastUtc - s.TurnStartedUtc), Ink.Small(11.5f), p.T.Sub, w - 22, cy - 10);
-            p.Text(s.LastMessage.Length > 0 ? s.LastMessage : "Menunggu balasanmu", Ink.Text(12f), p.T.Sub, 60, cy + 10, w - 60 - 22, StringAlignment.Near);
+            p.Text(s.LastMessage.Length > 0 ? s.LastMessage : Lang.T("Menunggu balasanmu"), Ink.Text(12f), p.T.Sub, 60, cy + 10, w - 60 - 22, StringAlignment.Near);
             AddHit(new RectangleF(0, 0, w, h), "done", delegate { if (!FocusTerminal(s)) Expand(PageAgents); });
         }
 
         static string Duration(TimeSpan t)
         {
-            if (t.TotalSeconds < 60) return Math.Max(1, (int)t.TotalSeconds) + " dtk";
-            if (t.TotalMinutes < 60) return (int)t.TotalMinutes + " mnt";
-            return (int)t.TotalHours + " jam " + t.Minutes + " mnt";
+            if (t.TotalSeconds < 60) return Math.Max(1, (int)t.TotalSeconds) + Lang.T(" dtk");
+            if (t.TotalMinutes < 60) return (int)t.TotalMinutes + Lang.T(" mnt");
+            return (int)t.TotalHours + Lang.T(" jam ") + t.Minutes + Lang.T(" mnt");
         }
 
         // Messages
@@ -473,7 +473,7 @@ namespace Tepi
 
         string NotifBody(NotifItem item)
         {
-            if (!settings.GetBool("notif.content", true)) return "Pesan baru";
+            if (!settings.GetBool("notif.content", true)) return Lang.T("Pesan baru");
             return item.Body.Length > 0 ? item.Body : item.AppName;
         }
 
@@ -483,7 +483,7 @@ namespace Tepi
             if (item == null) return;
             float cy = h / 2;
             DrawAppBadge(item, new RectangleF(14, cy - 20, 40, 40));
-            string meta = notifBurst > 1 ? notifBurst + " pesan · " + item.AppName : item.AppName;
+            string meta = notifBurst > 1 ? notifBurst + Lang.T(" pesan · ") + item.AppName : item.AppName;
             float mw = Math.Min(130, p.Measure(meta, Ink.Small(11f)));
             p.TextRight(meta, Ink.Small(11f), p.T.Sub, w - 22, cy - 10);
             p.Text(item.Title.Length > 0 ? item.Title : item.AppName, Ink.Semi(13.5f), p.T.Text, 66, cy - 10, w - 66 - 32 - mw, StringAlignment.Near);
@@ -510,7 +510,7 @@ namespace Tepi
             float cy = h / 2;
             string kind = toast != null ? toast.Data as string : "";
             p.Battery(20, cy, batteryFill.Value, p.T.Text, onAc);
-            string title = kind == "plug" ? "Mengisi daya" : kind == "unplug" ? "Charger dicabut" : kind == "full" ? "Baterai penuh" : "Baterai lemah";
+            string title = kind == "plug" ? Lang.T("Mengisi daya") : kind == "unplug" ? Lang.T("Charger dicabut") : kind == "full" ? Lang.T("Baterai penuh") : Lang.T("Baterai lemah");
             p.Text(title, Ink.Semi(13.5f), p.T.Text, 64, cy, w - 64 - 70, StringAlignment.Near);
             p.TextRight(battery + "%", Ink.Semi(13.5f), p.T.Text, w - 22, cy);
         }
@@ -527,7 +527,7 @@ namespace Tepi
         float PrivacyWidth()
         {
             if (toast == null || p.G == null) return 280;
-            return Clamp(p.Measure(toast.Title, Ink.Semi(13f)) + p.Measure(toast.Flag ? " memakai kamera" : " memakai mikrofon", Ink.Text(12.5f)) + 70, 220, 420);
+            return Clamp(p.Measure(toast.Title, Ink.Semi(13f)) + p.Measure(toast.Flag ? Lang.T(" memakai kamera") : Lang.T(" memakai mikrofon"), Ink.Text(12.5f)) + 70, 220, 420);
         }
 
         void DrawPrivacy(float w, float h)
@@ -538,7 +538,7 @@ namespace Tepi
             var semi = Ink.Semi(13f);
             p.Text(toast.Title, semi, p.T.Text, 44, cy, 200, StringAlignment.Near);
             float x = 44 + Math.Min(200, p.Measure(toast.Title, semi));
-            p.Text(toast.Flag ? " memakai kamera" : " memakai mikrofon", Ink.Text(12.5f), p.T.Sub, x, cy, w - x - 16, StringAlignment.Near);
+            p.Text(toast.Flag ? Lang.T(" memakai kamera") : Lang.T(" memakai mikrofon"), Ink.Text(12.5f), p.T.Sub, x, cy, w - x - 16, StringAlignment.Near);
         }
 
         float InfoWidth()
@@ -603,7 +603,7 @@ namespace Tepi
             p.Circle(34, cy, 16, p.T.Text);
             p.Icon(Ink.IcoCalendar, 14f, p.T.Bg, 34, cy);
             var left = t.DeadlineUtc - DateTime.UtcNow;
-            p.Text(Math.Max(1, (int)Math.Ceiling(left.TotalMinutes)) + " menit lagi · " + (t.Kind == "ujian" ? "ujian" : "tenggat"), Ink.Semi(13.5f), p.T.Text, 62, cy - 10, w - 84, StringAlignment.Near);
+            p.Text(Math.Max(1, (int)Math.Ceiling(left.TotalMinutes)) + Lang.T(" menit lagi · ") + (t.Kind == "ujian" ? Lang.T("ujian") : Lang.T("tenggat")), Ink.Semi(13.5f), p.T.Text, 62, cy - 10, w - 84, StringAlignment.Near);
             p.Text(t.Title + (t.Course.Length > 0 ? " · " + t.Course : ""), Ink.Text(12.5f), p.T.Sub, 62, cy + 11, w - 84, StringAlignment.Near);
             AddHit(new RectangleF(0, 0, w, h), "deadline", delegate { OpenUrl(t.Url); DismissToast(); });
         }

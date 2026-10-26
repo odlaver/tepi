@@ -163,7 +163,7 @@ namespace Tepi
             CheckFullscreen();
             clockRoller.Set(Fmt.Hm(DateTime.Now));
             int hour = DateTime.Now.Hour;
-            ShowInfo('\0', hour < 11 ? "Pagi" : hour < 15 ? "Siang" : hour < 18 ? "Sore" : "Malam", Fmt.Hm(DateTime.Now), true);
+            ShowInfo('\0', hour < 11 ? Lang.T("Pagi") : hour < 15 ? Lang.T("Siang") : hour < 18 ? Lang.T("Sore") : Lang.T("Malam"), Fmt.Hm(DateTime.Now), true);
             opacity.Target = 1;
             clockTimer.Start();
             Kick();
@@ -1014,17 +1014,17 @@ namespace Tepi
             menu = new ContextMenuStrip { ShowCheckMargin = true, ShowImageMargin = false };
             var title = new ToolStripMenuItem("Tepi") { Enabled = false };
             var kuliaItem = new ToolStripMenuItem("Kulia");
-            var hookItem = new ToolStripMenuItem("Hubungkan agen");
-            var dataItem = new ToolStripMenuItem("Buka folder data", null, delegate
+            var hookItem = new ToolStripMenuItem(Lang.T("Hubungkan agen"));
+            var dataItem = new ToolStripMenuItem(Lang.T("Buka folder data"), null, delegate
             {
                 try { Process.Start("explorer.exe", "\"" + Settings.Dir + "\""); } catch (Exception ex) { Log.Write("open dir: " + ex.Message); }
             });
             var updateItem = new ToolStripMenuItem(Lang.T("Perbarui"), null, delegate { InstallUpdate(); }) { Visible = false };
-            var hideItem = new ToolStripMenuItem("Sembunyikan island", null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+H" };
-            var prompterItem = new ToolStripMenuItem("Teleprompter", null, delegate { if (PrompterOn) StopPrompter(); else OpenPrompter(); });
-            var focusItem = new ToolStripMenuItem("Fokus");
-            var exit = new ToolStripMenuItem("Keluar", null, delegate { Close(); });
-            var prefsItem = new ToolStripMenuItem("Pengaturan…", null, delegate { OpenPrefs(); });
+            var hideItem = new ToolStripMenuItem(Lang.T("Sembunyikan island"), null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+H" };
+            var prompterItem = new ToolStripMenuItem(Lang.T("Teleprompter"), null, delegate { if (PrompterOn) StopPrompter(); else OpenPrompter(); });
+            var focusItem = new ToolStripMenuItem(Lang.T("Fokus"));
+            var exit = new ToolStripMenuItem(Lang.T("Keluar"), null, delegate { Close(); });
+            var prefsItem = new ToolStripMenuItem(Lang.T("Pengaturan…"), null, delegate { OpenPrefs(); });
             menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, focusItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
             menu.Opening += delegate
             {
@@ -1032,10 +1032,10 @@ namespace Tepi
                 prompterItem.Checked = PrompterOn;
                 FillFocusMenu(focusItem);
                 updateItem.Visible = newVersion != null;
-                if (newVersion != null) updateItem.Text = Lang.F(newAsset != null ? "Perbarui ke Tepi {0}" : "Unduh Tepi {0}", newVersion);
+                if (newVersion != null) updateItem.Text = Lang.F(newAsset != null ? Lang.T("Perbarui ke Tepi {0}") : Lang.T("Unduh Tepi {0}"), newVersion);
                 CheckLinks();
                 hookItem.DropDownItems.Clear();
-                hookItem.DropDownItems.Add(new ToolStripMenuItem("Claude Code" + (hookProfiles > 0 ? "" : " · tidak ditemukan"), null, delegate { ToggleHooks(); })
+                hookItem.DropDownItems.Add(new ToolStripMenuItem("Claude Code" + (hookProfiles > 0 ? "" : Lang.T(" · tidak ditemukan")), null, delegate { ToggleHooks(); })
                 {
                     Checked = hooksOn,
                     Enabled = hookProfiles > 0
@@ -1044,7 +1044,7 @@ namespace Tepi
                 {
                     string id = agentId;
                     bool present = AgentSetup.Present(id);
-                    hookItem.DropDownItems.Add(new ToolStripMenuItem(AgentSetup.Label(id) + (present ? "" : " · tidak ditemukan"), null, delegate { ToggleAgent(id); })
+                    hookItem.DropDownItems.Add(new ToolStripMenuItem(AgentSetup.Label(id) + (present ? "" : Lang.T(" · tidak ditemukan")), null, delegate { ToggleAgent(id); })
                     {
                         Checked = present && linked.Contains(AgentSetup.Label(id)),
                         Enabled = present
@@ -1053,11 +1053,11 @@ namespace Tepi
                 kuliaItem.DropDownItems.Clear();
                 if (kulia != null && kulia.SignedIn)
                 {
-                    kuliaItem.DropDownItems.Add(new ToolStripMenuItem("Masuk sebagai " + kulia.Email) { Enabled = false });
-                    kuliaItem.DropDownItems.Add("Perbarui tugas", null, delegate { RefreshTasks(true); });
-                    kuliaItem.DropDownItems.Add("Keluar dari Kulia", null, delegate { SignOutKulia(); });
+                    kuliaItem.DropDownItems.Add(new ToolStripMenuItem(Lang.T("Masuk sebagai ") + kulia.Email) { Enabled = false });
+                    kuliaItem.DropDownItems.Add(Lang.T("Perbarui tugas"), null, delegate { RefreshTasks(true); });
+                    kuliaItem.DropDownItems.Add(Lang.T("Keluar dari Kulia"), null, delegate { SignOutKulia(); });
                 }
-                else kuliaItem.DropDownItems.Add("Masuk ke Kulia…", null, delegate { OpenLogin(); });
+                else kuliaItem.DropDownItems.Add(Lang.T("Masuk ke Kulia…"), null, delegate { OpenLogin(); });
             };
             trayIcon = MakeTrayIcon();
             tray = new NotifyIcon { Icon = trayIcon, Text = "Tepi", ContextMenuStrip = menu, Visible = true };
@@ -1078,9 +1078,9 @@ namespace Tepi
             foreach (var m in new[] { 25, 50 })
             {
                 int minutes = m;
-                focusItem.DropDownItems.Add(new ToolStripMenuItem(minutes + " menit", null, delegate { StartFocus(minutes); }));
+                focusItem.DropDownItems.Add(new ToolStripMenuItem(minutes + Lang.T(" menit"), null, delegate { StartFocus(minutes); }));
             }
-            focusItem.DropDownItems.Add(new ToolStripMenuItem("Hentikan", null, delegate { StopFocus(); }) { Enabled = FocusOn });
+            focusItem.DropDownItems.Add(new ToolStripMenuItem(Lang.T("Hentikan"), null, delegate { StopFocus(); }) { Enabled = FocusOn });
         }
 
         // Placeholder mark: the island's own pill shape

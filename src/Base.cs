@@ -374,7 +374,9 @@ namespace Tepi
 
     static class Fmt
     {
-        public static readonly CultureInfo Id = new CultureInfo("id-ID");
+        static readonly CultureInfo idCulture = new CultureInfo("id-ID"), enCulture = new CultureInfo("en-US");
+        // Dates follow the UI language
+        public static CultureInfo Id { get { return Lang.English ? enCulture : idCulture; } }
 
         public static string Bytes(long n)
         {
@@ -389,10 +391,10 @@ namespace Tepi
         public static string Ago(DateTime utc)
         {
             var d = DateTime.UtcNow - utc;
-            if (d.TotalSeconds < 45) return "baru saja";
-            if (d.TotalMinutes < 60) return (int)d.TotalMinutes + " mnt lalu";
-            if (d.TotalHours < 24) return (int)d.TotalHours + " jam lalu";
-            return (int)d.TotalDays + " hari lalu";
+            if (d.TotalSeconds < 45) return Lang.T("baru saja");
+            if (d.TotalMinutes < 60) return (int)d.TotalMinutes + Lang.T(" mnt lalu");
+            if (d.TotalHours < 24) return (int)d.TotalHours + Lang.T(" jam lalu");
+            return (int)d.TotalDays + Lang.T(" hari lalu");
         }
 
         public static string Clock(double ms)

@@ -390,13 +390,13 @@ namespace Tepi
             if (lyrics == null || lyrics.Key != mediaInfo.Key || lyrics.State == LyricState.Loading)
             {
                 p.Orbit(box.X + 8, box.Y + 26, 6f, orbitPhase, p.T.Sub);
-                p.Text("Mencari lirik…", Ink.Text(12.5f), p.T.Sub, box.X + 22, box.Y + 26, box.Width - 22, StringAlignment.Near);
+                p.Text(Lang.T("Mencari lirik…"), Ink.Text(12.5f), p.T.Sub, box.X + 22, box.Y + 26, box.Width - 22, StringAlignment.Near);
                 return;
             }
             if (lyrics.State == LyricState.Plain) { DrawPlainLyrics(box); return; }
             if (lyrics.State != LyricState.Synced)
             {
-                string msg = lyrics.State == LyricState.Failed ? "LRCLIB tidak terjangkau · dicoba lagi otomatis" : !settings.GetBool("lyrics.online", true) ? "Pencarian lirik online dimatikan" : "Lirik tidak ditemukan di LRCLIB";
+                string msg = lyrics.State == LyricState.Failed ? Lang.T("LRCLIB tidak terjangkau · dicoba lagi otomatis") : !settings.GetBool("lyrics.online", true) ? Lang.T("Pencarian lirik online dimatikan") : Lang.T("Lirik tidak ditemukan di LRCLIB");
                 p.TextBox(msg, Ink.Text(12.5f), p.T.Sub, new RectangleF(box.X, box.Y + 16, box.Width, 40));
                 return;
             }
@@ -444,7 +444,7 @@ namespace Tepi
         void DrawPlainLyrics(RectangleF box)
         {
             if (plainKey != lyrics.Key) { plainKey = lyrics.Key; plainScroll.Snap(0); }
-            p.Text("Lirik tanpa waktu",Ink.Small(11f), p.T.Faint, box.X, box.Y + 8, box.Width, StringAlignment.Near);
+            p.Text(Lang.T("Lirik tanpa waktu"),Ink.Small(11f), p.T.Faint, box.X, box.Y + 8, box.Width, StringAlignment.Near);
             var area = new RectangleF(box.X, box.Y + 20, box.Width, box.Height - 20);
             var st = g.Save();
             g.IntersectClip(area);
@@ -468,13 +468,13 @@ namespace Tepi
         {
             if (hub != null && hub.Error != null)
             {
-                Empty(w, Ink.IcoTerminal, "Server hook mati", hub.Error + " · agent.port di settings.ini");
+                Empty(w, Ink.IcoTerminal, Lang.T("Server hook mati"), hub.Error + Lang.T(" · agent.port di settings.ini"));
                 return;
             }
             var list = SortedSessions();
             if (list.Count == 0)
             {
-                Empty(w, Ink.IcoTerminal, "Belum ada sesi agen", linked.Length > 0 ? "Terhubung: " + linked : "Belum terhubung · tray > Hubungkan agen");
+                Empty(w, Ink.IcoTerminal, Lang.T("Belum ada sesi agen"), linked.Length > 0 ? Lang.T("Terhubung: ") + linked : Lang.T("Belum terhubung · tray > Hubungkan agen"));
                 return;
             }
             const float rowH = 56;
@@ -491,7 +491,7 @@ namespace Tepi
                 string rowId = "agent" + i;
                 if (Hover(rowId)) p.FillRound(row, 14, p.T.Fill);
                 var session = s;
-                AddHit(row, rowId, delegate { if (!FocusTerminal(session)) ShowInfo(Ink.IcoTerminal, "Terminal tidak ditemukan", session.Project, true); });
+                AddHit(row, rowId, delegate { if (!FocusTerminal(session)) ShowInfo(Ink.IcoTerminal, Lang.T("Terminal tidak ditemukan"), session.Project, true); });
                 DrawStateMark(s, 36, cy);
                 var semi = Ink.Semi(13.5f);
                 p.Text(s.Project, semi, p.T.Text, 60, cy - 10, 220, StringAlignment.Near);
@@ -543,12 +543,12 @@ namespace Tepi
         {
             switch (s.State)
             {
-                case AgentState.Working: return "bekerja · " + Duration(DateTime.UtcNow - (s.TurnStartedUtc > DateTime.MinValue ? s.TurnStartedUtc : s.StartedUtc));
-                case AgentState.Waiting: return "menunggu izin";
-                case AgentState.Done: return "selesai · " + Fmt.Ago(s.LastUtc);
-                case AgentState.Ready: return "siap";
+                case AgentState.Working: return Lang.T("bekerja · ") + Duration(DateTime.UtcNow - (s.TurnStartedUtc > DateTime.MinValue ? s.TurnStartedUtc : s.StartedUtc));
+                case AgentState.Waiting: return Lang.T("menunggu izin");
+                case AgentState.Done: return Lang.T("selesai · ") + Fmt.Ago(s.LastUtc);
+                case AgentState.Ready: return Lang.T("siap");
             }
-            return "ditutup · " + Fmt.Ago(s.LastUtc);
+            return Lang.T("ditutup · ") + Fmt.Ago(s.LastUtc);
         }
 
         // Kulia
@@ -557,33 +557,33 @@ namespace Tepi
         {
             if (kulia == null || !kulia.Configured)
             {
-                Empty(w, Ink.IcoCalendar, "Kulia belum diatur", "kulia.url dan kulia.key kosong di settings.ini");
+                Empty(w, Ink.IcoCalendar, Lang.T("Kulia belum diatur"), Lang.T("kulia.url dan kulia.key kosong di settings.ini"));
                 return;
             }
             if (!kulia.SignedIn)
             {
-                float by = Empty(w, Ink.IcoCalendar, "Kulia belum tersambung", "Masuk pakai email akun kulia.live");
-                Button(new RectangleF(w / 2 - 74, by, 148, 34), "login", "Masuk ke Kulia", true, delegate { OpenLogin(); });
+                float by = Empty(w, Ink.IcoCalendar, Lang.T("Kulia belum tersambung"), Lang.T("Masuk pakai email akun kulia.live"));
+                Button(new RectangleF(w / 2 - 74, by, 148, 34), "login", Lang.T("Masuk ke Kulia"), true, delegate { OpenLogin(); });
                 return;
             }
             if (tasks == null)
             {
                 if (tasksError != null)
                 {
-                    float ry = Empty(w, Ink.IcoCalendar, "Tugas gagal dimuat", tasksError);
-                    Button(new RectangleF(w / 2 - 60, ry, 120, 34), "retry", "Coba lagi", false, delegate { RefreshTasks(false); });
+                    float ry = Empty(w, Ink.IcoCalendar, Lang.T("Tugas gagal dimuat"), tasksError);
+                    Button(new RectangleF(w / 2 - 60, ry, 120, 34), "retry", Lang.T("Coba lagi"), false, delegate { RefreshTasks(false); });
                 }
                 else
                 {
                     float cy = PanelTop + (h - PanelTop) / 2 - 6;
                     p.Orbit(w / 2 - 74, cy, 7f, orbitPhase, p.T.Sub);
-                    p.Text("Memuat tugas dari Kulia…", Ink.Text(13f), p.T.Sub, w / 2 - 60, cy, 200, StringAlignment.Near);
+                    p.Text(Lang.T("Memuat tugas dari Kulia…"), Ink.Text(13f), p.T.Sub, w / 2 - 60, cy, 200, StringAlignment.Near);
                 }
                 return;
             }
             if (tasks.Count == 0)
             {
-                Empty(w, Ink.IcoCalendar, "Tidak ada tugas aktif", "Diperbarui tiap 10 menit");
+                Empty(w, Ink.IcoCalendar, Lang.T("Tidak ada tugas aktif"), Lang.T("Diperbarui tiap 10 menit"));
                 return;
             }
             if (tasksError != null) p.TextRight("data " + Fmt.Ago(tasksAtUtc), Ink.Small(11f), p.T.Sub, w - 58, 28);
@@ -617,7 +617,7 @@ namespace Tepi
                 {
                     if (Hover(doneId)) p.FillRound(btn, 10, p.T.FillHover);
                     p.StrokeRound(btn, 10, p.T.Sub, 1.2f);
-                    p.TextCenter("Tandai selesai", Ink.Semi(12f), p.T.Text, btn.X + btn.Width / 2, cy);
+                    p.TextCenter(Lang.T("Tandai selesai"), Ink.Semi(12f), p.T.Text, btn.X + btn.Width / 2, cy);
                     ww = 116;
                 }
                 else if (urgent)
@@ -628,7 +628,7 @@ namespace Tepi
                     p.TextCenter(when, wf, p.T.Bg, pill.X + pill.Width / 2, cy);
                 }
                 else p.TextRight(when, wf, p.T.Sub, right, cy);
-                string course = t.Course + (t.Kind == "ujian" ? " · ujian" : "") + (t.Status == "proses" ? " · dikerjakan" : "");
+                string course = t.Course + (t.Kind == "ujian" ? Lang.T(" · ujian") : "") + (t.Status == "proses" ? Lang.T(" · dikerjakan") : "");
                 p.Text(course, Ink.Small(11f), p.T.Sub, tx, cy - 10, right - ww - tx - 12, StringAlignment.Near);
                 p.Text(t.Title, Ink.Semi(13f), p.T.Text, tx, cy + 9, right - ww - tx - 12, StringAlignment.Near);
                 string url = t.Url;
@@ -644,11 +644,11 @@ namespace Tepi
             var left = dueUtc - nowUtc;
             var local = dueUtc.ToLocalTime();
             if (left.TotalMinutes < 0) return "lewat " + Fmt.Ago(dueUtc).Replace(" lalu", "");
-            if (left.TotalMinutes < 60) return (int)Math.Max(1, left.TotalMinutes) + " menit lagi";
-            if (left.TotalHours < 12) return (int)left.TotalHours + " jam lagi";
+            if (left.TotalMinutes < 60) return (int)Math.Max(1, left.TotalMinutes) + Lang.T(" menit lagi");
+            if (left.TotalHours < 12) return (int)left.TotalHours + Lang.T(" jam lagi");
             var today = DateTime.Now.Date;
-            if (local.Date == today) return "hari ini " + Fmt.Hm(local);
-            if (local.Date == today.AddDays(1)) return "besok " + Fmt.Hm(local);
+            if (local.Date == today) return Lang.T("hari ini ") + Fmt.Hm(local);
+            if (local.Date == today.AddDays(1)) return Lang.T("besok ") + Fmt.Hm(local);
             if ((local.Date - today).TotalDays < 7) return local.ToString("ddd", Fmt.Id) + " " + Fmt.Hm(local);
             return local.ToString("d MMM", Fmt.Id);
         }
@@ -659,13 +659,13 @@ namespace Tepi
         {
             if (!NotifOn)
             {
-                Empty(w, Ink.IcoBell, "Notifikasi pesan dimatikan", "Saklarnya ada di menu klik kanan");
+                Empty(w, Ink.IcoBell, Lang.T("Notifikasi pesan dimatikan"), Lang.T("Saklarnya ada di menu klik kanan"));
                 return;
             }
             if (notifAccess != Windows.UI.Notifications.Management.UserNotificationListenerAccessStatus.Allowed)
             {
-                float ny = Empty(w, Ink.IcoLock, "Akses notifikasi ditolak", "Pengaturan Windows > Privasi > Notifikasi");
-                Button(new RectangleF(w / 2 - 80, ny, 160, 34), "notifPerm", "Buka pengaturan", false, delegate
+                float ny = Empty(w, Ink.IcoLock, Lang.T("Akses notifikasi ditolak"), Lang.T("Pengaturan Windows > Privasi > Notifikasi"));
+                Button(new RectangleF(w / 2 - 80, ny, 160, 34), "notifPerm", Lang.T("Buka pengaturan"), false, delegate
                 {
                     try { Process.Start("ms-settings:privacy-notifications"); } catch (Exception ex) { Log.Write("settings: " + ex.Message); }
                 });
@@ -673,7 +673,7 @@ namespace Tepi
             }
             if (notifs.Count == 0)
             {
-                Empty(w, Ink.IcoBell, "Belum ada pesan", "WhatsApp, Telegram, Discord, Teams, email");
+                Empty(w, Ink.IcoBell, Lang.T("Belum ada pesan"), Lang.T("WhatsApp, Telegram, Discord, Teams, email"));
                 return;
             }
             const float rowH = 50;

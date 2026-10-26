@@ -167,7 +167,7 @@ namespace Tepi
         {
             if (!mediaInfo.Present || mediaInfo.Title.Length == 0)
             {
-                Empty(w, '', "Tidak ada yang diputar", "Spotify, YouTube Music, Apple Music, browser, VLC, dan pemutar lain");
+                Empty(w, '', Lang.T("Tidak ada yang diputar"), Lang.T("Spotify, YouTube Music, Apple Music, browser, VLC, dan pemutar lain"));
                 return;
             }
             bool album = AlbumMode();

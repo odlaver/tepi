@@ -142,12 +142,12 @@ namespace Tepi
         {
             string file = ConfigFile(id);
             string dir = Path.GetDirectoryName(file);
-            if (id == "codex" && !Directory.Exists(dir)) return "Folder Codex tidak ditemukan";
+            if (id == "codex" && !Directory.Exists(dir)) return Lang.T("Folder Codex tidak ditemukan");
             // cmd would read these as operators
-            if (Exe().IndexOfAny("&|<>^%".ToCharArray()) >= 0) return "Pindahkan Tepi.exe ke folder tanpa & | < > ^ %";
+            if (Exe().IndexOfAny("&|<>^%".ToCharArray()) >= 0) return Lang.T("Pindahkan Tepi.exe ke folder tanpa & | < > ^ %");
             Directory.CreateDirectory(dir);
             var root = File.Exists(file) ? HookSetup.Load(file) : new Dictionary<string, object>();
-            if (root == null) return Path.GetFileName(file) + " tidak terbaca";
+            if (root == null) return Path.GetFileName(file) + Lang.T(" tidak terbaca");
             HookSetup.Backup(file);
             if (id == "antigravity")
             {

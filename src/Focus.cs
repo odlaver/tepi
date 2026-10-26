@@ -19,7 +19,7 @@ namespace Tepi
             focus = FocusPhase.Work;
             focusStartUtc = DateTime.UtcNow;
             focusEndUtc = focusStartUtc.AddMinutes(minutes);
-            ShowInfo('\0', "Fokus " + minutes + " menit", "selesai " + Fmt.Hm(focusEndUtc.ToLocalTime()), true);
+            ShowInfo('\0', Lang.T("Fokus ") + minutes + Lang.T(" menit"), Lang.T("selesai ") + Fmt.Hm(focusEndUtc.ToLocalTime()), true);
         }
 
         void StopFocus()
@@ -40,12 +40,12 @@ namespace Tepi
                 focus = FocusPhase.Break;
                 focusStartUtc = now;
                 focusEndUtc = now.AddMinutes(rest);
-                ShowInfo('\0', "Fokus selesai", "istirahat " + rest + " menit", true);
+                ShowInfo('\0', Lang.T("Fokus selesai"), Lang.T("istirahat ") + rest + Lang.T(" menit"), true);
             }
             else
             {
                 focus = FocusPhase.Off;
-                ShowInfo('\0', "Istirahat selesai", "siap fokus lagi", true);
+                ShowInfo('\0', Lang.T("Istirahat selesai"), Lang.T("siap fokus lagi"), true);
             }
             return true;
         }
@@ -78,7 +78,7 @@ namespace Tepi
         {
             float cy = h / 2;
             DrawFocusRing(20, cy, 7.5f);
-            p.Text(focus == FocusPhase.Work ? "Fokus" : "Istirahat", Ink.Semi(12.5f), p.T.Text, 38, cy, 90, StringAlignment.Near);
+            p.Text(focus == FocusPhase.Work ? Lang.T("Fokus") : Lang.T("Istirahat"), Ink.Semi(12.5f), p.T.Text, 38, cy, 90, StringAlignment.Near);
             focusRoller.Set(FocusClock());
             focusRoller.Draw(p, Ink.Semi(12.5f), p.T.Sub, w - 18, cy, StringAlignment.Far, now);
         }

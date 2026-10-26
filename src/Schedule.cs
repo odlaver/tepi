@@ -61,8 +61,8 @@ namespace Tepi
         static string DayName(DateTime day)
         {
             var today = DateTime.Now.Date;
-            if (day == today) return "Hari ini";
-            if (day == today.AddDays(1)) return "Besok";
+            if (day == today) return Lang.T("Hari ini");
+            if (day == today.AddDays(1)) return Lang.T("Besok");
             return day.ToString("dddd, d MMM", Fmt.Id);
         }
 
@@ -71,8 +71,8 @@ namespace Tepi
             var parts = new List<string>();
             if (c.Room.Length > 0) parts.Add(c.Room);
             if (c.Online) parts.Add(c.Url.Length > 0 ? Lang.T("daring · tautan") : Lang.T("daring"));
-            if (c.Kind == "praktikum" || c.Kind == "responsi") parts.Add(c.Kind);
-            if (c.Personal) parts.Add("pribadi");
+            if (c.Kind == "praktikum" || c.Kind == "responsi") parts.Add(Lang.T(c.Kind));
+            if (c.Personal) parts.Add(Lang.T("pribadi"));
             return string.Join(" · ", parts);
         }
 
@@ -80,23 +80,23 @@ namespace Tepi
         {
             if (kulia == null || !kulia.Configured)
             {
-                Empty(w, Ink.IcoCalendar, "Kulia belum diatur", "kulia.url dan kulia.key kosong di settings.ini");
+                Empty(w, Ink.IcoCalendar, Lang.T("Kulia belum diatur"), Lang.T("kulia.url dan kulia.key kosong di settings.ini"));
                 return;
             }
             if (!kulia.SignedIn)
             {
-                float by = Empty(w, Ink.IcoCalendar, "Kulia belum tersambung", "Masuk pakai email akun kulia.live");
-                Button(new RectangleF(w / 2 - 74, by, 148, 34), "loginSchedule", "Masuk ke Kulia", true, delegate { OpenLogin(); });
+                float by = Empty(w, Ink.IcoCalendar, Lang.T("Kulia belum tersambung"), Lang.T("Masuk pakai email akun kulia.live"));
+                Button(new RectangleF(w / 2 - 74, by, 148, 34), "loginSchedule", Lang.T("Masuk ke Kulia"), true, delegate { OpenLogin(); });
                 return;
             }
             if (classes == null)
             {
-                Empty(w, Ink.IcoCalendar, classesError != null ? "Jadwal gagal dimuat" : "Memuat jadwal…", classesError ?? "");
+                Empty(w, Ink.IcoCalendar, classesError != null ? Lang.T("Jadwal gagal dimuat") : Lang.T("Memuat jadwal…"), classesError ?? "");
                 return;
             }
             if (classes.Count == 0)
             {
-                Empty(w, Ink.IcoCalendar, "Tidak ada kelas", "7 hari ke depan kosong");
+                Empty(w, Ink.IcoCalendar, Lang.T("Tidak ada kelas"), Lang.T("7 hari ke depan kosong"));
                 return;
             }
             var nowLocal = DateTime.Now;
@@ -107,8 +107,8 @@ namespace Tepi
             if (next != null)
             {
                 bool live = nowLocal >= next.Start;
-                string when = live ? "Sedang berlangsung · sampai " + Fmt.Hm(next.End)
-                                   : "Berikutnya · " + (next.Start.Date == nowLocal.Date ? Fmt.Left(next.Start - nowLocal) + " lagi" : DayName(next.Start.Date).ToLower());
+                string when = live ? Lang.T("Sedang berlangsung · sampai ") + Fmt.Hm(next.End)
+                                   : Lang.T("Berikutnya · ") + (next.Start.Date == nowLocal.Date ? Fmt.Left(next.Start - nowLocal) + Lang.T(" lagi") : DayName(next.Start.Date).ToLower());
                 p.Text(when, Ink.Small(11f), live ? p.T.Accent : p.T.Sub, hero.X + 16, hero.Y + 18, hero.Width - 32, StringAlignment.Near);
                 p.Text(next.Title, Ink.Semi(15f), p.T.Text, hero.X + 16, hero.Y + 40, hero.Width - 150, StringAlignment.Near);
                 p.TextRight(Fmt.Hm(next.Start) + "–" + Fmt.Hm(next.End), Ink.Semi(12.5f), p.T.Text, hero.Right - 16, hero.Y + 40);
@@ -123,7 +123,7 @@ namespace Tepi
                     AddHit(join, "joinNext", delegate { OpenUrl(url); });
                 }
             }
-            else p.Text("Tidak ada kelas lagi minggu ini", Ink.Semi(13f), p.T.Sub, hero.X + 16, hero.Y + hero.Height / 2, hero.Width - 32, StringAlignment.Near);
+            else p.Text(Lang.T("Tidak ada kelas lagi minggu ini"), Ink.Semi(13f), p.T.Sub, hero.X + 16, hero.Y + hero.Height / 2, hero.Width - 32, StringAlignment.Near);
 
             // Day chips
             var chosen = ChosenDay();
@@ -168,7 +168,7 @@ namespace Tepi
                     bool live = !c.Cancelled && nowLocal >= c.Start && nowLocal < c.End;
                     var ink = c.Cancelled || nowLocal >= c.End ? p.T.Faint : p.T.Text;
                     p.Text(Fmt.Hm(c.Start), Ink.Semi(12.5f), live ? p.T.Accent : ink, 26, rc, 52, StringAlignment.Near);
-                    string tag = c.Cancelled ? "batal" : c.Exam ? "ujian" : live ? "sekarang" : "";
+                    string tag = c.Cancelled ? Lang.T("batal") : c.Exam ? Lang.T("ujian") : live ? Lang.T("sekarang") : "";
                     string room = SlotNote(c);
                     float roomW = room.Length > 0 ? Math.Min(150, p.Measure(room, Ink.Small(11f))) : 0;
                     float tagW = tag.Length > 0 ? p.Measure(tag, Ink.Semi(10.5f)) + 16 : 0;
@@ -264,7 +264,7 @@ namespace Tepi
                 t.Glyph = Ink.IcoCalendar;
                 t.Title = c.Title + " · " + Fmt.Hm(c.Start);
                 string note = SlotNote(c);
-                t.Detail = (c.Exam ? "ujian · " : "") + (note.Length > 0 ? note : Math.Ceiling(mins) + " menit lagi");
+                t.Detail = (c.Exam ? Lang.T("ujian · ") : "") + (note.Length > 0 ? note : Math.Ceiling(mins) + Lang.T(" menit lagi"));
                 break;
             }
         }
