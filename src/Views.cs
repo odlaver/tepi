@@ -351,7 +351,7 @@ namespace Tepi
             if (n > 1) p.TextRight("+" + (n - 1), Ink.Small(11.5f), p.T.Sub, w - 16, cy);
         }
 
-        const int ApproveMaxLines = 10;
+        const int ApproveMaxLines = 10, ApproveScrollMax = 300;
         const float ApproveW = 452;
         readonly StringFormat approveMeasure = new StringFormat(StringFormat.GenericTypographic);
 
@@ -377,6 +377,21 @@ namespace Tepi
             return approvals.Count > 0 && approvals[0].ShownUtc != default(DateTime) && (now - approvals[0].ShownUtc).TotalSeconds < ArmSeconds + 0.05;
         }
 
+        bool ScrollApproval(int delta)
+        {
+            if (approvals.Count == 0) return false;
+            var a = approvals[0];
+            int total = ApproveLines(a), shown = Math.Min(total, ApproveMaxLines);
+            if (total <= shown || total > ApproveScrollMax) return false;
+            int step = delta / 40;
+            if (step == 0) step = Math.Sign(delta);
+            a.Scroll = Math.Max(0, Math.Min(total - shown, a.Scroll - step));
+            // Reaching the end counts as having read it
+            if (a.Scroll >= total - shown) a.ReadAll = true;
+            Kick();
+            return true;
+        }
+
         float ApproveHeight()
         {
             if (approvals.Count == 0) return 172;
@@ -399,34 +414,54 @@ namespace Tepi
             float lx = 24 + p.Measure(label, Ink.Semi(12f)) + 8;
             p.Text(a.Note, Ink.Text(12f), p.T.Sub, lx, 51, w - lx - 24, StringAlignment.Near);
 
-            // Whole command readable before allowing
+            // Whole command readable before allowing; long ones scroll
             int total = ApproveLines(a), shown = Math.Min(total, ApproveMaxLines);
-            bool clipped = total > shown;
+            bool clipped = total > shown, scrollable = clipped && total <= ApproveScrollMax;
             float lineH = ApproveLineH();
             var box = new RectangleF(16, 64, w - 32, shown * lineH + 20);
             p.FillRound(box, 12, p.T.Fill);
-            p.TextBox(ApproveText(a), Ink.Mono(12f), p.T.Text, new RectangleF(box.X + 12, box.Y + 10, box.Width - 24, shown * lineH + 1));
-            float y = box.Bottom + 10;
-            if (clipped)
+            var inner = new RectangleF(box.X + 12, box.Y + 10, box.Width - 24, shown * lineH + 1);
+            var st = g.Save();
+            g.IntersectClip(inner);
+            float top = scrollable ? a.Scroll * lineH : 0;
+            p.TextBox(ApproveText(a), Ink.Mono(12f), p.T.Text, new RectangleF(inner.X, inner.Y - top, inner.Width, (scrollable ? total : shown) * lineH + 1));
+            g.Restore(st);
+            if (scrollable)
             {
-                p.Text(Lang.T("Masih ada ") + (total - shown) + Lang.T(" baris lagi. Baca utuh di terminal."), Ink.Small(11.5f), p.T.Text, 24, y + 4, w - 48, StringAlignment.Near);
+                // Scroll thumb
+                float track = box.Height - 16, thumb = Math.Max(14, track * shown / total);
+                float ty = box.Y + 8 + (track - thumb) * a.Scroll / Math.Max(1, total - shown);
+                p.FillRound(new RectangleF(box.Right - 6, ty, 3, thumb), 1.5f, p.T.Sub);
+            }
+            float y = box.Bottom + 10;
+            if (clipped && !a.ReadAll)
+            {
+                string more = scrollable ? Lang.F("Gulir untuk membaca {0} baris lagi.", total - shown - a.Scroll)
+                                         : Lang.T("Masih ada ") + (total - shown) + Lang.T(" baris lagi. Baca utuh di terminal.");
+                p.Text(more, Ink.Small(11.5f), p.T.Text, 24, y + 4, w - 48, StringAlignment.Near);
                 y += 22;
             }
+            else if (clipped) y += 22;
 
             var allow = new RectangleF(w - 16 - 112, y, 112, 32);
             var deny = new RectangleF(allow.X - 8 - 92, y, 92, 32);
-            bool locked = clipped || !armed;
+            var always = new RectangleF(deny.X - 8 - 84, y, 84, 32);
+            bool locked = (clipped && !a.ReadAll) || !armed;
             if (locked) p.StrokeRound(allow, 10, p.T.Faint, 1.2f);
             else p.FillRound(allow, 10, Hover("allow") ? Ink.A(p.T.Text, 0.82f) : p.T.Text);
             p.TextCenter(Lang.T("Izinkan"), Ink.Semi(13f), locked ? p.T.Faint : p.T.Bg, allow.X + allow.Width / 2, allow.Y + 16);
             if (Hover("deny")) p.FillRound(deny, 10, p.T.Fill);
             p.StrokeRound(deny, 10, p.T.Sub, 1.2f);
             p.TextCenter(Lang.T("Tolak"), Ink.Semi(13f), p.T.Text, deny.X + deny.Width / 2, deny.Y + 16);
-            var term = new RectangleF(14, y, 140, 32);
+            if (!locked && Hover("always")) p.FillRound(always, 10, p.T.Fill);
+            p.StrokeRound(always, 10, locked ? p.T.Faint : p.T.Sub, 1.2f);
+            p.TextCenter(Lang.T("Selalu"), Ink.Semi(13f), locked ? p.T.Faint : p.T.Text, always.X + always.Width / 2, always.Y + 16);
+            var term = new RectangleF(14, y, always.X - 8 - 14, 32);
             if (Hover("term")) p.FillRound(term, 10, p.T.Fill);
             p.Icon(Ink.IcoTerminal, 12f, p.T.Sub, term.X + 18, term.Y + 16);
-            p.Text(Lang.T("Jawab di terminal"), Ink.Small(12f), Hover("term") || clipped ? p.T.Text : p.T.Sub, term.X + 32, term.Y + 16);
+            p.Text(Lang.T("Terminal"), Ink.Small(12f), Hover("term") || (clipped && !scrollable) ? p.T.Text : p.T.Sub, term.X + 32, term.Y + 16, term.Width - 36, StringAlignment.Near);
             if (!locked) AddHit(allow, "allow", delegate { Decide(a, "allow"); });
+            if (!locked) AddHit(always, "always", delegate { AllowAlways(a); });
             AddHit(deny, "deny", delegate { Decide(a, "deny"); });
             AddHit(term, "term", delegate { Decide(a, null); });
         }

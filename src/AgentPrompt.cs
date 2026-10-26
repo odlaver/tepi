@@ -94,6 +94,10 @@ namespace Tepi
         readonly TextBox field = new TextBox();
         public string Prompt { get { return field.Text; } }
 
+        // Sent prompts, memory only, newest last
+        static readonly System.Collections.Generic.List<string> history = new System.Collections.Generic.List<string>();
+        int recall = -1;
+
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
 
         public AgentPromptBox(string project, bool sharedWindow)
@@ -136,6 +140,9 @@ namespace Tepi
             send.Click += delegate
             {
                 if (string.IsNullOrWhiteSpace(field.Text)) { field.Focus(); return; }
+                history.Remove(field.Text);
+                history.Add(field.Text);
+                if (history.Count > 20) history.RemoveAt(0);
                 DialogResult = DialogResult.OK;
                 Close();
             };
@@ -143,6 +150,15 @@ namespace Tepi
             AcceptButton = send;
             KeyPreview = true;
             KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) Close(); };
+            field.KeyDown += (s, e) =>
+            {
+                if ((e.KeyCode != Keys.Up && e.KeyCode != Keys.Down) || history.Count == 0) return;
+                e.SuppressKeyPress = true;
+                if (recall < 0) recall = history.Count;
+                recall = Math.Max(0, Math.Min(history.Count, recall + (e.KeyCode == Keys.Up ? -1 : 1)));
+                field.Text = recall < history.Count ? history[recall] : "";
+                field.SelectionStart = field.Text.Length;
+            };
             Controls.AddRange(controls.ToArray());
         }
 

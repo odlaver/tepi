@@ -298,8 +298,18 @@ namespace Tepi
         }
 
         // Contextual action right of tabs
+        // Eye in the left corner: hide without knowing the shortcut
+        void DrawHideButton()
+        {
+            var r = new RectangleF(18, TabY, 34, TabH);
+            if (Hover("hideIsland")) p.FillRound(r, TabH / 2, p.T.Fill);
+            p.Icon('', 14f, Hover("hideIsland") ? p.T.Text : p.T.Sub, r.X + 17, r.Y + 16);
+            AddHit(r, "hideIsland", delegate { ToggleHidden(); });
+        }
+
         void DrawTabAction(float w)
         {
+            DrawHideButton();
             var r = new RectangleF(w - 52, TabY, 34, TabH);
             if (page == PageMusic && mediaInfo.Present && mediaInfo.Title.Length > 0)
             {

@@ -889,6 +889,7 @@ namespace Tepi
         {
             base.OnMouseWheel(e);
             if (current == View.Prompter) { ScrollPrompter(e.Delta); return; }
+            if (current == View.Approve && ScrollApproval(e.Delta)) return;
             if (expanded && ScrollPanel(e.Delta)) return;
             vol = Ease.Clamp01(vol + e.Delta / 120f * 0.04f);
             volBar.Target = vol;
@@ -903,10 +904,18 @@ namespace Tepi
 
         [DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr hWnd, int id, uint modifiers, uint vk);
 
+        bool hideTipShown;
+
         void ToggleHidden()
         {
             hiddenByUser = !hiddenByUser;
             if (hiddenByUser) expanded = false;
+            // Hidden island can't say how to return, so the tray does
+            if (hiddenByUser && !hideTipShown && tray != null)
+            {
+                hideTipShown = true;
+                tray.ShowBalloonTip(5000, Lang.T("Island disembunyikan"), Lang.T("Klik ikon Tepi di tray atau tekan Ctrl+Alt+H untuk memunculkannya lagi."), ToolTipIcon.None);
+            }
             Kick();
         }
 
@@ -1062,7 +1071,7 @@ namespace Tepi
             };
             trayIcon = MakeTrayIcon();
             tray = new NotifyIcon { Icon = trayIcon, Text = "Tepi", ContextMenuStrip = menu, Visible = true };
-            tray.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) Expand(DefaultPage(false)); };
+            tray.MouseClick += (s, e) => { if (e.Button != MouseButtons.Left) return; if (hiddenByUser) ToggleHidden(); else Expand(DefaultPage(false)); };
         }
 
         static readonly string[][] Accents =

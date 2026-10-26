@@ -515,6 +515,14 @@ namespace Tepi
                     a.Note = Fmt.OneLine(Json.Str(input, "description"), 160);
                     if (a.Note.Length == 0) a.Note = ChangeSummary(tool, input);
                     a.Key = AgentHub.Describe(tool, input);
+                    if (s.Trusted.Contains(TrustKey(a)))
+                    {
+                        a.Answer("allow");
+                        s.State = AgentState.Working;
+                        s.Tool = tool;
+                        s.Activity = a.Key;
+                        break;
+                    }
                     approvals.Add(a);
                     s.State = AgentState.Waiting;
                     s.Tool = tool;
@@ -642,6 +650,16 @@ namespace Tepi
                 a.Answer(null);
                 approvals.RemoveAt(i);
             }
+        }
+
+        static string TrustKey(Approval a) { return a.Tool + "\n" + a.Detail; }
+
+        // Allow now and every identical request in this session
+        void AllowAlways(Approval a)
+        {
+            AgentSession s;
+            if (sessions.TryGetValue(a.SessionId, out s)) s.Trusted.Add(TrustKey(a));
+            Decide(a, "allow");
         }
 
         void Decide(Approval a, string decision)

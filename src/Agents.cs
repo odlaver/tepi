@@ -19,6 +19,8 @@ namespace Tepi
         public IntPtr Window;
         public int Pid;
         public readonly HashSet<string> Files = new HashSet<string>();
+        // Requests the user chose to always allow, this session only
+        public readonly HashSet<string> Trusted = new HashSet<string>();
         public int Commands;
         public DateTime StartedUtc, LastUtc, TurnStartedUtc;
     }
@@ -27,7 +29,8 @@ namespace Tepi
     class Approval
     {
         public string SessionId = "", Project = "", Profile = "", Tool = "", Detail = "", Note = "", Key = "", Agent = "Claude";
-        public int Lines;
+        public int Lines, Scroll;
+        public bool ReadAll;
         public DateTime CreatedUtc = DateTime.UtcNow, ShownUtc;
         public readonly ManualResetEvent Answered = new ManualResetEvent(false);
         public string Decision; // allow, deny, or null = terminal
