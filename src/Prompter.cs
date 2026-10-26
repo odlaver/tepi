@@ -294,6 +294,12 @@ namespace Tepi
         readonly TrackBar speed = new TrackBar(), size = new TrackBar();
         readonly Label speedLabel = new Label(), sizeLabel = new Label();
         readonly CheckBox mirror = new CheckBox();
+        readonly ComboBox saved = new ComboBox();
+        readonly Button remove = new Button();
+        readonly string lastText;
+        bool picking;
+
+        static string Folder { get { return Path.Combine(Settings.Dir, "naskah"); } }
 
         public string Script { get { return script.Text; } }
         public int Wpm { get { return speed.Value * 20; } }
@@ -309,7 +315,7 @@ namespace Tepi
             MaximizeBox = MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
-            ClientSize = new Size(520, 480);
+            ClientSize = new Size(520, 520);
             ShowInTaskbar = true;
             TopMost = true;
             var bg = Ink.Light ? Color.FromArgb(245, 245, 245) : Color.FromArgb(10, 10, 10);
@@ -321,7 +327,9 @@ namespace Tepi
 
             var heading = new Label { Text = Lang.T("Teleprompter"), Font = Ink.Display(20f) };
             heading.SetBounds(24, 18, 472, 30);
-            script.SetBounds(24, 56, 472, 220);
+            lastText = text;
+            BuildLibrary(bg, fg, sub);
+            script.SetBounds(24, 96, 472, 220);
             script.Multiline = true;
             script.AcceptsReturn = true;
             script.ScrollBars = ScrollBars.Vertical;
@@ -332,12 +340,12 @@ namespace Tepi
             script.MaxLength = 200000;
             script.Text = text.Replace("\r\n", "\n").Replace("\n", "\r\n");
 
-            speedLabel.SetBounds(24, 290, 150, 24);
-            speed.SetBounds(180, 286, 316, 32);
+            speedLabel.SetBounds(24, 330, 150, 24);
+            speed.SetBounds(180, 326, 316, 32);
             speed.Minimum = 3; speed.Maximum = 13; speed.TickFrequency = 1; speed.LargeChange = 1;
             speed.Value = Math.Max(3, Math.Min(13, wpm / 20));
-            sizeLabel.SetBounds(24, 330, 150, 24);
-            size.SetBounds(180, 326, 316, 32);
+            sizeLabel.SetBounds(24, 370, 150, 24);
+            size.SetBounds(180, 366, 316, 32);
             size.Minimum = 15; size.Maximum = 26; size.TickFrequency = 1; size.LargeChange = 1;
             size.Value = Math.Max(15, Math.Min(26, px));
             foreach (var t in new[] { speed, size }) { t.BackColor = bg; t.AutoSize = false; }
@@ -347,12 +355,12 @@ namespace Tepi
             mirror.Text = Lang.T("Cermin, untuk teleprompter kaca");
             mirror.FlatStyle = FlatStyle.Flat;
             mirror.Checked = mirrored;
-            mirror.SetBounds(24, 368, 472, 28);
+            mirror.SetBounds(24, 408, 472, 28);
 
             var hint = new Label { Text = Lang.T("Jeda: klik island atau Ctrl+Alt+Spasi. Tulis [jeda] untuk berhenti otomatis."), ForeColor = sub };
-            hint.SetBounds(24, 414, 316, 44);
+            hint.SetBounds(24, 454, 316, 44);
             var start = new Button { Text = Lang.T("Mulai") };
-            start.SetBounds(356, 420, 140, 34);
+            start.SetBounds(356, 460, 140, 34);
             start.FlatStyle = FlatStyle.Flat;
             start.FlatAppearance.BorderSize = 0;
             start.BackColor = fg;
@@ -372,6 +380,147 @@ namespace Tepi
                 else if (e.KeyCode == Keys.Enter && e.Control) { e.SuppressKeyPress = true; start.PerformClick(); }
             };
             Controls.AddRange(new Control[] { heading, script, speedLabel, speed, sizeLabel, size, mirror, hint, start });
+        }
+
+        // Saved scripts row: pick, import, save, delete
+        void BuildLibrary(Color bg, Color fg, Color sub)
+        {
+            var field = Ink.Light ? Color.White : Color.FromArgb(24, 24, 24);
+            saved.DropDownStyle = ComboBoxStyle.DropDownList;
+            saved.FlatStyle = FlatStyle.Flat;
+            saved.BackColor = field;
+            saved.ForeColor = fg;
+            saved.SetBounds(24, 58, 196, 30);
+            saved.SelectedIndexChanged += delegate { Pick(); };
+            Controls.Add(saved);
+            int x = 228;
+            foreach (var spec in new[] { "Impor", "Simpan", "Hapus" })
+            {
+                var b = spec == "Hapus" ? remove : new Button();
+                b.Text = Lang.T(spec);
+                b.FlatStyle = FlatStyle.Flat;
+                b.BackColor = field;
+                b.ForeColor = fg;
+                b.FlatAppearance.BorderColor = sub;
+                b.Cursor = Cursors.Hand;
+                b.SetBounds(x, 57, 84, 32);
+                x += 92;
+                if (spec == "Impor") b.Click += delegate { Import(); };
+                else if (spec == "Simpan") b.Click += delegate { Save(); };
+                else b.Click += delegate { Delete(); };
+                Controls.Add(b);
+            }
+            Fill(null);
+        }
+
+        void Fill(string select)
+        {
+            picking = true;
+            saved.Items.Clear();
+            saved.Items.Add(Lang.T("Naskah terakhir"));
+            try
+            {
+                if (Directory.Exists(Folder))
+                {
+                    var names = new List<string>();
+                    foreach (var f in Directory.GetFiles(Folder, "*.txt")) names.Add(Path.GetFileNameWithoutExtension(f));
+                    names.Sort(StringComparer.CurrentCultureIgnoreCase);
+                    foreach (var n in names) saved.Items.Add(n);
+                }
+            }
+            catch (Exception ex) { Log.Write("scripts list: " + ex.Message); }
+            int at = select == null ? 0 : saved.Items.IndexOf(select);
+            saved.SelectedIndex = Math.Max(0, at);
+            remove.Enabled = saved.SelectedIndex > 0;
+            picking = false;
+        }
+
+        void Pick()
+        {
+            remove.Enabled = saved.SelectedIndex > 0;
+            if (picking) return;
+            if (saved.SelectedIndex <= 0) { script.Text = Crlf(lastText); return; }
+            try { script.Text = Crlf(File.ReadAllText(Path.Combine(Folder, saved.SelectedItem + ".txt"))); }
+            catch (Exception ex) { Log.Write("script read: " + ex.Message); }
+        }
+
+        static string Crlf(string s) { return (s ?? "").Replace("\r\n", "\n").Replace("\n", "\r\n"); }
+
+        // Name from the first line, safe for a file name
+        static string NameFor(string text)
+        {
+            string first = text.Trim();
+            int nl = first.IndexOfAny(new[] { '\r', '\n' });
+            if (nl > 0) first = first.Substring(0, nl);
+            foreach (char bad in Path.GetInvalidFileNameChars()) first = first.Replace(bad, ' ');
+            first = first.Trim().TrimEnd('.');
+            if (first.Length > 40) first = first.Substring(0, 40).Trim();
+            return first.Length > 0 ? first : Lang.T("Naskah");
+        }
+
+        void Save()
+        {
+            if (string.IsNullOrWhiteSpace(script.Text)) { script.Focus(); return; }
+            string name = saved.SelectedIndex > 0 ? (string)saved.SelectedItem : NameFor(script.Text);
+            try
+            {
+                Directory.CreateDirectory(Folder);
+                File.WriteAllText(Path.Combine(Folder, name + ".txt"), script.Text);
+            }
+            catch (Exception ex) { Log.Write("script save: " + ex.Message); return; }
+            Fill(name);
+        }
+
+        void Delete()
+        {
+            if (saved.SelectedIndex <= 0) return;
+            try { File.Delete(Path.Combine(Folder, saved.SelectedItem + ".txt")); }
+            catch (Exception ex) { Log.Write("script delete: " + ex.Message); }
+            Fill(null);
+            script.Text = Crlf(lastText);
+        }
+
+        void Import()
+        {
+            using (var open = new OpenFileDialog { Filter = Lang.T("Teks atau Markdown") + " (*.txt;*.md)|*.txt;*.md", Title = Lang.T("Impor naskah") })
+            {
+                if (open.ShowDialog(this) != DialogResult.OK) return;
+                try
+                {
+                    var info = new FileInfo(open.FileName);
+                    if (info.Length > 400000) { script.Text = ""; return; }
+                    string text = File.ReadAllText(open.FileName);
+                    if (open.FileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase)) text = PlainMarkdown(text);
+                    picking = true;
+                    saved.SelectedIndex = 0;
+                    picking = false;
+                    script.Text = Crlf(text.Trim());
+                }
+                catch (Exception ex) { Log.Write("script import: " + ex.Message); }
+            }
+        }
+
+        // Read-aloud text: drop Markdown syntax, keep the words
+        static string PlainMarkdown(string md)
+        {
+            var sb = new System.Text.StringBuilder();
+            bool fence = false;
+            foreach (var raw in md.Replace("\r\n", "\n").Split('\n'))
+            {
+                string line = raw.TrimEnd();
+                if (line.TrimStart().StartsWith("```")) { fence = !fence; continue; }
+                if (fence) continue;
+                line = System.Text.RegularExpressions.Regex.Replace(line, @"^\s{0,3}#{1,6}\s+", "");
+                line = System.Text.RegularExpressions.Regex.Replace(line, @"^\s*([-*+]|\d+[.)])\s+", "");
+                line = System.Text.RegularExpressions.Regex.Replace(line, @"^\s*>\s?", "");
+                line = System.Text.RegularExpressions.Regex.Replace(line, @"!\[[^\]]*\]\([^)]*\)", "");
+                line = System.Text.RegularExpressions.Regex.Replace(line, @"\[([^\]]*)\]\([^)]*\)", "$1");
+                line = System.Text.RegularExpressions.Regex.Replace(line, @"(\*\*|__|\*|_|`|~~)(.+?)\1", "$2");
+                line = System.Text.RegularExpressions.Regex.Replace(line, @"<[^>]+>", "");
+                if (System.Text.RegularExpressions.Regex.IsMatch(line, @"^\s*([-*_]\s*){3,}$")) line = "";
+                sb.Append(line).Append('\n');
+            }
+            return System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"\n{3,}", "\n\n");
         }
 
         void Labels()
