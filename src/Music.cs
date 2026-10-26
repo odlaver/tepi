@@ -131,7 +131,7 @@ namespace Tepi
         void DropBackdrop()
         {
             if (blurCache != null) { blurCache.Dispose(); blurCache = null; blurKey = null; backdropWant = null; }
-            if (panelSurface != null) { panelSurface.Dispose(); panelSurface = null; psKey = null; }
+            DropSurfaces();
         }
 
         // Cheap blur: shrink, then upscale

@@ -106,7 +106,7 @@ namespace Tepi
         void DrawPanel(float w, float h, DateTime now)
         {
             float k = Ease.OutCubic((float)((now - pageSwitchUtc).TotalSeconds / 0.34));
-            float musicVis = page == PageMusic ? (prevPage == PageMusic ? 1 : k) : prevPage == PageMusic ? 1 - k : 0;
+            float musicVis = BackdropShown(now) ? 1 : 0;
             double t0 = Prof.T();
             if (mediaInfo.Present) DrawBackdrop(musicVis);
             Prof.Add("backdrop", t0);
@@ -141,6 +141,15 @@ namespace Tepi
             p.Alpha = alpha;
             g.Restore(st);
             Prof.Add("page", t0);
+        }
+
+        // Cover backdrop swaps at mid-switch, hidden by the content fade;
+        // a per-frame alpha fade of it cost ~5 ms
+        bool BackdropShown(DateTime now)
+        {
+            bool mid = (now - pageSwitchUtc).TotalSeconds >= 0.34 * 0.45;
+            if (page == PageMusic) return prevPage == PageMusic || mid;
+            return prevPage == PageMusic && !mid;
         }
 
         void DrawPage(int pg, float w, float h, DateTime now)
