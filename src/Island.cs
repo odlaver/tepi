@@ -146,6 +146,7 @@ namespace Tepi
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            LoadLayout();
             BuildTray();
             if (!RegisterHotKey(Handle, HideHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.H)) Log.Write("hotkey Ctrl+Alt+H taken");
             if (!RegisterHotKey(Handle, PrompterHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.Space)) Log.Write("hotkey Ctrl+Alt+Space taken");
@@ -556,7 +557,7 @@ namespace Tepi
 
             t0 = Prof.T();
             g.Flush(FlushIntention.Sync);
-            var dst = new Native.POINT(monitorPx.Left + monitorPx.Width / 2 - pxW / 2, monitorPx.Top);
+            var dst = new Native.POINT(CenterX(monitorPx) - pxW / 2, monitorPx.Top);
             var size = new Native.SIZE(pxW, pxH);
             var src = new Native.POINT(0, 0);
             var blend = new Native.BLENDFUNCTION { SourceConstantAlpha = (byte)(255 * Ease.Clamp01(opacity.Value)), AlphaFormat = 1 };
@@ -992,56 +993,26 @@ namespace Tepi
         {
             menu = new ContextMenuStrip { ShowCheckMargin = true, ShowImageMargin = false };
             var title = new ToolStripMenuItem("Tepi") { Enabled = false };
-            var autoItem = new ToolStripMenuItem("Mulai bersama Windows", null, delegate
-            {
-                try { AutoStart.Enabled = !AutoStart.Enabled; } catch (Exception ex) { Log.Write("autostart: " + ex.Message); }
-            });
-            var lightItem = new ToolStripMenuItem("Island terang", null, delegate
-            {
-                settings.Set("theme", Ink.Light ? "gelap" : "terang");
-                settings.Save();
-                Ink.Apply(!Ink.Light);
-                ResetFrost();
-                Kick();
-            });
-            var lyricItem = new ToolStripMenuItem("Lirik di island", null, delegate { settings.Toggle("lyrics", true); Kick(); });
-            var onlineItem = new ToolStripMenuItem("Cari lirik online", null, delegate { settings.Toggle("lyrics.online", true); lyrics = null; SyncLyrics(); Kick(); });
-            var vizItem = new ToolStripMenuItem("Visualizer", null, delegate { settings.Toggle("visualizer", true); Kick(); });
-            var notifItem = new ToolStripMenuItem("Notifikasi pesan", null, delegate { settings.Toggle("notif", true); notifWatcher.Enabled = NotifOn; Kick(); });
-            var contentItem = new ToolStripMenuItem("Tampilkan isi pesan", null, delegate { settings.Toggle("notif.content", true); Kick(); });
             var kuliaItem = new ToolStripMenuItem("Kulia");
-            var glassItem = new ToolStripMenuItem("Efek kaca", null, delegate { ToggleGlass(); });
             var hookItem = new ToolStripMenuItem("Hubungkan agen");
             var dataItem = new ToolStripMenuItem("Buka folder data", null, delegate
             {
                 try { Process.Start("explorer.exe", "\"" + Settings.Dir + "\""); } catch (Exception ex) { Log.Write("open dir: " + ex.Message); }
             });
             var updateItem = new ToolStripMenuItem("Unduh pembaruan", null, delegate { if (newUrl != null) OpenUrl(newUrl); }) { Visible = false };
-            var dockItem = new ToolStripMenuItem("Menempel di tepi atas", null, delegate { settings.Toggle("dock", true); ResetFrost(); Kick(); });
             var hideItem = new ToolStripMenuItem("Sembunyikan island", null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+H" };
             var prompterItem = new ToolStripMenuItem("Teleprompter", null, delegate { if (PrompterOn) StopPrompter(); else OpenPrompter(); });
             var focusItem = new ToolStripMenuItem("Fokus");
-            var accentItem = new ToolStripMenuItem("Warna aksen");
-            var screenItem = new ToolStripMenuItem("Layar");
             var exit = new ToolStripMenuItem("Keluar", null, delegate { Close(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, focusItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), glassItem, dockItem, lightItem, accentItem, lyricItem, onlineItem, vizItem, notifItem, contentItem, screenItem, autoItem, new ToolStripSeparator(), dataItem, exit });
+            var prefsItem = new ToolStripMenuItem("Pengaturan…", null, delegate { OpenPrefs(); });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, focusItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
             menu.Opening += delegate
             {
-                try { autoItem.Checked = AutoStart.Enabled; } catch (Exception) { }
-                lightItem.Checked = Ink.Light;
                 hideItem.Checked = hiddenByUser;
                 prompterItem.Checked = PrompterOn;
-                dockItem.Checked = Docked;
-                FillTrayExtras(focusItem, accentItem, screenItem);
+                FillFocusMenu(focusItem);
                 updateItem.Visible = newVersion != null;
                 if (newVersion != null) updateItem.Text = "Unduh Tepi " + newVersion;
-                glassItem.Checked = GlassOn;
-                lyricItem.Checked = settings.GetBool("lyrics", true);
-                onlineItem.Checked = settings.GetBool("lyrics.online", true);
-                vizItem.Checked = settings.GetBool("visualizer", true);
-                notifItem.Checked = NotifOn;
-                contentItem.Checked = settings.GetBool("notif.content", true);
-                contentItem.Enabled = NotifOn;
                 CheckLinks();
                 hookItem.DropDownItems.Clear();
                 hookItem.DropDownItems.Add(new ToolStripMenuItem("Claude Code" + (hookProfiles > 0 ? "" : " · tidak ditemukan"), null, delegate { ToggleHooks(); })
@@ -1080,7 +1051,7 @@ namespace Tepi
         };
 
         // Rebuilt each time the menu opens
-        void FillTrayExtras(ToolStripMenuItem focusItem, ToolStripMenuItem accentItem, ToolStripMenuItem screenItem)
+        void FillFocusMenu(ToolStripMenuItem focusItem)
         {
             focusItem.DropDownItems.Clear();
             focusItem.Checked = FocusOn;
@@ -1090,35 +1061,6 @@ namespace Tepi
                 focusItem.DropDownItems.Add(new ToolStripMenuItem(minutes + " menit", null, delegate { StartFocus(minutes); }));
             }
             focusItem.DropDownItems.Add(new ToolStripMenuItem("Hentikan", null, delegate { StopFocus(); }) { Enabled = FocusOn });
-
-            accentItem.DropDownItems.Clear();
-            string current = settings.Get("accent", "");
-            foreach (var a in Accents)
-            {
-                var pick = a;
-                accentItem.DropDownItems.Add(new ToolStripMenuItem(pick[0], null, delegate
-                {
-                    settings.Set("accent", pick[1]);
-                    settings.Save();
-                    Ink.SetAccent(pick[1]);
-                    Kick();
-                }) { Checked = current == pick[1] });
-            }
-
-            screenItem.DropDownItems.Clear();
-            var screens = Screen.AllScreens;
-            screenItem.Visible = screens.Length > 1;
-            string chosen = settings.Get("monitor", "");
-            bool known = Array.Exists(screens, sc => sc.DeviceName == chosen);
-            for (int i = 0; i < screens.Length; i++)
-            {
-                var sc = screens[i];
-                string label = "Layar " + (i + 1) + (sc.Primary ? " · utama" : "") + " · " + sc.Bounds.Width + "×" + sc.Bounds.Height;
-                screenItem.DropDownItems.Add(new ToolStripMenuItem(label, null, delegate { UseMonitor(sc.Primary ? "" : sc.DeviceName); })
-                {
-                    Checked = known ? sc.DeviceName == chosen : sc.Primary
-                });
-            }
         }
 
         // Placeholder mark: the island's own pill shape

@@ -33,6 +33,14 @@ namespace Tepi
 
         bool GlassOn { get { return settings.GetBool("glass", true); } }
 
+        // Island centre; shift is percent of free half-width
+        volatile int shiftPct;
+        int CenterX(Rectangle mon)
+        {
+            float free = Math.Max(0, mon.Width / 2f - (MaxHalf + Pad) * scale);
+            return mon.Left + mon.Width / 2 + (int)Math.Round(shiftPct / 100f * free);
+        }
+
         void StartGlass() { ApplyGlass(); }
 
         void ApplyGlass()
@@ -58,12 +66,6 @@ namespace Tepi
                 if (frost != null) { frost.Dispose(); frost = null; }
             }
             Kick();
-        }
-
-        void ToggleGlass()
-        {
-            settings.Toggle("glass", true);
-            ApplyGlass();
         }
 
         volatile int frostNeedW;
@@ -116,7 +118,7 @@ namespace Tepi
                 {
                     var mon = monitorPx;
                     int w = Math.Max(64, Math.Min(canvasW, frostNeedW)) & ~1, h = Math.Max(40, Math.Min(canvasH, frostNeedH));
-                    int left = mon.Left + mon.Width / 2 - w / 2;
+                    int left = CenterX(mon) - w / 2;
                     int tw = Math.Max(4, w / FrostDiv), th = Math.Max(4, h / FrostDiv);
                     if (tiny == null || tiny.Width != tw || tiny.Height != th)
                     {
@@ -198,7 +200,7 @@ namespace Tepi
             }
             var st = g.Save();
             g.SetClip(path, CombineMode.Intersect);
-            int left = monitorPx.Left + monitorPx.Width / 2 - pxW / 2;
+            int left = CenterX(monitorPx) - pxW / 2;
             int fx = frostLeft - left;
             bool covered = frost != null && fx <= Math.Floor(bounds.X * scale) && fx + frostW >= Math.Ceiling(bounds.Right * scale) &&
                            frostH >= Math.Ceiling(bounds.Bottom * scale);

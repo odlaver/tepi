@@ -11,7 +11,26 @@ namespace Tepi
     {
         const int PageHome = 0, PageMusic = 1, PageAgents = 2, PageTasks = 3, PageMessages = 4, PageSchedule = 5;
         static readonly string[] PageNames = { "Ringkasan", "Musik", "Agen", "Tugas", "Pesan", "Jadwal" };
-        const float PanelW = 488, PanelTop = 54;
+        const float PanelTop = 54;
+        float panelW = 488;
+        float PanelW { get { return panelW; } }
+        int[] tabs = { 0, 1, 2, 3, 4, 5 };
+
+        // Width, shift and tab order from settings
+        void LoadLayout()
+        {
+            panelW = Clamp(settings.GetInt("panel.width", 488), 440, 560);
+            shiftPct = Math.Max(-40, Math.Min(40, settings.GetInt("position", 0)));
+            var list = new List<int>();
+            foreach (var part in settings.Get("tabs", "0,1,2,3,4,5").Split(','))
+            {
+                int v;
+                if (int.TryParse(part.Trim(), out v) && v >= 0 && v < PageNames.Length && !list.Contains(v)) list.Add(v);
+            }
+            if (list.Count == 0) list.Add(PageHome);
+            tabs = list.ToArray();
+            snapTab = true;
+        }
 
         DateTime panelOpenedUtc, pageSwitchUtc;
         int prevPage;
@@ -47,7 +66,11 @@ namespace Tepi
 
         float MusicHeight() { return mediaInfo.Present && mediaInfo.Title.Length > 0 ? 340 : 214; }
 
-        int DefaultPage(bool hover) { return PageHome; }
+        int DefaultPage(bool hover)
+        {
+            int want = settings.GetInt("panel.page", -1);
+            return Array.IndexOf(tabs, want) >= 0 ? want : tabs[0];
+        }
 
         void SetPage(int pg, bool snap)
         {
@@ -170,12 +193,13 @@ namespace Tepi
 
         void DrawTabsLive(float w, DateTime now)
         {
-            float total = PageNames.Length * TabSize + (PageNames.Length - 1) * TabGap, x0 = w / 2 - total / 2;
-            var rects = new RectangleF[PageNames.Length];
-            for (int i = 0; i < rects.Length; i++) rects[i] = new RectangleF(x0 + i * (TabSize + TabGap), TabY, TabSize, TabH);
+            int n = tabs.Length, at = Array.IndexOf(tabs, page);
+            float total = n * TabSize + (n - 1) * TabGap, x0 = w / 2 - total / 2;
+            var rects = new RectangleF[n];
+            for (int i = 0; i < n; i++) rects[i] = new RectangleF(x0 + i * (TabSize + TabGap), TabY, TabSize, TabH);
 
             // Liquid pill: leading edge first
-            var target = rects[page];
+            var target = rects[Math.Max(0, at)];
             bool right = target.X > tabX.Value + 0.5f;
             Tune(tabW, right ? 560 : 230, 0.8f);
             Tune(tabX, right ? 230 : 560, 0.8f);
@@ -184,27 +208,32 @@ namespace Tepi
             if (snapTab) { tabX.Snap(tabX.Target); tabW.Snap(tabW.Target); snapTab = false; }
             var pill = RectangleF.FromLTRB(tabX.Value, TabY, Math.Max(tabX.Value + TabH, tabW.Value), TabY + TabH);
 
-            for (int i = 0; i < rects.Length; i++)
+            for (int i = 0; i < n; i++)
             {
                 var r = rects[i];
-                if (Hover("tab" + i) && i != page) p.FillRound(r, TabH / 2, p.T.Fill);
-                DrawTabIcon(i, r.X + r.Width / 2, r.Y + r.Height / 2, Hover("tab" + i) ? p.T.Text : p.T.Sub);
-                int to = i;
-                AddHit(r, "tab" + i, delegate { SetPage(to, false); });
+                int to = tabs[i];
+                if (Hover("tab" + to) && to != page) p.FillRound(r, TabH / 2, p.T.Fill);
+                DrawTabIcon(to, r.X + r.Width / 2, r.Y + r.Height / 2, Hover("tab" + to) ? p.T.Text : p.T.Sub);
+                AddHit(r, "tab" + to, delegate { SetPage(to, false); });
             }
-            p.FillRound(pill, TabH / 2, p.T.Accent);
-            if (tabX.Settled && tabW.Settled) DrawTabIcon(page, rects[page].X + rects[page].Width / 2, rects[page].Y + rects[page].Height / 2, p.T.OnAccent);
-            else
+            // Hidden tab opened by a link: no pill
+            if (at >= 0)
             {
-                // Icons under the sliding pill flip colour
-                var st = g.Save();
-                using (var clip = Ink.Round(pill, TabH / 2)) g.SetClip(clip, CombineMode.Intersect);
-                for (int i = 0; i < rects.Length; i++) DrawTabIcon(i, rects[i].X + rects[i].Width / 2, rects[i].Y + rects[i].Height / 2, p.T.OnAccent);
-                g.Restore(st);
+                p.FillRound(pill, TabH / 2, p.T.Accent);
+                if (tabX.Settled && tabW.Settled) DrawTabIcon(page, rects[at].X + rects[at].Width / 2, rects[at].Y + rects[at].Height / 2, p.T.OnAccent);
+                else
+                {
+                    // Icons under the sliding pill flip colour
+                    var st = g.Save();
+                    using (var clip = Ink.Round(pill, TabH / 2)) g.SetClip(clip, CombineMode.Intersect);
+                    for (int i = 0; i < n; i++) DrawTabIcon(tabs[i], rects[i].X + rects[i].Width / 2, rects[i].Y + rects[i].Height / 2, p.T.OnAccent);
+                    g.Restore(st);
+                }
             }
-            for (int i = 0; i < rects.Length; i++)
+            for (int i = 0; i < n; i++)
             {
-                bool dot = (i == PageMessages && unread > 0) || (i == PageAgents && approvals.Count + BusyCount() > 0 && page != PageAgents);
+                int pg = tabs[i];
+                bool dot = (pg == PageMessages && unread > 0) || (pg == PageAgents && approvals.Count + BusyCount() > 0 && page != PageAgents);
                 if (!dot) continue;
                 p.Circle(rects[i].Right - 9, rects[i].Y + 6, 4.2f, p.T.Bg);
                 p.Circle(rects[i].Right - 9, rects[i].Y + 6, 3f, p.T.Text);
