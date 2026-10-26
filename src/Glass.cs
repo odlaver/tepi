@@ -69,10 +69,22 @@ namespace Tepi
         volatile int frostNeedW;
         int frostLeft, frostW;
 
+        DateTime prefetchUntilUtc;
+
+        // Hover: grab panel-sized frost before the panel opens, not mid-animation
+        void PrefetchFrost()
+        {
+            if (!GlassOn) return;
+            prefetchUntilUtc = DateTime.UtcNow.AddSeconds(2);
+            NeedFrost(PanelHeight());
+        }
+
         // Cover where the shell is heading
         void NeedFrost(float targetH)
         {
-            float half = Math.Max(sw.Value, sw.Target) / 2 + (bubble.Target > 0 || bubble.Value > 0.01f ? BubbleGap + BubbleR * 2 : 0);
+            if (DateTime.UtcNow < prefetchUntilUtc) targetH = Math.Max(targetH, PanelHeight());
+            float wide = DateTime.UtcNow < prefetchUntilUtc ? PanelW : 0;
+            float half = Math.Max(Math.Max(sw.Value, sw.Target), wide) / 2 + (bubble.Target > 0 || bubble.Value > 0.01f ? BubbleGap + BubbleR * 2 : 0);
             int w = Math.Min(canvasW, 2 * (int)Math.Ceiling((Math.Min(half, MaxHalf) + Pad) * scale));
             int h = Math.Min(canvasH, (int)Math.Ceiling((Gap + Math.Max(Math.Max(targetH, sh.Value), BubbleR * 2) + Pad) * scale));
             frostNeedW = w;
@@ -200,7 +212,7 @@ namespace Tepi
                 if (!covered) g.FillPath(p.B(Ink.A(tone.Bg, 0.62f)), path);
                 if (frost != null)
                 {
-                    Blit(frost, fx, 0, true);
+                    BlitPart(frost, fx, bounds);
                     if (extra > 0.01f) g.FillPath(p.B(Ink.A(tone.Bg, extra)), path);
                 }
                 // Light catching the top edge
@@ -210,6 +222,21 @@ namespace Tepi
             }
             g.Restore(st);
             g.DrawPath(p.P(light ? Color.FromArgb(120, 255, 255, 255) : Color.FromArgb(52, 255, 255, 255), 1f), path);
+        }
+
+        // Only the island's box of the frost; the rest is clipped anyway
+        void BlitPart(Bitmap img, int x, RectangleF bounds)
+        {
+            int x0 = Math.Max(x, (int)Math.Floor(bounds.X * scale) - 2), y0 = Math.Max(0, (int)Math.Floor(bounds.Y * scale) - 2);
+            int x1 = Math.Min(x + img.Width, (int)Math.Ceiling(bounds.Right * scale) + 2), y1 = Math.Min(img.Height, (int)Math.Ceiling(bounds.Bottom * scale) + 2);
+            if (x1 <= x0 || y1 <= y0) return;
+            var inner = g.Save();
+            g.ResetTransform();
+            g.InterpolationMode = InterpolationMode.NearestNeighbor;
+            g.PixelOffsetMode = PixelOffsetMode.Half;
+            g.CompositingMode = CompositingMode.SourceCopy;
+            g.DrawImage(img, new Rectangle(x0, y0, x1 - x0, y1 - y0), x0 - x, y0, x1 - x0, y1 - y0, GraphicsUnit.Pixel);
+            g.Restore(inner);
         }
 
         // Opaque 1:1 device-pixel copy

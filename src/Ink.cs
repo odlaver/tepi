@@ -144,6 +144,25 @@ namespace Tepi
             return Color.FromArgb((int)(a.A + (b.A - a.A) * t), (int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
         }
 
+        // Hangs from the screen edge: flat top, flared shoulders, round bottom
+        public static GraphicsPath Notch(RectangleF r, float radius, float shoulder)
+        {
+            var path = new GraphicsPath();
+            float top = r.Y - 2, left = r.Left, right = r.Right, bottom = r.Bottom;
+            radius = Math.Max(0.5f, Math.Min(radius, Math.Min(r.Width / 2, r.Height)));
+            float s = Math.Max(0.5f, Math.Min(shoulder, bottom - radius - top - 1));
+            path.AddLine(left - s, top, right + s, top);
+            path.AddArc(right, top, 2 * s, 2 * s, 270, -90);
+            path.AddLine(right, top + s, right, bottom - radius);
+            path.AddArc(right - 2 * radius, bottom - 2 * radius, 2 * radius, 2 * radius, 0, 90);
+            path.AddLine(right - radius, bottom, left + radius, bottom);
+            path.AddArc(left, bottom - 2 * radius, 2 * radius, 2 * radius, 90, 90);
+            path.AddLine(left, bottom - radius, left, top + s);
+            path.AddArc(left - 2 * s, top, 2 * s, 2 * s, 0, -90);
+            path.CloseFigure();
+            return path;
+        }
+
         public static GraphicsPath Round(RectangleF r, float radius)
         {
             var p = new GraphicsPath();

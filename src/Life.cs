@@ -134,6 +134,7 @@ namespace Tepi
             foreach (var id in stale) { sessions.Remove(id); redraw = true; }
             if (kulia != null && kulia.SignedIn && now >= nextTasksUtc) RefreshTasks(false);
             CheckDeadlines(now);
+            CheckClasses(now);
             if (SoonTask() != null) redraw = true;
             return redraw;
         }
@@ -697,14 +698,19 @@ namespace Tepi
             Kick();
             ThreadPool.QueueUserWorkItem(delegate
             {
-                string err;
+                string err, schedErr = null;
                 List<KuliaTask> list;
+                List<ClassSlot> sched = null;
                 try { list = kulia.Feed(out err); }
                 catch (Exception ex) { Log.Write("kulia feed: " + ex.Message); list = null; err = "Kulia sedang bermasalah · dicoba lagi otomatis"; }
+                try { if (list != null) sched = kulia.Schedule(out schedErr); }
+                catch (Exception ex) { Log.Write("kulia schedule: " + ex.Message); schedErr = "Jadwal gagal dimuat"; }
                 Post(() =>
                 {
                     tasksLoading = false;
                     if (list != null) { tasks = list; tasksError = null; tasksAtUtc = DateTime.UtcNow; }
+                    if (sched != null) { classes = sched; classesError = null; }
+                    else if (list != null) classesError = schedErr;
                     else tasksError = err;
                     nextTasksUtc = DateTime.UtcNow.AddMinutes(list != null ? 10 : 2);
                     if (manual && list != null) ShowInfo(Ink.IcoRefresh, "Tugas diperbarui", list.Count + " aktif");
@@ -742,6 +748,7 @@ namespace Tepi
             });
             tasks = null;
             tasksError = null;
+            classes = null;
             Kick();
         }
 

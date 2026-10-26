@@ -475,7 +475,9 @@ namespace Tepi
             float pb = Math.Max(0, bubble.Value);
             float half = W / 2 + (pb > 0.001f ? BubbleGap + BubbleR * 2 : 0);
             int pxW = Math.Min(canvasW - (canvasW & 1), 2 * (int)Math.Ceiling((Math.Min(half, MaxHalf) + Pad) * scale));
-            float gap = Math.Max(0, topGap.Value);
+            // Docked: no gap; the arrival dip stretches the island instead
+            float gap = Docked ? 0 : Math.Max(0, topGap.Value);
+            if (Docked) H += Math.Max(0, topGap.Value - Gap);
             int pxH = Math.Min(canvasH, (int)Math.Ceiling((gap + Math.Max(H, BubbleR * 2) + Pad) * scale));
             float cx = pxW / scale / 2f;
 
@@ -506,7 +508,7 @@ namespace Tepi
             Prof.Add("shadow", t0);
 
             hits.Clear();
-            using (var path = Ink.Round(shell, R))
+            using (var path = Docked ? Ink.Notch(shell, R, 10) : Ink.Round(shell, R))
             {
                 if (!bubbleRect.IsEmpty)
                 {
@@ -615,7 +617,8 @@ namespace Tepi
             string key = R + "|" + strength + "|" + scale;
             Bitmap img;
             if (shadows.TryGetValue(key, out img)) return img;
-            if (shadows.Count > 6) { foreach (var b in shadows.Values) b.Dispose(); shadows.Clear(); }
+            // Room for every view's radius; small bitmaps (~80 KB each)
+            if (shadows.Count > 16) { foreach (var b in shadows.Values) b.Dispose(); shadows.Clear(); }
             int side = (int)Math.Ceiling((2 * (M + R) + ShadowCore) * scale);
             img = new Bitmap(side, side, PixelFormat.Format32bppPArgb);
             using (var sg = Graphics.FromImage(img))
@@ -804,7 +807,7 @@ namespace Tepi
                 pointerInside = true;
                 Kick();
                 leaveTimer.Stop();
-                if (!expanded) { hoverTimer.Stop(); hoverTimer.Start(); }
+                if (!expanded) { hoverTimer.Stop(); hoverTimer.Start(); PrefetchFrost(); }
             }
             else if (!inside && pointerInside) { PointerLeave(); return; }
             string id = inside ? HitAt(mouse) : null;
@@ -867,6 +870,8 @@ namespace Tepi
             volBar.Target = vol;
             volume.Set(vol);
         }
+
+        bool Docked { get { return settings.GetBool("dock", true); } }
 
         // Hide on demand; permission cards still show
         const int HideHotkey = 1;
@@ -1006,17 +1011,19 @@ namespace Tepi
                 try { Process.Start("explorer.exe", "\"" + Settings.Dir + "\""); } catch (Exception ex) { Log.Write("open dir: " + ex.Message); }
             });
             var updateItem = new ToolStripMenuItem("Unduh pembaruan", null, delegate { if (newUrl != null) OpenUrl(newUrl); }) { Visible = false };
+            var dockItem = new ToolStripMenuItem("Menempel di tepi atas", null, delegate { settings.Toggle("dock", true); ResetFrost(); Kick(); });
             var hideItem = new ToolStripMenuItem("Sembunyikan island", null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+H" };
             var focusItem = new ToolStripMenuItem("Fokus");
             var accentItem = new ToolStripMenuItem("Warna aksen");
             var screenItem = new ToolStripMenuItem("Layar");
             var exit = new ToolStripMenuItem("Keluar", null, delegate { Close(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, focusItem, hookItem, kuliaItem, new ToolStripSeparator(), glassItem, lightItem, accentItem, lyricItem, onlineItem, vizItem, notifItem, contentItem, screenItem, autoItem, new ToolStripSeparator(), dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, hideItem, focusItem, hookItem, kuliaItem, new ToolStripSeparator(), glassItem, dockItem, lightItem, accentItem, lyricItem, onlineItem, vizItem, notifItem, contentItem, screenItem, autoItem, new ToolStripSeparator(), dataItem, exit });
             menu.Opening += delegate
             {
                 try { autoItem.Checked = AutoStart.Enabled; } catch (Exception) { }
                 lightItem.Checked = Ink.Light;
                 hideItem.Checked = hiddenByUser;
+                dockItem.Checked = Docked;
                 FillTrayExtras(focusItem, accentItem, screenItem);
                 updateItem.Visible = newVersion != null;
                 if (newVersion != null) updateItem.Text = "Unduh Tepi " + newVersion;

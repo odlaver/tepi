@@ -19,6 +19,13 @@ namespace Tepi
         public string Url { get { return "https://kulia.live/tugas/" + (Personal ? "pribadi/" : "") + Id; } }
     }
 
+    class ClassSlot
+    {
+        public string Title = "", Room = "", Kind = "";
+        public bool Online, Personal, Cancelled, Exam;
+        public DateTime Start, End;
+    }
+
     // OTP login, then PostgREST under RLS
     class KuliaClient
     {
@@ -149,22 +156,118 @@ namespace Tepi
             return r;
         }
 
+        void EnsureClass()
+        {
+            if (classKnown || userId == null) return;
+            var pr = Call("GET", "/rest/v1/profiles?select=class_label&id=eq." + userId, null, null);
+            if (!pr.Ok) return;
+            var rows = Rows(pr.Body);
+            if (rows.Length > 0) classLabel = Json.Str(rows[0], "class_label");
+            classKnown = true;
+        }
+
+        static object[] Rows(string body) { return Json.Parse(body) as object[] ?? new object[0]; }
+
+        // Next 7 days, the same rows kulia.live/jadwal shows
+        public List<ClassSlot> Schedule(out string error)
+        {
+            lock (sync)
+            {
+                error = EnsureAccess();
+                if (error != null) return null;
+                EnsureClass();
+                var en = Call("GET", "/rest/v1/enrollments?select=cohort_course_id&user_id=eq." + userId, null, null);
+                if (!en.Ok) { error = en.Status == 0 ? "Kulia tidak terjangkau · dicoba lagi otomatis" : "Jadwal gagal dimuat (" + en.Status + ")."; return null; }
+                var ids = new List<string>();
+                foreach (var row in Rows(en.Body)) ids.Add(Json.Str(row, "cohort_course_id"));
+                var course = new object[0];
+                if (ids.Count > 0)
+                {
+                    var cr = Call("GET", "/rest/v1/course_schedules?select=weekday,starts_at,ends_at,room,kind,mode,class_date,class_label," +
+                        "cohort_courses!inner(is_active,courses(name,short_name)),schedule_confirmations(class_date,status)" +
+                        "&cohort_courses.is_active=eq.true&cohort_course_id=in.(" + string.Join(",", ids) + ")", null, null);
+                    if (!cr.Ok) { error = "Jadwal gagal dimuat (" + cr.Status + ")."; return null; }
+                    course = Rows(cr.Body);
+                }
+                var pr = Call("GET", "/rest/v1/personal_schedules?select=id,title,category,weekday,event_date,starts_at,ends_at,room", null, null);
+                var personal = pr.Ok ? Rows(pr.Body) : new object[0];
+                // Invites not yet answered stay off the schedule
+                var pending = new HashSet<string>();
+                var mr = Call("POST", "/rest/v1/rpc/my_schedule_partners", "{}", null);
+                if (mr.Ok)
+                    foreach (var m in Rows(mr.Body))
+                        if (Json.Str(m, "user_id") == userId && Json.Str(m, "status") == "pending") pending.Add(Json.Str(m, "schedule_id"));
+                return Expand(course, personal, pending);
+            }
+        }
+
+        List<ClassSlot> Expand(object[] course, object[] personal, HashSet<string> pending)
+        {
+            var list = new List<ClassSlot>();
+            // Kulia stores WIB wall-clock times
+            var wib = TimeSpan.FromHours(7);
+            var today = DateTimeOffset.UtcNow.ToOffset(wib).Date;
+            for (int d = 0; d < 7; d++)
+            {
+                var day = today.AddDays(d);
+                int iso = day.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)day.DayOfWeek;
+                string date = day.ToString("yyyy-MM-dd");
+                foreach (var r in course)
+                {
+                    string once = Json.Str(r, "class_date");
+                    if (once.Length > 0 ? once != date : (int)Json.Num(r, "weekday", 0) != iso) continue;
+                    string forClass = Json.Str(r, "class_label");
+                    if (forClass.Length > 0 && forClass != classLabel) continue;
+                    var c = Json.Obj(Json.Obj(r, "cohort_courses"), "courses");
+                    string name = Json.Str(c, "short_name");
+                    if (name.Length == 0) name = Json.Str(c, "name");
+                    var slot = Slot(day, wib, r, name.Length > 0 ? name : "Mata kuliah");
+                    slot.Kind = Json.Str(r, "kind");
+                    slot.Online = Json.Str(r, "mode") == "online";
+                    foreach (var cf in Json.Arr(r, "schedule_confirmations"))
+                        if (Json.Str(cf, "class_date") == date)
+                        {
+                            slot.Cancelled = Json.Str(cf, "status") == "batal";
+                            slot.Exam = Json.Str(cf, "status") == "ujian";
+                        }
+                    list.Add(slot);
+                }
+                foreach (var r in personal)
+                {
+                    if (pending.Contains(Json.Str(r, "id"))) continue;
+                    bool oneOff = Json.Str(r, "category") == "kegiatan";
+                    if (oneOff ? Json.Str(r, "event_date") != date : (int)Json.Num(r, "weekday", 0) != iso) continue;
+                    var slot = Slot(day, wib, r, Json.Str(r, "title"));
+                    slot.Personal = true;
+                    list.Add(slot);
+                }
+            }
+            list.RemoveAll(s => s.End < DateTime.Now);
+            list.Sort((a, b) => a.Start.CompareTo(b.Start));
+            return list;
+        }
+
+        static ClassSlot Slot(DateTime day, TimeSpan wib, object r, string title)
+        {
+            TimeSpan from, to;
+            TimeSpan.TryParse(Json.Str(r, "starts_at"), out from);
+            TimeSpan.TryParse(Json.Str(r, "ends_at"), out to);
+            return new ClassSlot
+            {
+                Title = title,
+                Room = Json.Str(r, "room"),
+                Start = new DateTimeOffset(day + from, wib).LocalDateTime,
+                End = new DateTimeOffset(day + to, wib).LocalDateTime,
+            };
+        }
+
         public List<KuliaTask> Feed(out string error)
         {
             lock (sync)
             {
                 error = EnsureAccess();
                 if (error != null) return null;
-                if (!classKnown && userId != null)
-                {
-                    var pr = Call("GET", "/rest/v1/profiles?select=class_label&id=eq." + userId, null, null);
-                    if (pr.Ok)
-                    {
-                        var rows = Json.Parse(pr.Body) as object[];
-                        if (rows != null && rows.Length > 0) classLabel = Json.Str(rows[0], "class_label");
-                        classKnown = true;
-                    }
-                }
+                EnsureClass();
                 var r = Call("POST", "/rest/v1/rpc/my_feed", "{}", null);
                 if (r.Status == 0) { error = "Kulia tidak terjangkau · dicoba lagi otomatis"; return null; }
                 if (!r.Ok) { error = "Kulia menolak permintaan (" + r.Status + ")."; return null; }

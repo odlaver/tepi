@@ -9,8 +9,8 @@ namespace Tepi
 {
     partial class Island
     {
-        const int PageHome = 0, PageMusic = 1, PageAgents = 2, PageTasks = 3, PageMessages = 4;
-        static readonly string[] PageNames = { "Ringkasan", "Musik", "Agen", "Tugas", "Pesan" };
+        const int PageHome = 0, PageMusic = 1, PageAgents = 2, PageTasks = 3, PageMessages = 4, PageSchedule = 5;
+        static readonly string[] PageNames = { "Ringkasan", "Musik", "Agen", "Tugas", "Pesan", "Jadwal" };
         const float PanelW = 488, PanelTop = 54;
 
         DateTime panelOpenedUtc, pageSwitchUtc;
@@ -31,6 +31,8 @@ namespace Tepi
                 case PageAgents:
                     if (sessions.Count == 0 || (hub != null && hub.Error != null)) return 214;
                     return Clamp(PanelTop + 14 + sessions.Count * 56, 150, 360);
+                case PageSchedule:
+                    return ScheduleHeight();
                 case PageTasks:
                     if (kulia == null || !kulia.Configured) return 214;
                     if (!kulia.SignedIn || (tasks == null && tasksError != null)) return 252;
@@ -64,13 +66,13 @@ namespace Tepi
         void StepPanel(float dt)
         {
             tabX.Step(dt); tabW.Step(dt);
-            agentScroll.Step(dt); taskScroll.Step(dt); notifScroll.Step(dt); plainScroll.Step(dt);
+            agentScroll.Step(dt); taskScroll.Step(dt); notifScroll.Step(dt); plainScroll.Step(dt); scheduleScroll.Step(dt);
             StepMusic(dt);
         }
 
         bool PanelMoving()
         {
-            return !tabX.Settled || !tabW.Settled || !agentScroll.Settled || !taskScroll.Settled || !notifScroll.Settled || !plainScroll.Settled ||
+            return !tabX.Settled || !tabW.Settled || !agentScroll.Settled || !taskScroll.Settled || !notifScroll.Settled || !plainScroll.Settled || !scheduleScroll.Settled ||
                    (DateTime.UtcNow - pageSwitchUtc).TotalSeconds < 0.4 || MusicMoving(DateTime.UtcNow);
         }
 
@@ -80,6 +82,13 @@ namespace Tepi
             if (page == PageAgents) { s = agentScroll; count = sessions.Count; rowH = 56; }
             else if (page == PageTasks) { s = taskScroll; count = tasks != null ? tasks.Count : 0; rowH = 54; }
             else if (page == PageMessages) { s = notifScroll; count = notifs.Count; rowH = 50; }
+            else if (page == PageSchedule)
+            {
+                float maxSchedule = Math.Max(0, ScheduleContentH() - (PanelHeight() - PanelTop - 20));
+                scheduleScroll.Target = Math.Max(0, Math.Min(maxSchedule, scheduleScroll.Target - delta / 120f * ClassRowH * 1.5f));
+                Kick();
+                return true;
+            }
             else if (page == PageMusic && lyrics != null && lyrics.State == LyricState.Plain && lyrics.Key == mediaInfo.Key)
             {
                 float maxPlain = Math.Max(0, lyrics.Lines.Count * PlainLineH - 150);
@@ -110,9 +119,11 @@ namespace Tepi
             var st = g.Save();
             g.IntersectClip(area);
             float alpha = p.Alpha;
-            if (k < 1 && prevPage != page)
+            // Outgoing page, skipped once it has faded out
+            float outAlpha = alpha * (1 - Ease.Clamp01(k * 2.2f));
+            if (k < 1 && prevPage != page && outAlpha >= 0.04f)
             {
-                p.Alpha = alpha * (1 - Ease.Clamp01(k * 2.2f));
+                p.Alpha = outAlpha;
                 var s1 = g.Save();
                 g.TranslateTransform(-dir * k * 30, 0);
                 bool hold = hitsOn;
@@ -141,6 +152,7 @@ namespace Tepi
                 case PageAgents: DrawAgentsPage(w, h, now); break;
                 case PageTasks: DrawTasksPage(w, h, now); break;
                 case PageMessages: DrawMessagesPage(w, h); break;
+                case PageSchedule: DrawSchedulePage(w, h, now); break;
             }
         }
 
@@ -201,6 +213,9 @@ namespace Tepi
                     for (int gy = 0; gy < 2; gy++)
                         for (int gx = 0; gx < 2; gx++)
                             using (var tile = Ink.Round(new RectangleF(cx - 7.5f + gx * 8.5f, cy - 7.5f + gy * 8.5f, 6.5f, 6.5f), 2f)) g.DrawPath(p.P(c, 1.5f), tile);
+                    break;
+                case PageSchedule:
+                    p.Icon(Ink.IcoCalendar, 15f, c, cx, cy);
                     break;
                 case PageMusic:
                     g.DrawLine(pen, cx - 3.5f, cy + 4.5f, cx - 3.5f, cy - 5.5f);
