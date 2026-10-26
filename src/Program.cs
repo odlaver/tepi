@@ -38,6 +38,10 @@ namespace Tepi
                 Application.ThreadException += (s, e) => Log.Write("ui: " + e.Exception);
                 AppDomain.CurrentDomain.UnhandledException += (s, e) => Log.Write("fatal: " + e.ExceptionObject);
                 Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+                // Opt in to .NET 4.8 accessibility, for screen reader notifications
+                AppContext.SetSwitch("Switch.UseLegacyAccessibilityFeatures", false);
+                AppContext.SetSwitch("Switch.UseLegacyAccessibilityFeatures.2", false);
+                AppContext.SetSwitch("Switch.UseLegacyAccessibilityFeatures.3", false);
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
                 Application.Run(new Island());

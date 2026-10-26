@@ -147,6 +147,7 @@ namespace Tepi
         {
             base.OnLoad(e);
             CleanUpdate();
+            Lang.English = settings.Get("lang", "id") == "en";
             LoadLayout();
             BuildTray();
             ApplyClips();
@@ -333,6 +334,7 @@ namespace Tepi
             {
                 previous = current;
                 current = want;
+                AnnounceView(want);
                 switchedUtc = DateTime.UtcNow;
                 if (want == View.Panel)
                 {
@@ -1006,6 +1008,9 @@ namespace Tepi
 
         void BuildTray()
         {
+            // Rebuilt when the language changes
+            if (tray != null) { tray.Visible = false; tray.Dispose(); }
+            if (menu != null) menu.Dispose();
             menu = new ContextMenuStrip { ShowCheckMargin = true, ShowImageMargin = false };
             var title = new ToolStripMenuItem("Tepi") { Enabled = false };
             var kuliaItem = new ToolStripMenuItem("Kulia");

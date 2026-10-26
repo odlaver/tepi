@@ -31,7 +31,8 @@ namespace Tepi
         int frostH;
         bool excluded;
 
-        bool GlassOn { get { return settings.GetBool("glass", true); } }
+        // Frost would capture the island itself once it is capturable
+        bool GlassOn { get { return settings.GetBool("glass", true) && !ShowInCapture; } }
 
         // Island centre; shift is percent of free half-width
         volatile int shiftPct;

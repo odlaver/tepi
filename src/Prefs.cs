@@ -45,6 +45,16 @@ namespace Tepi
             else if (key == "lyrics.online") { lyrics = null; SyncLyrics(); }
             else if (key == "clipboard") ApplyClips();
             else if (key == "downloads") ApplyDownloads();
+            else if (key == "capture.show") ApplyGlass();
+            Kick();
+        }
+
+        void SetLanguage(bool english)
+        {
+            settings.Set("lang", english ? "en" : "id");
+            settings.Save();
+            Lang.English = english;
+            BuildTray();
             Kick();
         }
 
@@ -79,12 +89,12 @@ namespace Tepi
             {
                 this.island = island;
                 settings = island.settings;
-                Text = "Pengaturan Tepi";
+                Text = Lang.T("Pengaturan Tepi");
                 FormBorderStyle = FormBorderStyle.FixedDialog;
                 MaximizeBox = MinimizeBox = false;
                 StartPosition = FormStartPosition.CenterScreen;
                 AutoScaleMode = AutoScaleMode.Dpi;
-                ClientSize = new Size(760, 548);
+                ClientSize = new Size(760, 676);
                 ShowInTaskbar = true;
                 Icon = island.tray != null ? island.tray.Icon : null;
                 bg = Ink.Light ? Color.FromArgb(245, 245, 245) : Color.FromArgb(10, 10, 10);
@@ -104,30 +114,42 @@ namespace Tepi
                 loading = false;
             }
 
-            // Left column: look and placement
+            // Rebuild in new colours or language, same spot
+            void Reopen()
+            {
+                var at = Location;
+                BeginInvoke((Action)delegate
+                {
+                    Close();
+                    island.OpenPrefs();
+                    island.prefs.Location = at;
+                });
+            }
+
+            // Left column: look, placement, accessibility
             void BuildLook(int x)
             {
                 int y = 20;
                 Heading("Tampilan", x, ref y);
-                var theme = Combo(x, ref y, "Tema", new[] { "Gelap", "Terang" }, Ink.Light ? 1 : 0);
+                var lang = Combo(x, ref y, "Bahasa", new[] { "Indonesia", "English" }, Lang.English ? 1 : 0);
+                lang.SelectedIndexChanged += delegate
+                {
+                    if (loading) return;
+                    island.SetLanguage(lang.SelectedIndex == 1);
+                    Reopen();
+                };
+                var theme = Combo(x, ref y, "Tema", new[] { Lang.T("Gelap"), Lang.T("Terang") }, Ink.Light ? 1 : 0);
                 theme.SelectedIndexChanged += delegate
                 {
                     if (loading) return;
                     island.SetLight(theme.SelectedIndex == 1);
-                    // Rebuild in the new colours, same spot
-                    var at = Location;
-                    BeginInvoke((Action)delegate
-                    {
-                        Close();
-                        island.OpenPrefs();
-                        island.prefs.Location = at;
-                    });
+                    Reopen();
                 };
 
                 var names = new List<string>();
                 int accentAt = 0;
                 string accent = settings.Get("accent", "");
-                for (int i = 0; i < Accents.Length; i++) { names.Add(Accents[i][0]); if (Accents[i][1] == accent) accentAt = i; }
+                for (int i = 0; i < Accents.Length; i++) { names.Add(Lang.T(Accents[i][0])); if (Accents[i][1] == accent) accentAt = i; }
                 var accentBox = Combo(x, ref y, "Aksen", names.ToArray(), accentAt);
                 accentBox.SelectedIndexChanged += delegate { if (!loading) island.SetAccentHex(Accents[accentBox.SelectedIndex][1]); };
 
@@ -137,7 +159,7 @@ namespace Tepi
                 int screenAt = 0;
                 for (int i = 0; i < screens.Length; i++)
                 {
-                    labels[i] = "Layar " + (i + 1) + (screens[i].Primary ? " · utama" : "") + " · " + screens[i].Bounds.Width + "×" + screens[i].Bounds.Height;
+                    labels[i] = Lang.F("Layar {0}", i + 1) + (screens[i].Primary ? " · " + Lang.T("utama") : "") + " · " + screens[i].Bounds.Width + "×" + screens[i].Bounds.Height;
                     if (chosen.Length > 0 ? screens[i].DeviceName == chosen : screens[i].Primary) screenAt = i;
                 }
                 var screenBox = Combo(x, ref y, "Layar", labels, screenAt);
@@ -154,10 +176,15 @@ namespace Tepi
 
                 y += 14;
                 Heading("Tata letak", x, ref y);
-                Slider(x, ref y, "Posisi", -40, 40, settings.GetInt("position", 0), 5, v => v == 0 ? "tengah" : (v < 0 ? "kiri " : "kanan ") + Math.Abs(v) + "%",
+                Slider(x, ref y, "Posisi", -40, 40, settings.GetInt("position", 0), 5, v => v == 0 ? Lang.T("tengah") : Lang.T(v < 0 ? "kiri" : "kanan") + " " + Math.Abs(v) + "%",
                        v => { island.SetLayout("position", v); Preview(); });
                 Slider(x, ref y, "Lebar panel", 440, 560, (int)island.PanelW, 8, v => v + " px",
                        v => { island.SetLayout("panel.width", v); Preview(); });
+
+                y += 14;
+                Heading("Aksesibilitas", x, ref y);
+                Check(x, ref y, "Tampil di rekaman layar (tanpa efek kaca)", "capture.show", false);
+                Check(x, ref y, "Umumkan ke pembaca layar", "a11y.announce", true);
             }
 
             // Right column: tabs and island content
@@ -165,12 +192,11 @@ namespace Tepi
             {
                 int y = 20;
                 Heading("Tab panel", x, ref y);
-                tabList.SetBounds(x, y, 220, 6 * 26 + 6);
+                tabList.SetBounds(x, y, 220, PageNames.Length * 24 + 6);
                 tabList.BorderStyle = BorderStyle.FixedSingle;
                 tabList.BackColor = field;
                 tabList.ForeColor = fg;
                 tabList.CheckOnClick = true;
-                tabList.ItemHeight = 26;
                 var order = new List<int>(island.tabs);
                 for (int pg = 0; pg < PageNames.Length; pg++) if (!order.Contains(pg)) order.Add(pg);
                 foreach (int pg in order) tabList.Items.Add(new TabItem(pg), Array.IndexOf(island.tabs, pg) >= 0);
@@ -186,8 +212,8 @@ namespace Tepi
                 SmallButton("Turun", x + 232, up.Bottom + 8, delegate { Shift(1); });
                 y += tabList.Height + 12;
 
-                var openNames = new List<string> { "Tab pertama" };
-                openNames.AddRange(PageNames);
+                var openNames = new List<string> { Lang.T("Tab pertama") };
+                foreach (var n in PageNames) openNames.Add(Lang.T(n));
                 int openAt = settings.GetInt("panel.page", -1) + 1;
                 var openBox = Combo(x, ref y, "Dibuka di", openNames.ToArray(), Math.Max(0, Math.Min(openNames.Count - 1, openAt)));
                 openBox.SelectedIndexChanged += delegate { if (!loading) island.SetLayout("panel.page", openBox.SelectedIndex - 1); };
@@ -199,7 +225,10 @@ namespace Tepi
                 Check(x, ref y, "Visualizer", "visualizer", true);
                 Check(x, ref y, "Notifikasi pesan", "notif", true);
                 Check(x, ref y, "Tampilkan isi pesan", "notif.content", true);
-                var auto = new CheckBox { Text = "Mulai bersama Windows", FlatStyle = FlatStyle.Flat, AutoSize = false };
+                Check(x, ref y, "Kelas yang berlangsung", "class.island", true);
+                Check(x, ref y, "Progres unduhan", "downloads", true);
+                Check(x, ref y, "Riwayat clipboard", "clipboard", false);
+                var auto = new CheckBox { Text = Lang.T("Mulai bersama Windows"), FlatStyle = FlatStyle.Flat, AutoSize = false };
                 auto.SetBounds(x, y, 336, 28);
                 try { auto.Checked = AutoStart.Enabled; } catch (Exception) { }
                 auto.CheckedChanged += delegate
@@ -210,8 +239,8 @@ namespace Tepi
                 Controls.Add(auto);
                 y += 32;
 
-                var restLabel = new Label { Text = "Istirahat fokus (menit)", ForeColor = sub, AutoSize = false };
-                restLabel.SetBounds(x, y + 4, 200, 24);
+                var restLabel = new Label { Text = Lang.T("Istirahat fokus (menit)"), ForeColor = sub, AutoSize = false };
+                restLabel.SetBounds(x, y + 4, 220, 24);
                 var rest = new NumericUpDown { Minimum = 1, Maximum = 30, BorderStyle = BorderStyle.FixedSingle, BackColor = field, ForeColor = fg };
                 rest.SetBounds(x + 232, y, 104, 30);
                 rest.Value = Math.Max(1, Math.Min(30, settings.GetInt("focus.break", 5)));
@@ -224,7 +253,7 @@ namespace Tepi
             {
                 public readonly int Page;
                 public TabItem(int page) { Page = page; }
-                public override string ToString() { return PageNames[Page]; }
+                public override string ToString() { return Lang.T(PageNames[Page]); }
             }
 
             void Shift(int step)
@@ -260,7 +289,7 @@ namespace Tepi
 
             void Heading(string text, int x, ref int y)
             {
-                var l = new Label { Text = text, Font = Ink.Display(18f), AutoSize = false };
+                var l = new Label { Text = Lang.T(text), Font = Ink.Display(18f), AutoSize = false };
                 l.SetBounds(x, y, 336, 30);
                 Controls.Add(l);
                 y += 38;
@@ -268,7 +297,7 @@ namespace Tepi
 
             ComboBox Combo(int x, ref int y, string label, string[] items, int selected)
             {
-                var l = new Label { Text = label, ForeColor = sub, AutoSize = false };
+                var l = new Label { Text = Lang.T(label), ForeColor = sub, AutoSize = false };
                 l.SetBounds(x, y + 4, 110, 24);
                 var c = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, BackColor = field, ForeColor = fg };
                 c.SetBounds(x + 116, y, 220, 30);
@@ -282,7 +311,7 @@ namespace Tepi
 
             void Check(int x, ref int y, string label, string key, bool fallback)
             {
-                var c = new CheckBox { Text = label, FlatStyle = FlatStyle.Flat, AutoSize = false, Checked = settings.GetBool(key, fallback) };
+                var c = new CheckBox { Text = Lang.T(label), FlatStyle = FlatStyle.Flat, AutoSize = false, Checked = settings.GetBool(key, fallback) };
                 c.SetBounds(x, y, 336, 28);
                 c.CheckedChanged += delegate { if (!loading) island.SetFlag(key, c.Checked); };
                 Controls.Add(c);
@@ -291,7 +320,7 @@ namespace Tepi
 
             void Slider(int x, ref int y, string label, int min, int max, int value, int step, Func<int, string> show, Action<int> apply)
             {
-                var l = new Label { Text = label, ForeColor = sub, AutoSize = false };
+                var l = new Label { Text = Lang.T(label), ForeColor = sub, AutoSize = false };
                 l.SetBounds(x, y, 200, 24);
                 var v = new Label { ForeColor = fg, AutoSize = false, TextAlign = ContentAlignment.TopRight };
                 v.SetBounds(x + 200, y, 136, 24);
@@ -315,7 +344,7 @@ namespace Tepi
 
             Button SmallButton(string text, int x, int y, Action act)
             {
-                var b = new Button { Text = text, FlatStyle = FlatStyle.Flat, BackColor = field, ForeColor = fg, Cursor = Cursors.Hand };
+                var b = new Button { Text = Lang.T(text), FlatStyle = FlatStyle.Flat, BackColor = field, ForeColor = fg, Cursor = Cursors.Hand };
                 b.FlatAppearance.BorderColor = sub;
                 b.SetBounds(x, y, 104, 32);
                 b.Click += delegate { act(); };
