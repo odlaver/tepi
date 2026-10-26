@@ -148,6 +148,7 @@ namespace Tepi
             base.OnLoad(e);
             LoadLayout();
             BuildTray();
+            ApplyClips();
             if (!RegisterHotKey(Handle, HideHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.H)) Log.Write("hotkey Ctrl+Alt+H taken");
             StartGlass();
             StartFeeds();
@@ -193,6 +194,9 @@ namespace Tepi
                 case AppBarMsg:
                     if (m.WParam.ToInt64() == 2) { fsTimer.Stop(); fsTimer.Start(); }
                     return;
+                case 0x031D: // WM_CLIPBOARDUPDATE
+                    OnClipboardUpdate();
+                    break;
                 case 0x0312: // WM_HOTKEY
                     if (m.WParam.ToInt32() == HideHotkey) ToggleHidden();
                     else if (m.WParam.ToInt32() == PrompterHotkey) TogglePrompter();

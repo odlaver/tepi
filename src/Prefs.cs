@@ -43,6 +43,7 @@ namespace Tepi
             else if (key == "dock") ResetFrost();
             else if (key == "notif") notifWatcher.Enabled = NotifOn;
             else if (key == "lyrics.online") { lyrics = null; SyncLyrics(); }
+            else if (key == "clipboard") ApplyClips();
             Kick();
         }
 

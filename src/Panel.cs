@@ -9,12 +9,12 @@ namespace Tepi
 {
     partial class Island
     {
-        const int PageHome = 0, PageMusic = 1, PageAgents = 2, PageTasks = 3, PageMessages = 4, PageSchedule = 5;
-        static readonly string[] PageNames = { "Ringkasan", "Musik", "Agen", "Tugas", "Pesan", "Jadwal" };
+        const int PageHome = 0, PageMusic = 1, PageAgents = 2, PageTasks = 3, PageMessages = 4, PageSchedule = 5, PageClips = 6;
+        static readonly string[] PageNames = { "Ringkasan", "Musik", "Agen", "Tugas", "Pesan", "Jadwal", "Clipboard" };
         const float PanelTop = 54;
         float panelW = 488;
         float PanelW { get { return panelW; } }
-        int[] tabs = { 0, 1, 2, 3, 4, 5 };
+        int[] tabs = { 0, 1, 2, 3, 4, 5, 6 };
 
         // Width, shift and tab order from settings
         void LoadLayout()
@@ -22,7 +22,7 @@ namespace Tepi
             panelW = Clamp(settings.GetInt("panel.width", 488), 440, 560);
             shiftPct = Math.Max(-40, Math.Min(40, settings.GetInt("position", 0)));
             var list = new List<int>();
-            foreach (var part in settings.Get("tabs", "0,1,2,3,4,5").Split(','))
+            foreach (var part in settings.Get("tabs", "0,1,2,3,4,5,6").Split(','))
             {
                 int v;
                 if (int.TryParse(part.Trim(), out v) && v >= 0 && v < PageNames.Length && !list.Contains(v)) list.Add(v);
@@ -52,6 +52,8 @@ namespace Tepi
                     return Clamp(PanelTop + 14 + sessions.Count * 56, 150, 360);
                 case PageSchedule:
                     return ScheduleHeight();
+                case PageClips:
+                    return ClipsHeight();
                 case PageTasks:
                     if (kulia == null || !kulia.Configured) return 214;
                     if (!kulia.SignedIn || (tasks == null && tasksError != null)) return 252;
@@ -105,6 +107,7 @@ namespace Tepi
             if (page == PageAgents) { s = agentScroll; count = sessions.Count; rowH = 56; }
             else if (page == PageTasks) { s = taskScroll; count = tasks != null ? tasks.Count : 0; rowH = 54; }
             else if (page == PageMessages) { s = notifScroll; count = notifs.Count; rowH = 50; }
+            else if (page == PageClips) { s = clipScroll; count = clips.Count; rowH = ClipRowH; }
             else if (page == PageSchedule)
             {
                 float maxSchedule = Math.Max(0, ScheduleContentH() - (PanelHeight() - PanelTop - 20));
@@ -185,6 +188,7 @@ namespace Tepi
                 case PageTasks: DrawTasksPage(w, h, now); break;
                 case PageMessages: DrawMessagesPage(w, h); break;
                 case PageSchedule: DrawSchedulePage(w, h, now); break;
+                case PageClips: DrawClipsPage(w, h, now); break;
             }
         }
 
@@ -194,9 +198,11 @@ namespace Tepi
         void DrawTabsLive(float w, DateTime now)
         {
             int n = tabs.Length, at = Array.IndexOf(tabs, page);
-            float total = n * TabSize + (n - 1) * TabGap, x0 = w / 2 - total / 2;
+            // Narrower tabs keep clear of the action button
+            float size = Math.Min(TabSize, (w - 116 - (n - 1) * TabGap) / n);
+            float total = n * size + (n - 1) * TabGap, x0 = w / 2 - total / 2;
             var rects = new RectangleF[n];
-            for (int i = 0; i < n; i++) rects[i] = new RectangleF(x0 + i * (TabSize + TabGap), TabY, TabSize, TabH);
+            for (int i = 0; i < n; i++) rects[i] = new RectangleF(x0 + i * (size + TabGap), TabY, size, TabH);
 
             // Liquid pill: leading edge first
             var target = rects[Math.Max(0, at)];
@@ -254,6 +260,9 @@ namespace Tepi
                     break;
                 case PageSchedule:
                     p.Icon(Ink.IcoCalendar, 15f, c, cx, cy);
+                    break;
+                case PageClips:
+                    p.Icon('\uE77F', 15f, c, cx, cy);
                     break;
                 case PageMusic:
                     g.DrawLine(pen, cx - 3.5f, cy + 4.5f, cx - 3.5f, cy - 5.5f);
@@ -330,6 +339,12 @@ namespace Tepi
                 if (Hover("clearAll")) p.FillRound(r, TabH / 2, p.T.Fill);
                 p.Icon('', 13f, Hover("clearAll") ? p.T.Text : p.T.Sub, r.X + 17, r.Y + 16);
                 AddHit(r, "clearAll", delegate { notifScroll.Snap(0); RemoveNotifs(new List<NotifItem>(notifs)); });
+            }
+            else if (page == PageClips && clips.Count > 0)
+            {
+                if (Hover("clearClips")) p.FillRound(r, TabH / 2, p.T.Fill);
+                p.Icon('\uE74D', 13f, Hover("clearClips") ? p.T.Text : p.T.Sub, r.X + 17, r.Y + 16);
+                AddHit(r, "clearClips", delegate { clipScroll.Snap(0); clips.Clear(); Kick(); });
             }
         }
 
