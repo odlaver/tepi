@@ -199,6 +199,8 @@ namespace Tepi
             { "batal", "cancelled" },
             { "ujian", "exam" },
             { "tenggat", "deadline" },
+            { "Paket tema", "Theme pack" },
+            { "Tanpa", "None" },
             { "Navigasi keyboard", "Keyboard navigation" },
             { "Navigasi keyboard. Tab untuk pindah, Enter untuk memilih, Esc untuk keluar.", "Keyboard navigation. Tab to move, Enter to choose, Esc to leave." },
             { "Impor", "Import" },

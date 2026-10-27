@@ -136,13 +136,14 @@ namespace Tepi
 
         bool PrivacyOn { get { return micApps.Length + camApps.Length > 0; } }
 
-        float IdleWidth() { return 112 + (PrivacyOn || unread > 0 ? 44 : 0); }
+        float IdleWidth() { return 112 + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0); }
 
         void DrawIdle(float w, float h, DateTime now)
         {
-            float cy = h / 2;
-            clockRoller.Draw(p, Ink.Display(15.5f), p.T.Text, w / 2, cy, StringAlignment.Center, now);
-            if (PrivacyOn) p.Icon(camApps.Length > 0 ? Ink.IcoCam : Ink.IcoMic, 12f, p.T.Sub, 22, cy);
+            float cy = h / 2, shift = emblem != null ? 15 : 0;
+            if (emblem != null) DrawEmblem(24, cy, 10.5f);
+            clockRoller.Draw(p, Ink.Display(15.5f), p.T.Text, w / 2 + shift, cy, StringAlignment.Center, now);
+            if (PrivacyOn) p.Icon(camApps.Length > 0 ? Ink.IcoCam : Ink.IcoMic, 12f, p.T.Sub, 22 + shift * 2, cy);
             if (unread > 0) DrawCount(w - 22, cy, unread);
         }
 
@@ -580,14 +581,15 @@ namespace Tepi
         {
             if (toast == null || p.G == null) return 220;
             float t = p.Measure(toast.Title, Ink.Semi(13.5f)) + (toast.Detail.Length > 0 ? 14 + Math.Min(200, p.Measure(toast.Detail, Ink.Text(12.5f))) : 0);
-            return Clamp(t + (toast.Glyph != '\0' ? 72 : 46), 160, 460);
+            return Clamp(t + (toast.Glyph != '\0' || (toast.Emblem && emblem != null) ? 74 : 46), 160, 460);
         }
 
         void DrawInfo(float w, float h)
         {
             if (toast == null) return;
             float cy = h / 2, x = 22;
-            if (toast.Glyph != '\0') { p.Icon(toast.Glyph, 14f, p.T.Text, 30, cy); x = 48; }
+            if (toast.Emblem && emblem != null) { DrawEmblem(31, cy, 11f); x = 50; }
+            else if (toast.Glyph != '\0') { p.Icon(toast.Glyph, 14f, p.T.Text, 30, cy); x = 48; }
             var semi = Ink.Semi(13.5f);
             p.Text(toast.Title, semi, p.T.Text, x, cy, w - x - 20, StringAlignment.Near);
             if (toast.Detail.Length > 0)

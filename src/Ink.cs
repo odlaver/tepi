@@ -57,6 +57,37 @@ namespace Tepi
         public static bool Light;
 
         static Color? accent;
+        // Theme pack colors; "card." keys style the light cards
+        static Dictionary<string, string> pack = new Dictionary<string, string>();
+
+        public static void SetPack(Dictionary<string, string> colors) { pack = colors ?? new Dictionary<string, string>(); }
+
+        static void Override(Tone t, string prefix)
+        {
+            Color c;
+            if (Hex(prefix + "bg", out c)) t.Bg = c;
+            if (Hex(prefix + "text", out c)) t.Text = c;
+            if (Hex(prefix + "sub", out c)) t.Sub = c;
+            if (Hex(prefix + "faint", out c)) t.Faint = c;
+            if (Hex(prefix + "fill", out c)) t.Fill = c;
+            if (Hex(prefix + "fillHover", out c)) t.FillHover = c;
+            if (Hex(prefix + "line", out c)) t.Line = c;
+            if (Hex(prefix + "accent", out c)) t.Accent = t.Progress = c;
+            if (Hex(prefix + "onAccent", out c)) t.OnAccent = c;
+            if (Hex(prefix + "progress", out c)) t.Progress = c;
+        }
+
+        // "#RRGGBB" or "#AARRGGBB"
+        static bool Hex(string key, out Color c)
+        {
+            c = Color.Empty;
+            string v;
+            if (!pack.TryGetValue(key, out v) || v.Length < 7 || v[0] != '#') return false;
+            uint n;
+            if (!uint.TryParse(v.Substring(1), System.Globalization.NumberStyles.HexNumber, null, out n)) return false;
+            c = v.Length == 9 ? Color.FromArgb((int)(n >> 24), (int)((n >> 16) & 255), (int)((n >> 8) & 255), (int)(n & 255)) : Color.FromArgb(255, (int)((n >> 16) & 255), (int)((n >> 8) & 255), (int)(n & 255));
+            return true;
+        }
 
         public static void Apply(bool light)
         {
@@ -71,6 +102,8 @@ namespace Tepi
                 // Dark ink on light accents
                 Base.OnAccent = c.R * 0.299 + c.G * 0.587 + c.B * 0.114 > 150 ? Color.FromArgb(255, 10, 10, 10) : Color.FromArgb(255, 250, 250, 250);
             }
+            Override(Base, "");
+            Override(Flip, "card.");
         }
 
         // "#RRGGBB", or empty for monochrome

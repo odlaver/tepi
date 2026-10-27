@@ -99,7 +99,7 @@ namespace Tepi
                 MaximizeBox = MinimizeBox = false;
                 StartPosition = FormStartPosition.CenterScreen;
                 AutoScaleMode = AutoScaleMode.Dpi;
-                ClientSize = new Size(760, 676);
+                ClientSize = new Size(760, 700);
                 ShowInTaskbar = true;
                 Icon = island.tray != null ? island.tray.Icon : null;
                 bg = Ink.Light ? Color.FromArgb(245, 245, 245) : Color.FromArgb(10, 10, 10);
@@ -157,6 +157,18 @@ namespace Tepi
                 for (int i = 0; i < Accents.Length; i++) { names.Add(Lang.T(Accents[i][0])); if (Accents[i][1] == accent) accentAt = i; }
                 var accentBox = Combo(x, ref y, Lang.T("Aksen"), names.ToArray(), accentAt);
                 accentBox.SelectedIndexChanged += delegate { if (!loading) island.SetAccentHex(Accents[accentBox.SelectedIndex][1]); };
+
+                var packs = new List<string> { Lang.T("Tanpa") };
+                packs.AddRange(ThemePacks());
+                int packAt = Math.Max(0, packs.IndexOf(settings.Get("theme.pack", "")));
+                var packBox = Combo(x, ref y, "Paket tema", packs.ToArray(), packAt);
+                packBox.SelectedIndexChanged += delegate
+                {
+                    if (loading) return;
+                    settings.Set("theme.pack", packBox.SelectedIndex == 0 ? "" : packs[packBox.SelectedIndex]);
+                    settings.Save();
+                    island.ApplyPack();
+                };
 
                 var screens = Screen.AllScreens;
                 var labels = new string[screens.Length];

@@ -23,6 +23,7 @@ namespace Tepi
         public DateTime ShownUtc;
         public string Title = "", Detail = "";
         public char Glyph;
+        public bool Emblem;
         public object Data;
         public bool Flag;
     }
@@ -148,6 +149,7 @@ namespace Tepi
             base.OnLoad(e);
             CleanUpdate();
             Lang.English = settings.Get("lang", "id") == "en";
+            LoadPack();
             LoadLayout();
             BuildTray();
             ApplyClips();
@@ -164,7 +166,8 @@ namespace Tepi
             CheckFullscreen();
             clockRoller.Set(Fmt.Hm(DateTime.Now));
             int hour = DateTime.Now.Hour;
-            ShowInfo('\0', hour < 11 ? Lang.T("Pagi") : hour < 15 ? Lang.T("Siang") : hour < 18 ? Lang.T("Sore") : Lang.T("Malam"), Fmt.Hm(DateTime.Now), true);
+            ShowInfo('\0', Greeting(hour < 11 ? Lang.T("Pagi") : hour < 15 ? Lang.T("Siang") : hour < 18 ? Lang.T("Sore") : Lang.T("Malam")), Fmt.Hm(DateTime.Now), true);
+            if (toast != null) toast.Emblem = emblem != null;
             opacity.Target = 1;
             clockTimer.Start();
             Kick();

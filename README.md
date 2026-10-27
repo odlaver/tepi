@@ -48,13 +48,37 @@ Tepi memberi tahu sendiri kalau ada versi baru. Klik kanan ikon Tepi, lalu **Per
 
 Klik kanan ikon Tepi, lalu **Pengaturan**. Setiap perubahan langsung berlaku tanpa perlu menyimpan.
 
-- **Tampilan**: bahasa (Indonesia atau English), tema, warna aksen, monitor, efek kaca, dan menempel di tepi atas.
+- **Tampilan**: bahasa (Indonesia atau English), tema, warna aksen, paket tema, monitor, efek kaca, dan menempel di tepi atas.
 - **Tata letak**: posisi island dari kiri sampai kanan, dan lebar panel 440 sampai 560 px. Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
 - **Aksesibilitas**: pilih apakah island ikut terekam saat screenshot, rekam layar, dan screen share, serta apakah toast dibacakan pembaca layar.
 - **Tab panel**: centang tab yang mau ditampilkan, urutkan dengan **Naik** dan **Turun**, lalu pilih tab yang terbuka pertama.
 - **Island**: lirik, lirik online, visualizer, notifikasi pesan, isi pesan, kelas yang berlangsung, progres unduhan, riwayat clipboard, mulai bersama Windows, dan lama istirahat fokus.
 
 Island yang ikut terekam tidak bisa memakai efek kaca, karena efek kaca membaca layar di belakangnya dan akan ikut membaca dirinya sendiri. Selama opsi itu menyala, latarnya polos.
+
+### Paket tema
+
+Warna island, lambang kecil di samping jam, dan sapaan saat Tepi dibuka bisa diganti dengan paket tema. Buat folder di `%APPDATA%\Tepi\themes\<nama>\`, lalu pilih di **Pengaturan > Tampilan > Paket tema**.
+
+| Berkas | Isi |
+|---|---|
+| `theme.ini` | Warna dalam `#RRGGBB` atau `#AARRGGBB`. Kunci untuk island: `bg`, `text`, `sub`, `faint`, `fill`, `fillHover`, `line`, `accent`, `onAccent`, `progress`. Awali dengan `card.` untuk kartu terang seperti kartu izin, misalnya `card.bg`. |
+| `emblem.png` | Gambar persegi, dipotong bulat dan ditampilkan di samping jam dan di sapaan. Opsional. |
+| `greetings.txt` | Satu sapaan per baris, dipilih acak saat Tepi dibuka. Opsional. |
+
+Contoh `theme.ini`:
+
+```
+bg=#0E1734
+text=#EEF4FF
+sub=#B4C6EE
+accent=#6EC3FF
+onAccent=#0B1430
+card.bg=#EEF4FF
+card.text=#0E1734
+```
+
+Paket tema hanya dibaca dari komputermu sendiri. Kalau memakai gambar karakter atau karya orang lain, simpan untuk pemakaian pribadi.
 
 ### Navigasi keyboard
 
@@ -241,6 +265,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `clipboard` | `0` | Riwayat clipboard |
 | `downloads` | `1` | Progres unduhan |
 | `class.island` | `1` | Kelas yang sedang berjalan tampil di island |
+| `theme.pack` | kosong | Nama folder paket tema di `%APPDATA%\Tepi\themes` |
 | `kulia.url`, `kulia.key` | server kulia.live | Arahkan ke instance Kulia lain |
 
 Variabel lingkungan untuk pengembangan:
