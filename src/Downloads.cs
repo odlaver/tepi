@@ -83,31 +83,49 @@ namespace Tepi
             return null;
         }
 
-        // Polls only while something is downloading
+        int scanBusy;
+
+        // Polls while downloading; disk work off UI
         void DownloadTick(object sender, EventArgs e)
         {
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (downloadDir != null) try
+            if (downloadDir == null) { ApplyScan(new List<KeyValuePair<string, long>>()); return; }
+            if (System.Threading.Interlocked.CompareExchange(ref scanBusy, 1, 0) != 0) return;
+            string dir = downloadDir;
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate
             {
-                foreach (var path in Directory.EnumerateFiles(downloadDir))
+                var found = new List<KeyValuePair<string, long>>();
+                try
+                {
+                    foreach (var path in Directory.EnumerateFiles(dir))
+                    {
+                        if (FinalName(path) == null) continue;
+                        try { found.Add(new KeyValuePair<string, long>(path, new FileInfo(path).Length)); } catch (IOException) { }
+                    }
+                }
+                catch (Exception ex) { Log.Write("downloads scan: " + ex.Message); }
+                Post(() => { scanBusy = 0; ApplyScan(found); });
+            });
+        }
+
+        void ApplyScan(List<KeyValuePair<string, long>> found)
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in found)
+            {
+                string path = kv.Key;
+                long size = kv.Value;
+                seen.Add(path);
+                Download d;
+                if (!downloads.TryGetValue(path, out d))
                 {
                     string final = FinalName(path);
-                    if (final == null) continue;
-                    seen.Add(path);
-                    long size;
-                    try { size = new FileInfo(path).Length; } catch (IOException) { continue; }
-                    Download d;
-                    if (!downloads.TryGetValue(path, out d))
-                    {
-                        d = new Download { Partial = path, Final = final, Name = Path.GetFileName(final), LastSize = size, FirstUtc = DateTime.UtcNow };
-                        downloads[path] = d;
-                    }
-                    double rate = Math.Max(0, size - d.LastSize) / (downloadTimer.Interval / 1000.0);
-                    d.Speed = d.Speed <= 0 ? rate : d.Speed * 0.6 + rate * 0.4;
-                    d.LastSize = d.Size = size;
+                    d = new Download { Partial = path, Final = final, Name = Path.GetFileName(final), LastSize = size, FirstUtc = DateTime.UtcNow };
+                    downloads[path] = d;
                 }
+                double rate = Math.Max(0, size - d.LastSize) / (downloadTimer.Interval / 1000.0);
+                d.Speed = d.Speed <= 0 ? rate : d.Speed * 0.6 + rate * 0.4;
+                d.LastSize = d.Size = size;
             }
-            catch (Exception ex) { Log.Write("downloads scan: " + ex.Message); }
 
             foreach (var gone in new List<string>(downloads.Keys))
             {

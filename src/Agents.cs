@@ -15,6 +15,8 @@ namespace Tepi
         public string Id = "", Project = "", Cwd = "", Profile = "";
         public AgentState State;
         public string Tool = "", Activity = "", LastMessage = "";
+        // Latest TodoWrite / update_plan / write_todos
+        public List<PlanStep> Plan;
         public bool Failed;
         public IntPtr Window;
         public int Pid;
@@ -29,19 +31,29 @@ namespace Tepi
     class Approval
     {
         public string SessionId = "", Project = "", Profile = "", Tool = "", Detail = "", Note = "", Key = "", Agent = "Claude";
+        // Hash of the full request, for "Always"
+        public string Trust = "";
         public int Lines, Scroll;
-        public bool ReadAll;
+        // Truncated: never allowed from the island
+        public bool ReadAll, Truncated;
+        public readonly List<string> Flags = new List<string>();
+        // Coloured change for edit requests
+        public List<DiffLine> Diff;
+        public List<KeyValuePair<DiffLine, string>> DiffRows;
         public DateTime CreatedUtc = DateTime.UtcNow, ShownUtc;
         public readonly ManualResetEvent Answered = new ManualResetEvent(false);
         public string Decision; // allow, deny, or null = terminal
-        public volatile bool Closed;
+        int closed;
 
-        public void Answer(string decision)
+        public bool Closed { get { return closed != 0; } }
+
+        // First answer wins across threads
+        public bool Answer(string decision)
         {
-            if (Closed) return;
+            if (Interlocked.CompareExchange(ref closed, 1, 0) != 0) return false;
             Decision = decision;
-            Closed = true;
             Answered.Set();
+            return true;
         }
     }
 
@@ -75,11 +87,41 @@ namespace Tepi
 
         public int Port { get { return port; } }
 
+        // Free port; pending approvals go to terminal
+        public void Stop()
+        {
+            try { if (listener != null) listener.Stop(); }
+            catch (Exception ex) { Log.Write("hook stop: " + ex.Message); }
+        }
+
+        // Random free loopback port, 20000-59999
+        public static int FreePort()
+        {
+            var bytes = new byte[4];
+            using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create())
+                for (int i = 0; i < 24; i++)
+                {
+                    rng.GetBytes(bytes);
+                    int p = 20000 + (int)(BitConverter.ToUInt32(bytes, 0) % 40000);
+                    try
+                    {
+                        var probe = new TcpListener(IPAddress.Loopback, p) { ExclusiveAddressUse = true };
+                        probe.Start();
+                        probe.Stop();
+                        return p;
+                    }
+                    catch (SocketException) { }
+                }
+            return 47821;
+        }
+
         public void Start()
         {
             try
             {
                 listener = new TcpListener(IPAddress.Loopback, port);
+                // No other socket may share the port
+                listener.ExclusiveAddressUse = true;
                 listener.Start();
             }
             catch (Exception ex)
@@ -92,6 +134,9 @@ namespace Tepi
             t.Start();
         }
 
+        // Open connections; each approval holds one
+        readonly Semaphore slots = new Semaphore(32, 32);
+
         void Accept()
         {
             while (true)
@@ -100,7 +145,10 @@ namespace Tepi
                 try { c = listener.AcceptTcpClient(); }
                 catch (ObjectDisposedException) { return; }
                 catch (Exception ex) { Log.Write("hook accept: " + ex.Message); Thread.Sleep(500); continue; }
-                ThreadPool.QueueUserWorkItem(delegate { Serve(c); });
+                if (!slots.WaitOne(0)) { c.Close(); continue; }
+                // Own thread: approvals wait up to agent.wait
+                var t = new Thread(delegate () { try { Serve(c); } finally { slots.Release(); } }) { IsBackground = true, Name = "hook" };
+                t.Start();
             }
         }
 
@@ -112,9 +160,10 @@ namespace Tepi
                 {
                     client.ReceiveTimeout = 5000;
                     var stream = client.GetStream();
+                    int started = Environment.TickCount;
                     string head;
-                    byte[] body;
-                    if (!ReadRequest(stream, out head, out body)) { Reply(stream, 400, ""); return; }
+                    byte[] early;
+                    if (!ReadHead(stream, started, out head, out early)) { Reply(stream, 400, ""); return; }
                     var lines = head.Split(new[] { "\r\n" }, StringSplitOptions.None);
                     var parts = lines[0].Split(' ');
                     var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -125,26 +174,29 @@ namespace Tepi
                     }
                     string got, path = parts.Length >= 2 ? parts[1] : "";
                     // "/hook": Claude; "/hook/<agent>": relay
-                    string agent = path == "/hook" ? "claude" : path == "/notify" ? "plugin" : path.StartsWith("/hook/") ? Uri.UnescapeDataString(path.Substring(6)).ToLowerInvariant() : null;
-                    // Scripts only through /notify
-                    if (agent == "plugin" && path != "/notify") agent = null;
-                    // Browsers send Origin; hooks never do
+                    string agent = path == "/hook" ? "claude" : path == "/notify" ? "plugin" : path == "/usage" ? "usage" : path.StartsWith("/hook/") ? Uri.UnescapeDataString(path.Substring(6)).ToLowerInvariant() : null;
+                    // Scripts only through /notify, usage through /usage
+                    if ((agent == "plugin" && path != "/notify") || (agent == "usage" && path != "/usage")) agent = null;
+                    // Token before body; reject browser Origin
                     if (parts[0] != "POST" || agent == null || agent.Length == 0 || agent.Length > 32 || headers.ContainsKey("Origin") ||
                         !headers.TryGetValue("X-Tepi-Token", out got) || !SameToken(got, token))
                     {
                         Reply(stream, 403, "");
                         return;
                     }
+                    byte[] body;
+                    if (!ReadBody(stream, head, early, started, agent == "usage" ? 16 * 1024 : 8 * 1024 * 1024, out body)) { Reply(stream, 400, ""); return; }
                     Dictionary<string, object> data;
                     try { data = Json.Parse(Encoding.UTF8.GetString(body)) as Dictionary<string, object>; }
                     catch (ArgumentException) { data = null; }
                     if (data == null) { Reply(stream, 400, ""); return; }
                     var ev = new HookEvent { Agent = agent, Name = Json.Str(data, "hook_event_name"), SessionId = Json.Str(data, "session_id"), Data = data };
                     // Remember where the agent runs, for click-to-focus
-                    try { ev.Window = TerminalFinder.ForConnection((IPEndPoint)client.Client.RemoteEndPoint, port, out ev.Pid); }
-                    catch (Exception ex) { Log.Write("terminal lookup: " + ex.Message); }
+                    if (agent != "usage")
+                        try { ev.Window = TerminalFinder.ForConnection((IPEndPoint)client.Client.RemoteEndPoint, port, out ev.Pid); }
+                        catch (Exception ex) { Log.Write("terminal lookup: " + ex.Message); }
 
-                    if (ev.Name != "PermissionRequest" || agent == "plugin")
+                    if (ev.Name != "PermissionRequest" || agent == "plugin" || agent == "usage")
                     {
                         Reply(stream, 200, "");
                         Raise(ev);
@@ -152,13 +204,25 @@ namespace Tepi
                     }
 
                     ev.Approval = new Approval { SessionId = ev.SessionId };
-                    Raise(ev);
-                    var deadline = DateTime.UtcNow.AddSeconds(waitSeconds);
-                    while (!ev.Approval.Answered.WaitOne(250))
+                    try
                     {
-                        if (DateTime.UtcNow > deadline || Gone(client)) { ev.Approval.Answer(null); Expire(ev.Approval); break; }
+                        Raise(ev);
+                        var deadline = DateTime.UtcNow.AddSeconds(waitSeconds);
+                        while (!ev.Approval.Answered.WaitOne(250))
+                        {
+                            if (DateTime.UtcNow > deadline || Gone(client))
+                            {
+                                if (ev.Approval.Answer(null)) Expire(ev.Approval);
+                                break;
+                            }
+                        }
+                        Reply(stream, 200, Decision(ev.Approval));
                     }
-                    Reply(stream, 200, Decision(ev.Approval));
+                    finally
+                    {
+                        if (ev.Approval.Answer(null)) Expire(ev.Approval);
+                        ev.Approval.Answered.Close();
+                    }
                 }
                 catch (Exception ex) { Log.Write("hook serve: " + ex.Message); }
             }
@@ -169,7 +233,7 @@ namespace Tepi
             if (a.Decision == "allow")
                 return "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{\"behavior\":\"allow\"}}}";
             if (a.Decision == "deny")
-                return "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{\"behavior\":\"deny\",\"message\":\"Ditolak dari Tepi.\"}}}";
+                return "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{\"behavior\":\"deny\",\"message\":" + Json.Encode(Lang.T("Ditolak dari Tepi.")) + "}}}";
             return "";
         }
 
@@ -201,15 +265,19 @@ namespace Tepi
             if (h != null) h(a);
         }
 
-        static bool ReadRequest(NetworkStream s, out string head, out byte[] body)
+        // Whole request must arrive within this
+        const int RequestMs = 10000;
+
+        static bool ReadHead(NetworkStream s, int started, out string head, out byte[] early)
         {
             head = null;
-            body = null;
+            early = null;
             var buf = new MemoryStream();
             var one = new byte[4096];
             int headEnd = -1;
             while (headEnd < 0)
             {
+                if (Environment.TickCount - started > RequestMs) return false;
                 int n = s.Read(one, 0, one.Length);
                 if (n <= 0) return false;
                 buf.Write(one, 0, n);
@@ -218,6 +286,14 @@ namespace Tepi
             }
             var all = buf.ToArray();
             head = Encoding.ASCII.GetString(all, 0, headEnd);
+            early = new byte[all.Length - headEnd - 4];
+            Array.Copy(all, headEnd + 4, early, 0, early.Length);
+            return true;
+        }
+
+        static bool ReadBody(NetworkStream s, string head, byte[] early, int started, int cap, out byte[] body)
+        {
+            body = null;
             int length = 0;
             bool expect = false;
             foreach (var l in head.Split(new[] { "\r\n" }, StringSplitOptions.None))
@@ -225,16 +301,18 @@ namespace Tepi
                 if (l.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase)) int.TryParse(l.Substring(15).Trim(), out length);
                 if (l.StartsWith("Expect:", StringComparison.OrdinalIgnoreCase) && l.IndexOf("100-continue", StringComparison.OrdinalIgnoreCase) > 0) expect = true;
             }
-            if (length < 0 || length > 8 * 1024 * 1024) return false;
+            if (length < 0 || length > cap) return false;
             var rest = new MemoryStream();
-            rest.Write(all, headEnd + 4, all.Length - headEnd - 4);
+            rest.Write(early, 0, early.Length);
             if (expect && rest.Length < length)
             {
                 var go = Encoding.ASCII.GetBytes("HTTP/1.1 100 Continue\r\n\r\n");
                 s.Write(go, 0, go.Length);
             }
+            var one = new byte[8192];
             while (rest.Length < length)
             {
+                if (Environment.TickCount - started > RequestMs) return false;
                 int n = s.Read(one, 0, one.Length);
                 if (n <= 0) return false;
                 rest.Write(one, 0, n);

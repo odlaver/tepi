@@ -74,15 +74,25 @@ namespace Tepi
             }
             catch (Exception ex) { Log.Write("media unavailable: " + ex.Message); return; }
 
+            int failures = 0;
+            DateTime retryUtc = DateTime.MinValue;
             while (true)
             {
                 int timeout = 10000;
                 if (nextCoverUtc != DateTime.MaxValue) timeout = Math.Max(10, (int)(nextCoverUtc - DateTime.UtcNow).TotalMilliseconds);
+                // Failing session: back off to 30s
+                if (failures > 0) timeout = Math.Max(timeout, (int)Math.Max(10, (retryUtc - DateTime.UtcNow).TotalMilliseconds));
                 signal.WaitOne(timeout);
                 Thread.Sleep(25);
                 RunCommands();
-                try { Refresh(); }
-                catch (Exception ex) { Log.Write("media refresh: " + ex.Message); }
+                if (failures > 0 && DateTime.UtcNow < retryUtc) continue;
+                try { Refresh(); failures = 0; }
+                catch (Exception ex)
+                {
+                    failures++;
+                    retryUtc = DateTime.UtcNow.AddMilliseconds(Math.Min(30000, 500 << Math.Min(6, failures - 1)));
+                    Log.Write("media refresh: " + ex.Message);
+                }
             }
         }
 
@@ -165,6 +175,7 @@ namespace Tepi
             {
                 key = null;
                 nextCoverUtc = DateTime.MaxValue;
+                published = null;
                 if (present) { present = false; Publish(MediaInfo.None); }
                 return;
             }
@@ -209,7 +220,19 @@ namespace Tepi
             info.PositionAtUtc = updated.Year > 2000 && updated <= now.AddSeconds(1) ? updated : now;
             info.Cover = cover;
             present = true;
+            // Unchanged track and timeline: no UI wake
+            if (Same(published, info)) return;
+            published = info;
             Publish(info);
+        }
+
+        MediaInfo published;
+
+        static bool Same(MediaInfo a, MediaInfo b)
+        {
+            if (a == null || a.Key != b.Key || a.Playing != b.Playing || a.CanSeek != b.CanSeek || !ReferenceEquals(a.Cover, b.Cover) || Math.Abs(a.DurationMs - b.DurationMs) > 1) return false;
+            var now = DateTime.UtcNow;
+            return Math.Abs(a.Position(now) - b.Position(now)) < 1000;
         }
 
         void Publish(MediaInfo info)
@@ -265,7 +288,8 @@ namespace Tepi
                 op.Completed = delegate { try { done.Set(); } catch (ObjectDisposedException) { } };
                 if (op.Status == AsyncStatus.Started && !done.WaitOne(5000)) throw new TimeoutException("WinRT timeout");
             }
-            if (op.Status != AsyncStatus.Completed) throw new InvalidOperationException("WinRT " + op.Status);
+            if (op.Status != AsyncStatus.Completed)
+                throw new InvalidOperationException("WinRT " + op.Status + (op.ErrorCode != null ? " 0x" + op.ErrorCode.HResult.ToString("X8") : ""));
             return op.GetResults();
         }
     }

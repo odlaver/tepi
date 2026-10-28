@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 
 namespace Tepi
@@ -20,7 +21,7 @@ namespace Tepi
                 case View.Lyric: return new SizeF(LyricWidth(), 38);
                 case View.Track: return new SizeF(384, 80);
                 case View.Agent: return new SizeF(AgentWidth(), 38);
-                case View.Approve: return new SizeF(ApproveW, ApproveHeight());
+                case View.Approve: return new SizeF(ApproveWidth(), ApproveHeight());
                 case View.Done: return new SizeF(414, 70);
                 case View.Notif: return new SizeF(404, 66);
                 case View.Volume: return new SizeF(300, 44);
@@ -30,10 +31,16 @@ namespace Tepi
                 case View.Info: return new SizeF(InfoWidth(), 42);
                 case View.Task: return new SizeF(TaskWidth(), 38);
                 case View.Deadline: return new SizeF(414, 74);
-                case View.Focus: return new SizeF(FocusWidth(), 38);
+                case View.Timer: return new SizeF(TimerWidth(), 38);
+                case View.Brightness: return new SizeF(300, 44);
+                case View.AudioDevice: return new SizeF(AudioDeviceWidth(), 52);
+                case View.ShelfDrop: return new SizeF(ShelfDropWidth(), dropActive ? 64 : 46);
+                case View.Pray: return new SizeF(PrayWidth(), 44);
+                case View.Remind: return new SizeF(RemindWidth(), 58);
                 case View.Prompter: return new SizeF(PrompterW, PrompterH);
                 case View.Class: return new SizeF(ClassWidth(), 38);
                 case View.Download: return new SizeF(DownloadWidth(), 38);
+                case View.Mini: return MiniSize();
                 default: return new SizeF(PanelW, PanelHeight());
             }
         }
@@ -72,10 +79,16 @@ namespace Tepi
                 case View.Info: DrawInfo(w, h); break;
                 case View.Task: DrawTask(w, h, now); break;
                 case View.Deadline: DrawDeadline(w, h); break;
-                case View.Focus: DrawFocus(w, h, now); break;
+                case View.Timer: DrawTimer(w, h, now); break;
+                case View.Brightness: DrawBrightness(w, h, now); break;
+                case View.AudioDevice: DrawAudioDevice(w, h); break;
+                case View.ShelfDrop: DrawShelfDrop(w, h, now); break;
+                case View.Pray: DrawPray(w, h, now); break;
+                case View.Remind: DrawRemind(w, h, now); break;
                 case View.Prompter: DrawPrompter(w, h, now); break;
                 case View.Class: DrawClass(w, h, now); break;
                 case View.Download: DrawDownload(w, h, now); break;
+                case View.Mini: DrawMini(w, h, now); break;
                 case View.Panel: DrawPanel(w, h, now); break;
             }
         }
@@ -105,44 +118,56 @@ namespace Tepi
                     lyricIndex = idx;
                     lyricSwitchUtc = now;
                     lyricScroll.Target = Math.Max(0, idx) * LyricLineH;
-                    Kick();
+                    // Redraw only where lines show
+                    if (current == View.Lyric || (current == View.Panel && page == PageMusic)) Kick();
                 }
             }
             if (DesiredView() != current) Kick();
         }
 
+        // Lyric motion runs in live areas
         bool ViewsMoving(DateTime now)
         {
-            return !volBar.Settled || !batteryFill.Settled || !lyricScroll.Settled || (now - lyricSwitchUtc).TotalSeconds < 0.45 ||
-                   volRoller.Moving(now) || taskRoller.Moving(now);
+            return !volBar.Settled || !batteryFill.Settled || volRoller.Moving(now) || taskRoller.Moving(now);
         }
 
+        // Views still redrawn whole at ambient rate
         bool Live(DateTime now)
         {
-            if (VisualizerVisible() || current == View.Lyric || current == View.Approve || current == View.Agent || PrompterRunning()) return true;
-            if (current == View.Media && mediaInfo.Playing) return true;
-            if (BubbleKind() == View.Agent) return true;
-            foreach (var b in bands) if (b > 0.004f) return true;
-            if (current == View.Panel)
-            {
-                if (page == PageMusic && mediaInfo.Playing) return true;
-                if (page == PageAgents && BusyCount() > 0) return true;
-                if (page == PageTasks && tasksLoading) return true;
-            }
+            if (current == View.Approve || PrompterRunning()) return true;
+            if (current == View.ShelfDrop && dropActive) return true;
+            if (current == View.Panel && page == PageClass && classSeg == 0 && tasksLoading) return true;
             return false;
+        }
+
+        // Bars move only while spectrum feeds them
+        float BarsFps()
+        {
+            if (!mediaInfo.Playing) return 0;
+            if (spectrum.Active) return LiveFps;
+            foreach (var b in bands) if (b > 0.004f) return LiveFps;
+            return 0;
+        }
+
+        // Half a device pixel per step
+        float ProgressFps(float width)
+        {
+            if (!mediaInfo.Playing || mediaInfo.DurationMs <= 0) return 0;
+            return Clamp((float)(width * scale * 2000 / mediaInfo.DurationMs), 0.5f, 10f);
         }
 
         // Idle
 
         bool PrivacyOn { get { return micApps.Length + camApps.Length > 0; } }
 
+        // Eyes and their gap before the clock
         float IdleWidth() { return 112 + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0); }
 
         void DrawIdle(float w, float h, DateTime now)
         {
-            float cy = h / 2, shift = emblem != null ? 15 : 0;
+            float cy = h / 2, shift = emblem != null ? 15 : 0, clockX = w / 2 + shift;
             if (emblem != null) DrawEmblem(24, cy, 10.5f);
-            clockRoller.Draw(p, Ink.Display(15.5f), p.T.Text, w / 2 + shift, cy, StringAlignment.Center, now);
+            clockRoller.Draw(p, Ink.Display(15.5f), p.T.Text, clockX, cy, StringAlignment.Center, now);
             if (PrivacyOn) p.Icon(camApps.Length > 0 ? Ink.IcoCam : Ink.IcoMic, 12f, p.T.Sub, 22 + shift * 2, cy);
             if (unread > 0) DrawCount(w - 22, cy, unread);
         }
@@ -184,7 +209,7 @@ namespace Tepi
                 bg.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 bg.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
                 bg.ScaleTransform(scale, scale);
-                new Painter { G = bg }.Image(src, new RectangleF(0, 0, size, size), radius);
+                using (var bp = new Painter { G = bg }) bp.Image(src, new RectangleF(0, 0, size, size), radius);
             }
             return baked;
         }
@@ -229,36 +254,67 @@ namespace Tepi
             }
         }
 
+        // Spectrum in the cover's colour, redrawn alone
         void DrawBars(float right, float cy, int count, float maxH, float barW, float gap)
         {
-            bool playing = mediaInfo.Playing;
+            float x = right - count * (barW + gap) + gap;
+            LiveRect(new RectangleF(x, cy - maxH / 2, right - x, maxH), BarsFps(), () => BarsSig(count, maxH), t => Waveform(right, cy, count, maxH, barW, gap, CoverInk(t)));
+        }
+
+        // Spring heights in half device pixels
+        int BarsSig(int count, float maxH)
+        {
+            if (!mediaInfo.Playing) return 0;
+            int sig = CoverInk(DateTime.UtcNow).ToArgb();
             for (int i = 0; i < count; i++)
-            {
-                int band = (int)((i + 0.5f) / count * Spectrum.Bands);
-                float v = playing ? bands[Math.Min(Spectrum.Bands - 1, band)] : 0;
-                float bh = 3f + v * (maxH - 3f);
-                float x = right - (count - i) * (barW + gap) + gap;
-                p.FillRound(new RectangleF(x, cy - bh / 2, barW, bh), barW / 2, Ink.A(p.T.Accent, playing ? 0.5f + 0.5f * v : 0.35f));
-            }
+                sig = sig * 31 + (int)(Ease.Clamp01(wave[WaveBands[i % WaveBands.Length] % Spectrum.Bands].Value) * (maxH - 3) * scale * 2);
+            return sig;
         }
 
         void DrawProgress(float x0, float x1, float y, float thickness, DateTime now)
         {
             if (mediaInfo.DurationMs <= 0) return;
-            float f = (float)(mediaInfo.Position(now) / mediaInfo.DurationMs);
+            float f = scrubbing ? scrubFrac : (float)(mediaInfo.Position(now) / mediaInfo.DurationMs);
             p.FillRound(new RectangleF(x0, y, x1 - x0, thickness), thickness / 2, p.T.Line);
             p.FillRound(new RectangleF(x0, y, Math.Max(thickness, (x1 - x0) * Ease.Clamp01(f)), thickness), thickness / 2, p.T.Progress);
+            if (thickness >= 3) DrawKnob(x0 + (x1 - x0) * Ease.Clamp01(f), y + thickness / 2, x0, x1);
         }
 
+        // Art left, waveform right, text between
         void DrawMedia(float w, float h, DateTime now)
         {
-            float cy = h / 2;
-            if (mediaInfo.Playing && mediaInfo.Cover != null) DrawMiniVinyl(19, cy, 12.5f);
-            else DrawCover(new RectangleF(7, cy - 12, 24, 24), 7);
-            p.Text(MediaLine(), Ink.Semi(12.5f), p.T.Text, 40, cy - 0.5f, w - 40 - 52, StringAlignment.Near);
-            if (mediaInfo.Playing) DrawBars(w - 15, cy, 5, 17, 3f, 2.6f);
-            else p.Pause(w - 26, cy, 11, p.T.Sub);
-            DrawProgress(h / 2, w - h / 2, h - 3.2f, 1.6f, now);
+            float cy = h / 2, cap = Math.Min(19, h / 2);
+            DrawCover(new RectangleF(cap - 12, cy - 12, 24, 24), 6);
+            // Trailing slot: waveform, play/pause under the pointer
+            float slotX = w - cap;
+            AddHit(new RectangleF(w - 2 * cap - 4, 0, 2 * cap + 4, h), "mediaPlay", MediaPlayAct());
+            if (Hover("mediaPlay"))
+            {
+                float s = Squish("mediaPlay", new RectangleF(slotX - 12, cy - 12, 24, 24), 0.9f);
+                p.Symbol(mediaInfo.Playing ? Sym.Pause : Sym.Play, slotX, cy, 13f, p.T.Text);
+                Unsquish(new RectangleF(slotX - 12, cy - 12, 24, 24), s);
+            }
+            else DrawBars(slotX + 12.3f, cy, 5, 16, 3f, 2.4f);
+            // Title primary, artist secondary, centred between
+            float left = 2 * cap + 3, avail = slotX - 15 - left;
+            string title = mediaInfo.Title, tail = MediaTail();
+            Font tf = Ink.Headline, af = Ink.Text(14.5f);
+            if (p.Measure(title, tf) + p.Measure(tail, af) > avail) { tf = Ink.Semi(13.5f); af = Ink.Text(13.5f); }
+            float tw = p.Measure(title, tf), aw = p.Measure(tail, af);
+            float x = left + Math.Max(0, (avail - tw - aw) / 2);
+            p.Text(title, tf, p.T.Text, x, cy - 0.5f, Math.Min(tw + 2, avail), StringAlignment.Near);
+            if (tw < avail - 24) p.Text(tail, af, p.T.Sub, x + tw, cy - 0.5f, left + avail - x - tw, StringAlignment.Near);
+            // Progress hairline, inset along the bottom
+            if (mediaInfo.DurationMs > 0)
+            {
+                var line = new RectangleF(cap, h - 5, w - 2 * cap, 2);
+                LiveRect(line, ProgressFps(line.Width), t =>
+                {
+                    float f = Ease.Clamp01((float)(mediaInfo.Position(t) / mediaInfo.DurationMs));
+                    p.FillRound(line, 1, Ink.A(p.T.Text, 0.1f));
+                    p.FillRound(line, 1, p.Split(line.X, line.Width, line.X + line.Width * f, Ink.A(p.T.Text, 0.3f), Color.Transparent));
+                });
+            }
         }
 
         string LyricText(int i)
@@ -281,31 +337,48 @@ namespace Tepi
             return lyricW;
         }
 
+        // Karaoke line; new lines roll up
         void DrawLyric(float w, float h, DateTime now)
         {
-            float cy = h / 2;
-            DrawCover(new RectangleF(8, cy - 11, 22, 22), 6);
-            DrawBars(w - 13, cy, 3, 15, 2.8f, 2.4f);
+            float cy = h / 2, cap = Math.Min(19, h / 2);
+            DrawCover(new RectangleF(cap - 11, cy - 11, 22, 22), 6);
+            DrawBars(w - cap + 9.2f, cy, 4, 15, 2.8f, 2.4f);
             if (!LyricsReady) return;
+            // Line roll and karaoke wipe redraw alone
+            LiveRect(new RectangleF(2 * cap, 0, w - 4 * cap - 4, h), t => PaintLyric(w, h, t));
+        }
+
+        double PaintLyric(float w, float h, DateTime now)
+        {
+            float cy = h / 2;
             double pos = mediaInfo.Position(now);
-            float k = Ease.OutCubic((float)((now - lyricSwitchUtc).TotalSeconds / 0.38));
-            float left = 38, avail = w - 38 - 30;
+            float cap = Math.Min(19, h / 2);
+            float t = (float)(now - lyricSwitchUtc).TotalSeconds;
+            float roll = Springs.Progress(t, 0.42f, 0.8f), fade = Ease.OutCubic(t / 0.24f);
+            float prog = 1;
+            float left = 2 * cap, avail = w - 2 * cap - 2 * cap - 4;
             var font = Ink.Display(14.5f);
-            float alpha = p.Alpha;
-            if (k < 1 && lyricPrev >= 0)
+            float alpha = p.Alpha, travel = Anim.Reduced ? 0 : 16;
+            if (fade < 1 && lyricPrev >= 0)
             {
-                p.Alpha = alpha * (1 - k);
-                p.Text(LyricText(lyricPrev), font, p.T.Text, left + avail / 2, cy - k * 15, avail, StringAlignment.Center);
+                p.Alpha = alpha * (1 - fade);
+                p.Text(LyricText(lyricPrev), font, p.T.Text, left + avail / 2, cy - roll * travel, avail, StringAlignment.Center);
             }
             if (lyricIndex >= 0)
             {
                 var line = lyrics.Lines[lyricIndex];
                 double start = line.AtMs, end = lyrics.SungUntil(lyricIndex);
-                float prog = (float)((pos - start) / Math.Max(1, end - start));
-                p.Alpha = alpha * k;
-                p.Sweep(line.Text, font, p.T.Text, p.T.Faint, left + avail / 2, cy + (1 - k) * 15, avail, StringAlignment.Center, Ease.Clamp01(prog));
+                prog = (float)((pos - start) / Math.Max(1, end - start));
+                p.Alpha = alpha * fade;
+                p.Sweep(line.Text, font, p.T.Text, p.T.Faint, left + avail / 2, cy + (1 - roll) * travel, avail, StringAlignment.Center, Ease.Clamp01(prog));
             }
             p.Alpha = alpha;
+            // Roll 60, wipe 30, wake next line
+            if (t < 0.9f) return 1 / 60.0;
+            if (!mediaInfo.Playing) return 0;
+            if (prog < 1) return 1 / LiveFps;
+            double next = lyricIndex >= 0 ? lyrics.NextAt(lyricIndex) : lyrics.Lines.Count > 0 ? lyrics.Lines[0].AtMs : double.MaxValue;
+            return next == double.MaxValue ? 0 : Math.Max(0.01, (next - pos) / 1000 + 0.005);
         }
 
         void DrawTrack(float w, float h)
@@ -324,8 +397,10 @@ namespace Tepi
         {
             var s = BusySession();
             if (s == null || p.G == null) return 200;
-            float a = p.Measure(s.Project, Ink.Semi(13f)), b = Math.Min(230, p.Measure(AgentLine(s), Ink.Mono(12f)));
-            return Clamp(40 + a + 10 + b + 18 + (BusyCount() > 1 ? 26 : 0), 180, 460);
+            string step = PlanNow(s), count = PlanCount(s);
+            float a = p.Measure(s.Project, Ink.Semi(13f)), b = Math.Min(230, step.Length > 0 ? p.Measure(step, Ink.Text(12f)) : p.Measure(AgentLine(s), Ink.Mono(12f)));
+            float c = count.Length > 0 ? p.Measure(count, Ink.Semi(11.5f)) + 10 : 0;
+            return Clamp(40 + a + 10 + b + c + 18 + (BusyCount() > 1 ? 26 : 0), 180, 480);
         }
 
         static string AgentLine(AgentSession s)
@@ -342,26 +417,45 @@ namespace Tepi
             if (s == null) return;
             float cy = h / 2;
             if (s.State == AgentState.Waiting) p.Icon(Ink.IcoTerminal, 13f, p.T.Text, 20, cy);
-            else p.Orbit(20, cy, 7.5f, orbitPhase, p.T.Text);
+            else LiveRect(new RectangleF(11, cy - 9, 18, 18), LiveFps, t => p.Orbit(20, cy, 7.5f, orbitPhase, p.T.Text));
             var semi = Ink.Semi(13f);
-            float x = 40;
+            float x = 40, right = w - 18;
             p.Text(s.Project, semi, p.T.Text, x, cy, 160, StringAlignment.Near);
             x += Math.Min(160, p.Measure(s.Project, semi)) + 10;
             int n = BusyCount();
-            p.Text(AgentLine(s), Ink.Mono(12f), p.T.Sub, x, cy, w - x - (n > 1 ? 40 : 18), StringAlignment.Near);
-            if (n > 1) p.TextRight("+" + (n - 1), Ink.Small(11.5f), p.T.Sub, w - 16, cy);
+            if (n > 1) { p.TextRight("+" + (n - 1), Ink.Small(11.5f), p.T.Sub, right, cy); right -= 26; }
+            // Plan: step, count, thin bottom bar
+            string count = PlanCount(s), step = PlanNow(s);
+            if (count.Length > 0) { p.TextRight(count, Ink.Semi(11.5f), p.T.Text, right, cy); right -= p.Measure(count, Ink.Semi(11.5f)) + 10; }
+            if (step.Length > 0) p.Text(step, Ink.Text(12f), p.T.Sub, x, cy, right - x, StringAlignment.Near);
+            else p.Text(AgentLine(s), Ink.Mono(12f), p.T.Sub, x, cy, right - x, StringAlignment.Near);
+            if (s.Plan != null && s.Plan.Count > 0) DrawPlanBar(s, new RectangleF(h / 2, h - 3.4f, w - h, 2f));
         }
 
         const int ApproveMaxLines = 10, ApproveScrollMax = 300;
-        const float ApproveW = 452;
+        const float ApproveW = 452, ApproveDiffW = 520;
         readonly StringFormat approveMeasure = new StringFormat(StringFormat.GenericTypographic);
 
+        // Diffs get room; no bubble beside approvals
+        float ApproveWidth() { return approvals.Count > 0 && approvals[0].Diff != null ? ApproveDiffW : ApproveW; }
+
         string ApproveText(Approval a) { return a.Detail.Length > 0 ? a.Detail : a.Tool; }
+
+        // Diff rows wrapped once per card
+        List<KeyValuePair<DiffLine, string>> DiffRows(Approval a)
+        {
+            if (a.DiffRows != null || a.Diff == null || p.G == null) return a.DiffRows;
+            float charW = p.Measure("0000000000", Ink.Mono(12f)) / 10f;
+            a.DiffRows = WrapDiff(a.Diff, (int)((ApproveDiffW - 56 - 16) / Math.Max(4, charW)));
+            return a.DiffRows;
+        }
 
         // Wrapped line count, measured once
         int ApproveLines(Approval a)
         {
             if (a.Lines > 0 || p.G == null) return Math.Max(1, a.Lines);
+            var rows = DiffRows(a);
+            if (rows != null) { a.Lines = Math.Max(1, rows.Count); return a.Lines; }
             int chars, lines;
             p.G.MeasureString(ApproveText(a), Ink.Mono(12f), new SizeF(ApproveW - 56, 100000), approveMeasure, out chars, out lines);
             a.Lines = Math.Max(1, lines);
@@ -397,7 +491,7 @@ namespace Tepi
         {
             if (approvals.Count == 0) return 172;
             int total = ApproveLines(approvals[0]), shown = Math.Min(total, ApproveMaxLines);
-            return 64 + shown * ApproveLineH() + 20 + (total > shown ? 22 : 0) + 10 + 32 + 14;
+            return 64 + shown * ApproveLineH() + 20 + (total > shown || approvals[0].Truncated ? 22 : 0) + 10 + 32 + 14;
         }
 
         void DrawApprove(float w, float h)
@@ -413,6 +507,22 @@ namespace Tepi
             string label = AgentHub.ToolLabel(a.Tool);
             p.Text(label, Ink.Semi(12f), p.T.Text, 24, 51, 140, StringAlignment.Near);
             float lx = 24 + p.Measure(label, Ink.Semi(12f)) + 8;
+            // Change size, as +added -removed
+            if (a.Diff != null)
+            {
+                string plus = "+" + DiffBuilder.Count(a.Diff, 1), minus = "−" + DiffBuilder.Count(a.Diff, 2);
+                p.Text(plus, Ink.Semi(12f), p.T.Positive, lx, 51, 60, StringAlignment.Near);
+                lx += p.Measure(plus, Ink.Semi(12f)) + 6;
+                p.Text(minus, Ink.Semi(12f), p.T.Negative, lx, 51, 60, StringAlignment.Near);
+                lx += p.Measure(minus, Ink.Semi(12f)) + 10;
+            }
+            // Flags first: they change what runs
+            if (a.Flags.Count > 0)
+            {
+                string flags = string.Join(" · ", a.Flags.ToArray());
+                p.Text(flags, Ink.Semi(12f), p.T.Text, lx, 51, w - lx - 24, StringAlignment.Near);
+                lx += Math.Min(w - lx - 24, p.Measure(flags, Ink.Semi(12f)) + 8);
+            }
             p.Text(a.Note, Ink.Text(12f), p.T.Sub, lx, 51, w - lx - 24, StringAlignment.Near);
 
             // Whole command readable before allowing; long ones scroll
@@ -425,7 +535,9 @@ namespace Tepi
             var st = g.Save();
             g.IntersectClip(inner);
             float top = scrollable ? a.Scroll * lineH : 0;
-            p.TextBox(ApproveText(a), Ink.Mono(12f), p.T.Text, new RectangleF(inner.X, inner.Y - top, inner.Width, (scrollable ? total : shown) * lineH + 1));
+            var rows = DiffRows(a);
+            if (rows != null) DrawDiff(rows, inner, scrollable ? a.Scroll : 0, shown, lineH);
+            else p.TextBox(ApproveText(a), Ink.Mono(12f), p.T.Text, new RectangleF(inner.X, inner.Y - top, inner.Width, (scrollable ? total : shown) * lineH + 1));
             g.Restore(st);
             if (scrollable)
             {
@@ -435,7 +547,12 @@ namespace Tepi
                 p.FillRound(new RectangleF(box.Right - 6, ty, 3, thumb), 1.5f, p.T.Sub);
             }
             float y = box.Bottom + 10;
-            if (clipped && !a.ReadAll)
+            if (a.Truncated)
+            {
+                p.Text(Lang.T("Terlalu panjang untuk island. Baca utuh di terminal."), Ink.Small(11.5f), p.T.Text, 24, y + 4, w - 48, StringAlignment.Near);
+                y += 22;
+            }
+            else if (clipped && !a.ReadAll)
             {
                 string more = scrollable ? Lang.F("Gulir untuk membaca {0} baris lagi.", total - shown - a.Scroll)
                                          : Lang.T("Masih ada ") + (total - shown) + Lang.T(" baris lagi. Baca utuh di terminal.");
@@ -447,7 +564,8 @@ namespace Tepi
             var allow = new RectangleF(w - 16 - 112, y, 112, 32);
             var deny = new RectangleF(allow.X - 8 - 92, y, 92, 32);
             var always = new RectangleF(deny.X - 8 - 84, y, 84, 32);
-            bool locked = (clipped && !a.ReadAll) || !armed;
+            // Unseen text is never allowed here
+            bool locked = (clipped && !a.ReadAll) || !armed || a.Truncated;
             if (locked) p.StrokeRound(allow, 10, p.T.Faint, 1.2f);
             else p.FillRound(allow, 10, Hover("allow") ? Ink.A(p.T.Text, 0.82f) : p.T.Text);
             p.TextCenter(Lang.T("Izinkan"), Ink.Semi(13f), locked ? p.T.Faint : p.T.Bg, allow.X + allow.Width / 2, allow.Y + 16);
@@ -460,7 +578,7 @@ namespace Tepi
             var term = new RectangleF(14, y, always.X - 8 - 14, 32);
             if (Hover("term")) p.FillRound(term, 10, p.T.Fill);
             p.Icon(Ink.IcoTerminal, 12f, p.T.Sub, term.X + 18, term.Y + 16);
-            p.Text(Lang.T("Terminal"), Ink.Small(12f), Hover("term") || (clipped && !scrollable) ? p.T.Text : p.T.Sub, term.X + 32, term.Y + 16, term.Width - 36, StringAlignment.Near);
+            p.Text(Lang.T("Terminal"), Ink.Small(12f), Hover("term") || (clipped && !scrollable) || a.Truncated ? p.T.Text : p.T.Sub, term.X + 32, term.Y + 16, term.Width - 36, StringAlignment.Near);
             if (!locked) AddHit(allow, "allow", delegate { Decide(a, "allow"); });
             if (!locked) AddHit(always, "always", delegate { AllowAlways(a); });
             AddHit(deny, "deny", delegate { Decide(a, "deny"); });
@@ -531,14 +649,7 @@ namespace Tepi
 
         void DrawVolume(float w, float h, DateTime now)
         {
-            float cy = h / 2;
-            char glyph = muted ? Ink.IcoMute : vol < 0.01f ? Ink.IcoVol0 : vol < 0.34f ? Ink.IcoVol1 : vol < 0.67f ? Ink.IcoVol2 : Ink.IcoVol3;
-            p.Icon(glyph, 15f, p.T.Text, 26, cy);
-            float x0 = 50, x1 = w - 62;
-            p.FillRound(new RectangleF(x0, cy - 3, x1 - x0, 6), 3, p.T.Line);
-            float f = muted ? 0 : Ease.Clamp01(volBar.Value);
-            p.FillRound(new RectangleF(x0, cy - 3, Math.Max(6, (x1 - x0) * f), 6), 3, p.T.Text);
-            volRoller.Draw(p, Ink.Semi(13f), p.T.Text, w - 22, cy, StringAlignment.Far, now);
+            LevelHud(w, h, VolumeGlyph(), muted ? 0 : volBar.Value, volRoller, now);
         }
 
         void DrawPower(float w, float h)
@@ -589,6 +700,7 @@ namespace Tepi
             if (toast == null) return;
             float cy = h / 2, x = 22;
             if (toast.Emblem && emblem != null) { DrawEmblem(31, cy, 11f); x = 50; }
+            else if (toast.Glyph == IcoGauge) { Ring(30, cy, 7f, quotaToastLevel, p.T.Accent, 2f); x = 48; }
             else if (toast.Glyph != '\0') { p.Icon(toast.Glyph, 14f, p.T.Text, 30, cy); x = 48; }
             var semi = Ink.Semi(13.5f);
             p.Text(toast.Title, semi, p.T.Text, x, cy, w - x - 20, StringAlignment.Near);
@@ -629,7 +741,7 @@ namespace Tepi
             float rw = taskRoller.Width(p, f);
             p.Text(t.Title, Ink.Semi(12.5f), p.T.Text, 38, cy, w - 38 - rw - 30, StringAlignment.Near);
             taskRoller.Draw(p, f, p.T.Sub, w - 18, cy, StringAlignment.Far, now);
-            AddHit(new RectangleF(0, 0, w, h), "taskSoon", delegate { Expand(PageTasks); });
+            AddHit(new RectangleF(0, 0, w, h), "taskSoon", delegate { ShowTasks(); });
         }
 
         void DrawDeadline(float w, float h)
@@ -652,6 +764,15 @@ namespace Tepi
             if (alpha <= 0.01f) return;
             p.Alpha = alpha;
             View kind = BubbleKind();
+            var busy = kind == View.Agent ? BusySession() : null;
+            // Spinner 30 fps, timer ring each second
+            float fps = busy != null && busy.State != AgentState.Waiting ? LiveFps : kind == View.Timer && !timerPaused ? TickFps : 0;
+            LiveRect(new RectangleF(bx - br, cy - br, br * 2, br * 2), fps, t => PaintBubble(kind, cy, bx));
+            p.Alpha = 1f;
+        }
+
+        void PaintBubble(View kind, float cy, float bx)
+        {
             if (kind == View.Agent)
             {
                 var s = BusySession();
@@ -659,13 +780,12 @@ namespace Tepi
                 else p.Orbit(bx, cy, 7f, orbitPhase, p.T.Text);
             }
             else if (kind == View.Download) p.Icon(IcoDownload, 12f, p.T.Text, bx, cy);
-            else if (kind == View.Focus) DrawFocusRing(bx, cy, 7f);
+            else if (kind == View.Timer) DrawTimerRing(bx, cy, 7f);
             else if (kind == View.Task)
             {
                 var t = SoonTask();
                 if (t != null) DrawCountdownRing(bx, cy, 7f, t);
             }
-            p.Alpha = 1f;
         }
     }
 }

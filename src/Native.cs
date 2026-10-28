@@ -67,9 +67,38 @@ namespace Tepi
 
         public delegate void WinEventProc(IntPtr hook, uint evt, IntPtr hwnd, int idObject, int idChild, uint thread, uint time);
 
+        // prcDirty limits the copy to one rect
+        [StructLayout(LayoutKind.Sequential)]
+        public struct ULWINFO
+        {
+            public int cbSize;
+            public IntPtr hdcDst, pptDst, psize, hdcSrc, pptSrc;
+            public int crKey;
+            public IntPtr pblend;
+            public int dwFlags;
+            public IntPtr prcDirty;
+        }
+
         [DllImport("user32.dll", SetLastError = true)]
         public static extern bool UpdateLayeredWindow(IntPtr hwnd, IntPtr hdcDst, ref POINT pptDst, ref SIZE psize,
             IntPtr hdcSrc, ref POINT pptSrc, int crKey, ref BLENDFUNCTION pblend, int dwFlags);
+        [DllImport("user32.dll", SetLastError = true)] public static extern bool UpdateLayeredWindowIndirect(IntPtr hwnd, ref ULWINFO info);
+        [DllImport("kernel32.dll")] public static extern IntPtr GetCurrentThread();
+        [DllImport("kernel32.dll")] public static extern bool GetThreadTimes(IntPtr thread, out long creation, out long exit, out long kernel, out long user);
+        [DllImport("kernel32.dll")] public static extern bool GetProcessTimes(IntPtr process, out long creation, out long exit, out long kernel, out long user);
+
+        // Calling thread CPU time, 100 ns units
+        public static long ThreadCpu()
+        {
+            long c, e, k, u;
+            return GetThreadTimes(GetCurrentThread(), out c, out e, out k, out u) ? k + u : 0;
+        }
+
+        public static long ProcessCpu()
+        {
+            long c, e, k, u;
+            return GetProcessTimes(GetCurrentProcess(), out c, out e, out k, out u) ? k + u : 0;
+        }
         [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr hwnd);
         [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);
         [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int cmd);
@@ -109,6 +138,21 @@ namespace Tepi
         [DllImport("advapi32.dll")] public static extern int RegNotifyChangeKeyValue(SafeRegistryHandle key, bool watchSubtree, int filter, SafeWaitHandle evt, bool async);
         [DllImport("ntdll.dll")]
         static extern int NtQueryWnfStateData(ref ulong stateName, IntPtr typeId, IntPtr explicitScope, out uint changeStamp, byte[] buffer, ref uint bufferSize);
+
+        [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+
+        // Rounded on Windows 11; ignored before
+        public static void RoundCorners(IntPtr hwnd)
+        {
+            int round = 2;
+            try { DwmSetWindowAttribute(hwnd, 33, ref round, 4); } catch (Exception) { }
+        }
+
+        public static void DarkFrame(IntPtr hwnd, bool dark)
+        {
+            int on = dark ? 1 : 0;
+            try { DwmSetWindowAttribute(hwnd, 20, ref on, 4); } catch (Exception) { }
+        }
 
         public static bool HasPendingMessage()
         {

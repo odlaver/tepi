@@ -65,7 +65,7 @@ namespace Tepi
             clips.RemoveAll(c => c.Text == text);
             clips.Insert(0, new ClipItem { Text = text, Utc = DateTime.UtcNow });
             if (clips.Count > ClipMax) clips.RemoveRange(ClipMax, clips.Count - ClipMax);
-            if (expanded && page == PageClips) Kick();
+            if (expanded && page == PageShelf && shelfSeg == 1) Kick();
         }
 
         void CopyClip(ClipItem c)
@@ -117,11 +117,12 @@ namespace Tepi
                 if (y + ClipRowH < area.Top || y > area.Bottom) continue;
                 var c = clips[i];
                 var row = new RectangleF(area.X + 4, y + 2, area.Width - 8, ClipRowH - 4);
-                string id = "clip" + i;
+                string id = "clip" + c.Utc.Ticks;
                 if (Hover(id)) p.FillRound(row, 14, p.T.Fill);
-                p.Text(Preview(c.Text, 140), Ink.Semi(12.5f), p.T.Text, row.X + 14, row.Y + 16, row.Width - 28, StringAlignment.Near);
+                float rcy = row.Y + row.Height / 2;
+                p.Text(Preview(c.Text, 140), Ink.Semi(12.5f), p.T.Text, row.X + 14, rcy - 8, row.Width - 28, StringAlignment.Near);
                 string meta = Lang.F("{0} karakter", c.Text.Length) + " · " + Fmt.Ago(c.Utc);
-                p.Text(meta, Ink.Small(11f), p.T.Faint, row.X + 14, row.Y + 33, row.Width - 28, StringAlignment.Near);
+                p.Text(meta, Ink.Small(11f), p.T.Faint, row.X + 14, rcy + 9, row.Width - 28, StringAlignment.Near);
                 var pick = c;
                 if (row.Top >= area.Top && row.Bottom <= area.Bottom) AddHit(row, id, delegate { CopyClip(pick); });
             }

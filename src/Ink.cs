@@ -4,27 +4,37 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.Runtime.InteropServices;
 
 namespace Tepi
 {
     // Monochrome tokens; Base/Flip swap inverts
     class Tone
     {
+        // Labels: primary, secondary, tertiary; fills and separator
         public Color Bg, Text, Sub, Faint, Fill, FillHover, Line;
+        // Disabled ink and tracks; held module
+        public Color Quaternary, FillPressed;
+        // Module light: top glow, bottom lip
+        public Color Highlight, Lip;
         // Accent: pill, bars, progress; ink on top of it
         public Color Accent, OnAccent, Progress;
+        // Semantic: diff lines only
+        public Color Positive, Negative;
+
+        public bool IsDark { get { return Bg.R + Bg.G + Bg.B < 384; } }
 
         public static Tone Dark()
         {
             return Defaults(new Tone
             {
                 Bg = Color.FromArgb(255, 0, 0, 0),
-                Text = Color.FromArgb(255, 244, 244, 244),
-                Sub = Color.FromArgb(160, 244, 244, 244),
-                Faint = Color.FromArgb(130, 244, 244, 244),
-                Fill = Color.FromArgb(30, 255, 255, 255),
-                FillHover = Color.FromArgb(52, 255, 255, 255),
-                Line = Color.FromArgb(38, 255, 255, 255),
+                Text = Color.FromArgb(255, 245, 245, 247),
+                Sub = Color.FromArgb(158, 245, 245, 247),
+                Faint = Color.FromArgb(92, 245, 245, 247),
+                Fill = Color.FromArgb(18, 255, 255, 255),
+                FillHover = Color.FromArgb(28, 255, 255, 255),
+                Line = Color.FromArgb(23, 255, 255, 255),
             });
         }
 
@@ -33,7 +43,21 @@ namespace Tepi
             t.Accent = t.Text;
             t.OnAccent = t.Bg;
             t.Progress = t.Sub;
+            bool dark = t.IsDark;
+            t.Positive = dark ? Color.FromArgb(255, 110, 200, 140) : Color.FromArgb(255, 28, 128, 70);
+            t.Negative = dark ? Color.FromArgb(255, 240, 120, 120) : Color.FromArgb(255, 190, 50, 50);
+            Derive(t);
             return t;
+        }
+
+        // Inks that follow text and fill
+        public static void Derive(Tone t)
+        {
+            bool dark = t.IsDark;
+            t.Quaternary = Ink.A(t.Text, 0.18f);
+            t.FillPressed = Ink.A(t.Fill, dark ? 0.57f : 2.2f);
+            t.Highlight = dark ? Color.FromArgb(23, 255, 255, 255) : Color.FromArgb(110, 255, 255, 255);
+            t.Lip = dark ? Color.FromArgb(16, 255, 255, 255) : Color.FromArgb(150, 255, 255, 255);
         }
 
         public static Tone Paper()
@@ -41,15 +65,18 @@ namespace Tepi
             return Defaults(new Tone
             {
                 Bg = Color.FromArgb(255, 245, 245, 245),
-                Text = Color.FromArgb(255, 10, 10, 10),
-                Sub = Color.FromArgb(170, 10, 10, 10),
-                Faint = Color.FromArgb(150, 10, 10, 10),
-                Fill = Color.FromArgb(22, 0, 0, 0),
-                FillHover = Color.FromArgb(42, 0, 0, 0),
-                Line = Color.FromArgb(34, 0, 0, 0),
+                Text = Color.FromArgb(255, 12, 12, 14),
+                Sub = Color.FromArgb(158, 12, 12, 14),
+                Faint = Color.FromArgb(92, 12, 12, 14),
+                Fill = Color.FromArgb(14, 0, 0, 0),
+                FillHover = Color.FromArgb(24, 0, 0, 0),
+                Line = Color.FromArgb(24, 0, 0, 0),
             });
         }
     }
+
+    // Vector symbols drawn as cached paths
+    enum Sym { Play, Pause, Next, Prev, Stop, Check, Plus, Minus, Xmark, ChevronDown, ChevronUp, ChevronRight }
 
     static class Ink
     {
@@ -75,6 +102,13 @@ namespace Tepi
             if (Hex(prefix + "accent", out c)) t.Accent = t.Progress = c;
             if (Hex(prefix + "onAccent", out c)) t.OnAccent = c;
             if (Hex(prefix + "progress", out c)) t.Progress = c;
+            if (Hex(prefix + "positive", out c)) t.Positive = c;
+            if (Hex(prefix + "negative", out c)) t.Negative = c;
+            Tone.Derive(t);
+            if (Hex(prefix + "quaternary", out c)) t.Quaternary = c;
+            if (Hex(prefix + "fillPressed", out c)) t.FillPressed = c;
+            if (Hex(prefix + "highlight", out c)) t.Highlight = c;
+            if (Hex(prefix + "lip", out c)) t.Lip = c;
         }
 
         // "#RRGGBB" or "#AARRGGBB"
@@ -89,8 +123,12 @@ namespace Tepi
             return true;
         }
 
+        // Bumped on look change; caches compare
+        public static int Epoch;
+
         public static void Apply(bool light)
         {
+            Epoch++;
             Light = light;
             Base = light ? Tone.Paper() : Tone.Dark();
             Flip = light ? Tone.Dark() : Tone.Paper();
@@ -120,25 +158,44 @@ namespace Tepi
         }
 
         // Segoe Fluent Icons code points
-        public const char IcoMic = '', IcoCam = '', IcoWifi = '', IcoBolt = '', IcoBell = '';
-        public const char IcoVol0 = '', IcoVol1 = '', IcoVol2 = '', IcoVol3 = '', IcoMute = '';
-        public const char IcoCalendar = '', IcoRefresh = '', IcoLock = '', IcoGlobe = '', IcoPlug = '';
-        public const char IcoNoNet = '', IcoTerminal = '', IcoOpen = '';
+        public const char IcoMic = '\uE720', IcoCam = '\uE714', IcoWifi = '\uE701', IcoBolt = '\uE945', IcoBell = '\uEA8F';
+        public const char IcoVol0 = '\uE992', IcoVol1 = '\uE993', IcoVol2 = '\uE994', IcoVol3 = '\uE995', IcoMute = '\uE74F';
+        public const char IcoCalendar = '\uE787', IcoRefresh = '\uE72C', IcoLock = '\uE72E', IcoGlobe = '\uE774', IcoPlug = '\uE83E';
+        public const char IcoNoNet = '\uF384', IcoTerminal = '\uE756', IcoOpen = '\uE8A7';
+        public const char IcoBluetooth = '\uE702', IcoQuiet = '\uE708', IcoHide = '\uED1A', IcoSun = '\uE706', IcoTimer = '\uE916';
 
-        static string display, text, textSemi, small, mono, icons;
-        static readonly Dictionary<string, Font> fonts = new Dictionary<string, Font>();
+        // GDI+ samples gradients at build size
+        public const float GradientSpan = 1024;
+        // Lifts text so caps centre on cy
+        public const float CapLift = 0.05f;
+
+        // Spacing scale, 1x px
+        public const float Sp4 = 4, Sp8 = 8, Sp12 = 12, Sp16 = 16, Sp20 = 20, Sp24 = 24, Sp32 = 32;
+        // Concentric radii: shell, module, control
+        public const float RadiusShell = 32, RadiusModule = 20, RadiusControl = 12;
+        // Module grid: shell inset, gap, inner padding
+        public const float ModuleInset = 12, ModuleGap = 10, ModulePad = 16;
+
+        const int FDisplay = 0, FText = 1, FSemi = 2, FSmall = 3, FMono = 4, FIcons = 5, FSmallSemi = 6;
+        static readonly string[] families = new string[7];
+
+        public static string MenuFamily { get { return families[FText]; } }
+        public static string IconFamily { get { return families[FIcons]; } }
+        // Integer keys: no string per lookup
+        static readonly Dictionary<int, Font> fonts = new Dictionary<int, Font>();
 
         public static void Init()
         {
             var have = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             using (var fc = new InstalledFontCollection())
                 foreach (var f in fc.Families) have.Add(f.Name);
-            display = Pick(have, "Segoe UI Variable Display Semib", "Segoe UI Semibold", "Segoe UI");
-            text = Pick(have, "Segoe UI Variable Text", "Segoe UI");
-            textSemi = Pick(have, "Segoe UI Variable Text Semibold", "Segoe UI Semibold", "Segoe UI");
-            small = Pick(have, "Segoe UI Variable Small", "Segoe UI");
-            mono = Pick(have, "Cascadia Mono", "Consolas", "Courier New");
-            icons = Pick(have, "Segoe Fluent Icons", "Segoe MDL2 Assets", "Segoe UI Symbol");
+            families[FDisplay] = Pick(have, "Segoe UI Variable Display Semib", "Segoe UI Semibold", "Segoe UI");
+            families[FText] = Pick(have, "Segoe UI Variable Text", "Segoe UI");
+            families[FSemi] = Pick(have, "Segoe UI Variable Text Semibold", "Segoe UI Semibold", "Segoe UI");
+            families[FSmall] = Pick(have, "Segoe UI Variable Small", "Segoe UI");
+            families[FMono] = Pick(have, "Cascadia Mono", "Consolas", "Courier New");
+            families[FIcons] = Pick(have, "Segoe Fluent Icons", "Segoe MDL2 Assets", "Segoe UI Symbol");
+            families[FSmallSemi] = Pick(have, "Segoe UI Variable Small Semibol", "Segoe UI Semibold", "Segoe UI");
         }
 
         static string Pick(HashSet<string> have, params string[] names)
@@ -147,23 +204,51 @@ namespace Tepi
             return System.Drawing.SystemFonts.MessageBoxFont.FontFamily.Name;
         }
 
-        public static Font Display(float px) { return Get(display, px); }
-        public static Font Text(float px) { return Get(text, px); }
-        public static Font Semi(float px) { return Get(textSemi, px); }
-        public static Font Small(float px) { return Get(small, px); }
-        public static Font Mono(float px) { return Get(mono, px); }
-        public static Font Icons(float px) { return Get(icons, px); }
+        public static Font Display(float px) { return Get(FDisplay, px); }
+        public static Font Text(float px) { return Get(FText, px); }
+        public static Font Semi(float px) { return Get(FSemi, px); }
+        public static Font Small(float px) { return Get(FSmall, px); }
+        public static Font SmallSemi(float px) { return Get(FSmallSemi, px); }
+        public static Font Mono(float px) { return Get(FMono, px); }
+        public static Font Icons(float px) { return Get(FIcons, px); }
 
-        static Font Get(string family, float px)
+        // Type scale roles
+        public static Font Hero { get { return Get(FDisplay, 40f); } }
+        public static Font Title1 { get { return Get(FDisplay, 22f); } }
+        public static Font Title2 { get { return Get(FSemi, 17f); } }
+        public static Font Headline { get { return Get(FSemi, 14.5f); } }
+        public static Font Body { get { return Get(FText, 13.5f); } }
+        public static Font Callout { get { return Get(FText, 12.5f); } }
+        public static Font Caption { get { return Get(FSmall, 11f); } }
+
+        static Font Get(int family, float px)
         {
-            string key = family + "|" + px.ToString("0.0");
+            int key = family * 100000 + (int)Math.Round(px * 10);
             Font f;
             if (!fonts.TryGetValue(key, out f))
             {
-                f = new Font(family, px, FontStyle.Regular, GraphicsUnit.Pixel);
+                f = new Font(families[family] ?? "Segoe UI", px, FontStyle.Regular, GraphicsUnit.Pixel);
                 fonts[key] = f;
             }
             return f;
+        }
+
+        // One-char strings, made once
+        static readonly Dictionary<char, string> chars = new Dictionary<char, string>();
+
+        public static string Str(char c)
+        {
+            string s;
+            if (!chars.TryGetValue(c, out s)) { s = c.ToString(); chars[c] = s; }
+            return s;
+        }
+
+        static readonly string[] percents = new string[101];
+
+        public static string Percent(int v)
+        {
+            v = Math.Max(0, Math.Min(100, v));
+            return percents[v] ?? (percents[v] = v + "%");
         }
 
         public static Color A(Color c, float a)
@@ -177,37 +262,208 @@ namespace Tepi
             return Color.FromArgb((int)(a.A + (b.A - a.A) * t), (int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
         }
 
-        // Hangs from the screen edge: flat top, flared shoulders, round bottom
+        // Top over under, straight alpha
+        public static Color Over(Color top, Color under)
+        {
+            float at = top.A / 255f, au = under.A / 255f;
+            float a = at + au * (1 - at);
+            if (a < 0.002f) return Color.FromArgb(0, under);
+            float k = au * (1 - at);
+            return Color.FromArgb((int)(a * 255 + 0.5f), (int)((top.R * at + under.R * k) / a + 0.5f), (int)((top.G * at + under.G * k) / a + 0.5f), (int)((top.B * at + under.B * k) / a + 0.5f));
+        }
+
+        // Edge notch: flared shoulders, continuous corners
         public static GraphicsPath Notch(RectangleF r, float radius, float shoulder)
         {
             var path = new GraphicsPath();
-            float top = r.Y - 2, left = r.Left, right = r.Right, bottom = r.Bottom;
-            radius = Math.Max(0.5f, Math.Min(radius, Math.Min(r.Width / 2, r.Height)));
-            float s = Math.Max(0.5f, Math.Min(shoulder, bottom - radius - top - 1));
-            path.AddLine(left - s, top, right + s, top);
-            path.AddArc(right, top, 2 * s, 2 * s, 270, -90);
-            path.AddLine(right, top + s, right, bottom - radius);
-            path.AddArc(right - 2 * radius, bottom - 2 * radius, 2 * radius, 2 * radius, 0, 90);
-            path.AddLine(right - radius, bottom, left + radius, bottom);
-            path.AddArc(left, bottom - 2 * radius, 2 * radius, 2 * radius, 90, 90);
-            path.AddLine(left, bottom - radius, left, top + s);
-            path.AddArc(left - 2 * s, top, 2 * s, 2 * s, 0, -90);
-            path.CloseFigure();
+            AddNotch(path, r, radius, shoulder);
             return path;
+        }
+
+        public static void AddNotch(GraphicsPath path, RectangleF r, float radius, float shoulder)
+        {
+            float top = r.Y - 2, left = r.Left, right = r.Right, bottom = r.Bottom;
+            float s = Math.Max(0.5f, Math.Min(shoulder, r.Height / 3));
+            radius = Math.Max(0.5f, Math.Min(radius, Math.Min(r.Width / 2, bottom - top - s)));
+            var k = CornerOf(radius, Smoothing, Math.Min(r.Width / 2, bottom - top - s));
+            // Flare wider than tall
+            float fw = s * 1.35f;
+            path.AddLine(left - fw, top, right + fw, top);
+            path.AddBezier(right + fw, top, right + fw * 0.4f, top, right, top + s * 0.45f, right, top + s);
+            AddCorner(path, k, right, bottom, 1);
+            AddCorner(path, k, left, bottom, 2);
+            path.AddBezier(left, top + s, left, top + s * 0.45f, left - fw * 0.4f, top, left - fw, top);
+            path.CloseFigure();
         }
 
         public static GraphicsPath Round(RectangleF r, float radius)
         {
             var p = new GraphicsPath();
-            radius = Math.Min(radius, Math.Min(r.Width, r.Height) / 2f);
-            if (radius < 0.5f) { p.AddRectangle(r); return p; }
-            float d = radius * 2;
-            p.AddArc(r.X, r.Y, d, d, 180, 90);
-            p.AddArc(r.Right - d, r.Y, d, d, 270, 90);
-            p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
-            p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
-            p.CloseFigure();
+            AddRound(p, r, radius);
             return p;
+        }
+
+        // Corner smoothing; 0.6 matches iOS
+        public const float Smoothing = 0.6f;
+
+        // Corner curve length along each edge
+        public static float CornerExtent(float radius) { return (1 + Smoothing) * radius; }
+
+        // Squircle into a caller's reusable path
+        public static void AddRound(GraphicsPath p, RectangleF r, float radius)
+        {
+            float budget = Math.Min(r.Width, r.Height) / 2f;
+            radius = Math.Min(radius, budget);
+            if (radius < 0.5f) { p.AddRectangle(r); return; }
+            var k = CornerOf(radius, Smoothing, budget);
+            AddCorner(p, k, r.Right, r.Top, 0);
+            AddCorner(p, k, r.Right, r.Bottom, 1);
+            AddCorner(p, k, r.Left, r.Bottom, 2);
+            AddCorner(p, k, r.Left, r.Top, 3);
+            p.CloseFigure();
+        }
+
+        struct Corner { public float R, P, A, B, C, D, Arc, Alpha; }
+
+        static double Rad(double deg) { return deg * Math.PI / 180; }
+
+        // figma-squircle parameters; smoothing yields to space
+        static Corner CornerOf(float radius, float smoothing, float budget)
+        {
+            float s = smoothing, len = (1 + s) * radius;
+            if (len > budget) { s = Math.Max(0, budget / radius - 1); len = Math.Max(radius, budget); }
+            float arcMeasure = 90 * (1 - s);
+            float arc = (float)(Math.Sin(Rad(arcMeasure / 2)) * radius * Math.Sqrt(2));
+            float alpha = (90 - arcMeasure) / 2;
+            float p34 = radius * (float)Math.Tan(Rad(alpha / 2));
+            float beta = 45 * s;
+            float c = p34 * (float)Math.Cos(Rad(beta));
+            float d = c * (float)Math.Tan(Rad(beta));
+            float b = Math.Max(0, (len - arc - c - d) / 3);
+            return new Corner { R = radius, P = len, A = 2 * b, B = b, C = c, D = d, Arc = arc, Alpha = alpha };
+        }
+
+        // q clockwise from 0 top-right
+        static void AddCorner(GraphicsPath p, Corner k, float cx, float cy, int q)
+        {
+            // u along incoming edge, v outgoing
+            float ux = q == 0 ? 1 : q == 2 ? -1 : 0, uy = q == 1 ? 1 : q == 3 ? -1 : 0;
+            float vx = -uy, vy = ux;
+            float sx = cx - ux * k.P, sy = cy - uy * k.P;
+            float ex = cx - ux * (k.D + k.Arc) + vx * k.D, ey = cy - uy * (k.D + k.Arc) + vy * k.D;
+            if (k.A + k.B + k.C > 0.01f)
+                p.AddBezier(sx, sy, sx + ux * k.A, sy + uy * k.A, sx + ux * (k.A + k.B), sy + uy * (k.A + k.B), ex, ey);
+            float ox = cx - ux * k.R + vx * k.R, oy = cy - uy * k.R + vy * k.R;
+            p.AddArc(ox - k.R, oy - k.R, 2 * k.R, 2 * k.R, 270 + 90 * q + k.Alpha, 90 - 2 * k.Alpha);
+            float ax = cx - ux * k.D + vx * (k.D + k.Arc), ay = cy - uy * k.D + vy * (k.D + k.Arc);
+            if (k.A + k.B + k.C > 0.01f)
+                p.AddBezier(ax, ay, ax + ux * k.D + vx * k.C, ay + uy * k.D + vy * k.C, ax + ux * k.D + vx * (k.B + k.C), ay + uy * k.D + vy * (k.B + k.C), cx + vx * k.P, cy + vy * k.P);
+        }
+
+        sealed class SymbolShape { public GraphicsPath Path; public float Stroke; }
+        static readonly Dictionary<int, SymbolShape> symbols = new Dictionary<int, SymbolShape>();
+
+        // Centred on 0,0; stroke 0 means filled
+        public static GraphicsPath SymbolPath(Sym kind, float size, out float stroke)
+        {
+            int key = (int)kind * 100000 + (int)Math.Round(size * 8);
+            SymbolShape s;
+            if (!symbols.TryGetValue(key, out s))
+            {
+                if (symbols.Count > 256)
+                {
+                    foreach (var old in symbols.Values) old.Path.Dispose();
+                    symbols.Clear();
+                }
+                s = BuildSymbol(kind, (float)Math.Round(size * 8) / 8);
+                symbols[key] = s;
+            }
+            stroke = s.Stroke;
+            return s.Path;
+        }
+
+        // SF Symbols weight: filled, rounded joins
+        static SymbolShape BuildSymbol(Sym kind, float s)
+        {
+            var path = new GraphicsPath(FillMode.Winding);
+            float stroke = 0;
+            switch (kind)
+            {
+                case Sym.Play:
+                    // Shifted right: optical centre
+                    Rounded(path, new[] { new PointF(-0.30f * s, -0.43f * s), new PointF(0.51f * s, 0), new PointF(-0.30f * s, 0.43f * s) }, 0.1f * s);
+                    break;
+                case Sym.Pause:
+                    AddRound(path, new RectangleF(-0.36f * s, -0.42f * s, 0.26f * s, 0.84f * s), 0.085f * s);
+                    AddRound(path, new RectangleF(0.10f * s, -0.42f * s, 0.26f * s, 0.84f * s), 0.085f * s);
+                    break;
+                case Sym.Next:
+                case Sym.Prev:
+                    int dir = kind == Sym.Next ? 1 : -1;
+                    for (int i = 0; i < 2; i++)
+                    {
+                        float x0 = dir * (-0.5f * s + i * 0.5f * s), x1 = x0 + dir * 0.53f * s;
+                        Rounded(path, new[] { new PointF(x0, -0.31f * s), new PointF(x1, 0), new PointF(x0, 0.31f * s) }, 0.07f * s);
+                    }
+                    break;
+                case Sym.Stop:
+                    AddRound(path, new RectangleF(-0.36f * s, -0.36f * s, 0.72f * s, 0.72f * s), 0.17f * s);
+                    break;
+                case Sym.Check:
+                    stroke = 0.15f * s;
+                    path.AddLines(new[] { new PointF(-0.36f * s, 0.02f * s), new PointF(-0.11f * s, 0.27f * s), new PointF(0.37f * s, -0.29f * s) });
+                    break;
+                case Sym.Plus:
+                    stroke = 0.13f * s;
+                    path.AddLine(-0.36f * s, 0, 0.36f * s, 0);
+                    path.StartFigure();
+                    path.AddLine(0, -0.36f * s, 0, 0.36f * s);
+                    break;
+                case Sym.Minus:
+                    stroke = 0.13f * s;
+                    path.AddLine(-0.36f * s, 0, 0.36f * s, 0);
+                    break;
+                case Sym.Xmark:
+                    stroke = 0.13f * s;
+                    path.AddLine(-0.3f * s, -0.3f * s, 0.3f * s, 0.3f * s);
+                    path.StartFigure();
+                    path.AddLine(0.3f * s, -0.3f * s, -0.3f * s, 0.3f * s);
+                    break;
+                case Sym.ChevronDown:
+                case Sym.ChevronUp:
+                    stroke = 0.12f * s;
+                    float f = kind == Sym.ChevronDown ? 1 : -1;
+                    path.AddLines(new[] { new PointF(-0.3f * s, -0.13f * s * f), new PointF(0, 0.15f * s * f), new PointF(0.3f * s, -0.13f * s * f) });
+                    break;
+                default:
+                    stroke = 0.12f * s;
+                    path.AddLines(new[] { new PointF(-0.13f * s, -0.3f * s), new PointF(0.15f * s, 0), new PointF(-0.13f * s, 0.3f * s) });
+                    break;
+            }
+            return new SymbolShape { Path = path, Stroke = stroke };
+        }
+
+        // Polygon with circular corners of radius r
+        static void Rounded(GraphicsPath path, PointF[] pts, float r)
+        {
+            int n = pts.Length;
+            path.StartFigure();
+            for (int i = 0; i < n; i++)
+            {
+                PointF a = pts[(i + n - 1) % n], b = pts[i], c = pts[(i + 1) % n];
+                float ux = a.X - b.X, uy = a.Y - b.Y, la = (float)Math.Sqrt(ux * ux + uy * uy);
+                float vx = c.X - b.X, vy = c.Y - b.Y, lc = (float)Math.Sqrt(vx * vx + vy * vy);
+                ux /= la; uy /= la; vx /= lc; vy /= lc;
+                double theta = Math.Acos(Math.Max(-1, Math.Min(1, ux * vx + uy * vy)));
+                double phi = Math.PI - theta;
+                float d = Math.Min((float)(r / Math.Tan(theta / 2)), Math.Min(la, lc) * 0.45f);
+                // Bezier handle as a share of d
+                float k = phi < 0.01 ? 0 : (float)(4.0 / 3.0 * Math.Tan(phi / 4) / Math.Tan(phi / 2));
+                var t1 = new PointF(b.X + ux * d, b.Y + uy * d);
+                var t2 = new PointF(b.X + vx * d, b.Y + vy * d);
+                path.AddBezier(t1, new PointF(t1.X + (b.X - t1.X) * k, t1.Y + (b.Y - t1.Y) * k), new PointF(t2.X + (b.X - t2.X) * k, t2.Y + (b.Y - t2.Y) * k), t2);
+            }
+            path.CloseFigure();
         }
 
         // Covers stay monochrome: luminance-only copy
@@ -232,12 +488,120 @@ namespace Tepi
                 var from = new Rectangle((src.Width - side) / 2, (src.Height - side) / 2, side, side);
                 g.DrawImage(src, new Rectangle(0, 0, size, size), from.X, from.Y, from.Width, from.Height, GraphicsUnit.Pixel, attr);
             }
+            // Content colour rides along with the copy
+            var tone = ContentTone(src);
+            if (tone.A > 0) bmp.Tag = tone;
             return bmp;
+        }
+
+        // Colour kept by Grayscale, else Empty
+        public static Color ToneOf(Image img)
+        {
+            return img != null && img.Tag is Color ? (Color)img.Tag : Color.Empty;
+        }
+
+        // Most saturated mid-luminance hue; Empty when grey
+        public static Color ContentTone(Image src)
+        {
+            const int N = 24, Bins = 18;
+            var weight = new float[Bins];
+            var sum = new float[Bins * 3];
+            try
+            {
+                using (var tiny = new Bitmap(N, N, PixelFormat.Format32bppArgb))
+                {
+                    using (var tg = Graphics.FromImage(tiny))
+                    {
+                        tg.InterpolationMode = InterpolationMode.HighQualityBilinear;
+                        tg.DrawImage(src, new Rectangle(0, 0, N, N));
+                    }
+                    var data = tiny.LockBits(new Rectangle(0, 0, N, N), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                    var px = new byte[data.Stride * N];
+                    Marshal.Copy(data.Scan0, px, 0, px.Length);
+                    tiny.UnlockBits(data);
+                    for (int y = 0; y < N; y++)
+                        for (int x = 0; x < N; x++)
+                        {
+                            int i = y * data.Stride + x * 4;
+                            if (px[i + 3] < 128) continue;
+                            float b = px[i] / 255f, g = px[i + 1] / 255f, r = px[i + 2] / 255f;
+                            float max = Math.Max(r, Math.Max(g, b)), min = Math.Min(r, Math.Min(g, b)), chroma = max - min;
+                            if (chroma < 0.1f) continue;
+                            float l = (max + min) / 2, mid = Math.Max(0, 1 - Math.Abs(l - 0.5f) * 1.7f);
+                            float w = chroma * mid;
+                            float h = max == r ? (g - b) / chroma : max == g ? 2 + (b - r) / chroma : 4 + (r - g) / chroma;
+                            int bin = ((int)Math.Floor((h < 0 ? h + 6 : h) / 6 * Bins)) % Bins;
+                            weight[bin] += w;
+                            sum[bin * 3] += r * w; sum[bin * 3 + 1] += g * w; sum[bin * 3 + 2] += b * w;
+                        }
+                }
+            }
+            catch (Exception ex) { Log.Write("tone: " + ex.Message); return Color.Empty; }
+            int best = 0;
+            for (int i = 1; i < Bins; i++) if (weight[i] + 0.5f * (weight[(i + 1) % Bins] + weight[(i + Bins - 1) % Bins]) > weight[best] + 0.5f * (weight[(best + 1) % Bins] + weight[(best + Bins - 1) % Bins])) best = i;
+            // Grey covers: no content colour
+            if (weight[best] < N * N * 0.012f) return Color.Empty;
+            float wb = weight[best];
+            return Color.FromArgb(255, (int)(sum[best * 3] / wb * 255), (int)(sum[best * 3 + 1] / wb * 255), (int)(sum[best * 3 + 2] / wb * 255));
+        }
+
+        // Content colour readable on the glass
+        public static Color Readable(Color c, bool light)
+        {
+            float r = c.R / 255f, g = c.G / 255f, b = c.B / 255f;
+            float max = Math.Max(r, Math.Max(g, b)), min = Math.Min(r, Math.Min(g, b)), chroma = max - min;
+            float l = (max + min) / 2, s = chroma < 0.001f ? 0 : chroma / (1 - Math.Abs(2 * l - 1));
+            float h = chroma < 0.001f ? 0 : max == r ? (g - b) / chroma : max == g ? 2 + (b - r) / chroma : 4 + (r - g) / chroma;
+            if (h < 0) h += 6;
+            // Sky blues stay calm
+            float cap = h > 2.9f && h < 3.6f ? 0.5f : 0.78f;
+            s = Math.Max(0.42f, Math.Min(cap, s));
+            l = light ? Math.Max(0.34f, Math.Min(0.46f, l)) : Math.Max(0.66f, Math.Min(0.78f, l));
+            float q = (1 - Math.Abs(2 * l - 1)) * s, x = q * (1 - Math.Abs(h % 2 - 1)), m = l - q / 2;
+            float rr = 0, gg = 0, bb = 0;
+            if (h < 1) { rr = q; gg = x; } else if (h < 2) { rr = x; gg = q; } else if (h < 3) { gg = q; bb = x; }
+            else if (h < 4) { gg = x; bb = q; } else if (h < 5) { rr = x; bb = q; } else { rr = q; bb = x; }
+            return Color.FromArgb(255, (int)((rr + m) * 255 + 0.5f), (int)((gg + m) * 255 + 0.5f), (int)((bb + m) * 255 + 0.5f));
         }
     }
 
+    // Spring presets: response seconds, damping ratio
+    static class Springs
+    {
+        public const float SnappyResponse = 0.26f, SnappyDamping = 0.86f;
+        public const float SmoothResponse = 0.42f, SmoothDamping = 1f;
+        public const float BouncyResponse = 0.42f, BouncyDamping = 0.75f;
+        public const float InteractiveResponse = 0.16f, InteractiveDamping = 0.86f;
+
+        public static void Tune(Spring s, float response, float damping)
+        {
+            float w = (float)(2 * Math.PI / Math.Max(0.05f, response));
+            s.K = w * w;
+            s.D = 2 * (Anim.Reduced ? Math.Max(1f, damping) : damping) * w;
+        }
+
+        public static void Snappy(Spring s) { Tune(s, SnappyResponse, SnappyDamping); }
+        public static void Smooth(Spring s) { Tune(s, SmoothResponse, SmoothDamping); }
+        public static void Bouncy(Spring s) { Tune(s, BouncyResponse, BouncyDamping); }
+        public static void Interactive(Spring s) { Tune(s, InteractiveResponse, InteractiveDamping); }
+
+        // Step response after t seconds
+        public static float Progress(float t, float response, float damping)
+        {
+            if (t <= 0) return 0;
+            if (Anim.Reduced) damping = Math.Max(1f, damping);
+            double w = 2 * Math.PI / Math.Max(0.05f, response);
+            if (damping >= 1) return (float)(1 - (1 + w * t) * Math.Exp(-w * t));
+            double wd = w * Math.Sqrt(1 - damping * damping), e = Math.Exp(-damping * w * t);
+            return (float)(1 - e * (Math.Cos(wd * t) + damping * w / wd * Math.Sin(wd * t)));
+        }
+
+        // Settled within a hair
+        public static bool Done(float t, float response) { return t > response * 1.6f; }
+    }
+
     // Drawing helpers: global alpha, active tone
-    class Painter
+    class Painter : IDisposable
     {
         public Graphics G;
         public float Alpha = 1f;
@@ -248,6 +612,29 @@ namespace Tepi
         readonly StringFormat line, wrap;
         readonly ImageAttributes imageAttr = new ImageAttributes();
         readonly ColorMatrix matrix = new ColorMatrix();
+        // One path reset per shape
+        readonly GraphicsPath shape = new GraphicsPath();
+        // Gradients remapped per use, never rebuilt
+        readonly LinearGradientBrush glow, lip, split;
+        readonly Blend glowBlend = new Blend(3), lipBlend = new Blend(4), splitBlend = new Blend(4);
+        readonly Color[] pair = new Color[2];
+        // Widths per font, cleared when G changes
+        readonly Dictionary<Font, Dictionary<string, float>> widths = new Dictionary<Font, Dictionary<string, float>>();
+        Graphics widthsFor;
+        int widthCount;
+
+        public void Dispose()
+        {
+            brush.Dispose();
+            pen.Dispose();
+            line.Dispose();
+            wrap.Dispose();
+            imageAttr.Dispose();
+            shape.Dispose();
+            glow.Dispose();
+            lip.Dispose();
+            split.Dispose();
+        }
 
         public Painter()
         {
@@ -261,6 +648,18 @@ namespace Tepi
             wrap = (StringFormat)StringFormat.GenericTypographic.Clone();
             wrap.FormatFlags |= StringFormatFlags.LineLimit;
             wrap.Trimming = StringTrimming.EllipsisCharacter;
+            var unit = new RectangleF(0, 0, Ink.GradientSpan, Ink.GradientSpan);
+            glow = new LinearGradientBrush(unit, Color.White, Color.White, LinearGradientMode.Horizontal) { WrapMode = WrapMode.TileFlipXY };
+            lip = new LinearGradientBrush(unit, Color.White, Color.White, LinearGradientMode.Horizontal) { WrapMode = WrapMode.TileFlipXY };
+            split = new LinearGradientBrush(unit, Color.White, Color.White, LinearGradientMode.Horizontal) { WrapMode = WrapMode.TileFlipXY };
+            glowBlend.Positions = new[] { 0f, 0.45f, 1f };
+            glowBlend.Factors = new[] { 0f, 1f, 1f };
+            glow.Blend = glowBlend;
+            lipBlend.Positions = new[] { 0f, 0.3f, 0.7f, 1f };
+            lipBlend.Factors = new[] { 1f, 0f, 0f, 1f };
+            lip.Blend = lipBlend;
+            splitBlend.Positions = new[] { 0f, 0.5f, 0.51f, 1f };
+            splitBlend.Factors = new[] { 0f, 0f, 1f, 1f };
         }
 
         public Brush B(Color c) { brush.Color = Ink.A(c, Alpha); return brush; }
@@ -274,20 +673,98 @@ namespace Tepi
 
         public void FillRound(RectangleF r, float radius, Color c)
         {
-            using (var path = Ink.Round(r, radius)) G.FillPath(B(c), path);
+            shape.Reset();
+            Ink.AddRound(shape, r, radius);
+            G.FillPath(B(c), shape);
+        }
+
+        public void FillRound(RectangleF r, float radius, Brush b)
+        {
+            shape.Reset();
+            Ink.AddRound(shape, r, radius);
+            G.FillPath(b, shape);
         }
 
         public void StrokeRound(RectangleF r, float radius, Color c, float width)
         {
-            using (var path = Ink.Round(r, radius)) G.DrawPath(P(c, width), path);
+            shape.Reset();
+            Ink.AddRound(shape, r, radius);
+            G.DrawPath(P(c, width), shape);
         }
 
         public void Circle(float cx, float cy, float r, Color c) { G.FillEllipse(B(c), cx - r, cy - r, r * 2, r * 2); }
 
+        static void MapV(LinearGradientBrush b, float y, float h)
+        {
+            b.ResetTransform();
+            b.TranslateTransform(0, y);
+            b.ScaleTransform(1, Math.Max(0.01f, h) / Ink.GradientSpan);
+            b.RotateTransform(90);
+        }
+
+        static void MapH(LinearGradientBrush b, float x, float w)
+        {
+            b.ResetTransform();
+            b.TranslateTransform(x, 0);
+            b.ScaleTransform(Math.Max(0.01f, w) / Ink.GradientSpan, 1);
+        }
+
+        // Module: fill, top inner light, faint lip
+        public void Module(RectangleF r, float radius, Color fill)
+        {
+            shape.Reset();
+            Ink.AddRound(shape, r, radius);
+            pair[0] = Ink.A(Ink.Over(T.Highlight, fill), Alpha);
+            pair[1] = Ink.A(fill, Alpha);
+            glow.LinearColors = pair;
+            MapV(glow, r.Y, r.Height);
+            G.FillPath(glow, shape);
+            if (T.Lip.A == 0) return;
+            float e = Ink.CornerExtent(Math.Min(radius, Math.Min(r.Width, r.Height) / 2)), w = r.Width - 2 * e;
+            if (w < 8) return;
+            pair[0] = Ink.A(T.Lip, Alpha);
+            pair[1] = Color.FromArgb(0, T.Lip);
+            lip.LinearColors = pair;
+            MapH(lip, r.X + e, w);
+            G.FillRectangle(lip, r.X + e, r.Bottom - 1.4f, w, 0.9f);
+        }
+
+        // Hard colour step at x, no clip
+        public Brush Split(float x, float w, float at, Color left, Color right)
+        {
+            if (at <= x + 0.05f) return B(right);
+            if (at >= x + w - 0.05f) return B(left);
+            float e = Math.Min(0.02f, 0.9f / Math.Max(1, w));
+            float f = Math.Max(0.001f, Math.Min(0.998f - e, (at - x) / w));
+            splitBlend.Positions[1] = f;
+            splitBlend.Positions[2] = f + e;
+            split.Blend = splitBlend;
+            pair[0] = Ink.A(left, Alpha);
+            pair[1] = Ink.A(right, Alpha);
+            split.LinearColors = pair;
+            MapH(split, x, w);
+            return split;
+        }
+
         public float Measure(string s, Font f)
         {
             if (string.IsNullOrEmpty(s)) return 0;
-            return G.MeasureString(s, f, PointF.Empty, line).Width;
+            if (!ReferenceEquals(widthsFor, G) || widthCount > 4096) { widths.Clear(); widthsFor = G; widthCount = 0; }
+            Dictionary<string, float> byText;
+            if (!widths.TryGetValue(f, out byText)) widths[f] = byText = new Dictionary<string, float>();
+            float w;
+            if (byText.TryGetValue(s, out w)) return w;
+            w = G.MeasureString(s, f, PointF.Empty, line).Width;
+            byText[s] = w;
+            widthCount++;
+            return w;
+        }
+
+        static RectangleF LineBox(Font f, float x, float cy, float maxWidth, StringAlignment align)
+        {
+            float h = f.Size * 2f;
+            float left = align == StringAlignment.Near ? x : align == StringAlignment.Far ? x - maxWidth : x - maxWidth / 2;
+            return new RectangleF(left, cy - h / 2 - f.Size * Ink.CapLift, maxWidth, h);
         }
 
         // One line, centred on cy, ellipsized
@@ -295,11 +772,18 @@ namespace Tepi
         {
             if (string.IsNullOrEmpty(s) || maxWidth < 4) return;
             line.Alignment = align;
-            float h = f.Size * 2f;
-            float left = align == StringAlignment.Near ? x : align == StringAlignment.Far ? x - maxWidth : x - maxWidth / 2;
+            var box = LineBox(f, x, cy, maxWidth, align);
             if (Shadow && c.R > 128 && c.A > 60)
-                G.DrawString(s, f, B(Color.FromArgb((int)(90 * c.A / 255f), 0, 0, 0)), new RectangleF(left, cy - h / 2 + f.Size * 0.06f + 1f, maxWidth, h), line);
-            G.DrawString(s, f, B(c), new RectangleF(left, cy - h / 2 + f.Size * 0.06f, maxWidth, h), line);
+                G.DrawString(s, f, B(Color.FromArgb((int)(90 * c.A / 255f), 0, 0, 0)), new RectangleF(box.X, box.Y + 1f, box.Width, box.Height), line);
+            G.DrawString(s, f, B(c), box, line);
+        }
+
+        // Same line with any brush, like Split
+        public void Text(string s, Font f, Brush b, float x, float cy, float maxWidth, StringAlignment align)
+        {
+            if (string.IsNullOrEmpty(s) || maxWidth < 4) return;
+            line.Alignment = align;
+            G.DrawString(s, f, b, LineBox(f, x, cy, maxWidth, align), line);
         }
 
         public void Text(string s, Font f, Color c, float x, float cy) { Text(s, f, c, x, cy, 2000, StringAlignment.Near); }
@@ -315,46 +799,75 @@ namespace Tepi
             G.DrawString(s, f, B(c), r, wrap);
         }
 
+        // Wrapped text centred both ways in r
+        public void TextBoxCenter(string s, Font f, Color c, RectangleF r)
+        {
+            if (string.IsNullOrEmpty(s)) return;
+            wrap.Alignment = StringAlignment.Center;
+            wrap.LineAlignment = StringAlignment.Center;
+            G.DrawString(s, f, B(c), new RectangleF(r.X, r.Y - f.Size * Ink.CapLift, r.Width, r.Height), wrap);
+            wrap.LineAlignment = StringAlignment.Near;
+        }
+
         // Karaoke wipe with a soft edge
         public void Sweep(string s, Font f, Color hi, Color lo, float x, float cy, float maxWidth, StringAlignment align, float progress)
         {
             if (string.IsNullOrEmpty(s)) return;
             float w = Math.Min(maxWidth, Measure(s, f) + 2);
             float left = align == StringAlignment.Near ? x : align == StringAlignment.Far ? x - w : x - w / 2;
-            var box = new RectangleF(left - 1, cy - f.Size, w + 2, f.Size * 2);
-            float edge = Math.Min(0.12f, 18f / Math.Max(1, box.Width));
+            float bx = left - 1, bw = w + 2;
+            float edge = Math.Min(0.12f, 18f / Math.Max(1, bw));
             float a = Math.Max(0.001f, Math.Min(0.997f, progress - edge));
             float b = Math.Max(a + 0.001f, Math.Min(0.999f, progress + edge));
-            using (var lg = new LinearGradientBrush(box, Ink.A(hi, Alpha), Ink.A(lo, Alpha), 0f))
-            {
-                var blend = new ColorBlend(4);
-                blend.Colors = new[] { Ink.A(hi, Alpha), Ink.A(hi, Alpha), Ink.A(lo, Alpha), Ink.A(lo, Alpha) };
-                blend.Positions = new[] { 0f, a, b, 1f };
-                lg.InterpolationColors = blend;
-                line.Alignment = StringAlignment.Near;
-                if (Shadow && hi.R > 128)
-                    G.DrawString(s, f, B(Color.FromArgb(90, 0, 0, 0)), new RectangleF(left, cy - f.Size + f.Size * 0.06f + 1f, w + 4, f.Size * 2), line);
-                G.DrawString(s, f, lg, new RectangleF(left, cy - f.Size + f.Size * 0.06f, w + 4, f.Size * 2), line);
-            }
+            splitBlend.Positions[1] = a;
+            splitBlend.Positions[2] = b;
+            split.Blend = splitBlend;
+            pair[0] = Ink.A(hi, Alpha);
+            pair[1] = Ink.A(lo, Alpha);
+            split.LinearColors = pair;
+            MapH(split, bx, bw);
+            line.Alignment = StringAlignment.Near;
+            var box = new RectangleF(left, cy - f.Size - f.Size * Ink.CapLift, w + 4, f.Size * 2);
+            if (Shadow && hi.R > 128)
+                G.DrawString(s, f, B(Color.FromArgb(90, 0, 0, 0)), new RectangleF(box.X, box.Y + 1f, box.Width, box.Height), line);
+            G.DrawString(s, f, split, box, line);
         }
 
         public void Icon(char glyph, float px, Color c, float cx, float cy)
         {
             line.Alignment = StringAlignment.Center;
-            G.DrawString(glyph.ToString(), Ink.Icons(px), B(c), new RectangleF(cx - px, cy - px + px * 0.04f, px * 2, px * 2), line);
+            G.DrawString(Ink.Str(glyph), Ink.Icons(px), B(c), new RectangleF(cx - px, cy - px, px * 2, px * 2), line);
+        }
+
+        public void Icon(char glyph, float px, Brush b, float cx, float cy)
+        {
+            line.Alignment = StringAlignment.Center;
+            G.DrawString(Ink.Str(glyph), Ink.Icons(px), b, new RectangleF(cx - px, cy - px, px * 2, px * 2), line);
+        }
+
+        // Cached vector symbol at cx, cy
+        public void Symbol(Sym kind, float cx, float cy, float size, Color c)
+        {
+            float stroke;
+            var path = Ink.SymbolPath(kind, size, out stroke);
+            G.TranslateTransform(cx, cy);
+            if (stroke > 0) G.DrawPath(P(c, stroke), path);
+            else G.FillPath(B(c), path);
+            G.TranslateTransform(-cx, -cy);
         }
 
         public void Image(Image img, RectangleF r, float radius)
         {
             matrix.Matrix33 = Alpha;
             imageAttr.SetColorMatrix(matrix);
-            using (var path = Ink.Round(r, radius))
+            shape.Reset();
+            Ink.AddRound(shape, r, radius);
             using (var tb = new TextureBrush(img, new Rectangle(0, 0, img.Width, img.Height), imageAttr))
             {
                 tb.WrapMode = WrapMode.Clamp;
                 tb.TranslateTransform(r.X, r.Y);
                 tb.ScaleTransform(r.Width / img.Width, r.Height / img.Height);
-                G.FillPath(tb, path);
+                G.FillPath(tb, shape);
             }
         }
 
@@ -389,37 +902,12 @@ namespace Tepi
             G.DrawLine(pen, cx + s * 0.36f, cy - s * 0.36f, cx - s * 0.36f, cy + s * 0.36f);
         }
 
-        public void Play(float cx, float cy, float s, Color c)
-        {
-            using (var path = new GraphicsPath())
-            {
-                path.AddPolygon(new[] { new PointF(cx - s * 0.34f, cy - s * 0.5f), new PointF(cx + s * 0.52f, cy), new PointF(cx - s * 0.34f, cy + s * 0.5f) });
-                G.FillPath(B(c), path);
-                G.DrawPath(P(c, s * 0.12f), path);
-            }
-        }
+        // Legacy sizes mapped onto the symbols
+        public void Play(float cx, float cy, float s, Color c) { Symbol(Sym.Play, cx + 0.02f * s, cy, 1.22f * s, c); }
 
-        public void Pause(float cx, float cy, float s, Color c)
-        {
-            float w = s * 0.28f, gap = s * 0.22f;
-            FillRound(new RectangleF(cx - gap / 2 - w, cy - s / 2, w, s), w * 0.35f, c);
-            FillRound(new RectangleF(cx + gap / 2, cy - s / 2, w, s), w * 0.35f, c);
-        }
+        public void Pause(float cx, float cy, float s, Color c) { Symbol(Sym.Pause, cx, cy, 1.19f * s, c); }
 
-        public void Skip(float cx, float cy, float s, Color c, bool forward)
-        {
-            float dir = forward ? 1 : -1, half = s * 0.5f;
-            for (int i = 0; i < 2; i++)
-            {
-                float x0 = cx + dir * (-half + i * half * 0.95f);
-                using (var path = new GraphicsPath())
-                {
-                    path.AddPolygon(new[] { new PointF(x0, cy - s * 0.36f), new PointF(x0 + dir * half * 1.02f, cy), new PointF(x0, cy + s * 0.36f) });
-                    G.FillPath(B(c), path);
-                    G.DrawPath(P(c, s * 0.08f), path);
-                }
-            }
-        }
+        public void Skip(float cx, float cy, float s, Color c, bool forward) { Symbol(forward ? Sym.Next : Sym.Prev, cx, cy, 1.1f * s, c); }
 
         public void Battery(float x, float cy, float level, Color c, bool charging)
         {
@@ -455,7 +943,7 @@ namespace Tepi
 
         static float CharW(Painter p, Font f, char c)
         {
-            return char.IsDigit(c) ? p.Measure("0", f) : p.Measure(c.ToString(), f);
+            return char.IsDigit(c) ? p.Measure("0", f) : p.Measure(Ink.Str(c), f);
         }
 
         static float CharsWidth(Painter p, Font f, string s)
@@ -469,12 +957,14 @@ namespace Tepi
         {
             float total = CharsWidth(p, f, shown);
             float left = align == StringAlignment.Near ? x : align == StringAlignment.Far ? x - total : x - total / 2;
-            float t = Ease.OutBack((float)((now - changedUtc).TotalSeconds / Duration));
+            float raw = (float)((now - changedUtc).TotalSeconds / Duration);
+            float t = Anim.Reduced ? Ease.OutCubic(raw) : Ease.OutBack(raw);
             float lineH = f.Size * 1.05f;
             int offset = prev.Length - shown.Length;
             float cx = left;
-            var state = p.G.Save();
-            p.G.IntersectClip(new RectangleF(left - 2, cy - lineH * 0.62f, total + 4, lineH * 1.24f));
+            bool rolling = raw < 1;
+            var state = rolling ? p.G.Save() : null;
+            if (rolling) p.G.IntersectClip(new RectangleF(left - 2, cy - lineH * 0.62f, total + 4, lineH * 1.24f));
             float alpha = p.Alpha;
             for (int i = 0; i < shown.Length; i++)
             {
@@ -482,19 +972,19 @@ namespace Tepi
                 int j = i + offset;
                 char old_c = j >= 0 && j < prev.Length ? prev[j] : ' ';
                 float cw = CharW(p, f, now_c);
-                string s = now_c.ToString();
+                string s = Ink.Str(now_c);
                 if (old_c != now_c && t < 1f)
                 {
                     p.Alpha = alpha * Ease.Clamp01(t * 1.4f);
                     p.Text(s, f, c, cx, cy + (1 - t) * lineH, cw + 6, StringAlignment.Near);
                     p.Alpha = alpha * Ease.Clamp01(1 - t * 1.6f);
-                    p.Text(old_c.ToString(), f, c, cx, cy - t * lineH, cw + 6, StringAlignment.Near);
+                    p.Text(Ink.Str(old_c), f, c, cx, cy - t * lineH, cw + 6, StringAlignment.Near);
                     p.Alpha = alpha;
                 }
                 else p.Text(s, f, c, cx, cy, cw + 6, StringAlignment.Near);
                 cx += cw;
             }
-            p.G.Restore(state);
+            if (rolling) p.G.Restore(state);
         }
     }
 }

@@ -6,7 +6,7 @@ using System.Threading;
 namespace Tepi
 {
     // Default output volume with change callbacks
-    class VolumeWatcher : IAudioEndpointVolumeCallback, IMMNotificationClient
+    partial class VolumeWatcher : IAudioEndpointVolumeCallback, IMMNotificationClient
     {
         public event Action<float, bool, bool> Changed; // level, muted, first reading
         public event Action DeviceChanged;
@@ -39,6 +39,7 @@ namespace Tepi
                 enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
                 enumerator.RegisterEndpointNotificationCallback(this);
                 Attach();
+                PublishDevices();
             }
             catch (Exception ex) { Log.Write("volume: " + ex.Message); return; }
             while (true)
@@ -88,21 +89,24 @@ namespace Tepi
             return 0;
         }
 
+        // Multimedia role: the one Attach reads
         public int OnDefaultDeviceChanged(int flow, int role, string id)
         {
-            if (flow != 0 || role != 0) return 0;
+            if (flow != 0 || role != 1) return 0;
             Do(delegate
             {
                 Attach();
                 var h = DeviceChanged;
                 if (h != null) h();
+                AnnounceDefault(id);
+                PublishDevices();
             });
             return 0;
         }
 
-        public int OnDeviceStateChanged(string id, int state) { return 0; }
-        public int OnDeviceAdded(string id) { return 0; }
-        public int OnDeviceRemoved(string id) { return 0; }
+        public int OnDeviceStateChanged(string id, int state) { Do(PublishDevices); return 0; }
+        public int OnDeviceAdded(string id) { Do(PublishDevices); return 0; }
+        public int OnDeviceRemoved(string id) { Do(PublishDevices); return 0; }
         public int OnPropertyValueChanged(string id, PropertyKey key) { return 0; }
     }
 
@@ -117,22 +121,34 @@ namespace Tepi
         int ringPos;
         volatile bool wanted, restart;
         Thread thread;
-        public volatile bool Failed;
+        long failedTicks;
+
+        // Failure pauses capture one minute
+        public bool Failed { get { long t = Interlocked.Read(ref failedTicks); return t != 0 && DateTime.UtcNow.Ticks - t < TimeSpan.TicksPerMinute; } }
+
+        void Fail() { Interlocked.Exchange(ref failedTicks, DateTime.UtcNow.Ticks); }
+
+        readonly object gate = new object();
 
         public void SetActive(bool on)
         {
-            wanted = on;
-            if (on && thread == null)
+            lock (gate)
             {
-                thread = new Thread(Run) { IsBackground = true, Name = "spectrum" };
-                thread.SetApartmentState(ApartmentState.MTA);
-                thread.Start();
+                wanted = on;
+                if (on && thread == null) Spawn();
             }
+        }
+
+        void Spawn()
+        {
+            thread = new Thread(Run) { IsBackground = true, Name = "spectrum" };
+            thread.SetApartmentState(ApartmentState.MTA);
+            thread.Start();
         }
 
         public bool Active { get { return thread != null; } }
 
-        public void Restart() { restart = true; }
+        public void Restart() { restart = true; Interlocked.Exchange(ref failedTicks, 0); }
 
         public void CopyBands(float[] dst)
         {
@@ -149,7 +165,8 @@ namespace Tepi
             bool isFloat = true;
             var re = new float[N];
             var im = new float[N];
-            DateTime nextFft = DateTime.UtcNow;
+            DateTime nextFft = DateTime.UtcNow, heardUtc = DateTime.MinValue;
+            bool cleared = false;
             int failures = 0;
             try
             {
@@ -161,7 +178,7 @@ namespace Tepi
                         Release(ref client, ref capture);
                         if (!Open(out client, out capture, out channels, out rate, out isFloat))
                         {
-                            if (++failures > 3) { Failed = true; break; }
+                            if (++failures > 3) { Fail(); break; }
                             Thread.Sleep(1000);
                             continue;
                         }
@@ -173,24 +190,35 @@ namespace Tepi
                     {
                         IntPtr data; uint frames, flags; ulong dp, qp;
                         if (capture.GetBuffer(out data, out frames, out flags, out dp, out qp) != 0) break;
-                        Feed(data, (int)frames, channels, isFloat, (flags & 2) != 0);
+                        bool silent = (flags & 2) != 0;
+                        Feed(data, (int)frames, channels, isFloat, silent);
+                        if (!silent && frames > 0) heardUtc = DateTime.UtcNow;
                         capture.ReleaseBuffer(frames);
                         if (capture.GetNextPacketSize(out packet) != 0) break;
                     }
-                    if (DateTime.UtcNow >= nextFft)
+                    var now = DateTime.UtcNow;
+                    if (now >= nextFft)
                     {
-                        nextFft = DateTime.UtcNow.AddMilliseconds(30);
-                        Analyse(re, im, rate);
+                        nextFft = now.AddMilliseconds(30);
+                        // Silent window: zero bands, no FFT
+                        if ((now - heardUtc).TotalMilliseconds < 80) { Analyse(re, im, rate); cleared = false; }
+                        else if (!cleared) { lock (bands) Array.Clear(bands, 0, Bands); cleared = true; }
                     }
-                    Thread.Sleep(15);
+                    // One pass per 30 fps frame
+                    Thread.Sleep(30);
                 }
             }
-            catch (Exception ex) { Log.Write("spectrum: " + ex.Message); Failed = true; }
+            catch (Exception ex) { Log.Write("spectrum: " + ex.Message); Fail(); }
             finally
             {
                 Release(ref client, ref capture);
                 lock (bands) Array.Clear(bands, 0, Bands);
-                thread = null;
+                // Switched back on while stopping: run again
+                lock (gate)
+                {
+                    thread = null;
+                    if (wanted && !Failed) Spawn();
+                }
             }
         }
 

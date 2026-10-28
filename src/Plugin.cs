@@ -12,7 +12,7 @@ namespace Tepi
         static string CleanText(string s, int max)
         {
             var sb = new StringBuilder();
-            foreach (char ch in s ?? "")
+            foreach (char ch in Fmt.StripHidden(s))
             {
                 if (char.IsControl(ch)) { if (sb.Length > 0 && sb[sb.Length - 1] != ' ') sb.Append(' '); continue; }
                 sb.Append(ch);

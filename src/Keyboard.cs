@@ -132,7 +132,10 @@ namespace Tepi
                 case "deny": return Lang.T("Tolak");
                 case "always": return Lang.T("Selalu");
                 case "term": return Lang.T("Terminal");
-                case "hideIsland": return Lang.T("Sembunyikan island");
+                case "toMini": return Lang.T("Mini");
+                case "prayCity": return Lang.T("Pilih kota");
+                case "praySwitch": return Lang.T("Pengingat sholat");
+                case "drinkPlus": return Lang.T("Minum air");
             }
             if (id.StartsWith("send", StringComparison.Ordinal)) return Lang.T("Chat");
             return "";

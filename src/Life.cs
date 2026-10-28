@@ -49,7 +49,6 @@ namespace Tepi
         KuliaClient kulia;
         List<KuliaTask> tasks;
         string tasksError;
-        bool tasksLoading;
         DateTime tasksAtUtc = DateTime.MinValue, nextTasksUtc = DateTime.MinValue;
         readonly HashSet<string> warnedTasks = new HashSet<string>();
 
@@ -75,16 +74,17 @@ namespace Tepi
             kulia = new KuliaClient(settings.Has("kulia.url") ? settings.Get("kulia.url", "") : KuliaClient.DefaultUrl,
                                     settings.Has("kulia.key") ? settings.Get("kulia.key", "") : KuliaClient.DefaultKey);
             if (kulia.SignedIn) RefreshTasks(false);
+            StartSources();
             StartUpdateCheck();
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "1.6.0";
+        public const string AppVersion = "2.0.0";
         string newVersion, newUrl;
 
         void StartUpdateCheck()
         {
-            if (!settings.GetBool("update.check", true)) return;
+            if (!settings.GetBool("update.check", true) || Settings.TestMode) return;
             var t = new System.Windows.Forms.Timer { Interval = 60000 };
             t.Tick += delegate { t.Interval = 24 * 3600 * 1000; CheckUpdate(); };
             t.Start();
@@ -120,26 +120,29 @@ namespace Tepi
         }
 
         // Every second; true if redraw needed
-        bool LifeTick()
+        bool LifeTick(bool minute)
         {
             var now = DateTime.UtcNow;
             bool redraw = false;
-            if (mediaInfo.Present)
-            {
-                SyncLyrics();
-                if ((current == View.Media || current == View.Lyric || current == View.Panel) && !VisualizerVisible()) redraw = true;
-            }
-            var stale = new List<string>();
+            if (mediaInfo.Present) SyncLyrics();
+            List<string> stale = null;
             foreach (var s in sessions.Values)
             {
                 if (s.State == AgentState.Working && (now - s.LastUtc).TotalMinutes > 15) { s.State = AgentState.Ready; redraw = true; }
-                if ((s.State == AgentState.Ended && (now - s.LastUtc).TotalMinutes > 3) || (now - s.LastUtc).TotalHours > 6) stale.Add(s.Id);
+                if ((s.State == AgentState.Ended && (now - s.LastUtc).TotalMinutes > 3) || (now - s.LastUtc).TotalHours > 6)
+                {
+                    if (stale == null) stale = new List<string>();
+                    stale.Add(s.Id);
+                }
             }
-            foreach (var id in stale) { sessions.Remove(id); redraw = true; }
+            if (stale != null) foreach (var id in stale) { sessions.Remove(id); redraw = true; }
             if (kulia != null && kulia.SignedIn && now >= nextTasksUtc) RefreshTasks(false);
+            SyncSourcesTick(now);
             CheckDeadlines(now);
             CheckClasses(now);
-            if (SoonTask() != null) redraw = true;
+            // Countdowns read in minutes
+            var soon = SoonTask();
+            if (soon != null && (minute || (current == View.Task && Fmt.Left(soon.DeadlineUtc - now) != taskRoller.Value))) redraw = true;
             return redraw;
         }
 
@@ -152,7 +155,7 @@ namespace Tepi
 
         bool VisualizerVisible()
         {
-            if (!settings.GetBool("visualizer", true) || !mediaInfo.Playing || fullscreen) return false;
+            if (!settings.GetBool("visualizer", true) || !mediaInfo.Playing || fullscreen || dormant || hiddenByUser) return false;
             return current == View.Media || current == View.Lyric || current == View.Track || (current == View.Panel && page == PageMusic);
         }
 
@@ -237,6 +240,7 @@ namespace Tepi
                 else { t.Title = Lang.T("Tersambung"); t.Detail = b.Name.Length > 0 ? b.Name : "LAN"; }
             }
             if (!a.Online && b.Online && tasksError != null) RefreshTasks(false);
+            if (!a.Online && b.Online && sources != null) sources.Retry();
             Kick();
         }
 
@@ -349,13 +353,20 @@ namespace Tepi
                 using (var rng = RandomNumberGenerator.Create()) rng.GetBytes(bytes);
                 token = BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
                 settings.Set("agent.token", token);
+                // New installs: a port nobody can guess
+                if (!settings.Has("agent.port")) settings.Set("agent.port", AgentHub.FreePort());
                 settings.Save();
             }
-            hub = new AgentHub(settings.GetInt("agent.port", 47821), token, settings.GetInt("agent.wait", 110));
+            StartHub();
+            CheckLinks();
+        }
+
+        void StartHub()
+        {
+            hub = new AgentHub(settings.GetInt("agent.port", 47821), settings.Get("agent.token", ""), settings.GetInt("agent.wait", 110));
             hub.Received += ev => Post(() => OnHook(ev));
             hub.Expired += a => Post(() => DropApproval(a));
             hub.Start();
-            CheckLinks();
         }
 
         bool hooksOn;
@@ -380,12 +391,14 @@ namespace Tepi
                 if (HooksInstalled())
                 {
                     HookSetup.Remove(hub.Port);
+                    QuotaFollowHooks(false);
                     HooksInstalled();
                     ShowInfo(Ink.IcoTerminal, Lang.T("Claude Code dilepas"), Lang.T("hook Tepi dihapus"), true);
                     CheckLinks();
                     return;
                 }
                 string err = HookSetup.Install(hub.Port, settings.Get("agent.token", ""));
+                if (err == null) QuotaFollowHooks(true);
                 HooksInstalled();
                 if (err != null) ShowInfo(Ink.IcoTerminal, Lang.T("Belum terhubung"), err, true);
                 else ShowInfo(Ink.IcoTerminal, Lang.T("Claude Code terhubung"), hookProfiles + Lang.T(" profil · berlaku di sesi baru"), true);
@@ -460,9 +473,26 @@ namespace Tepi
             return s;
         }
 
+        // Failed event must not strand agent
         void OnHook(HookEvent ev)
         {
+            try { OnHookCore(ev); }
+            catch (Exception ex)
+            {
+                Log.Write("hook event " + ev.Name + ": " + ex);
+                if (ev.Approval != null)
+                {
+                    ev.Approval.Answer(null);
+                    approvals.Remove(ev.Approval);
+                }
+                Kick();
+            }
+        }
+
+        void OnHookCore(HookEvent ev)
+        {
             if (ev.Agent == "plugin") { OnPlugin(ev); return; }
+            if (ev.Agent == "usage") { OnUsage(ev); return; }
             if ((ev.Agent != "claude" && !AgentAdapters.Normalize(ev)) || ev.SessionId.Length == 0)
             {
                 if (ev.Approval != null) ev.Approval.Answer(null);
@@ -493,11 +523,11 @@ namespace Tepi
                     s.Tool = tool;
                     s.Activity = AgentHub.Describe(tool, input);
                     // Codex has no PostToolUse hook here
-                    if (ev.Agent == "codex") Tally(s, tool, input);
+                    if (ev.Agent == "codex") { Tally(s, tool, input); TakePlan(s, tool, input); }
                     break;
                 case "PostToolUse":
                 case "PostToolUseFailure":
-                    if (ev.Name == "PostToolUse") Tally(s, tool, input);
+                    if (ev.Name == "PostToolUse") { Tally(s, tool, input); TakePlan(s, tool, input); }
                     SettleApprovals(s.Id, tool, AgentHub.Describe(tool, input));
                     if (s.State == AgentState.Waiting)
                     {
@@ -511,11 +541,9 @@ namespace Tepi
                     a.Project = s.Project;
                     a.Profile = s.Profile;
                     a.Tool = tool;
-                    a.Detail = Detail(tool, input);
-                    a.Note = Fmt.OneLine(Json.Str(input, "description"), 160);
-                    if (a.Note.Length == 0) a.Note = ChangeSummary(tool, input);
+                    FillApproval(a, tool, input);
                     a.Key = AgentHub.Describe(tool, input);
-                    if (s.Trusted.Contains(TrustKey(a)))
+                    if (!a.Truncated && s.Trusted.Contains(a.Trust))
                     {
                         a.Answer("allow");
                         s.State = AgentState.Working;
@@ -592,6 +620,30 @@ namespace Tepi
             return true;
         }
 
+        // Shown text, flags, and the "Always" key
+        static void FillApproval(Approval a, string tool, Dictionary<string, object> input)
+        {
+            a.Note = Fmt.Visible(Fmt.OneLine(Json.Str(input, "description"), 160));
+            if (a.Note.Length == 0) a.Note = ChangeSummary(tool, input);
+            a.Trust = Json.Sha256(tool + "\n" + Json.Canonical(input));
+            a.Flags.Clear();
+            if (input != null && (tool == "Bash" || tool == "PowerShell"))
+                foreach (var kv in input)
+                {
+                    if (kv.Key == "command" || kv.Key == "description") continue;
+                    string v = Convert.ToString(kv.Value, System.Globalization.CultureInfo.InvariantCulture) ?? "";
+                    if (kv.Key == "run_in_background") { if (v == "True") a.Flags.Add(Lang.T("jalan di latar")); }
+                    else if (kv.Key == "dangerouslyDisableSandbox") { if (v == "True") a.Flags.Add(Lang.T("tanpa sandbox")); }
+                    else if (kv.Key == "timeout") a.Flags.Add(Lang.F("batas {0}", Duration(TimeSpan.FromMilliseconds(Json.Num(input, "timeout", 0)))));
+                    else a.Flags.Add(kv.Key + ": " + Fmt.Visible(Fmt.OneLine(v, 40)));
+                }
+            a.Diff = DiffBuilder.For(tool, input);
+            string d = Detail(tool, input);
+            // Long plain text: terminal shows it whole
+            a.Truncated = d.Length > 8000 && a.Diff == null;
+            a.Detail = Fmt.Visible(a.Truncated ? d.Substring(0, 8000) + "…" : d);
+        }
+
         static string Detail(string tool, Dictionary<string, object> input)
         {
             if (input == null) return "";
@@ -603,13 +655,27 @@ namespace Tepi
                 if (tool == "Edit")
                     d = path + (Json.Str(input, "replace_all") == "True" ? Lang.T(" · semua kemunculan") : "") + "\n" +
                         Prefix("- ", Plain(input, "old_string")) + "\n" + Prefix("+ ", Plain(input, "new_string"));
+                else if (tool == "MultiEdit")
+                {
+                    var sb = new System.Text.StringBuilder(path);
+                    var edits = Json.Arr(input, "edits");
+                    for (int i = 0; i < edits.Length; i++)
+                    {
+                        var e = edits[i] as Dictionary<string, object>;
+                        if (e == null) continue;
+                        sb.Append("\n@@ ").Append(i + 1).Append('/').Append(edits.Length).Append(Json.Str(e, "replace_all") == "True" ? Lang.T(" · semua kemunculan") : "");
+                        sb.Append('\n').Append(Prefix("- ", Plain(e, "old_string"))).Append('\n').Append(Prefix("+ ", Plain(e, "new_string")));
+                    }
+                    d = sb.ToString();
+                }
                 else if (tool == "Write") d = path + "\n" + (Plain(input, "content") ?? "");
                 else if (tool == "Read") d = path;
             }
+            if (d == null && tool == "NotebookEdit")
+                d = Json.Str(input, "notebook_path") + " · " + Json.Str(input, "edit_mode") + " " + Json.Str(input, "cell_id") + "\n" + Json.Str(input, "new_source");
             if (d == null && tool == "WebFetch") d = Plain(input, "url");
             if (d == null) d = Json.Encode(input);
-            // Far past the 10 lines that keep Izinkan on
-            return d.Length > 8000 ? d.Substring(0, 8000) + "…" : d;
+            return d.Replace("\r", "");
         }
 
         static string Plain(Dictionary<string, object> input, string key)
@@ -652,13 +718,12 @@ namespace Tepi
             }
         }
 
-        static string TrustKey(Approval a) { return a.Tool + "\n" + a.Detail; }
-
         // Allow now and every identical request in this session
         void AllowAlways(Approval a)
         {
+            if (a.Truncated) return;
             AgentSession s;
-            if (sessions.TryGetValue(a.SessionId, out s)) s.Trusted.Add(TrustKey(a));
+            if (sessions.TryGetValue(a.SessionId, out s)) s.Trusted.Add(a.Trust);
             Decide(a, "allow");
         }
 
@@ -722,8 +787,9 @@ namespace Tepi
 
         void RefreshTasks(bool manual)
         {
-            if (tasksLoading || kulia == null || !kulia.SignedIn) return;
-            tasksLoading = true;
+            if (manual) refreshAsked = 1;
+            if (kuliaLoading || kulia == null || !kulia.SignedIn) return;
+            kuliaLoading = true;
             Kick();
             ThreadPool.QueueUserWorkItem(delegate
             {
@@ -736,13 +802,15 @@ namespace Tepi
                 catch (Exception ex) { Log.Write("kulia schedule: " + ex.Message); schedErr = "Jadwal gagal dimuat"; }
                 Post(() =>
                 {
-                    tasksLoading = false;
-                    if (list != null) { tasks = list; tasksError = null; tasksAtUtc = DateTime.UtcNow; }
-                    if (sched != null) { classes = sched; classesError = null; }
+                    kuliaLoading = false;
+                    // Signed out meanwhile: drop the result
+                    if (!kulia.SignedIn) { MergeSources(); Kick(); return; }
+                    if (list != null) { kuliaTasks = list; tasksError = null; tasksAtUtc = DateTime.UtcNow; }
+                    if (sched != null) { kuliaClasses = sched; classesError = null; }
                     else if (list != null) classesError = schedErr;
                     else tasksError = err;
                     nextTasksUtc = DateTime.UtcNow.AddMinutes(list != null ? 10 : 2);
-                    if (manual && list != null) ShowInfo(Ink.IcoRefresh, Lang.T("Tugas diperbarui"), list.Count + Lang.T(" aktif"));
+                    MergeSources();
                     Kick();
                 });
             });
@@ -761,8 +829,10 @@ namespace Tepi
             {
                 if (f.ShowDialog() != DialogResult.OK) return;
             }
-            tasks = null;
+            kuliaTasks = null;
+            kuliaClasses = null;
             tasksError = null;
+            MergeSources();
             RefreshTasks(false);
             ShowInfo('\0', Lang.T("Kulia tersambung"), kulia.Email, true);
         }
@@ -775,14 +845,18 @@ namespace Tepi
                 try { k.SignOut(); } catch (Exception ex) { Log.Write("kulia signout: " + ex.Message); }
                 Post(Kick);
             });
-            tasks = null;
+            kuliaTasks = null;
+            kuliaClasses = null;
             tasksError = null;
-            classes = null;
+            classesError = null;
+            MergeSources();
             Kick();
         }
 
         void MarkDone(KuliaTask task)
         {
+            if (task.ReadOnly) return;
+            if (task.Source != "kulia") { CloseExternal(task); return; }
             string old = task.Status;
             task.Status = "selesai";
             if (tasks != null) tasks.Remove(task);
@@ -809,8 +883,9 @@ namespace Tepi
         {
             if (tasks == null) return null;
             var now = DateTime.UtcNow;
+            // Date-only tasks have no countdown
             foreach (var t in tasks)
-                if (t.DeadlineUtc > now && (t.DeadlineUtc - now).TotalHours <= 6) return t;
+                if (!t.DateOnly && t.DeadlineUtc > now && (t.DeadlineUtc - now).TotalHours <= 6) return t;
             return null;
         }
 
@@ -820,7 +895,7 @@ namespace Tepi
             foreach (var t in tasks)
             {
                 double mins = (t.DeadlineUtc - now).TotalMinutes;
-                if (mins <= 0 || mins > 60 || warnedTasks.Contains(t.Id)) continue;
+                if (t.DateOnly || mins <= 0 || mins > 60 || warnedTasks.Contains(t.Id)) continue;
                 warnedTasks.Add(t.Id);
                 var ts = ShowToast(View.Deadline, 8, 3, false);
                 if (ts != null) ts.Data = t;

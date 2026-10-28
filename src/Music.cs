@@ -15,13 +15,66 @@ namespace Tepi
         Bitmap blurCache, blurSource, labelSource;
         string blurKey;
 
+        // Cover colour, eased on track change
+        Bitmap toneSource;
+        int toneEpoch = -1;
+        Color toneFrom, toneTo;
+        DateTime toneUtc = DateTime.MinValue;
+        const double ToneSeconds = 0.5;
+        Action actMediaPlay;
+        string mediaTailKey, mediaTail = "";
+
+        // Raw cover colour; Empty for grey art
+        Color CoverTone { get { return mediaInfo.Present ? Ink.ToneOf(mediaInfo.Cover) : Color.Empty; } }
+
+        // Cover colour on glass, else primary
+        Color CoverInk(DateTime now)
+        {
+            var src = mediaInfo.Present ? mediaInfo.Cover : null;
+            if (!ReferenceEquals(src, toneSource) || toneEpoch != Ink.Epoch)
+            {
+                Color raw = Ink.ToneOf(src), next = raw.A > 0 ? Ink.Readable(raw, !Ink.Base.IsDark) : Ink.Base.Text;
+                toneFrom = toneEpoch == Ink.Epoch ? ToneAt(now) : next;
+                toneTo = next;
+                toneSource = src;
+                toneEpoch = Ink.Epoch;
+                toneUtc = now;
+            }
+            return ToneAt(now);
+        }
+
+        Color ToneAt(DateTime now)
+        {
+            float k = Ease.OutCubic((float)((now - toneUtc).TotalSeconds / ToneSeconds));
+            return k >= 1 ? toneTo : Ink.Mix(toneFrom, toneTo, k);
+        }
+
+        bool ToneMoving() { return (DateTime.UtcNow - toneUtc).TotalSeconds < ToneSeconds; }
+
+        // " · artist", built once per track
+        string MediaTail()
+        {
+            if (mediaTailKey != mediaInfo.Key)
+            {
+                mediaTailKey = mediaInfo.Key;
+                mediaTail = mediaInfo.Artist.Length > 0 ? " · " + mediaInfo.Artist : "";
+            }
+            return mediaTail;
+        }
+
+        Action MediaPlayAct()
+        {
+            if (actMediaPlay == null) actMediaPlay = delegate { media.TogglePlay(); };
+            return actMediaPlay;
+        }
+
         bool AlbumMode()
         {
             string v = settings.Get("music.view", "auto");
             if (v == "album") return true;
             if (v == "lyrics") return false;
             bool hasLyrics = lyrics != null && lyrics.Key == mediaInfo.Key &&
-                             (lyrics.State == LyricState.Synced || lyrics.State == LyricState.Plain || lyrics.State == LyricState.Loading);
+                             (lyrics.State == LyricState.Synced || lyrics.State == LyricState.Plain);
             return !hasLyrics;
         }
 
@@ -87,22 +140,28 @@ namespace Tepi
                 backdropBaking = true;
                 backdropWant = want;
                 var copy = (Bitmap)src.Clone(); // GDI+ bitmaps aren't thread-safe
-                Color tone = p.T.Bg;
+                Color tone = p.T.Bg, wash = Ink.ToneOf(src);
                 System.Threading.ThreadPool.QueueUserWorkItem(delegate
                 {
-                    Bitmap baked = null;
-                    try { baked = BakeBackdrop(copy, pw, ph, tone); }
+                    Bitmap baked = null, forFrost = null;
+                    try
+                    {
+                        baked = BakeBackdrop(copy, pw, ph, tone, wash);
+                        // The frost thread gets its own pixels
+                        forFrost = DeepCopy(baked);
+                    }
                     catch (Exception ex) { Log.Write("backdrop: " + ex.Message); }
                     finally { copy.Dispose(); }
                     Post(() =>
                     {
                         backdropBaking = false;
-                        if (baked == null) return;
-                        if (current != View.Panel || !ReferenceEquals(mediaInfo.Cover, src)) { baked.Dispose(); return; }
+                        if (baked == null) { if (forFrost != null) forFrost.Dispose(); return; }
+                        if (current != View.Panel || !ReferenceEquals(mediaInfo.Cover, src)) { baked.Dispose(); if (forFrost != null) forFrost.Dispose(); return; }
                         if (blurCache != null) blurCache.Dispose();
                         blurCache = baked;
                         blurSource = src;
                         blurKey = key;
+                        PublishBackdrop(forFrost);
                         Kick();
                     });
                 });
@@ -110,7 +169,7 @@ namespace Tepi
             return null;
         }
 
-        static Bitmap BakeBackdrop(Bitmap src, int pw, int ph, Color tone)
+        static Bitmap BakeBackdrop(Bitmap src, int pw, int ph, Color tone, Color wash)
         {
             var baked = new Bitmap(pw, ph, PixelFormat.Format32bppPArgb);
             using (var bg = Graphics.FromImage(baked))
@@ -121,6 +180,9 @@ namespace Tepi
                 bg.InterpolationMode = InterpolationMode.HighQualityBilinear;
                 bg.PixelOffsetMode = PixelOffsetMode.Half;
                 bg.DrawImage(soft, new Rectangle(0, 0, pw, ph), 0, 0, soft.Width, soft.Height, GraphicsUnit.Pixel, attr);
+                // Cover wash; frost plate inherits it
+                if (wash.A > 0)
+                    using (var wb = new SolidBrush(Color.FromArgb(56, wash))) bg.FillRectangle(wb, 0, 0, pw, ph);
                 using (var lg = new LinearGradientBrush(new RectangleF(0, -1, pw, ph + 2), Ink.A(tone, 0.2f), Ink.A(tone, 0.92f), 90f))
                     bg.FillRectangle(lg, 0, 0, pw, ph);
             }
@@ -130,8 +192,32 @@ namespace Tepi
         // Panel closed: its big bitmaps go
         void DropBackdrop()
         {
-            if (blurCache != null) { blurCache.Dispose(); blurCache = null; blurKey = null; backdropWant = null; }
-            DropSurfaces();
+            if (blurCache == null) return;
+            blurCache.Dispose();
+            blurCache = null;
+            blurKey = null;
+            backdropWant = null;
+            PublishBackdrop(null);
+        }
+
+        // Deep pixel copy, nothing shared
+        static Bitmap DeepCopy(Bitmap src)
+        {
+            var copy = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppPArgb);
+            var r = new Rectangle(0, 0, src.Width, src.Height);
+            var a = src.LockBits(r, ImageLockMode.ReadOnly, PixelFormat.Format32bppPArgb);
+            var b = copy.LockBits(r, ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
+            try
+            {
+                var row = new byte[a.Stride];
+                for (int y = 0; y < r.Height; y++)
+                {
+                    System.Runtime.InteropServices.Marshal.Copy(new IntPtr(a.Scan0.ToInt64() + (long)y * a.Stride), row, 0, a.Stride);
+                    System.Runtime.InteropServices.Marshal.Copy(row, 0, new IntPtr(b.Scan0.ToInt64() + (long)y * b.Stride), Math.Min(a.Stride, b.Stride));
+                }
+            }
+            finally { src.UnlockBits(a); copy.UnlockBits(b); }
+            return copy;
         }
 
         // Cheap blur: shrink, then upscale
@@ -194,25 +280,39 @@ namespace Tepi
             Prof.Add("progress", pp);
         }
 
+        // Scrub: bar follows pointer, seek on release
+        bool scrubbing;
+        float scrubFrac;
+
         void DrawProgressRow(float w, float h, DateTime now)
         {
             float x0 = 24, x1 = w - 24, y = h - 40;
-            DrawProgress(x0, x1, y, 4f, now);
-            if (mediaInfo.DurationMs > 0)
-            {
-                float f = (float)(mediaInfo.Position(now) / mediaInfo.DurationMs);
-                p.Circle(x0 + (x1 - x0) * Ease.Clamp01(f), y + 2, Hover("seek") ? 6.5f : 4.5f, p.T.Accent);
-            }
-            p.Text(Fmt.Clock(mediaInfo.Position(now)), Ink.Small(11f), p.T.Sub, x0, y + 18);
-            if (mediaInfo.DurationMs > 0) p.TextRight(Fmt.Clock(mediaInfo.DurationMs), Ink.Small(11f), p.T.Sub, x1, y + 18);
-            if (mediaInfo.CanSeek && mediaInfo.DurationMs > 0)
-            {
-                float gx0 = originX + x0, gx1 = originX + x1;
-                AddHit(new RectangleF(x0, y - 8, x1 - x0, 20), "seek", delegate
-                {
-                    media.Seek(Ease.Clamp01((mouse.X - gx0) / (gx1 - gx0)) * mediaInfo.DurationMs);
-                });
-            }
+            bool live = mediaInfo.CanSeek && mediaInfo.DurationMs > 0;
+            if (live)
+                AddHit(new RectangleF(x0, y - 8, x1 - x0, 20), "seek", null, f => { scrubbing = true; scrubFrac = f; },
+                       null, delegate { if (scrubbing) media.Seek(scrubFrac * mediaInfo.DurationMs); scrubbing = false; });
+            bool active = scrubbing || Hover("seek");
+            // Redrawn when a second or pixel turns
+            LiveRect(new RectangleF(x0 - 8, y - 26, x1 - x0 + 16, 54), mediaInfo.Playing && !active ? 4 : 0, () => ProgressSig(x1 - x0), t => PaintProgressRow(x0, x1, y, active, t));
+        }
+
+        int ProgressSig(float width)
+        {
+            if (mediaInfo.DurationMs <= 0) return 0;
+            double pos = mediaInfo.Position(frameNow);
+            return (int)(pos / 1000) * 100003 + (int)(pos / mediaInfo.DurationMs * width * scale * 2);
+        }
+
+        void PaintProgressRow(float x0, float x1, float y, bool active, DateTime now)
+        {
+            // Thicker under the pointer, like Music's scrubber
+            float th = active ? 6f : 4f;
+            DrawProgress(x0, x1, y - (th - 4) / 2, th, now);
+            double pos = scrubbing ? scrubFrac * mediaInfo.DurationMs : mediaInfo.Position(now);
+            if (mediaInfo.DurationMs > 0 && (knob == null || active))
+                p.Circle(x0 + (x1 - x0) * Ease.Clamp01((float)(pos / mediaInfo.DurationMs)), y + 2, active ? 7f : 4.5f, p.T.Accent);
+            p.Text(Fmt.Clock(pos), Ink.Small(11f), scrubbing ? p.T.Text : p.T.Sub, x0, y + 18);
+            if (mediaInfo.DurationMs > 0) p.TextRight("-" + Fmt.Clock(mediaInfo.DurationMs - pos), Ink.Small(11f), scrubbing ? p.T.Text : p.T.Sub, x1, y + 18);
         }
 
         void DrawLyricsLayout(float w, float h, DateTime now, float dy)
@@ -240,7 +340,7 @@ namespace Tepi
             var cover = new RectangleF(28, 66, 136, 136);
             float r = 64, dcx = cover.X + cover.Width / 2 + 10 + vinylOut.Value * 52, dcy = cover.Y + cover.Height / 2;
             double pv = Prof.T();
-            DrawVinyl(dcx, dcy, r, vinylAngle);
+            DrawVinyl(dcx, dcy, r, vinylAngle, cover);
             Prof.Add("vinyl", pv);
             double pc = Prof.T();
             DrawCoverShadow(cover, 14);
@@ -295,8 +395,13 @@ namespace Tepi
             AddHit(new RectangleF(cx - 25, cy - 25, 50, 50), "play", delegate { media.TogglePlay(); });
         }
 
-        // Mirrored spectrum bars
+        // Mirrored spectrum bars, one live area
         void DrawWideBars(float x, float baseY, float width, float maxH)
+        {
+            LiveRect(new RectangleF(x, baseY - maxH, width, maxH * 1.35f + 3), BarsFps(), () => BarsSig(18, maxH), t => PaintWideBars(x, baseY, width, maxH));
+        }
+
+        void PaintWideBars(float x, float baseY, float width, float maxH)
         {
             const int count = 18;
             float gap = 5, bw = (width - gap * (count - 1)) / count;
@@ -316,12 +421,12 @@ namespace Tepi
         string discKey;
 
         // Static disc; only the label spins
-        void DrawVinyl(float cx, float cy, float r, float angle)
+        void DrawVinyl(float cx, float cy, float r, float angle, RectangleF cover)
         {
             EnsureDisc(r);
             var mode = g.InterpolationMode;
             g.InterpolationMode = InterpolationMode.NearestNeighbor;
-            DrawDisc(cx, cy, r, angle, mode);
+            DrawDisc(cx, cy, r, angle, mode, cover);
         }
 
         void EnsureDisc(float r)
@@ -336,7 +441,8 @@ namespace Tepi
                 {
                     dg.SmoothingMode = SmoothingMode.AntiAlias;
                     dg.ScaleTransform(scale, scale);
-                    var dp = new Painter { G = dg };
+                    using (var dp = new Painter { G = dg })
+                    {
                     float c = r + 1 / scale;
                     dp.Circle(c, c, r, Color.FromArgb(255, 14, 14, 14));
                     for (float gr = r * 0.44f; gr < r * 0.97f; gr += 2.6f)
@@ -347,12 +453,13 @@ namespace Tepi
                         dg.FillPie(sheen, c - r, c - r, r * 2, r * 2, 120, 28);
                     }
                     dg.DrawEllipse(dp.P(Color.FromArgb(60, 255, 255, 255), 1f), c - r, c - r, r * 2, r * 2);
+                    }
                 }
                 discKey = key;
             }
         }
 
-        void DrawDisc(float cx, float cy, float r, float angle, InterpolationMode mode)
+        void DrawDisc(float cx, float cy, float r, float angle, InterpolationMode mode, RectangleF cover)
         {
             var dst = new RectangleF(cx - r - 1 / scale, cy - r - 1 / scale, discCache.Width / scale, discCache.Height / scale);
             if (p.Alpha >= 0.99f) g.DrawImage(discCache, dst);
@@ -364,6 +471,17 @@ namespace Tepi
                         new RectangleF(0, 0, discCache.Width, discCache.Height), GraphicsUnit.Pixel, fade);
                 }
             float lr = r * 0.36f;
+            // Label spins alone; cover redrawn on top
+            LiveRect(new RectangleF(cx - lr, cy - lr, lr * 2, lr * 2), mediaInfo.Playing ? LiveFps : 0, t =>
+            {
+                PaintLabel(cx, cy, lr, vinylAngle, mode);
+                if (!cover.IsEmpty && inSlot) { DrawCoverShadow(cover, 14); DrawCover(cover, 14); }
+            });
+            g.InterpolationMode = mode;
+        }
+
+        void PaintLabel(float cx, float cy, float lr, float angle, InterpolationMode mode)
+        {
             var label = Label(lr);
             if (label != null)
             {
@@ -420,7 +538,7 @@ namespace Tepi
         }
 
         // Prebake every cover size off-thread
-        static readonly float[][] CoverSizes = { new[] { 24f, 7 }, new[] { 22f, 6 }, new[] { 52f, 13 }, new[] { 40f, 10 }, new[] { 120f, 16 }, new[] { 136f, 14 } };
+        static readonly float[][] CoverSizes = { new[] { 24f, 6 }, new[] { 22f, 6 }, new[] { 52f, 13 }, new[] { 40f, 10 }, new[] { 120f, 16 }, new[] { 136f, 14 } };
 
         void PrewarmArt()
         {
@@ -428,7 +546,7 @@ namespace Tepi
             if (src == null) return;
             var copy = (Bitmap)src.Clone();
             float s = scale;
-            int[] labelPx = { (int)Math.Ceiling(12.5f * 0.62f * 2 * s), (int)Math.Ceiling(64 * 0.36f * 2 * s) };
+            int[] labelPx = { (int)Math.Ceiling(64 * 0.36f * 2 * s) };
             var keys = new int[CoverSizes.Length];
             for (int i = 0; i < keys.Length; i++) keys[i] = CoverKey(CoverSizes[i][0], CoverSizes[i][1]);
             System.Threading.ThreadPool.QueueUserWorkItem(delegate
@@ -461,27 +579,6 @@ namespace Tepi
                     }
                 });
             });
-        }
-
-        // Mini record for the music pill
-        void DrawMiniVinyl(float cx, float cy, float r)
-        {
-            p.Circle(cx, cy, r, Color.FromArgb(255, 20, 20, 20));
-            g.DrawEllipse(p.P(Color.FromArgb(40, 255, 255, 255), 0.8f), cx - r * 0.78f, cy - r * 0.78f, r * 1.56f, r * 1.56f);
-            float lr = r * 0.62f;
-            var label = Label(lr);
-            if (label == null) return;
-            var st = g.Save();
-            g.TranslateTransform(cx, cy);
-            g.RotateTransform(vinylAngle);
-            g.InterpolationMode = InterpolationMode.Bilinear;
-            var attr = new ImageAttributes();
-            attr.SetColorMatrix(new ColorMatrix { Matrix33 = p.Alpha });
-            g.DrawImage(label, new[] { new PointF(-lr, -lr), new PointF(lr, -lr), new PointF(-lr, lr) },
-                new RectangleF(0, 0, label.Width, label.Height), GraphicsUnit.Pixel, attr);
-            attr.Dispose();
-            g.Restore(st);
-            p.Circle(cx, cy, 1.6f, Color.FromArgb(255, 20, 20, 20));
         }
     }
 }

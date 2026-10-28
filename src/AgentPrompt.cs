@@ -39,29 +39,37 @@ namespace Tepi
                 if (f.ShowDialog() != DialogResult.OK) return;
                 text = f.Prompt;
             }
-            if (!SendToAgent(s, text)) ShowInfo(Ink.IcoTerminal, Lang.T("Terminal tidak bisa dibuka"), s.Project, true);
+            var clean = new System.Text.StringBuilder(text.Length);
+            foreach (char ch in Fmt.StripHidden(text)) clean.Append(char.IsControl(ch) ? ' ' : ch);
+            text = clean.ToString().Trim();
+            if (text.Length == 0) return;
+            if (text.Length > PromptMax) text = text.Substring(0, PromptMax);
+            if (!TerminalFinder.Focus(s.Window)) { ShowInfo(Ink.IcoTerminal, Lang.T("Terminal tidak bisa dibuka"), s.Project, true); return; }
+            IntPtr want = GetAncestor(s.Window, 3);
+            string project = s.Project;
+            // Waiting happens off the UI thread
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                string fail = TypeInto(want, text);
+                if (fail != null) Post(() => ShowInfo(Ink.IcoTerminal, fail, project, true));
+            });
         }
 
-        bool SendToAgent(AgentSession s, string text)
+        // Worker: null when typed, else why not
+        static string TypeInto(IntPtr want, string text)
         {
-            var clean = new System.Text.StringBuilder(text.Length);
-            foreach (char ch in text) clean.Append(char.IsControl(ch) ? ' ' : ch);
-            text = clean.ToString().Trim();
-            if (text.Length == 0) return true;
-            if (text.Length > PromptMax) text = text.Substring(0, PromptMax);
-            if (!TerminalFinder.Focus(s.Window)) return false;
-            // Type only once the terminal is in front
-            IntPtr want = GetAncestor(s.Window, 3);
             bool front = false;
             for (int i = 0; i < 20 && !front; i++)
             {
                 Thread.Sleep(40);
                 front = GetAncestor(GetForegroundWindow(), 3) == want;
             }
-            if (!front) return false;
+            if (!front) return Lang.T("Terminal tidak bisa dibuka");
             // Held Shift/Ctrl/Alt/Enter would change the keystrokes
             for (int i = 0; i < 40 && AnyHeld(0x0D, 0x10, 0x11, 0x12, 0x5B, 0x5C); i++) Thread.Sleep(20);
-            if (AnyHeld(0x10, 0x11, 0x12, 0x5B, 0x5C)) return false;
+            if (AnyHeld(0x10, 0x11, 0x12, 0x5B, 0x5C)) return Lang.T("Shift, Ctrl, atau Alt masih ditekan");
+            // Focus can move during the wait
+            if (GetAncestor(GetForegroundWindow(), 3) != want) return Lang.T("Terminal kehilangan fokus");
 
             var inputs = new INPUT[text.Length * 2 + 2];
             for (int i = 0; i < text.Length; i++)
@@ -72,8 +80,9 @@ namespace Tepi
             inputs[text.Length * 2] = Key(0x0D, '\0', 0);
             inputs[text.Length * 2 + 1] = Key(0x0D, '\0', 2);
             uint sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
-            if (sent != inputs.Length) Log.Write("send prompt: " + sent + "/" + inputs.Length + " err " + Marshal.GetLastWin32Error());
-            return sent == inputs.Length;
+            if (sent == inputs.Length) return null;
+            Log.Write("send prompt: " + sent + "/" + inputs.Length + " err " + Marshal.GetLastWin32Error());
+            return Lang.T("Gagal mengetik ke terminal");
         }
 
         static bool AnyHeld(params int[] keys)
@@ -106,7 +115,9 @@ namespace Tepi
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScaleMode = AutoScaleMode.None;
+            Load += delegate { KitWindow.ScaleToDpi(this); };
+            HandleCreated += delegate { Native.RoundCorners(Handle); };
             ClientSize = new Size(480, sharedWindow ? 196 : 164);
             ShowInTaskbar = true;
             TopMost = true;

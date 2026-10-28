@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
@@ -47,7 +49,14 @@ namespace Tepi
                 Post(() =>
                 {
                     updating = false;
-                    if (error == null) { Log.Write("update: installed " + version); Close(); return; }
+                    if (error == null)
+                    {
+                        Log.Write("update: installed " + version);
+                        // Open dialogs would keep this copy alive
+                        foreach (var f in new List<Form>(Application.OpenForms.Cast<Form>())) if (f != this) f.Close();
+                        Close();
+                        return;
+                    }
                     if (error == Restart) { ShowInfo(Ink.IcoRefresh, Lang.F("Tepi {0} terpasang", version), Lang.T("buka ulang Tepi"), true); return; }
                     Log.Write("update failed: " + error);
                     ShowInfo(Ink.IcoRefresh, Lang.T("Pembaruan gagal"), Lang.T("halaman rilis dibuka"), true);
@@ -96,7 +105,18 @@ namespace Tepi
             // A running exe can be renamed, not overwritten
             MoveRetry(exe, old);
             try { MoveRetry(fresh, exe); }
-            catch { MoveRetry(old, exe); throw; }
+            catch
+            {
+                // Restore the running copy, always
+                try { MoveRetry(old, exe); }
+                catch (Exception ex)
+                {
+                    Log.Write("update restore: " + ex.Message);
+                    File.Copy(old, exe, true);
+                }
+                try { File.Delete(fresh); } catch (Exception) { }
+                throw;
+            }
             try { Process.Start(new ProcessStartInfo(exe, "--after " + Process.GetCurrentProcess().Id) { UseShellExecute = false, WorkingDirectory = dir }); }
             catch (Exception ex) { Log.Write("update restart: " + ex.Message); return Restart; }
             return null;
@@ -119,12 +139,14 @@ namespace Tepi
         // Leftover from the previous version
         static void CleanUpdate()
         {
-            try
-            {
-                string old = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "Tepi.old.exe");
-                if (File.Exists(old)) File.Delete(old);
-            }
-            catch (Exception ex) { Log.Write("update cleanup: " + ex.Message); }
+            string dir = Path.GetDirectoryName(Application.ExecutablePath);
+            foreach (var name in new[] { "Tepi.old.exe", "Tepi.new.exe" })
+                try
+                {
+                    string leftover = Path.Combine(dir, name);
+                    if (File.Exists(leftover)) File.Delete(leftover);
+                }
+                catch (Exception ex) { Log.Write("update cleanup: " + ex.Message); }
         }
     }
 }

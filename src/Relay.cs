@@ -23,9 +23,13 @@ namespace Tepi
             {
                 try
                 {
+                    // Same cap as the hook server
                     var ms = new MemoryStream();
-                    Console.OpenStandardInput().CopyTo(ms);
-                    body = ms.ToArray();
+                    var input = Console.OpenStandardInput();
+                    var buf = new byte[65536];
+                    int n;
+                    while ((n = input.Read(buf, 0, buf.Length)) > 0 && ms.Length <= 8 * 1024 * 1024) ms.Write(buf, 0, n);
+                    body = ms.Length <= 8 * 1024 * 1024 ? ms.ToArray() : null;
                 }
                 catch (Exception) { }
             }
@@ -54,7 +58,7 @@ namespace Tepi
         public static bool Running()
         {
             Mutex m;
-            if (!Mutex.TryOpenExisting(@"Local\TepiIsland", out m)) return false;
+            if (!Mutex.TryOpenExisting(Settings.MutexName, out m)) return false;
             m.Dispose();
             return true;
         }

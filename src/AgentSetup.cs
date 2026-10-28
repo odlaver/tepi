@@ -40,17 +40,14 @@ namespace Tepi
             return id == "codex" ? "Codex" : id == "gemini" ? "Gemini CLI" : "Antigravity";
         }
 
-        static string Home
-        {
-            get { return Environment.GetEnvironmentVariable("TEPI_HOME") ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile); }
-        }
+        static string Home { get { return Settings.Home; } }
 
         public static string ConfigFile(string id)
         {
             if (id == "codex")
             {
                 string ch = Environment.GetEnvironmentVariable("CODEX_HOME");
-                bool own = !string.IsNullOrEmpty(ch) && Environment.GetEnvironmentVariable("TEPI_HOME") == null;
+                bool own = !string.IsNullOrEmpty(ch) && !Settings.FakeHome;
                 return Path.Combine(own ? ch : Path.Combine(Home, ".codex"), "hooks.json");
             }
             if (id == "gemini") return Path.Combine(Home, ".gemini", "settings.json");

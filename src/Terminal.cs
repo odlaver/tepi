@@ -106,9 +106,16 @@ namespace Tepi
             return IntPtr.Zero;
         }
 
+        delegate bool CtrlHandler(int type);
+        [DllImport("kernel32.dll")] static extern bool SetConsoleCtrlHandler(CtrlHandler handler, bool add);
+        // Borrowed console's Ctrl+C must not kill Tepi
+        static readonly CtrlHandler ignoreCtrl = delegate (int type) { return type == 0 || type == 1; };
+        static bool ctrlGuarded;
+
         // ConPTY: the stand-in window is owned by the real terminal
         static IntPtr ConsoleOwner(int pid)
         {
+            if (!ctrlGuarded) ctrlGuarded = SetConsoleCtrlHandler(ignoreCtrl, true);
             FreeConsole();
             if (!AttachConsole((uint)pid)) return IntPtr.Zero;
             IntPtr c = GetConsoleWindow();

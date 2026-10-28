@@ -13,6 +13,7 @@ namespace Tepi
             // Agent hook bridge: no window, no mutex
             if (args.Length > 0 && args[0] == "--relay") return Relay.Run(args);
             if (args.Length > 0 && args[0] == "--notify") return NotifyCommand.Run(args);
+            if (args.Length > 0 && args[0] == "--statusline") return StatusLine.Run(args);
             return RunIsland();
         }
 
@@ -36,7 +37,7 @@ namespace Tepi
                 catch (ArgumentException) { }
             }
             bool created;
-            using (var mutex = new Mutex(true, @"Local\TepiIsland", out created))
+            using (var mutex = new Mutex(true, Settings.MutexName, out created))
             {
                 if (!created && !(after && Take(mutex))) return 0;
                 // Full collections must not block a frame

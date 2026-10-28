@@ -16,8 +16,9 @@ namespace Tepi
 
         public static List<string> Profiles()
         {
-            var home = Environment.GetEnvironmentVariable("TEPI_HOME") ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var home = Settings.Home;
             var list = new List<string>();
+            if (!Directory.Exists(home)) return list;
             foreach (var dir in Directory.GetDirectories(home, ".claude*"))
             {
                 string name = Path.GetFileName(dir);

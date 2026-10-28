@@ -14,15 +14,25 @@ namespace Tepi
         public string Id = "", Title = "", Course = "", Kind = "tugas", Status = "belum";
         public DateTime DeadlineUtc;
         public bool Personal;
+        // kulia, notion, todoist, ics:<id>
+        public string Source = "kulia";
+        // No time of day; no done action
+        public bool DateOnly, ReadOnly;
+        string url;
 
         public bool Closed { get { return Status == "selesai" || Status == "dilewati"; } }
-        public string Url { get { return "https://kulia.live/tugas/" + (Personal ? "pribadi/" : "") + Id; } }
+        public string Url
+        {
+            get { return url ?? "https://kulia.live/tugas/" + (Personal ? "pribadi/" : "") + Id; }
+            set { url = value; }
+        }
     }
 
     class ClassSlot
     {
         public string Title = "", Room = "", Kind = "", Url = "";
-        public bool Online, Personal, Cancelled, Exam;
+        public bool Online, Personal, Cancelled, Exam, AllDay;
+        public string Source = "kulia";
         public DateTime Start, End;
     }
 
@@ -344,7 +354,9 @@ namespace Tepi
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScaleMode = AutoScaleMode.None;
+            Load += delegate { KitWindow.ScaleToDpi(this); };
+            HandleCreated += delegate { Native.RoundCorners(Handle); };
             ClientSize = new Size(400, 236);
             ShowInTaskbar = true;
             TopMost = true;
