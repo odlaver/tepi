@@ -162,7 +162,7 @@ Naskah mulai setelah hitung mundur 3 detik. Selama naskah berjalan:
 
 ### Chat ke agent
 
-Di tab **Agen**, arahkan kursor ke sebuah sesi lalu klik **Chat**. Tulis prompt, tekan Enter. Tepi membawa terminal sesi itu ke depan, lalu mengetik prompt dan menekan Enter. Kalau terminalnya tidak bisa dibawa ke depan, tidak ada yang diketik.
+Di tab **Agen**, arahkan kursor ke sebuah sesi lalu klik **Chat**. Jendelanya menampilkan status sesi, rencana kerja, dan kuota Claude. Tulis prompt, tekan Enter (Shift+Enter untuk baris baru). Prompt yang pernah dikirim ada di **Riwayat** per proyek, dan prompt yang sering dipakai bisa disimpan sebagai **Templat** di `%APPDATA%\Tepi\templat-chat.txt`. Tepi membawa terminal sesi itu ke depan, lalu mengetik prompt dan menekan Enter. Kalau terminalnya tidak bisa dibawa ke depan, tidak ada yang diketik.
 
 Kalau beberapa sesi berjalan di tab berbeda dalam satu jendela Windows Terminal, prompt masuk ke tab yang sedang aktif. Kotak chat mengingatkan hal ini. Tekan panah atas dan bawah di kotak chat untuk memanggil prompt yang pernah dikirim (hanya di memori, hilang saat Tepi ditutup).
 
@@ -170,7 +170,7 @@ Kalau beberapa sesi berjalan di tab berbeda dalam satu jendela Windows Terminal,
 
 - **Izinkan** dan **Tolak** menjawab permintaan itu saja.
 - **Selalu** mengizinkan permintaan itu, lalu mengizinkan otomatis permintaan yang persis sama di sesi yang sama. "Persis sama" dicocokkan lewat sidik SHA-256 atas seluruh isi permintaan, termasuk opsi seperti jalan di latar atau tanpa sandbox. Ingatan ini hilang saat sesi selesai.
-- **Terminal** mengembalikan keputusan ke prompt di terminal.
+- **Terminal** mengembalikan keputusan ke prompt di terminal dan membawa jendela terminalnya ke depan.
 - Diff atau perintah yang lebih dari 10 baris bisa digulir di dalam kartu. **Izinkan** dan **Selalu** baru terbuka setelah digulir sampai akhir. Yang lebih dari 300 baris, atau teks perintah yang terlalu panjang untuk island, tetap dijawab di terminal.
 - Opsi perintah yang mengubah cara jalannya (misalnya jalan di latar, batas waktu, tanpa sandbox) tampil di samping nama alat.
 - Karakter tak terlihat dan pembalik arah teks (bidi, zero-width) tampil sebagai kode seperti `<U+202E>`, supaya isi perintah tidak bisa disamarkan.

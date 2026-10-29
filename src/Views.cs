@@ -582,7 +582,14 @@ namespace Tepi
             if (!locked) AddHit(allow, "allow", delegate { Decide(a, "allow"); });
             if (!locked) AddHit(always, "always", delegate { AllowAlways(a); });
             AddHit(deny, "deny", delegate { Decide(a, "deny"); });
-            AddHit(term, "term", delegate { Decide(a, null); });
+            AddHit(term, "term", delegate
+            {
+                // Back to the terminal, and show it
+                AgentSession ts;
+                sessions.TryGetValue(a.SessionId, out ts);
+                Decide(a, null);
+                FocusTerminal(ts);
+            });
         }
 
         void DrawDone(float w, float h, DateTime now)
