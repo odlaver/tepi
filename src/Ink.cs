@@ -903,7 +903,7 @@ namespace Tepi
         }
 
         // Legacy sizes mapped onto the symbols
-        public void Play(float cx, float cy, float s, Color c) { Symbol(Sym.Play, cx + 0.02f * s, cy, 1.22f * s, c); }
+        public void Play(float cx, float cy, float s, Color c) { Symbol(Sym.Play, cx, cy, 1.22f * s, c); }
 
         public void Pause(float cx, float cy, float s, Color c) { Symbol(Sym.Pause, cx, cy, 1.19f * s, c); }
 

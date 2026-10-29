@@ -206,7 +206,7 @@ namespace Tepi
             bool down = Pressed("homePlay");
             p.Circle(play.X + 18, play.Y + 18, down ? 15.5f : Hover("homePlay") ? 18 : 17, p.T.Text);
             if (mediaInfo.Playing) p.Pause(play.X + 18, play.Y + 18, 11.5f, p.T.Bg);
-            else p.Play(play.X + 19.5f, play.Y + 18, 12, p.T.Bg);
+            else p.Play(play.X + 18, play.Y + 18, 12, p.T.Bg);
             DrawControl(next, "homeNext", delegate { media.Next(); }, (b, c) => p.Skip(b.X + b.Width / 2, b.Y + b.Height / 2, 11, c, true));
             // Thin progress along the bottom
             if (mediaInfo.DurationMs > 0)

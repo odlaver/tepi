@@ -496,8 +496,8 @@ namespace Tepi
             p.Icon(IcoPray, 16f, p.T.Text, r.X + pad + 8, cy);
             string label = Lang.T("Pilih kota");
             float bw = p.Measure(label, Ink.Semi(13f)) + 32;
-            var pill = new RectangleF(r.Right - 12 - bw, cy - 16, bw, 32);
-            p.Text(Lang.T("Waktu sholat"), Ink.Headline, p.T.Text, r.X + pad + 30, cy, pill.X - 12 - r.X - pad - 30, StringAlignment.Near);
+            var pill = new RectangleF(r.Right - pad - bw, cy - 16, bw, 32);
+            p.Text(Lang.T("Waktu sholat"), Ink.Headline, p.T.Text, r.X + pad + 28, cy, pill.X - 12 - r.X - pad - 28, StringAlignment.Near);
             Pill(pill, "prayCity", label, PillKind.Primary, actCity);
         }
 

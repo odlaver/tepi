@@ -385,13 +385,13 @@ namespace Tepi
             if (!bold)
             {
                 DrawControl(new RectangleF(cx - 19, cy - 19, 38, 38), "play", delegate { media.TogglePlay(); },
-                    (r, c) => { if (mediaInfo.Playing) p.Pause(r.X + 19, r.Y + 19, 15, c); else p.Play(r.X + 21, r.Y + 19, 15, c); });
+                    (r, c) => { if (mediaInfo.Playing) p.Pause(r.X + 19, r.Y + 19, 15, c); else p.Play(r.X + 19, r.Y + 19, 15, c); });
                 return;
             }
             float pr = Hover("play") ? 25 : 23;
             p.Circle(cx, cy, pr, p.T.Text);
             if (mediaInfo.Playing) p.Pause(cx, cy, 15, p.T.Bg);
-            else p.Play(cx + 2, cy, 16, p.T.Bg);
+            else p.Play(cx, cy, 16, p.T.Bg);
             AddHit(new RectangleF(cx - 25, cy - 25, 50, 50), "play", delegate { media.TogglePlay(); });
         }
 
