@@ -524,7 +524,7 @@ namespace Tepi
 
         // One frame per vsync while moving
 
-        const int Stopped = 0, Ambient = 1, Motion = 2;
+        const int Stopped = 0, Ambient = 1, Motion = 2, Paced = 3;
         readonly WinTimer ambientTimer = new WinTimer { Interval = 40 };
 
         void OnIdle(object sender, EventArgs e)
@@ -534,7 +534,7 @@ namespace Tepi
                 int mode = Frame();
                 inMotion = mode == Motion;
                 if (mode == Motion) lastMotionUtc = DateTime.UtcNow;
-                if (mode != Motion)
+                if (mode != Motion && mode != Paced)
                 {
                     animating = false;
                     RestTimer();
@@ -554,7 +554,7 @@ namespace Tepi
         {
             if (animating) { ambientTimer.Stop(); return; }
             int mode = Frame();
-            if (mode == Motion) { ambientTimer.Stop(); animating = true; }
+            if (mode == Motion || mode == Paced) { ambientTimer.Stop(); animating = true; }
             else if (mode == Stopped) ambientTimer.Stop();
             else
             {
@@ -623,7 +623,7 @@ namespace Tepi
                 frameT = t;
                 LiveFrame(now, t);
                 DumpFrame();
-                return LiveDue() ? Ambient : Stopped;
+                return LiveMode();
             }
             CountWhy(frameDirty ? 0 : moving ? 1 : !liveReady ? 2 : wholePeriod > 0 ? 3 : 4);
             frameDirty = false;
@@ -646,7 +646,7 @@ namespace Tepi
             // Just settled: record live areas next
             if (!liveRecord && liveInline > 0 && LiveAllowed()) return Motion;
             wholeLive = Live(now);
-            return wholeLive || wholePeriod > 0 || LiveDue() ? Ambient : Stopped;
+            return wholeLive || wholePeriod > 0 ? Ambient : LiveMode();
         }
 
         bool wholeLive;
@@ -1522,7 +1522,7 @@ namespace Tepi
                     });
                 FillFocusMenu(focusItem);
                 updateItem.Visible = newVersion != null;
-                if (newVersion != null) updateItem.Text = Lang.F(newAsset != null ? Lang.T("Perbarui ke Tepi {0}") : Lang.T("Unduh Tepi {0}"), newVersion);
+                if (newVersion != null) updateItem.Text = newRebuild && newAsset != null ? Lang.T("Perbarui Tepi") : Lang.F(newAsset != null ? Lang.T("Perbarui ke Tepi {0}") : Lang.T("Unduh Tepi {0}"), newVersion);
                 CheckLinks();
                 hookItem.DropDownItems.Clear();
                 hookItem.DropDownItems.Add(new ToolStripMenuItem("Claude Code" + (hookProfiles > 0 ? "" : Lang.T(" · tidak ditemukan")), null, delegate { ToggleHooks(); })

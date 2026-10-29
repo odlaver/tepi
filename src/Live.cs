@@ -18,7 +18,7 @@ namespace Tepi
         public InterpolationMode Interp;
         public PixelOffsetMode Offset;
         public TextRenderingHint TextHint;
-        public double Period, Slack, Due;
+        public double Period, Slack, Due, Wait;
         public Action<DateTime> Draw;
         public Func<DateTime, double> Next;
         // Optional: polled at fps, redraw on change
@@ -257,6 +257,7 @@ namespace Tepi
             inSlot = false;
             hitsOn = keepHits;
             wait *= livePower;
+            s.Wait = wait;
             s.Due = wait > 0 ? t + wait : 0;
             s.Slack = Math.Min(0.012, wait * 0.4);
             g.ResetClip();
@@ -360,12 +361,13 @@ namespace Tepi
         // Event says redraw: wake that area now
         void LiveWake(Func<DateTime, double> draw)
         {
-            if (!liveReady || animating) return;
+            if (!liveReady) return;
             bool found = false;
             double t = clock.Elapsed.TotalSeconds;
             for (int i = 0; i < slotCount; i++)
                 if (slots[i].Next == draw) { slots[i].Due = t; found = true; }
-            if (!found) return;
+            // Vsync loop already running: picks it up
+            if (!found || animating) return;
             ambientTimer.Stop();
             ambientTimer.Interval = 1;
             ambientTimer.Start();
@@ -376,6 +378,15 @@ namespace Tepi
             if (!liveReady) return false;
             for (int i = 0; i < slotCount; i++) if (slots[i].Due > 0) return true;
             return false;
+        }
+
+        // Fast areas follow vsync, not timer
+        int LiveMode()
+        {
+            if (!LiveDue()) return Stopped;
+            if (livePower > 1) return Ambient;
+            for (int i = 0; i < slotCount; i++) if (slots[i].Due > 0 && slots[i].Wait < 0.045) return Paced;
+            return Ambient;
         }
 
         // Next wake: due areas or whole frames
@@ -394,7 +405,8 @@ namespace Tepi
         // TEPI_FPS: partial frames, CPU split, kick sources
 
         int liveFrames;
-        double liveMs, liveWorst, liveRestoreMs, liveDrawMs, livePresentMs;
+        double liveMs, liveWorst, liveRestoreMs, liveDrawMs, livePresentMs, liveLastT, liveGapWorst, liveGaps, liveGaps2;
+        int liveGapCount;
         long liveArea;
         readonly Dictionary<string, int> kickFrom = new Dictionary<string, int>();
         readonly int[] fullWhy = new int[5];
@@ -410,6 +422,10 @@ namespace Tepi
             liveMs += ms;
             liveWorst = Math.Max(liveWorst, ms);
             liveArea += (long)dirty.Width * dirty.Height;
+            // Gaps between partial frames, in ms
+            double gap = (t - liveLastT) * 1000;
+            if (liveLastT > 0 && gap < 250) { liveGapCount++; liveGaps += gap; liveGaps2 += gap * gap; liveGapWorst = Math.Max(liveGapWorst, gap); }
+            liveLastT = t;
             StatsLine(t);
         }
 
@@ -418,6 +434,13 @@ namespace Tepi
             if (liveFrames == 0) return "";
             string s = " | live " + (liveFrames / span).ToString("0.0") + "/s " + (liveMs / liveFrames).ToString("0.00") + "ms worst " + liveWorst.ToString("0.0") + "ms px " + (liveArea / liveFrames) +
                        " restore=" + (liveRestoreMs / liveFrames).ToString("0.00") + " draw=" + (liveDrawMs / liveFrames).ToString("0.00") + " present=" + (livePresentMs / liveFrames).ToString("0.00");
+            if (liveGapCount > 1)
+            {
+                double mean = liveGaps / liveGapCount, sd = Math.Sqrt(Math.Max(0, liveGaps2 / liveGapCount - mean * mean));
+                s += " gap " + mean.ToString("0.0") + "±" + sd.ToString("0.0") + "ms worst " + liveGapWorst.ToString("0.0");
+            }
+            liveGapCount = 0;
+            liveGaps = liveGaps2 = liveGapWorst = 0;
             liveFrames = 0;
             liveMs = liveWorst = liveRestoreMs = liveDrawMs = livePresentMs = 0;
             liveArea = 0;

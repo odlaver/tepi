@@ -44,7 +44,7 @@ Persen CPU dihitung terhadap satu core. Selama panel terbuka memori naik ke seki
 
 Syarat: Windows 10 versi 2004 atau lebih baru, atau Windows 11, 64-bit. .NET Framework 4.8 sudah bawaan Windows.
 
-Tepi memberi tahu sendiri kalau ada versi baru. Klik kanan ikon Tepi, lalu **Perbarui ke Tepi x.y.z**: Tepi mengunduh exe baru dari halaman rilis repo ini, mencocokkan SHA-256-nya, lalu membuka ulang dirinya. Kalau mau dikabari lewat email juga, klik **Watch › Custom › Releases** di repo ini.
+Tepi memberi tahu sendiri kalau ada versi baru, termasuk build baru dengan nomor versi yang sama: exe yang sedang jalan dicocokkan SHA-256-nya dengan berkas rilis di GitHub. Klik kanan ikon Tepi, lalu **Perbarui**, atau buka **Pengaturan › Tentang › Cek pembaruan**. Tepi mengunduh exe baru dari halaman rilis repo ini, mencocokkan SHA-256-nya, lalu membuka ulang dirinya. Kalau mau dikabari lewat email juga, klik **Watch › Custom › Releases** di repo ini.
 
 ## Cara pakai
 
@@ -261,7 +261,7 @@ Tepi hanya menghubungi layanan luar berikut, dan masing-masing bisa dimatikan. N
 | [Notion](https://www.notion.so) | Token integrasi dan permintaan isi database yang kamu bagikan | Hanya kalau kamu menghubungkan Notion | **Pengaturan > Integrasi > Lepas** |
 | [Todoist](https://todoist.com) | Token API dan permintaan daftar tugas aktif | Hanya kalau kamu menghubungkan Todoist | **Pengaturan > Integrasi > Lepas** |
 | Kalender iCal | Permintaan isi kalender ke alamat yang kamu tempel | Hanya kalau kamu menambah kalender | **Pengaturan > Integrasi**, hapus kalendernya |
-| GitHub | Permintaan versi rilis terbaru. `Tepi.exe` baru hanya diunduh saat kamu klik **Perbarui**. | Sekali sehari | `update.check=0` di `settings.ini` |
+| GitHub | Permintaan rilis terbaru beserta SHA-256 `Tepi.exe`. Exe baru hanya diunduh saat kamu klik **Perbarui**. | Sekali sehari, dan saat **Cek pembaruan** diklik | `update.check=0` di `settings.ini` |
 
 - Isi pesan, data agent, dan isi layar tidak pernah dikirim ke mana pun. Server hook hanya bisa dijangkau dari komputer ini.
 - Lirik yang ditemukan disimpan di `%APPDATA%\Tepi\lyrics` supaya tidak diambil ulang.
@@ -281,7 +281,7 @@ Tepi hanya menghubungi layanan luar berikut, dan masing-masing bisa dimatikan. N
 - Kartu izin menampilkan perintah atau isi perubahan berkas secara utuh. **Izinkan** terkunci sampai isi yang lebih dari 10 baris digulir habis, terkunci permanen bila teksnya terlalu panjang untuk island, dan juga selama 0,8 detik pertama setelah kartu muncul supaya klik yang kebetulan mendarat di sana tidak ikut mengizinkan.
 - Kalau Tepi tidak jalan atau tidak menjawab, agent kembali ke prompt izinnya sendiri. Tepi tidak pernah mengizinkan apa pun tanpa klikmu.
 - Tautan tugas Kulia hanya dibuka kalau alamatnya `http` atau `https`.
-- Tidak ada pembaruan diam-diam. Exe hanya berubah saat kamu klik **Perbarui ke Tepi x.y.z**. Tepi hanya menerima `Tepi.exe` dari alamat rilis repo ini, mengunduhnya lewat HTTPS, lalu mencocokkan SHA-256-nya dengan digest yang dicatat GitHub untuk berkas itu. Kalau tidak cocok, exe lama tidak disentuh dan halaman rilis dibuka. Exe lama disimpan sebagai `Tepi.old.exe` sampai Tepi baru jalan, lalu dihapus. Kalau folder exe tidak bisa ditulis (misalnya di Program Files), Tepi membuka halaman rilis. Begitu rilis Tepi ditandatangani (Authenticode), exe baru juga wajib bertanda tangan sah dari penerbit yang sama dengan exe yang sedang jalan.
+- Tidak ada pembaruan diam-diam. Exe hanya berubah saat kamu klik **Perbarui**. Tepi hanya menerima `Tepi.exe` dari alamat rilis repo ini, mengunduhnya lewat HTTPS, lalu mencocokkan SHA-256-nya dengan digest yang dicatat GitHub untuk berkas itu. Kalau tidak cocok, exe lama tidak disentuh dan halaman rilis dibuka. Exe lama disimpan sebagai `Tepi.old.exe` sampai Tepi baru jalan, lalu dihapus. Kalau folder exe tidak bisa ditulis (misalnya di Program Files), Tepi membuka halaman rilis. Begitu rilis Tepi ditandatangani (Authenticode), exe baru juga wajib bertanda tangan sah dari penerbit yang sama dengan exe yang sedang jalan.
 - `Tepi.exe --notify` dan `/notify` dijaga token yang sama dengan hook agent. Teks dari skrip dibersihkan dari karakter kontrol, dipotong panjangnya, dan dibatasi satu toast per setengah detik.
 - **Chat** di tab Agen hanya mengetik setelah Windows memastikan terminal sesi itu sudah di depan, dan memeriksanya lagi tepat sebelum mengetik.
 - `settings.ini` dan sesi Kulia ditulis lewat berkas sementara lalu ditukar, jadi tidak pernah setengah tertulis.

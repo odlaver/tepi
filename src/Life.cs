@@ -81,42 +81,81 @@ namespace Tepi
         // Daily release check; never downloads anything
         public const string AppVersion = "2.0.0";
         string newVersion, newUrl;
+        bool newRebuild, checking, checkFailed;
+        DateTime checkedUtc;
+        // Settings › About listens here
+        event Action UpdateChanged;
 
         void StartUpdateCheck()
         {
             if (!settings.GetBool("update.check", true) || Settings.TestMode) return;
             var t = new System.Windows.Forms.Timer { Interval = 60000 };
-            t.Tick += delegate { t.Interval = 24 * 3600 * 1000; CheckUpdate(); };
+            t.Tick += delegate { t.Interval = 24 * 3600 * 1000; CheckUpdate(false); };
             t.Start();
         }
 
-        void CheckUpdate()
+        // Newer tag, or same tag rebuilt
+        void CheckUpdate(bool manual)
         {
+            if (checking || updating) return;
+            checking = true;
             ThreadPool.QueueUserWorkItem(delegate
             {
+                string tag = null, url = null, asset = null, digest = null;
+                bool ok = false, rebuild = false;
                 try
                 {
                     var r = Web.Send("GET", "https://api.github.com/repos/odlaver/tepi/releases/latest", null, null, 10000);
-                    if (!r.Ok) return;
-                    var o = Json.Parse(r.Body);
-                    string tag = Json.Str(o, "tag_name").TrimStart('v'), url = Json.Str(o, "html_url");
-                    Version latest, mine;
-                    if (!Version.TryParse(tag, out latest) || !Version.TryParse(AppVersion, out mine) || latest <= mine) return;
-                    if (!url.StartsWith("https://github.com/odlaver/tepi/")) return;
-                    string asset, digest;
-                    ReadAsset(o, out asset, out digest);
-                    Post(() =>
+                    if (r.Ok)
                     {
-                        bool first = newVersion != tag;
+                        var o = Json.Parse(r.Body);
+                        ok = true;
+                        tag = Json.Str(o, "tag_name").TrimStart('v');
+                        url = Json.Str(o, "html_url");
+                        DateTime uploaded;
+                        ReadAsset(o, out asset, out digest, out uploaded);
+                        Version latest, mine;
+                        if (!Version.TryParse(tag, out latest) || !Version.TryParse(AppVersion, out mine) || latest < mine || !url.StartsWith("https://github.com/odlaver/tepi/")) tag = null;
+                        else if (latest == mine)
+                        {
+                            rebuild = true;
+                            // Local build newer than asset: keep
+                            if (digest == null || digest == OwnDigest() || uploaded <= System.IO.File.GetLastWriteTimeUtc(Application.ExecutablePath)) tag = null;
+                        }
+                    }
+                }
+                catch (Exception ex) { Log.Write("update: " + ex.Message); }
+                Post(() =>
+                {
+                    checking = false;
+                    checkFailed = !ok;
+                    if (ok) checkedUtc = DateTime.UtcNow;
+                    if (tag != null)
+                    {
+                        bool first = newVersion != tag || newDigest != digest;
                         newVersion = tag;
                         newUrl = url;
                         newAsset = asset;
                         newDigest = digest;
-                        if (first) ShowInfo(Ink.IcoRefresh, Lang.F("Tepi {0} tersedia", tag), Lang.T("tray › Perbarui"), true);
-                    });
-                }
-                catch (Exception ex) { Log.Write("update: " + ex.Message); }
+                        newRebuild = rebuild;
+                        if (first && !manual) ShowInfo(Ink.IcoRefresh, rebuild ? Lang.T("Pembaruan Tepi tersedia") : Lang.F("Tepi {0} tersedia", tag), Lang.T("tray › Perbarui"), true);
+                    }
+                    else if (ok) newVersion = newUrl = newAsset = newDigest = null;
+                    if (UpdateChanged != null) UpdateChanged();
+                });
             });
+            if (UpdateChanged != null) UpdateChanged();
+        }
+
+        // Status line for Settings › About
+        string UpdateText()
+        {
+            if (updating) return Lang.T("Mengunduh pembaruan");
+            if (checking) return Lang.T("Memeriksa GitHub");
+            if (newVersion != null) return newRebuild ? Lang.F("Build baru Tepi {0} tersedia", newVersion) : Lang.F("Tepi {0} tersedia", newVersion);
+            if (checkFailed) return Lang.T("GitHub tidak terjangkau");
+            if (checkedUtc != DateTime.MinValue) return Lang.F("Sudah terbaru · dicek {0}", Fmt.Hm(checkedUtc.ToLocalTime()));
+            return Lang.T("Dicocokkan lewat SHA-256 dengan rilis di GitHub");
         }
 
         // Every second; true if redraw needed

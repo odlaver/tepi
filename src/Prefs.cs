@@ -526,10 +526,42 @@ namespace Tepi
                         break;
                     case "about":
                         add(Row("Tepi " + AppVersion, Lang.T("Dynamic island untuk Windows · MIT"), Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); })));
+                        add(UpdateRow());
                         add(Row(Lang.T("Layanan luar"), Lang.T("LRCLIB, Kulia, GitHub, dan integrasi yang tersambung; semuanya bisa dimatikan"), null));
                         break;
                 }
                 flush();
+            }
+
+            // Check now; found build installs here
+            KitRow UpdateRow()
+            {
+                KitRow row = null;
+                KitButton b = null;
+                Action show = delegate
+                {
+                    if (row.IsDisposed) return;
+                    bool found = island.newVersion != null;
+                    b.Text = found ? (island.newAsset != null ? Lang.T("Perbarui") : "GitHub") : Lang.T("Cek pembaruan");
+                    b.Primary = found;
+                    b.Enabled = !island.checking && !island.updating;
+                    b.Width = TextRenderer.MeasureText(b.Text, b.Font).Width + (int)(32 * Ui);
+                    row.Detail = island.UpdateText();
+                    b.AccessibleDescription = row.Detail;
+                    if (row.Parent != null) PlaceField(row);
+                    b.Invalidate();
+                    row.Invalidate();
+                };
+                b = Button(Lang.T("Cek pembaruan"), false, delegate
+                {
+                    if (island.newVersion != null) island.InstallUpdate();
+                    else island.CheckUpdate(true);
+                });
+                row = Row(Lang.T("Pembaruan"), island.UpdateText(), b);
+                show();
+                island.UpdateChanged += show;
+                row.Disposed += delegate { island.UpdateChanged -= show; };
+                return row;
             }
 
             Control StartupSwitch()

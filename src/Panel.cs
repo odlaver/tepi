@@ -75,7 +75,7 @@ namespace Tepi
                     double at = lyrics.Lines[i].AtMs;
                     AddHit(new RectangleF(box.X, y - LyricLineH / 2, box.Width, LyricLineH), "ly" + i, delegate { media.Seek(at + 50); });
                 }
-            // List scrolls and wipes alone
+            // List scrolls alone
             LiveRect(box, t => PaintTeleprompter(box, t));
         }
 
@@ -84,8 +84,8 @@ namespace Tepi
             var st = g.Save();
             g.IntersectClip(box);
             double pos = mediaInfo.Position(now);
-            float anchor = box.Y + 34, prog = 1;
-            float alpha = p.Alpha;
+            float anchor = box.Y + 34;
+            float alpha = p.Alpha, lit = Ease.OutCubic((float)(now - lyricSwitchUtc).TotalSeconds / 0.2f);
             int first = Math.Max(0, (int)(lyricScroll.Value / LyricLineH) - 2);
             for (int i = first; i < lyrics.Lines.Count; i++)
             {
@@ -99,21 +99,19 @@ namespace Tepi
                 p.Alpha = alpha * edge;
                 if (i == lyricIndex)
                 {
-                    prog = (float)((pos - line.AtMs) / Math.Max(1, lyrics.SungUntil(i) - line.AtMs));
                     // Long lines shrink to fit
                     var big = Ink.Display(15.5f);
                     float mw = p.Measure(line.Text, big);
                     var font = mw <= box.Width ? big : Ink.Display(Math.Max(12f, (float)Math.Floor(15.5f * box.Width / mw * 2) / 2));
-                    p.Sweep(line.Text, font, p.T.Text, p.T.Faint, box.X, y, box.Width, StringAlignment.Near, Ease.Clamp01(prog));
+                    p.Text(line.Text, font, Ink.Mix(p.T.Sub, p.T.Text, Ease.Clamp01(lit)), box.X, y, box.Width, StringAlignment.Near);
                 }
                 else p.Text(line.Text, Ink.Text(13.5f), i < lyricIndex ? p.T.Faint : p.T.Sub, box.X, y, box.Width, StringAlignment.Near);
             }
             p.Alpha = alpha;
             g.Restore(st);
-            // Scroll 60, wipe 30, wake next line
-            if (!lyricScroll.Settled) return 1 / 60.0;
+            // 60 fps while moving, else next line
+            if (!lyricScroll.Settled || lit < 1) return 1 / 60.0;
             if (!mediaInfo.Playing) return 0;
-            if (prog < 1) return 1 / LiveFps;
             double next = lyricIndex >= 0 ? lyrics.NextAt(lyricIndex) : lyrics.Lines.Count > 0 ? lyrics.Lines[0].AtMs : double.MaxValue;
             return next == double.MaxValue ? 0 : Math.Max(0.01, (next - pos) / 1000 + 0.005);
         }

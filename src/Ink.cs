@@ -809,30 +809,6 @@ namespace Tepi
             wrap.LineAlignment = StringAlignment.Near;
         }
 
-        // Karaoke wipe with a soft edge
-        public void Sweep(string s, Font f, Color hi, Color lo, float x, float cy, float maxWidth, StringAlignment align, float progress)
-        {
-            if (string.IsNullOrEmpty(s)) return;
-            float w = Math.Min(maxWidth, Measure(s, f) + 2);
-            float left = align == StringAlignment.Near ? x : align == StringAlignment.Far ? x - w : x - w / 2;
-            float bx = left - 1, bw = w + 2;
-            float edge = Math.Min(0.12f, 18f / Math.Max(1, bw));
-            float a = Math.Max(0.001f, Math.Min(0.997f, progress - edge));
-            float b = Math.Max(a + 0.001f, Math.Min(0.999f, progress + edge));
-            splitBlend.Positions[1] = a;
-            splitBlend.Positions[2] = b;
-            split.Blend = splitBlend;
-            pair[0] = Ink.A(hi, Alpha);
-            pair[1] = Ink.A(lo, Alpha);
-            split.LinearColors = pair;
-            MapH(split, bx, bw);
-            line.Alignment = StringAlignment.Near;
-            var box = new RectangleF(left, cy - f.Size - f.Size * Ink.CapLift, w + 4, f.Size * 2);
-            if (Shadow && hi.R > 128)
-                G.DrawString(s, f, B(Color.FromArgb(90, 0, 0, 0)), new RectangleF(box.X, box.Y + 1f, box.Width, box.Height), line);
-            G.DrawString(s, f, split, box, line);
-        }
-
         public void Icon(char glyph, float px, Color c, float cx, float cy)
         {
             line.Alignment = StringAlignment.Center;

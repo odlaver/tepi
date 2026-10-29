@@ -337,14 +337,14 @@ namespace Tepi
             return lyricW;
         }
 
-        // Karaoke line; new lines roll up
+        // Current line; new lines roll up
         void DrawLyric(float w, float h, DateTime now)
         {
             float cy = h / 2, cap = Math.Min(19, h / 2);
             DrawCover(new RectangleF(cap - 11, cy - 11, 22, 22), 6);
             DrawBars(w - cap + 9.2f, cy, 4, 15, 2.8f, 2.4f);
             if (!LyricsReady) return;
-            // Line roll and karaoke wipe redraw alone
+            // Line roll redraws alone
             LiveRect(new RectangleF(2 * cap, 0, w - 4 * cap - 4, h), t => PaintLyric(w, h, t));
         }
 
@@ -355,7 +355,6 @@ namespace Tepi
             float cap = Math.Min(19, h / 2);
             float t = (float)(now - lyricSwitchUtc).TotalSeconds;
             float roll = Springs.Progress(t, 0.42f, 0.8f), fade = Ease.OutCubic(t / 0.24f);
-            float prog = 1;
             float left = 2 * cap, avail = w - 2 * cap - 2 * cap - 4;
             var font = Ink.Display(14.5f);
             float alpha = p.Alpha, travel = Anim.Reduced ? 0 : 16;
@@ -366,17 +365,13 @@ namespace Tepi
             }
             if (lyricIndex >= 0)
             {
-                var line = lyrics.Lines[lyricIndex];
-                double start = line.AtMs, end = lyrics.SungUntil(lyricIndex);
-                prog = (float)((pos - start) / Math.Max(1, end - start));
                 p.Alpha = alpha * fade;
-                p.Sweep(line.Text, font, p.T.Text, p.T.Faint, left + avail / 2, cy + (1 - roll) * travel, avail, StringAlignment.Center, Ease.Clamp01(prog));
+                p.Text(lyrics.Lines[lyricIndex].Text, font, p.T.Text, left + avail / 2, cy + (1 - roll) * travel, avail, StringAlignment.Center);
             }
             p.Alpha = alpha;
-            // Roll 60, wipe 30, wake next line
+            // Roll at 60, wake next line
             if (t < 0.9f) return 1 / 60.0;
             if (!mediaInfo.Playing) return 0;
-            if (prog < 1) return 1 / LiveFps;
             double next = lyricIndex >= 0 ? lyrics.NextAt(lyricIndex) : lyrics.Lines.Count > 0 ? lyrics.Lines[0].AtMs : double.MaxValue;
             return next == double.MaxValue ? 0 : Math.Max(0.01, (next - pos) / 1000 + 0.005);
         }

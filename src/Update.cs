@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -19,9 +20,10 @@ namespace Tepi
         bool updating;
 
         // From the release JSON; null unless it is ours and hashed
-        static void ReadAsset(object release, out string url, out string digest)
+        static void ReadAsset(object release, out string url, out string digest, out DateTime uploaded)
         {
             url = digest = null;
+            uploaded = DateTime.MinValue;
             var assets = Json.Arr(release, "assets");
             if (assets == null) return;
             foreach (var a in assets)
@@ -31,7 +33,20 @@ namespace Tepi
                 if (!u.StartsWith(AssetPrefix, StringComparison.Ordinal) || !d.StartsWith("sha256:", StringComparison.Ordinal) || d.Length != 71) return;
                 url = u;
                 digest = d.Substring(7).ToLowerInvariant();
+                DateTime.TryParse(Json.Str(a, "updated_at"), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out uploaded);
             }
+        }
+
+        static string ownDigest;
+
+        // SHA-256 of the running exe, once
+        static string OwnDigest()
+        {
+            if (ownDigest != null) return ownDigest;
+            using (var sha = SHA256.Create())
+            using (var f = File.OpenRead(Application.ExecutablePath))
+                ownDigest = BitConverter.ToString(sha.ComputeHash(f)).Replace("-", "").ToLowerInvariant();
+            return ownDigest;
         }
 
         void InstallUpdate()
@@ -39,6 +54,7 @@ namespace Tepi
             if (updating) return;
             if (newAsset == null || newDigest == null) { if (newUrl != null) OpenUrl(newUrl); return; }
             updating = true;
+            if (UpdateChanged != null) UpdateChanged();
             ShowInfo(Ink.IcoRefresh, Lang.F("Mengunduh Tepi {0}", newVersion), "", true);
             string url = newAsset, digest = newDigest, version = newVersion;
             ThreadPool.QueueUserWorkItem(delegate
@@ -49,6 +65,7 @@ namespace Tepi
                 Post(() =>
                 {
                     updating = false;
+                    if (UpdateChanged != null) UpdateChanged();
                     if (error == null)
                     {
                         Log.Write("update: installed " + version);
