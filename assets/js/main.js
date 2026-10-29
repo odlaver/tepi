@@ -161,6 +161,7 @@
     "dl.req": "Requirements",
     "dl.req.d": "Windows 10 version 2004 or later, or Windows 11, 64-bit. .NET Framework 4.8 ships with Windows.",
     "dl.ss.d": "The exe is not signed yet, so Windows SmartScreen may show a warning. Choose More info, then Run anyway.",
+    "dl.again": "Already on 2.0.0? Download it again once for the Oct 29 fixes. After that, Settings › About › Check for updates is enough.",
     "dl.copy": "Copy",
     "dl.copied": "Copied",
     "dl.releases": "All releases",
