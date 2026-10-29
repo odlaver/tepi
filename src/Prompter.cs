@@ -11,7 +11,7 @@ namespace Tepi
     // Teleprompter: pasted script scrolls on the island
     partial class Island
     {
-        const float PrompterPad = 28, PrompterMinW = 400, PrompterMaxW = 900, PrompterMinH = 110, PrompterMaxH = 320;
+        const float PrompterPad = 28, PrompterMinW = 400, PrompterMaxW = 900, PrompterMinH = 110, PrompterMaxH = 600;
         float PrompterW { get { return prompterSizeW > 0 ? prompterSizeW : Clamp(settings.GetInt("prompter.width", 560), PrompterMinW, PrompterMaxW); } }
         float PrompterH { get { return prompterSizeH > 0 ? prompterSizeH : Clamp(settings.GetInt("prompter.height", 150), PrompterMinH, PrompterMaxH); } }
         float PrompterBg { get { return Clamp(settings.GetInt("prompter.bg", 55), 15, 100) / 100f; } }

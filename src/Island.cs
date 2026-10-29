@@ -351,7 +351,8 @@ namespace Tepi
             }
         }
 
-        int TallPx() { return (int)Math.Ceiling((Gap + MaxH + Pad + 20) * scale) + 4; }
+        // Teleprompter may stand taller than panels
+        int TallPx() { return (int)Math.Ceiling((Gap + (PrompterOn ? Math.Max(MaxH, PrompterMaxH) : MaxH) + Pad + 20) * scale) + 4; }
 
         bool NeedTall()
         {
@@ -362,7 +363,7 @@ namespace Tepi
         // Grow before drawing; old view kept
         bool GrowCanvas()
         {
-            if (canvasTall || g == null || !NeedTall()) return false;
+            if (g == null || !NeedTall() || (canvasTall && canvasH >= TallPx())) return false;
             if (snapWanted) TakeSnapshot();
             canvasTall = true;
             CreateCanvas();
