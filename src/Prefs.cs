@@ -119,7 +119,7 @@ namespace Tepi
             readonly Settings settings;
             readonly Timer preview = new Timer { Interval = 2500 };
             string section = "general";
-            readonly TextBox search = new TextBox();
+            readonly TextBox search = new KitText();
             readonly Panel content = new Panel();
             readonly SideList side = new SideList();
             bool building;

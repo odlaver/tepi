@@ -1001,7 +1001,7 @@ namespace Tepi
     // Rounded well around a plain multiline TextBox
     class ScriptWell : Panel
     {
-        public readonly TextBox Box = new TextBox();
+        public readonly TextBox Box = new KitText();
         float ui = 1;
 
         [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)] static extern int SetWindowTheme(IntPtr hwnd, string app, string idList);

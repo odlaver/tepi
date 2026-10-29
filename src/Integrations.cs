@@ -9,7 +9,7 @@ namespace Tepi
     // Text box in a well; Enter submits
     class KitField : Panel
     {
-        public readonly TextBox Box = new TextBox();
+        public readonly TextBox Box = new KitText();
         public Action Submit;
         readonly float ui;
 

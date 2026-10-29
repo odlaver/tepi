@@ -340,7 +340,7 @@ namespace Tepi
     {
         readonly KuliaClient client;
         readonly Label heading = new Label(), hint = new Label(), status = new Label();
-        readonly TextBox field = new TextBox();
+        readonly TextBox field = new KitText();
         readonly Button primary = new Button(), back = new Button();
         string address;
         bool codeStep;

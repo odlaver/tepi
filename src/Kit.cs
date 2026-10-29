@@ -58,6 +58,47 @@ namespace Tepi
     }
 
     // Base: own HWND, focusable, window DPI
+    // TextBox with Ctrl+Backspace and Ctrl+Delete
+    class KitText : TextBox
+    {
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.Control && !e.Alt && (e.KeyCode == Keys.Back || e.KeyCode == Keys.Delete) && !ReadOnly)
+            {
+                DeleteWord(e.KeyCode == Keys.Back);
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+            base.OnKeyDown(e);
+        }
+
+        static int Kind(char c) { return char.IsWhiteSpace(c) ? 0 : char.IsLetterOrDigit(c) || c == '_' ? 1 : 2; }
+
+        void DeleteWord(bool back)
+        {
+            if (SelectionLength == 0)
+            {
+                string x = Text;
+                int at = SelectionStart, i = at;
+                if (back)
+                {
+                    while (i > 0 && Kind(x[i - 1]) == 0) i--;
+                    if (i > 0) { int k = Kind(x[i - 1]); while (i > 0 && Kind(x[i - 1]) == k) i--; }
+                    Select(i, at - i);
+                }
+                else
+                {
+                    while (i < x.Length && Kind(x[i]) == 0) i++;
+                    if (i < x.Length) { int k = Kind(x[i]); while (i < x.Length && Kind(x[i]) == k) i++; }
+                    Select(at, i - at);
+                }
+            }
+            // Keeps undo working
+            SelectedText = "";
+        }
+    }
+
     abstract class KitControl : Control
     {
         protected KitControl()
