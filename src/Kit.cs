@@ -20,6 +20,8 @@ namespace Tepi
         public static Color Group { get { return O(Ink.Mix(Ink.Base.Bg, Ink.Base.Text, Ink.Light ? 0.035f : 0.09f)); } }
         public static Color Line { get { return O(Ink.Mix(Ink.Base.Bg, Ink.Base.Text, Ink.Light ? 0.12f : 0.15f)); } }
         public static Color Hover { get { return O(Ink.Mix(Ink.Base.Bg, Ink.Base.Text, Ink.Light ? 0.09f : 0.16f)); } }
+        // Selected segment, lifted above its track
+        public static Color Raised { get { return Ink.Light ? Color.White : O(Ink.Mix(Ink.Base.Bg, Ink.Base.Text, 0.3f)); } }
         public static Color Text { get { return O(Ink.Base.Text); } }
         public static Color Sub { get { return O(Ink.Mix(Ink.Base.Bg, Ink.Base.Text, 0.62f)); } }
         public static Color Faint { get { return O(Ink.Mix(Ink.Base.Bg, Ink.Base.Text, 0.38f)); } }
@@ -203,7 +205,7 @@ namespace Tepi
             for (int i = 0; i < Items.Length; i++)
             {
                 var c = Cell(i);
-                if (i == selected) Fill(g, c, c.Height / 2, KitInk.Window);
+                if (i == selected) Fill(g, c, c.Height / 2, KitInk.Raised);
                 KitInk.Draw(g, Items[i], i == selected ? fs : f, i == selected ? KitInk.Text : KitInk.Sub, c, ContentAlignment.MiddleCenter);
             }
             f.Dispose();
