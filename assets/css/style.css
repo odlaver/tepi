@@ -290,6 +290,10 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 .mats img { position: absolute; inset: 0; width: 100%; opacity: 0; transform: scale(0.985); transition: opacity 0.2s ease, transform 0.24s var(--ease-out); }
 .mats img.on { opacity: 1; transform: none; }
 .mat-cap { margin-top: 20px; color: var(--faint); min-height: 26px; text-align: center; }
+.pack-link { margin-top: 18px; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 18px 0 20px; border-radius: 999px; background: var(--raise); box-shadow: inset 0 0 0 1px var(--line); font-size: 15px; font-weight: 600; text-decoration: none; transition: box-shadow 0.12s ease, transform 0.2s var(--grow); }
+.pack-link svg { width: 12px; height: 12px; }
+.pack-link:active { transform: scale(0.97); }
+@media (hover: hover) { .pack-link:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28); } }
 
 /* Windows float with a Windows 11 caption */
 .trio { display: grid; gap: 40px 24px; align-items: start; }

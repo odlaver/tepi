@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paket tema Tepi</title>
+<meta name="description" content="Buat paket tema Tepi: warna, lambang, maskot, pegangan bar, sapaan, dan suara dalam satu zip. Ada prompt untuk AI. Semua diproses di browser.">
+<link rel="canonical" href="https://odlaver.github.io/tepi/pack/">
+<link rel="icon" type="image/png" href="../assets/img/favicon.png">
+<meta name="theme-color" content="#0a0a0b">
+<meta property="og:title" content="Paket tema Tepi">
+<meta property="og:image" content="https://odlaver.github.io/tepi/assets/img/og.jpg">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/pack.css">
+</head>
+<body class="pk-page">
+<a class="skip" href="#export" data-i18n="pk.skip">Langsung ke unduhan</a>
+
+<header class="nav scrolled">
+  <a class="wordmark" href="../" aria-label="Tepi">Tepi</a>
+  <div class="nav-end">
+    <button class="lang" type="button" id="lang" aria-label="EN, switch to English">EN</button>
+    <a class="btn btn-sm" href="https://github.com/odlaver/tepi/releases/latest/download/Tepi.exe" data-i18n="nav.download">Unduh</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="wrap pk-hero">
+    <p class="eyebrow" data-i18n="pk.eyebrow">Paket tema</p>
+    <h1 data-i18n="pk.title">Tepi dengan gayamu.</h1>
+    <p class="lead" data-i18n="pk.lead">Warna, lambang, maskot, pegangan bar, sapaan, dan suara dalam satu zip. Semua diproses di browser, tidak ada yang diunggah.</p>
+  </section>
+
+  <div class="wrap pk-grid">
+    <div class="pk-form">
+
+      <section class="pk-card" id="ai" aria-labelledby="ai-h">
+        <p class="pk-step">1</p>
+        <h2 id="ai-h" data-i18n="pk.ai.t">Mulai dari AI</h2>
+        <p class="pk-note" data-i18n="pk.ai.d">Isi tema, salin prompt ke AI favoritmu, lalu tempel jawabannya di bawah. Warna dan sapaan terisi sendiri.</p>
+        <div class="pk-fields two">
+          <label class="pk-field"><span data-i18n="pk.ai.theme">Tema atau karakter</span><input type="text" id="ai-theme" maxlength="80" placeholder="Laut malam" data-i18n-ph="pk.ai.theme.ph"></label>
+          <label class="pk-field"><span data-i18n="pk.ai.mood">Suasana dan warna</span><input type="text" id="ai-mood" maxlength="120" placeholder="Tenang, navy, perak" data-i18n-ph="pk.ai.mood.ph"></label>
+        </div>
+        <label class="pk-field"><span data-i18n="pk.ai.prompt">Prompt</span><textarea id="ai-prompt" rows="9" readonly></textarea></label>
+        <div class="pk-actions">
+          <button type="button" class="btn btn-md" id="ai-copy" data-i18n="pk.ai.copy">Salin prompt</button>
+          <a class="pk-ghost" id="ai-claude" href="https://claude.ai/new" target="_blank" rel="noopener" data-i18n="pk.ai.claude">Buka di Claude</a>
+          <a class="pk-ghost" id="ai-gpt" href="https://chatgpt.com/" target="_blank" rel="noopener" data-i18n="pk.ai.gpt">Buka di ChatGPT</a>
+        </div>
+        <label class="pk-field"><span data-i18n="pk.ai.paste">Jawaban AI</span><textarea id="ai-answer" rows="6" placeholder="Tempel seluruh jawaban AI di sini" data-i18n-ph="pk.ai.paste.ph"></textarea></label>
+        <div class="pk-actions">
+          <button type="button" class="pk-ghost" id="ai-apply" data-i18n="pk.ai.apply">Terapkan jawaban</button>
+          <label class="pk-ghost pk-file"><span data-i18n="pk.ai.files">Impor theme.ini atau greetings.txt</span><input type="file" id="ai-files" accept=".ini,.txt,text/plain" multiple></label>
+          <span class="pk-status" id="ai-status" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section class="pk-card" aria-labelledby="name-h">
+        <p class="pk-step">2</p>
+        <h2 id="name-h" data-i18n="pk.name.t">Nama paket</h2>
+        <label class="pk-field"><span data-i18n="pk.name.l">Nama folder</span><input type="text" id="pk-name" maxlength="40" value="paket-saya" spellcheck="false"></label>
+        <p class="pk-note" data-i18n="pk.name.d">Huruf kecil, angka, dan tanda hubung. Nama ini yang muncul di Pengaturan > Tampilan > Paket tema.</p>
+      </section>
+
+      <section class="pk-card" aria-labelledby="col-h">
+        <p class="pk-step">3</p>
+        <h2 id="col-h" data-i18n="pk.col.t">Warna</h2>
+        <div class="pk-presets" role="group" aria-label="Contoh palet" data-i18n-label="pk.col.presets">
+          <button type="button" data-preset="navy">Navy</button>
+          <button type="button" data-preset="mono" data-i18n="pk.preset.mono">Monokrom</button>
+          <button type="button" data-preset="sakura">Sakura</button>
+          <button type="button" data-preset="forest" data-i18n="pk.preset.forest">Hutan</button>
+          <button type="button" data-preset="ember" data-i18n="pk.preset.ember">Bara</button>
+        </div>
+        <div class="pk-fields three">
+          <label class="pk-color"><span data-i18n="pk.col.bg">Latar</span><input type="color" id="c-bg" value="#0e1734"></label>
+          <label class="pk-color"><span data-i18n="pk.col.text">Teks</span><input type="color" id="c-text" value="#eef4ff"></label>
+          <label class="pk-color"><span data-i18n="pk.col.accent">Aksen</span><input type="color" id="c-accent" value="#b8c4ea"></label>
+        </div>
+        <p class="pk-contrast" id="contrast" aria-live="polite"></p>
+        <details class="pk-more">
+          <summary data-i18n="pk.col.all">Semua warna</summary>
+          <p class="pk-note" data-i18n="pk.col.all.d">Diturunkan dari tiga warna di atas. Ubah satu untuk menimpanya; format #RRGGBB atau #AARRGGBB.</p>
+          <div class="pk-keys" id="keys"></div>
+          <button type="button" class="pk-ghost" id="keys-reset" data-i18n="pk.col.reset">Kembalikan turunan</button>
+        </details>
+      </section>
+
+      <section class="pk-card" aria-labelledby="img-h">
+        <p class="pk-step">4</p>
+        <h2 id="img-h" data-i18n="pk.img.t">Gambar</h2>
+        <div class="pk-slot">
+          <div><h3 data-i18n="pk.emb.t">Lambang</h3><p class="pk-note" data-i18n="pk.emb.d">Persegi, minimal 96 px. Dipotong bulat dan tampil 24 px di samping jam dan sapaan. Lebih dari satu: dipilih acak.</p></div>
+          <label class="pk-ghost pk-file"><span data-i18n="pk.add">Tambah</span><input type="file" id="f-emblem" accept="image/*" multiple></label>
+        </div>
+        <ul class="pk-list" id="l-emblem"></ul>
+        <div class="pk-slot">
+          <div><h3 data-i18n="pk.mas.t">Maskot</h3><p class="pk-note" data-i18n="pk.mas.d">PNG berlatar transparan, sisi terpanjang sekitar 160 px. Duduk di pojok kanan bawah panel. Strip animasi: frame berjajar ke samping, isi jumlah frame-nya.</p></div>
+          <label class="pk-ghost pk-file"><span data-i18n="pk.add">Tambah</span><input type="file" id="f-corner" accept="image/*" multiple></label>
+        </div>
+        <ul class="pk-list" id="l-corner"></ul>
+        <div class="pk-slot">
+          <div><h3 data-i18n="pk.knob.t">Pegangan bar</h3><p class="pk-note" data-i18n="pk.knob.d">Gambar melebar berlatar transparan untuk bar progres musik dan teleprompter.</p></div>
+          <label class="pk-ghost pk-file"><span data-i18n="pk.pick">Pilih</span><input type="file" id="f-knob" accept="image/*"></label>
+        </div>
+        <ul class="pk-list" id="l-knob"></ul>
+        <div class="pk-fields three" id="knob-opts" hidden>
+          <label class="pk-field"><span data-i18n="pk.knob.h">Tinggi (px)</span><input type="number" id="o-kh" min="8" max="48" value="15"></label>
+          <label class="pk-field"><span data-i18n="pk.knob.a">Baris yang menempel (0 sampai 1)</span><input type="number" id="o-ka" min="0" max="1" step="0.01" value="0.5"></label>
+          <label class="pk-field"><span data-i18n="pk.knob.x">Kolom posisi lagu (0 sampai 1)</span><input type="number" id="o-kx" min="0" max="1" step="0.01" value="1"></label>
+        </div>
+        <p class="pk-note pk-legal" data-i18n="pk.img.legal">Gambar karakter atau karya orang lain sebaiknya untuk pemakaian pribadi.</p>
+      </section>
+
+      <section class="pk-card" aria-labelledby="gr-h">
+        <p class="pk-step">5</p>
+        <h2 id="gr-h" data-i18n="pk.gr.t">Sapaan</h2>
+        <p class="pk-note" data-i18n="pk.gr.d">Satu sapaan per baris, dipilih acak saat Tepi dibuka. Baris di bawah [pagi], [siang], [sore], atau [malam] hanya dipakai pada waktunya.</p>
+        <textarea id="greet" rows="10" aria-labelledby="gr-h"></textarea>
+      </section>
+
+      <section class="pk-card" aria-labelledby="vo-h">
+        <p class="pk-step">6</p>
+        <h2 id="vo-h" data-i18n="pk.vo.t">Suara sapaan</h2>
+        <p class="pk-note" data-i18n="pk.vo.d">Diputar sekali saat sapaan muncul. Selain WAV diubah otomatis ke WAV. Tidak diputar saat layar penuh atau jangan ganggu.</p>
+        <div class="pk-voices" id="voices"></div>
+      </section>
+
+      <section class="pk-card" aria-labelledby="fx-h">
+        <p class="pk-step">7</p>
+        <h2 id="fx-h" data-i18n="pk.fx.t">Animasi dan efek</h2>
+        <div class="pk-fields three">
+          <label class="pk-field"><span data-i18n="pk.fx.fps">Frame per detik</span><input type="number" id="o-fps" min="1" max="30" value="12"></label>
+          <label class="pk-field"><span data-i18n="pk.fx.sec">Lama diputar (detik)</span><input type="number" id="o-sec" min="1" max="20" value="3"></label>
+          <label class="pk-field"><span data-i18n="pk.fx.idle">Lambang bergerak lagi tiap (detik, 0 mati)</span><input type="number" id="o-idle" min="0" max="3600" value="0"></label>
+        </div>
+        <label class="pk-check"><input type="checkbox" id="o-water"><span data-i18n="pk.fx.water">Gelembung dan riak air</span></label>
+        <label class="pk-check"><input type="checkbox" id="o-eyes" checked><span data-i18n="pk.fx.eyes">Mata di sliver Mini</span></label>
+      </section>
+
+      <section class="pk-card pk-export" id="export" aria-labelledby="ex-h">
+        <p class="pk-step">8</p>
+        <h2 id="ex-h" data-i18n="pk.ex.t">Unduh paket</h2>
+        <p class="pk-sum" id="summary" aria-live="polite"></p>
+        <button type="button" class="btn btn-lg" id="build"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0-3.5-3.5M10 12l3.5-3.5M4 15.5h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-i18n="pk.ex.btn">Unduh zip</span></button>
+        <ol class="pk-how">
+          <li><span data-i18n="pk.ex.s1">Ekstrak zip ke folder</span> <code>%APPDATA%\Tepi\themes</code> <button type="button" class="pk-mini" id="copy-path" data-i18n="pk.copy">Salin</button></li>
+          <li data-i18n="pk.ex.s2">Pilih paketnya di Pengaturan > Tampilan > Paket tema.</li>
+        </ol>
+      </section>
+    </div>
+
+    <aside class="pk-preview" aria-label="Perkiraan tampilan" data-i18n-label="pk.pv.label">
+      <div class="pv" id="pv">
+        <div class="pv-screen">
+          <div class="pv-pill"><span class="pv-emb" id="pv-emb"></span><span class="pv-greet" id="pv-greet">Halo</span></div>
+        </div>
+        <div class="pv-panel">
+          <div class="pv-tabs"><span class="on" data-i18n="pk.pv.music">Musik</span><i></i><i></i><i></i><i></i></div>
+          <div class="pv-card">
+            <div class="pv-art"></div>
+            <div class="pv-meta"><b data-i18n="pk.pv.song">Judul lagu</b><span data-i18n="pk.pv.artist">Nama artis</span></div>
+            <div class="pv-track"><i class="pv-prog"></i><span class="pv-head" id="pv-head"></span></div>
+          </div>
+          <div class="pv-row"><span class="pv-ring"></span><span data-i18n="pk.pv.row">Minum air</span><em>4 / 8</em></div>
+          <div class="pv-mascot" id="pv-mascot"></div>
+        </div>
+        <div class="pv-light">
+          <b data-i18n="pk.pv.ask">Agent minta izin</b>
+          <span data-i18n="pk.pv.askd">Edit Island.cs, 2 baris jadi 3</span>
+          <div class="pv-btns"><i data-i18n="pk.pv.deny">Tolak</i><i class="on" data-i18n="pk.pv.allow">Izinkan</i></div>
+        </div>
+      </div>
+      <p class="pk-note pv-cap"><span data-i18n="pk.pv.cap">Perkiraan tampilan dari warna dan gambar paketmu.</span> <button type="button" class="pk-mini" id="pv-next" data-i18n="pk.pv.next">Sapaan lain</button></p>
+    </aside>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span><a href="../" data-i18n="pk.back">Kembali ke Tepi</a></span>
+    <nav aria-label="Proyek Tepi" data-i18n-label="foot.project">
+      <a href="https://github.com/odlaver/tepi#paket-tema" data-i18n="pk.docs">Dokumentasi paket tema</a>
+      <a href="https://github.com/odlaver/tepi" data-i18n="foot.src">Kode sumber</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="../assets/js/pack.js" defer></script>
+</body>
+</html>

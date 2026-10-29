@@ -112,6 +112,8 @@
     "style.frost.d": "Hazier, softer glass",
     "style.light": "Light",
     "style.light.d": "Every page follows",
+    "style.pack": "Make your own theme pack",
+    "foot.pack": "Theme packs",
     "win.eyebrow": "Windows",
     "win.title": "Windows that match.",
     "win.prefs": "Settings",
