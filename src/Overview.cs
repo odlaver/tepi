@@ -176,7 +176,8 @@ namespace Tepi
             var local = DateTime.Now;
             float cy = PanelTop + 52 + shift;
             p.TextCenter(Fmt.Hm(local), Ink.Display(34f), p.T.Text, w / 2, cy);
-            p.TextCenter(local.ToString("dddd, d MMMM", Fmt.Id), Ink.Text(13f), p.T.Sub, w / 2, cy + 34);
+            string wl = WeatherLine(), day = local.ToString("dddd, d MMMM", Fmt.Id);
+            p.TextCenter(wl == null ? day : day + "  ·  " + wl, Ink.Text(13f), p.T.Sub, w / 2, cy + 34);
             p.TextCenter(Lang.T("Tidak ada yang menunggu"), Ink.Small(11.5f), p.T.Faint, w / 2, cy + 56);
         }
 
