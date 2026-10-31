@@ -13,7 +13,7 @@ using WinTimer = System.Windows.Forms.Timer;
 
 namespace Tepi
 {
-    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Drive, Run, Meet, Mini, Panel }
+    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Drive, Run, Meet, Mirror, Mini, Panel }
 
     class Toast
     {
@@ -204,6 +204,7 @@ namespace Tepi
             StartLocks();
             StartMic();
             StartNotes();
+            if (!RegisterHotKey(Handle, MirrorHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.C)) Log.Write("hotkey Ctrl+Alt+C taken");
             StartControls();
             InitShelfDrop();
             EnsureDisc(64);
@@ -240,6 +241,7 @@ namespace Tepi
                 if (reg != IntPtr.Zero) Native.UnregisterPowerSettingNotification(reg);
             ReleaseApprovals();
             CleanShots(true);
+            CloseMirror();
             if (tray != null) { tray.Visible = false; tray.Dispose(); }
             base.OnFormClosed(e);
         }
@@ -284,6 +286,7 @@ namespace Tepi
                     else if (m.WParam.ToInt32() == MiniHotkey) ToggleMini();
                     else if (m.WParam.ToInt32() == MicHotkey) ToggleMic();
                     else if (m.WParam.ToInt32() == NoteHotkey) BeginInvoke(new Action(OpenNote));
+                    else if (m.WParam.ToInt32() == MirrorHotkey) ToggleMirror();
                     return;
                 case 0x020E: // WM_MOUSEHWHEEL: sideways swipe changes tab
                     if (expanded) WheelTab((short)((m.WParam.ToInt64() >> 16) & 0xFFFF));
@@ -415,6 +418,7 @@ namespace Tepi
             // Files hovering: the island becomes a target
             if (dropActive) return View.ShelfDrop;
             if (PrompterOn) return View.Prompter;
+            if (MirrorOn) return View.Mirror;
             if (expanded) return View.Panel;
             // Retracted: only urgent toasts pop out
             if (MiniOn() && (toast == null || !MiniLets(toast.View, toast.Priority))) return View.Mini;
@@ -1518,9 +1522,10 @@ namespace Tepi
             var prompterItem = new ToolStripMenuItem(Lang.T("Teleprompter"), null, delegate { if (!PrompterOn) OpenPrompter(); });
             var focusItem = new ToolStripMenuItem(Lang.T("Timer"));
             var noteItem = new ToolStripMenuItem(Lang.T("Catatan kilat"), null, delegate { OpenNote(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+N" };
+            var mirrorItem = new ToolStripMenuItem(Lang.T("Cermin kamera"), null, delegate { ToggleMirror(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+C" };
             var exit = new ToolStripMenuItem(Lang.T("Keluar"), null, delegate { Close(); });
             var prefsItem = new ToolStripMenuItem(Lang.T("Pengaturan…"), null, delegate { OpenPrefs(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, mirrorItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
             menu.Opening += delegate
             {
                 // Style submenus after they're rebuilt
