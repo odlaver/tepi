@@ -1057,7 +1057,8 @@ namespace Tepi
             using (var path = Ink.Round(r, 12 * ui))
             {
                 using (var b = new SolidBrush(KitInk.Group)) g.FillPath(b, path);
-                using (var pen = new Pen(Box.Focused ? KitInk.Faint : KitInk.Line, Box.Focused ? 1.6f : 1f)) g.DrawPath(pen, path);
+                // Quiet at rest, clear ring on focus
+                using (var pen = new Pen(Box.Focused ? KitInk.Faint : Ink.Mix(KitInk.Group, KitInk.Text, 0.07f), Box.Focused ? 1.4f : 1f)) g.DrawPath(pen, path);
             }
         }
 

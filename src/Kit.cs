@@ -510,7 +510,11 @@ namespace Tepi
             ForeColor = KitInk.Text;
             KeyPreview = true;
             ShowInTaskbar = true;
+            if (AppIcon != null) Icon = AppIcon;
         }
+
+        // Tepi's mark on every window
+        public static Icon AppIcon;
 
         protected override void OnHandleCreated(EventArgs e)
         {
@@ -518,6 +522,28 @@ namespace Tepi
             try { Ui = GetDpiForWindow(Handle) / 96f; } catch (EntryPointNotFoundException) { }
             Native.DarkFrame(Handle, !Ink.Light);
             Native.RoundCorners(Handle);
+        }
+
+        // Soft arrival unless motion is reduced
+        protected override void OnLoad(EventArgs e)
+        {
+            if (!Anim.Reduced) Opacity = 0;
+            base.OnLoad(e);
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            if (Opacity >= 1) return;
+            var start = DateTime.UtcNow;
+            var fade = new Timer { Interval = 15 };
+            fade.Tick += delegate
+            {
+                double k = Math.Min(1, (DateTime.UtcNow - start).TotalMilliseconds / 160);
+                Opacity = 1 - (1 - k) * (1 - k);
+                if (k >= 1) { fade.Stop(); fade.Dispose(); }
+            };
+            fade.Start();
         }
 
         protected override bool ProcessDialogKey(Keys key)

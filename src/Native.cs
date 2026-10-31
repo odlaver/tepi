@@ -139,6 +139,16 @@ namespace Tepi
         {
             int on = dark ? 1 : 0;
             try { DwmSetWindowAttribute(hwnd, 20, ref on, 4); } catch (Exception) { }
+            // Caption blends into the window body
+            FrameColor(hwnd, 35, KitInk.Window);
+            FrameColor(hwnd, 34, KitInk.Line);
+            FrameColor(hwnd, 36, KitInk.Sub);
+        }
+
+        static void FrameColor(IntPtr hwnd, int attr, System.Drawing.Color c)
+        {
+            int v = c.R | (c.G << 8) | (c.B << 16);
+            try { DwmSetWindowAttribute(hwnd, attr, ref v, 4); } catch (Exception) { }
         }
 
         public static bool HasPendingMessage()
