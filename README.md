@@ -70,7 +70,7 @@ Klik kanan ikon Tepi, lalu **Pengaturan**. Jendelanya punya kolom cari dan bagia
 - **Umum**: bahasa, mulai bersama Windows, cek versi baru, folder data.
 - **Tampilan**: tema, material (Liquid, Frost, Hitam), aksen, paket tema, suara sapaan paket.
 - **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, menempel di tepi atas, posisi, lebar panel, layar, gaya tab (otomatis, ikon, titik), tab yang terbuka pertama, dan tab yang tampil. Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
-- **Aktivitas**: lirik, lirik online, visualizer, notifikasi pesan dan isinya, kelas yang berlangsung, progres unduhan, riwayat clipboard, flashdisk, preview screenshot, rak berkas, lama istirahat fokus, HUD Caps Lock, Num Lock dan Scroll Lock, serta bahasa input.
+- **Aktivitas**: lirik, lirik online, visualizer, notifikasi pesan dan isinya, kelas yang berlangsung, progres unduhan, riwayat clipboard, pengingat cabut charger di 80, 85, atau 90%, flashdisk, preview screenshot, rak berkas, lama istirahat fokus, HUD Caps Lock, Num Lock dan Scroll Lock, serta bahasa input.
 - **Agen**: hubungkan atau lepas tiap agent, kuota Claude, port server hook (termasuk **Ganti port acak**), dan berapa lama izin ditahan.
 - **Integrasi**: Kulia, Notion, Todoist, dan kalender iCal untuk tab Tugas dan Jadwal.
 - **Pengingat**: sholat (kota dan menit sebelum), minum (selang dan target), istirahat mata, peregangan.

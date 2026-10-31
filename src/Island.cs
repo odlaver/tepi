@@ -1454,6 +1454,8 @@ namespace Tepi
             if (redraw || (expanded && minute) || DesiredView() != current) Kick();
         }
 
+        bool unplugWarned;
+
         void ReadPower()
         {
             bool hb, ac; int level;
@@ -1468,14 +1470,19 @@ namespace Tepi
             int prev = battery;
             hasBattery = hb; onAc = ac; battery = level;
             if (!hb) return;
+            if (!ac) unplugWarned = false;
+            // Battery care: unplug at the chosen level
+            int unplugAt = settings.GetInt("battery.unplug", 0);
+            bool enough = ac && !acChanged && unplugAt > 0 && level >= unplugAt && prev < unplugAt && !unplugWarned;
             Toast t = null;
             if (acChanged) t = ShowToast(View.Power, 3.2, 2, false);
+            else if (enough) { unplugWarned = true; t = ShowToast(View.Power, 6, 2, false); }
             else if (ac && level >= 100 && prev < 100) t = ShowToast(View.Power, 4, 2, false);
             else if (!ac && ((prev > 20 && level <= 20) || (prev > 10 && level <= 10) || (prev > 5 && level <= 5))) t = ShowToast(View.Power, 5, 2, false);
             if (t != null)
             {
                 t.Flag = ac;
-                t.Data = acChanged ? (ac ? "plug" : "unplug") : ac ? "full" : "low";
+                t.Data = acChanged ? (ac ? "plug" : "unplug") : enough ? "enough" : ac ? "full" : "low";
                 batteryFill.Snap(0);
                 batteryFill.Target = battery / 100f;
             }
