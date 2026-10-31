@@ -55,7 +55,7 @@ namespace Tepi
                     foreach (var px in new[] { 11.5f, 12f, 12.5f, 13f, 13.5f, 14f, 15f }) p.Text(sample, Ink.Text(px), p.T.Text, 0, 20);
                     foreach (var px in new[] { 11.5f, 12f }) p.Text(sample, Ink.Mono(px), p.T.Text, 0, 20);
                     char[] glyphs = { Ink.IcoVol0, Ink.IcoVol1, Ink.IcoVol2, Ink.IcoVol3, Ink.IcoMute, Ink.IcoBolt, Ink.IcoWifi, Ink.IcoGlobe, Ink.IcoCam, Ink.IcoMic,
-                                      Ink.IcoTerminal, Ink.IcoCalendar, Ink.IcoRefresh, Ink.IcoLock, Ink.IcoBell, IcoMicOff, '\uE74D', '\uE8D6', '' };
+                                      Ink.IcoTerminal, Ink.IcoCalendar, Ink.IcoRefresh, Ink.IcoLock, Ink.IcoBell, IcoMicOff, '\uE73E', '\uE711', '\uE74D', '\uE8D6', '' };
                     foreach (var px in new[] { 10f, 12f, 13f, 14f, 15f, 16f, 20f })
                         foreach (var c in glyphs) p.Icon(c, px, p.T.Text, 20, 20);
                 }

@@ -602,6 +602,8 @@ namespace Tepi
             { "Internet kembali", "Internet is back" },
             { "Cabut charger", "Unplug the charger" },
             { "Catatan kilat", "Quick note" },
+            { "Selesai dalam {0}", "Done in {0}" },
+            { "Gagal, kode {0}", "Failed, code {0}" },
             { "Disimpan ke Rak", "Saved to the shelf" },
             { "Tulis catatan", "Write a note" },
             { "Simpan ke", "Save to" },
