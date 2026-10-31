@@ -133,6 +133,7 @@ namespace Tepi
             };
 
             [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, string l);
+            [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)] static extern int SetWindowTheme(IntPtr hwnd, string app, string idList);
 
             public PrefsWindow(Island island)
             {
@@ -168,6 +169,8 @@ namespace Tepi
             {
                 BackColor = KitInk.Window;
                 Native.DarkFrame(Handle, !Ink.Light);
+                // Scrollbar follows the theme
+                try { SetWindowTheme(content.Handle, Ink.Light ? "Explorer" : "DarkMode_Explorer", null); } catch (Exception) { }
                 Text = Lang.T("Pengaturan Tepi");
                 side.Items = new List<string[]>();
                 foreach (var s in Sections) side.Items.Add(new[] { s[0], Lang.T(s[1]), s[2] });
