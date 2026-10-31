@@ -42,6 +42,7 @@ namespace Tepi
                 case View.Download: return new SizeF(DownloadWidth(), 38);
                 case View.Locks: return new SizeF(LocksWidth(), 42);
                 case View.Shot: return new SizeF(380, 76);
+                case View.Mic: return new SizeF(MicWidth(), 42);
                 case View.Mini: return MiniSize();
                 default: return new SizeF(PanelW, PanelHeight());
             }
@@ -93,6 +94,7 @@ namespace Tepi
                 case View.Download: DrawDownload(w, h, now); break;
                 case View.Locks: DrawLocks(w, h); break;
                 case View.Shot: DrawShot(w, h); break;
+                case View.Mic: DrawMic(w, h); break;
                 case View.Mini: DrawMini(w, h, now); break;
                 case View.Panel: DrawPanel(w, h, now); break;
             }
@@ -174,7 +176,11 @@ namespace Tepi
             if (emblem != null) DrawEmblem(24, cy, 10.5f);
             if (CapsShown) Keycap(w - 21 - (unread > 0 ? 28 : 0), cy, 7f, "A", true);
             clockRoller.Draw(p, Ink.Display(15.5f), p.T.Text, clockX, cy, StringAlignment.Center, now);
-            if (PrivacyOn) p.Icon(camApps.Length > 0 ? Ink.IcoCam : Ink.IcoMic, 12f, p.T.Sub, 22 + shift * 2, cy);
+            if (PrivacyOn)
+            {
+                bool off = MicSilenced && camApps.Length == 0;
+                p.Icon(camApps.Length > 0 ? Ink.IcoCam : off ? IcoMicOff : Ink.IcoMic, 12f, off ? p.T.Negative : p.T.Sub, 22 + shift * 2, cy);
+            }
             if (unread > 0) DrawCount(w - 22, cy, unread);
         }
 

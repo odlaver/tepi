@@ -39,6 +39,7 @@ namespace Tepi
                 enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
                 enumerator.RegisterEndpointNotificationCallback(this);
                 Attach();
+                AttachMic();
                 PublishDevices();
             }
             catch (Exception ex) { Log.Write("volume: " + ex.Message); return; }
@@ -92,6 +93,7 @@ namespace Tepi
         // Multimedia role: the one Attach reads
         public int OnDefaultDeviceChanged(int flow, int role, string id)
         {
+            if (flow == 1) { Do(AttachMic); return 0; }
             if (flow != 0 || role != 1) return 0;
             Do(delegate
             {
