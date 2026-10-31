@@ -169,6 +169,7 @@ namespace Tepi
             PruneRuns();
             TickWeather();
             TickBluetooth(false);
+            TickMirror();
             if (TickMeeting()) { Kick(); redraw = true; }
             if (mediaInfo.Present) SyncLyrics();
             List<string> stale = null;

@@ -46,6 +46,7 @@ namespace Tepi
                 case View.Drive: return new SizeF(DriveWidth(), 64);
                 case View.Run: return new SizeF(RunWidth(), 38);
                 case View.Meet: return new SizeF(MeetWidth(), 38);
+                case View.Mirror: return new SizeF(MirrorW, MirrorH);
                 case View.Mini: return MiniSize();
                 default: return new SizeF(PanelW, PanelHeight());
             }
@@ -64,6 +65,7 @@ namespace Tepi
                 case View.Shot:
                 case View.Drive:
                 case View.Prompter: return 26;
+                case View.Mirror: return 28;
             }
             return s.Height / 2;
         }
@@ -102,6 +104,7 @@ namespace Tepi
                 case View.Drive: DrawDrive(w, h); break;
                 case View.Run: DrawRun(w, h); break;
                 case View.Meet: DrawMeet(w, h); break;
+                case View.Mirror: DrawMirror(w, h); break;
                 case View.Mini: DrawMini(w, h, now); break;
                 case View.Panel: DrawPanel(w, h, now); break;
             }
