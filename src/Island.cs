@@ -1414,17 +1414,6 @@ namespace Tepi
             t.Detail = detail;
         }
 
-        // Settings' test button
-        void TestIsland()
-        {
-            var t = ShowToast(View.Info, 2.8, 1, false, true);
-            if (t == null) return;
-            t.Emblem = true;
-            t.Glyph = Ink.IcoBell;
-            t.Title = Lang.T("Halo dari Tepi");
-            t.Detail = "";
-        }
-
         void DismissToast()
         {
             toastTimer.Stop();
