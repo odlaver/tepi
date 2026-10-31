@@ -43,6 +43,7 @@ namespace Tepi
                 case View.Locks: return new SizeF(LocksWidth(), 42);
                 case View.Shot: return new SizeF(380, 76);
                 case View.Mic: return new SizeF(MicWidth(), 42);
+                case View.Drive: return new SizeF(DriveWidth(), 64);
                 case View.Mini: return MiniSize();
                 default: return new SizeF(PanelW, PanelHeight());
             }
@@ -59,6 +60,7 @@ namespace Tepi
                 case View.Notif:
                 case View.Deadline:
                 case View.Shot:
+                case View.Drive:
                 case View.Prompter: return 26;
             }
             return s.Height / 2;
@@ -95,6 +97,7 @@ namespace Tepi
                 case View.Locks: DrawLocks(w, h); break;
                 case View.Shot: DrawShot(w, h); break;
                 case View.Mic: DrawMic(w, h); break;
+                case View.Drive: DrawDrive(w, h); break;
                 case View.Mini: DrawMini(w, h, now); break;
                 case View.Panel: DrawPanel(w, h, now); break;
             }
