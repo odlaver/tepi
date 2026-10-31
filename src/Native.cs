@@ -94,6 +94,7 @@ namespace Tepi
         [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
         [DllImport("user32.dll")] public static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
         [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
         [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hwnd, StringBuilder name, int max);
         [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr hwnd, int index);
@@ -144,6 +145,9 @@ namespace Tepi
             FrameColor(hwnd, 34, KitInk.Line);
             FrameColor(hwnd, 36, KitInk.Sub);
         }
+
+        // Placeholder that stays while focused
+        public static void SetCue(IntPtr edit, string text) { SendMessage(edit, 0x1501, (IntPtr)1, text); }
 
         static void FrameColor(IntPtr hwnd, int attr, System.Drawing.Color c)
         {
