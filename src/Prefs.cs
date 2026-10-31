@@ -462,6 +462,7 @@ namespace Tepi
                         cap(Lang.T("Keyboard"));
                         add(Row("Caps Lock", Lang.T("HUD saat ditekan, penanda selama nyala"), Switch("keys.caps", true, null)));
                         add(Row("Num Lock, Scroll Lock", Lang.T("HUD saat ditekan"), Switch("keys.num", false, null)));
+                        add(Row(Lang.T("Bahasa input"), Lang.T("HUD saat layout keyboard berganti"), Switch("keys.lang", true, null)));
                         cap(Lang.T("Lainnya"));
                         add(Row(Lang.T("Kelas yang berlangsung"), null, Switch("class.island", true, null)));
                         add(Row(Lang.T("Progres unduhan"), null, Switch("downloads", true, null)));

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace Tepi
@@ -8,6 +10,9 @@ namespace Tepi
     partial class Island
     {
         [DllImport("user32.dll")] static extern short GetKeyState(int vk);
+        [DllImport("user32.dll")] static extern IntPtr GetKeyboardLayout(uint thread);
+        [DllImport("user32.dll")] static extern int GetKeyboardLayoutList(int n, IntPtr[] list);
+        [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, IntPtr pid);
 
         System.Windows.Forms.Timer locksTimer;
         bool capsOn, numOn, scrollOn, locksRead, capsPref = true;
@@ -41,6 +46,61 @@ namespace Tepi
             }
             if (num != numOn) { numOn = num; if (others) ShowLock("Num Lock", "1", num); }
             if (scroll != scrollOn) { scrollOn = scroll; if (others) ShowLock("Scroll Lock", "S", scroll); }
+            ReadLayout();
+        }
+
+        // Input language of the front window
+        IntPtr layoutWin, layoutNow;
+        int layoutsCheckedTick;
+        bool manyLayouts;
+        readonly Dictionary<long, string[]> layoutNames = new Dictionary<long, string[]>();
+
+        void ReadLayout()
+        {
+            if (Environment.TickCount - layoutsCheckedTick > 60000 || layoutsCheckedTick == 0)
+            {
+                layoutsCheckedTick = Environment.TickCount;
+                manyLayouts = GetKeyboardLayoutList(0, null) > 1;
+            }
+            if (!manyLayouts || !settings.GetBool("keys.lang", true)) return;
+            IntPtr win = Native.GetForegroundWindow();
+            IntPtr hkl = GetKeyboardLayout(GetWindowThreadProcessId(win, IntPtr.Zero));
+            if (hkl == IntPtr.Zero) return;
+            // Switching windows isn't a change
+            bool same = win == layoutWin;
+            layoutWin = win;
+            if (hkl == layoutNow) return;
+            bool first = layoutNow == IntPtr.Zero;
+            layoutNow = hkl;
+            if (first || !same) return;
+            var name = LayoutName(hkl);
+            var t = ShowToast(View.Locks, 1.6, 1, false, true);
+            if (t == null) return;
+            t.Title = name[1];
+            t.Detail = name[0];
+            t.Flag = true;
+            t.Data = name;
+        }
+
+        // Code like EN, plus language name
+        string[] LayoutName(IntPtr hkl)
+        {
+            long key = hkl.ToInt64();
+            string[] n;
+            if (layoutNames.TryGetValue(key, out n)) return n;
+            int lang = (int)(key & 0xFFFF);
+            try
+            {
+                var c = new CultureInfo(lang);
+                string title = c.NativeName;
+                int paren = title.IndexOf(" (");
+                if (paren > 0) title = title.Substring(0, paren);
+                if (title.Length > 0) title = char.ToUpper(title[0], c) + title.Substring(1);
+                n = new[] { c.TwoLetterISOLanguageName.ToUpperInvariant(), title };
+            }
+            catch (Exception) { n = new[] { "?", lang.ToString("X4") }; }
+            layoutNames[key] = n;
+            return n;
         }
 
         // Lasting cue only while Caps is on
@@ -55,30 +115,37 @@ namespace Tepi
             t.Flag = on;
         }
 
-        string LockState() { return toast != null && toast.Flag ? Lang.T("nyala") : Lang.T("mati"); }
+        string LockState()
+        {
+            if (toast == null) return "";
+            if (toast.Data is string[]) return Lang.T("bahasa input");
+            return toast.Flag ? Lang.T("nyala") : Lang.T("mati");
+        }
 
         float LocksWidth()
         {
             if (toast == null || p.G == null) return 200;
-            return Clamp(p.Measure(toast.Title, Ink.Semi(13.5f)) + 14 + p.Measure(LockState(), Ink.Text(12.5f)) + 70, 170, 300);
+            return Clamp(p.Measure(toast.Title, Ink.Semi(13.5f)) + 14 + p.Measure(LockState(), Ink.Text(12.5f)) + 70 + (toast.Detail.Length > 1 ? 8 : 0), 170, 340);
         }
 
         void DrawLocks(float w, float h)
         {
             if (toast == null) return;
             float cy = h / 2;
-            Keycap(29, cy, 9f, toast.Detail, toast.Flag);
+            float x = toast.Detail.Length > 1 ? 56 : 48;
+            Keycap(x - 19, cy, 9f, toast.Detail, toast.Flag);
             var semi = Ink.Semi(13.5f);
-            p.Text(toast.Title, semi, p.T.Text, 48, cy, w - 68, StringAlignment.Near);
-            float dx = 48 + p.Measure(toast.Title, semi) + 14;
+            p.Text(toast.Title, semi, p.T.Text, x, cy, w - x - 20, StringAlignment.Near);
+            float dx = x + p.Measure(toast.Title, semi) + 14;
             p.Text(LockState(), Ink.Text(12.5f), p.T.Sub, dx, cy, w - dx - 20, StringAlignment.Near);
         }
 
         // Keycap: filled while locked on
         void Keycap(float cx, float cy, float r, string label, bool on)
         {
-            var box = new RectangleF(cx - r, cy - r, r * 2, r * 2);
-            var font = Ink.Semi(r * 1.15f);
+            float half = label.Length > 1 ? r * 1.45f : r;
+            var box = new RectangleF(cx - half, cy - r, half * 2, r * 2);
+            var font = Ink.Semi(label.Length > 1 ? r * 1.0f : r * 1.15f);
             if (on)
             {
                 p.FillRound(box, r * 0.45f, p.T.Text);
