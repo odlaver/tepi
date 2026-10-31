@@ -144,8 +144,8 @@ namespace Tepi
         float BarsFps()
         {
             if (!mediaInfo.Playing) return 0;
-            if (spectrum.Active) return LiveFps;
-            foreach (var b in bands) if (b > 0.004f) return LiveFps;
+            if (spectrum.Active) return BarsLiveFps;
+            foreach (var b in bands) if (b > 0.004f) return BarsLiveFps;
             return 0;
         }
 

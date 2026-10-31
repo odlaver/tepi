@@ -24,6 +24,9 @@ namespace Tepi
 
         public bool SameCapture(FrostJob o) { return o != null && W == o.W && H == o.H && Left == o.Left && Top == o.Top; }
 
+        // This capture spans o's area
+        public bool Covers(FrostJob o) { return Top == o.Top && Left <= o.Left && Left + W >= o.Left + o.W && H >= o.H; }
+
         public bool SameLook(FrostJob o) { return SameBase(o) && Cover == o.Cover && BackdropGen == o.BackdropGen; }
 
         // Same glass apart from the music wash
@@ -196,7 +199,7 @@ namespace Tepi
             Volatile.Write(ref frostJob, job);
             // Wake only when glass no longer fits
             var pl = plate;
-            bool outgrown = pl == null || w > pl.Job.W || h > pl.Job.H || job.Left != pl.Job.Left;
+            bool outgrown = pl == null || !pl.Job.Covers(job);
             if (outgrown || !job.SameLook(last)) frostWake.Set();
         }
 
@@ -231,9 +234,10 @@ namespace Tepi
                 // Unseen: hidden, locked or screen off
                 if (!windowShown || dormant) { wait = 2000; continue; }
                 if (Interlocked.Exchange(ref frostHint, 0) != 0) still = 0;
-                bool outgrown = last == null || !job.SameCapture(last) && (job.W > last.W || job.H > last.H || job.Left != last.Left);
+                bool outgrown = last == null || !last.Covers(job);
                 // Mid-motion: the music wash waits too
-                if (inMotion && !outgrown && job.SameBase(last)) { wait = 150; continue; }
+                // Shrinking off the panel: old plate still fits
+                if (inMotion && !outgrown && (job.SameBase(last) || !job.Panel)) { wait = 150; continue; }
                 if (frostDirty) { frostDirty = false; sig = null; }
                 bool sameJob = job.SameCapture(last) && job.SameLook(last);
                 // Panel plates: at most ~2.5 per second

@@ -452,7 +452,7 @@ namespace Tepi
                         break;
                     case "activity":
                         add(Row(Lang.T("Lirik di island"), null, Switch("lyrics", true, null)));
-                        add(Row(Lang.T("Cari lirik online"), Lang.T("Judul, artis, dan durasi ke LRCLIB"), Switch("lyrics.online", true, null)));
+                        add(Row(Lang.T("Cari lirik online"), Lang.T("Judul, artis, dan durasi ke LRCLIB, cadangannya NetEase"), Switch("lyrics.online", true, null)));
                         add(Row(Lang.T("Visualizer"), null, Switch("visualizer", true, null)));
                         cap(Lang.T("Pesan"));
                         add(Row(Lang.T("Notifikasi pesan"), null, Switch("notif", true, on => { island.SetFlag("notif", on); Relayout(); })));
@@ -527,7 +527,7 @@ namespace Tepi
                     case "about":
                         add(Row("Tepi " + AppVersion, Lang.T("Dynamic island untuk Windows · MIT"), Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); })));
                         add(UpdateRow());
-                        add(Row(Lang.T("Layanan luar"), Lang.T("LRCLIB, Kulia, GitHub, dan integrasi yang tersambung; semuanya bisa dimatikan"), null));
+                        add(Row(Lang.T("Layanan luar"), Lang.T("LRCLIB, NetEase, Kulia, GitHub, dan integrasi yang tersambung; semuanya bisa dimatikan"), null));
                         break;
                 }
                 flush();

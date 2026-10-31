@@ -67,22 +67,9 @@ namespace Tepi
 
         public delegate void WinEventProc(IntPtr hook, uint evt, IntPtr hwnd, int idObject, int idChild, uint thread, uint time);
 
-        // prcDirty limits the copy to one rect
-        [StructLayout(LayoutKind.Sequential)]
-        public struct ULWINFO
-        {
-            public int cbSize;
-            public IntPtr hdcDst, pptDst, psize, hdcSrc, pptSrc;
-            public int crKey;
-            public IntPtr pblend;
-            public int dwFlags;
-            public IntPtr prcDirty;
-        }
-
         [DllImport("user32.dll", SetLastError = true)]
         public static extern bool UpdateLayeredWindow(IntPtr hwnd, IntPtr hdcDst, ref POINT pptDst, ref SIZE psize,
             IntPtr hdcSrc, ref POINT pptSrc, int crKey, ref BLENDFUNCTION pblend, int dwFlags);
-        [DllImport("user32.dll", SetLastError = true)] public static extern bool UpdateLayeredWindowIndirect(IntPtr hwnd, ref ULWINFO info);
         [DllImport("kernel32.dll")] public static extern IntPtr GetCurrentThread();
         [DllImport("kernel32.dll")] public static extern bool GetThreadTimes(IntPtr thread, out long creation, out long exit, out long kernel, out long user);
         [DllImport("kernel32.dll")] public static extern bool GetProcessTimes(IntPtr process, out long creation, out long exit, out long kernel, out long user);

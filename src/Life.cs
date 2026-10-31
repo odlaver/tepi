@@ -79,7 +79,7 @@ namespace Tepi
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "2.0.0.1";
+        public const string AppVersion = "2.0.0.2";
         string newVersion, newUrl;
         bool newRebuild, checking, checkFailed;
         DateTime checkedUtc;
@@ -221,7 +221,7 @@ namespace Tepi
         void SyncLyrics()
         {
             if (!mediaInfo.Present) return;
-            // Privacy switch: nothing goes to LRCLIB
+            // Privacy switch: no lyric lookups
             if (!settings.GetBool("lyrics.online", true))
             {
                 if (lyrics == null || lyrics.Key != mediaInfo.Key) lyrics = new Lyrics { Key = mediaInfo.Key, State = LyricState.Missing };

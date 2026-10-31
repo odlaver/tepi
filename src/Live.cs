@@ -32,6 +32,8 @@ namespace Tepi
     {
         // Motion at 30 fps; times each second
         const float LiveFps = 30, TickFps = 1;
+        // Bars follow the display
+        const float BarsLiveFps = 60;
         readonly List<LiveSlot> slots = new List<LiveSlot>();
         int slotCount, liveInline, framePxW, framePxH;
         // Steady frames record; partial frames replay
@@ -45,9 +47,6 @@ namespace Tepi
         RectangleF liveShellRect;
         float liveShellR;
         readonly PointF[] livePts = new PointF[3];
-        readonly int[] dirtyBuf = new int[8];
-        GCHandle dirtyPin;
-        static readonly int UlwSize = Marshal.SizeOf(typeof(Native.ULWINFO));
 
         // Draws now, then alone at fps
         void LiveRect(RectangleF local, float fps, Action<DateTime> draw) { LiveRect(local, fps, null, draw); }
@@ -202,7 +201,7 @@ namespace Tepi
             for (int i = 0; i < slotCount; i++) if (slots[i].Hot) DrawSlot(slots[i], now, t);
             g.Flush(FlushIntention.Sync);
             double p2 = Prof.T();
-            PresentDirty(dirty);
+            PresentLive();
             if (fpsLog) { liveRestoreMs += p1 - p0; liveDrawMs += p2 - p1; livePresentMs += Prof.T() - p2; }
             lastPresentTick = Environment.TickCount;
             presented.Set();
@@ -283,20 +282,14 @@ namespace Tepi
             for (int y = 0; y < s.Px.Height; y++) Marshal.Copy(s.Under, y * row, new IntPtr(at + y * stride), row);
         }
 
-        // Same window, only the dirty rect copied
-        void PresentDirty(Rectangle r)
+        // Whole surface; dirty-rect updates stop showing
+        void PresentLive()
         {
-            if (!dirtyPin.IsAllocated) dirtyPin = GCHandle.Alloc(dirtyBuf, GCHandleType.Pinned);
-            IntPtr at = dirtyPin.AddrOfPinnedObject();
-            dirtyBuf[0] = 0;
-            dirtyBuf[1] = 0;
-            dirtyBuf[2] = (int)((uint)(byte)(255 * Ease.Clamp01(opacity.Value)) << 16 | 1u << 24);
-            dirtyBuf[4] = r.Left;
-            dirtyBuf[5] = r.Top;
-            dirtyBuf[6] = r.Right;
-            dirtyBuf[7] = r.Bottom;
-            var info = new Native.ULWINFO { cbSize = UlwSize, hdcSrc = memDC, pptSrc = at, pblend = at + 8, dwFlags = Native.ULW_ALPHA, prcDirty = at + 16 };
-            if (Native.UpdateLayeredWindowIndirect(Handle, ref info)) return;
+            var dst = new Native.POINT(lastLeft, monitorPx.Top);
+            var size = new Native.SIZE(framePxW, framePxH);
+            var src = new Native.POINT(0, 0);
+            var blend = new Native.BLENDFUNCTION { SourceConstantAlpha = (byte)(255 * Ease.Clamp01(opacity.Value)), AlphaFormat = 1 };
+            if (Native.UpdateLayeredWindow(Handle, IntPtr.Zero, ref dst, ref size, memDC, ref src, 0, ref blend, Native.ULW_ALPHA)) return;
             Log.Write("live present: " + Marshal.GetLastWin32Error());
             liveReady = false;
             frameDirty = true;

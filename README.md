@@ -20,7 +20,7 @@ Persen CPU dihitung terhadap satu core. Selama panel terbuka memori naik ke seki
 | | |
 |---|---|
 | Ringkasan | Kartu-kartu yang diurutkan menurut yang paling mendesak: lagu yang diputar beserta kontrolnya, agen yang bekerja, kelas berikutnya atau tenggat terdekat, pesan, timer, dan isi rak. Kalau tidak ada apa-apa, yang tampil jam besar. |
-| Musik dan lirik | Semua pemutar yang muncul di kontrol media Windows: Spotify, YouTube dan YouTube Music di browser, Apple Music, Media Player, VLC, dan lainnya. Yang sedang berbunyi yang ditampilkan. Lirik tersinkron dari LRCLIB menyapu kata demi kata di island. Panel musik punya dua tata letak: teleprompter lirik atau kartu album dengan piringan hitam yang berputar. Visualizer membaca suara yang benar-benar diputar. |
+| Musik dan lirik | Semua pemutar yang muncul di kontrol media Windows: Spotify, YouTube dan YouTube Music di browser, Apple Music, Media Player, VLC, dan lainnya. Yang sedang berbunyi yang ditampilkan. Lirik tersinkron dari LRCLIB (cadangannya NetEase) menyapu kata demi kata di island. Panel musik punya dua tata letak: teleprompter lirik atau kartu album dengan piringan hitam yang berputar. Visualizer membaca suara yang benar-benar diputar. |
 | Mini dan mata | Island bisa menyusut jadi sliver kecil di tepi atas yang tembus klik, jadi tidak menghalangi tab browser. Mode **Otomatis** (bawaan) menyusut saat jendela di depan menutupi tepi atas atau setelah island diam semenit. Sliver punya dua mata yang berkedip, mengikuti kursor, dan berekspresi. Pemberitahuan penting tetap muncul. |
 | Agent coding | Claude Code, Codex, Gemini CLI, dan Antigravity. Status setiap sesi (sedang bekerja, menunggu izin, selesai beserta ringkasan balasannya). Rencana kerja agen (TodoWrite di Claude Code, `update_plan` di Codex, `write_todos` di Gemini) tampil sebagai bar bersegmen, hitungan seperti `3/7`, dan daftar langkah yang bisa dibuka. Permintaan izin dari Claude Code dan Codex bisa dijawab **Izinkan**, **Selalu**, atau **Tolak** langsung dari island; perubahan berkas tampil sebagai diff berwarna (baris tambah hijau, baris hapus merah) yang bisa digulir sampai habis sebelum diizinkan. Prompt singkat bisa dikirim ke terminal sesi dari tab Agen. Kuota Claude (jendela 5 jam dan 7 hari) tampil sebagai satu baris di tab Agen beserta jam resetnya, dengan peringatan di 80% dan 95%. |
 | Kuliah | Tab berisi dua segmen. **Tugas**: tugas aktif dari [Kulia](https://kulia.live), Notion, dan Todoist dengan tenggatnya, pengingat 60 menit sebelum tenggat, dan tombol tandai selesai. **Jadwal**: kelas dan acara dari Kulia serta kalender iCal (Google, Outlook, iCloud, dan lainnya) tujuh hari ke depan; kartu kelas berikutnya, deretan hari, lalu satu baris per kelas. Kelas batal dicoret, ujian ditandai, kelas daring punya tombol **Buka kelas**. Selama kelas berjalan, island menampilkannya beserta sisa waktunya. |
@@ -257,6 +257,7 @@ Tepi hanya menghubungi layanan luar berikut, dan masing-masing bisa dimatikan. N
 | Layanan | Data yang dikirim | Kapan | Cara mematikan |
 |---|---|---|---|
 | [LRCLIB](https://lrclib.net) | Judul, artis, dan durasi lagu | Saat lagu baru diputar | **Pengaturan > Cari lirik online** |
+| [NetEase Cloud Music](https://music.163.com) | Judul dan artis lagu | Saat LRCLIB sibuk atau tidak punya lirik bersinkron | **Pengaturan > Cari lirik online** |
 | [Kulia](https://kulia.live) | Email, kode masuk, dan permintaan daftar tugas serta jadwalmu | Hanya kalau kamu masuk ke Kulia | Menu tray > **Kulia > Keluar dari Kulia** |
 | [Notion](https://www.notion.so) | Token integrasi dan permintaan isi database yang kamu bagikan | Hanya kalau kamu menghubungkan Notion | **Pengaturan > Integrasi > Lepas** |
 | [Todoist](https://todoist.com) | Token API dan permintaan daftar tugas aktif | Hanya kalau kamu menghubungkan Todoist | **Pengaturan > Integrasi > Lepas** |
@@ -317,7 +318,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `material` | `liquid` | `liquid`, `frost`, atau `solid` (hitam pekat). Kunci lama `glass=0` dibaca sebagai `solid` |
 | `theme` | `gelap` | `gelap` atau `terang` |
 | `lyrics` | `1` | Lirik tersinkron di island |
-| `lyrics.online` | `1` | Cari lirik di LRCLIB |
+| `lyrics.online` | `1` | Cari lirik di LRCLIB dan NetEase |
 | `visualizer` | `1` | Visualizer musik |
 | `music.view` | `auto` | `auto`, `lyrics`, atau `album` |
 | `notif` | `1` | Notifikasi pesan |

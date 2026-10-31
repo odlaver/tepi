@@ -49,7 +49,7 @@ namespace Tepi
         public double NextAt(int i) { return i + 1 < Lines.Count ? Lines[i + 1].AtMs : double.MaxValue; }
     }
 
-    // LRCLIB; sends only title, artist, duration
+    // LRCLIB, then NetEase; title, artist, duration only
     class LyricsService
     {
         public event Action<Lyrics> Ready;
@@ -66,8 +66,8 @@ namespace Tepi
             {
                 if (memory.TryGetValue(m.Key, out l))
                 {
-                    // Busy server: back off 30 s, 1, 2, 4 min, up to 10
-                    double wait = Math.Min(600, 30 * Math.Pow(2, Math.Max(0, l.Fails - 1)));
+                    // Busy server: 10, 20, 40 s, up to 2 min
+                    double wait = Math.Min(120, 10 * Math.Pow(2, Math.Max(0, l.Fails - 1)));
                     bool retry = l.State == LyricState.Failed && (DateTime.UtcNow - l.FailedUtc).TotalSeconds > wait;
                     if (!retry) return l;
                 }
@@ -112,17 +112,33 @@ namespace Tepi
                 {
                     int dur = (int)Math.Round(durationMs / 1000);
                     string q = "track_name=" + Uri.EscapeDataString(title) + (artist.Length > 0 ? "&artist_name=" + Uri.EscapeDataString(artist) : "");
-                    if (artist.Length > 0)
+                    Exception down = null;
+                    try
                     {
-                        var exact = Ask("https://lrclib.net/api/get?" + q + "&duration=" + dur);
-                        if (exact != null) { lrc = Synced(exact); plain = Plain(exact); }
+                        if (artist.Length > 0)
+                        {
+                            var exact = Ask("https://lrclib.net/api/get?" + q + "&duration=" + dur);
+                            if (exact != null) { lrc = Synced(exact); plain = Plain(exact); }
+                        }
+                        foreach (var url in new[] { "https://lrclib.net/api/search?" + q, "https://lrclib.net/api/search?q=" + Uri.EscapeDataString((artist + " " + title).Trim()) })
+                        {
+                            if (lrc != null) break;
+                            var items = Ask(url) as object[];
+                            lrc = Best(items, dur, true);
+                            if (plain == null) plain = Best(items, dur, false);
+                        }
                     }
-                    foreach (var url in new[] { "https://lrclib.net/api/search?" + q, "https://lrclib.net/api/search?q=" + Uri.EscapeDataString((artist + " " + title).Trim()) })
+                    catch (Exception ex) { down = ex; }
+                    // LRCLIB busy or unsynced: NetEase
+                    if (lrc == null)
                     {
-                        if (lrc != null) break;
-                        var items = Ask(url) as object[];
-                        lrc = Best(items, dur, true);
-                        if (plain == null) plain = Best(items, dur, false);
+                        try { lrc = NetEase(title, artist, dur); }
+                        catch (Exception ex) { if (down != null) throw new Exception(down.Message + "; " + ex.Message); }
+                    }
+                    if (down != null)
+                    {
+                        if (lrc == null && plain == null) throw down;
+                        Log.Write("lyrics '" + artist + " - " + title + "': " + down.Message + (lrc != null ? " · NetEase" : ""));
                     }
                     Directory.CreateDirectory(CacheDir);
                     if (lrc != null) File.WriteAllText(file, lrc, new UTF8Encoding(false));
@@ -149,12 +165,76 @@ namespace Tepi
             return result;
         }
 
-        static object Ask(string url)
+        // LRCLIB short: NetEase waits behind it
+        static readonly int[] LrclibRetryMs = { 1000 }, NetEaseRetryMs = { 1000, 2500 };
+
+        // Overload bursts pass in seconds: retry
+        static WebResult Get(string url, int[] retryMs)
         {
             var r = Web.Send("GET", url, null, null, 9000);
+            for (int i = 0; i < retryMs.Length && (r.Status == 0 || r.Status == 429 || r.Status >= 500); i++)
+            {
+                Thread.Sleep(retryMs[i]);
+                r = Web.Send("GET", url, null, null, 9000);
+            }
+            return r;
+        }
+
+        static object Ask(string url)
+        {
+            var r = Get(url, LrclibRetryMs);
             if (r.Status == 404 || r.Status == 400) return null;
             if (!r.Ok) throw new Exception("LRCLIB " + r.Status + " " + Fmt.OneLine(r.Body, 80));
             return Json.Parse(r.Body);
+        }
+
+        static readonly Regex Credit = new Regex(@"^(作词|作曲|编曲|制作人|监制|混音|母带|录音|和声|吉他|贝斯|鼓|键盘|弦乐|出品|发行|词|曲)\s*[:：]");
+
+        // Same song: artist, title, length agree
+        static string NetEase(string title, string artist, int durationSec)
+        {
+            if (artist.Length == 0) return null;
+            var r = Get("https://music.163.com/api/search/get?s=" + Uri.EscapeDataString(artist + " " + title) + "&type=1&limit=10", NetEaseRetryMs);
+            if (!r.Ok) throw new Exception("NetEase " + r.Status);
+            var songs = Json.Arr(Json.Obj(Json.Parse(r.Body), "result"), "songs");
+            if (songs == null) return null;
+            string want = Bare(title), by = Norm(artist);
+            if (want.Length == 0 || by.Length == 0) return null;
+            double best = double.MaxValue, id = 0;
+            foreach (var s in songs)
+            {
+                double gap = Math.Abs(Json.Num(s, "duration", 0) / 1000 - durationSec);
+                if (gap > 8 || Bare(Json.Str(s, "name")) != want) continue;
+                bool same = false;
+                var artists = Json.Arr(s, "artists");
+                if (artists != null) foreach (var a in artists) { string n = Norm(Json.Str(a, "name")); if (n.Length > 0 && (by.Contains(n) || n.Contains(by))) same = true; }
+                if (same && gap < best) { best = gap; id = Json.Num(s, "id", 0); }
+            }
+            if (id <= 0) return null;
+            r = Get("https://music.163.com/api/song/lyric?id=" + ((long)id).ToString(CultureInfo.InvariantCulture) + "&lv=1", NetEaseRetryMs);
+            if (!r.Ok) throw new Exception("NetEase " + r.Status);
+            string lrc = Json.Str(Json.Obj(Json.Parse(r.Body), "lrc"), "lyric");
+            if (lrc.IndexOf("纯音乐", StringComparison.Ordinal) >= 0) return null;
+            var sb = new StringBuilder();
+            foreach (var raw in lrc.Replace("\r", "").Split('\n'))
+            {
+                var m = Stamp.Match(raw);
+                if (!m.Success || Credit.IsMatch(raw.Substring(m.Index + m.Length).Trim())) continue;
+                sb.Append(raw).Append('\n');
+            }
+            return Parse(sb.ToString()).Count > 0 ? sb.ToString() : null;
+        }
+
+        // Title without (feat.), [Remastered] and the like
+        static string Bare(string s) { return Norm(Regex.Replace(s ?? "", @"\s*[\(\[][^\)\]]*[\)\]]", "")); }
+
+        // Case, accents, punctuation aside
+        static string Norm(string s)
+        {
+            var sb = new StringBuilder();
+            foreach (char c in (s ?? "").Normalize(NormalizationForm.FormD))
+                if (char.IsLetterOrDigit(c)) sb.Append(char.ToLowerInvariant(c));
+            return sb.ToString();
         }
 
         static string Synced(object item)
