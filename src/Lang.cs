@@ -602,6 +602,7 @@ namespace Tepi
             { "Internet kembali", "Internet is back" },
             { "Cabut charger", "Unplug the charger" },
             { "Catatan kilat", "Quick note" },
+            { "Baterai {0} {1}%", "{0} battery {1}%" },
             { "Cuaca dan hujan", "Weather and rain" },
             { "Suhu di Ringkasan dan peringatan hujan, dari Open-Meteo", "Temperature in Overview and rain alerts, from Open-Meteo" },
             { "Pilih kota dulu", "Pick a city first" },

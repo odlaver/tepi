@@ -168,6 +168,7 @@ namespace Tepi
             TickApps();
             PruneRuns();
             TickWeather();
+            TickBluetooth(false);
             if (mediaInfo.Present) SyncLyrics();
             List<string> stale = null;
             foreach (var s in sessions.Values)
