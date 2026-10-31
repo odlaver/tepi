@@ -61,6 +61,7 @@ namespace Tepi
             volume.Changed += (level, mute, first) => Post(() => OnVolume(level, mute, first));
             volume.DeviceChanged += () => spectrum.Restart();
             volume.MicChanged += (m, present, first) => Post(() => OnMic(m, present, first));
+            volume.AppsChanged += l => Post(() => OnApps(l));
             net.Changed += (a, b) => Post(() => OnNet(a, b));
             privacy.Changed += (m, c) => Post(() => OnPrivacy(m, c));
             notifWatcher.Updated += (access, list) => Post(() => OnNotifs(access, list));
@@ -164,6 +165,7 @@ namespace Tepi
         {
             var now = DateTime.UtcNow;
             bool redraw = false;
+            TickApps();
             if (mediaInfo.Present) SyncLyrics();
             List<string> stale = null;
             foreach (var s in sessions.Values)
