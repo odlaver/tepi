@@ -114,8 +114,10 @@ namespace Tepi
         {
             if (toast == null) return;
             float cy = h / 2;
-            p.Icon(toast.Flag ? IcoMicOff : Ink.IcoMic, 15f, toast.Flag ? p.T.Negative : p.T.Text, 30, cy);
-            p.Text(MicTitle(), Ink.Semi(13.5f), p.T.Text, 50, cy, w - 70, StringAlignment.Near);
+            var semi = Ink.Semi(13.5f);
+            float x = CenterStart(w, 27, MicTitle(), semi, null, semi, 0);
+            p.Icon(toast.Flag ? IcoMicOff : Ink.IcoMic, 15f, toast.Flag ? p.T.Negative : p.T.Text, x + 8, cy);
+            p.Text(MicTitle(), semi, p.T.Text, x + 27, cy, w - x - 43, StringAlignment.Near);
         }
     }
 }

@@ -673,19 +673,33 @@ namespace Tepi
         {
             float cy = h / 2;
             string kind = toast != null ? toast.Data as string : "";
-            p.Battery(20, cy, batteryFill.Value, p.T.Text, onAc);
             string title = kind == "plug" ? Lang.T("Mengisi daya") : kind == "unplug" ? Lang.T("Charger dicabut") : kind == "full" ? Lang.T("Baterai penuh") : Lang.T("Baterai lemah");
-            p.Text(title, Ink.Semi(13.5f), p.T.Text, 64, cy, w - 64 - 70, StringAlignment.Near);
-            p.TextRight(battery + "%", Ink.Semi(13.5f), p.T.Text, w - 22, cy);
+            var semi = Ink.Semi(13.5f);
+            string pct = battery + "%";
+            float x = CenterStart(w, 44, title, semi, pct, semi, 60);
+            p.Battery(x, cy, batteryFill.Value, p.T.Text, onAc);
+            p.Text(title, semi, p.T.Text, x + 44, cy, w - x - 60, StringAlignment.Near);
+            p.Text(pct, semi, p.T.Sub, x + 44 + p.Measure(title, semi) + 14, cy, 60, StringAlignment.Near);
         }
 
         void DrawNetwork(float w, float h)
         {
             if (toast == null) return;
             float cy = h / 2;
-            p.Icon(toast.Flag ? Ink.IcoWifi : Ink.IcoGlobe, 16f, toast.Flag ? p.T.Text : p.T.Sub, 28, cy);
-            p.Text(toast.Title, Ink.Semi(13.5f), p.T.Text, 54, cy, 160, StringAlignment.Near);
-            p.TextRight(toast.Detail, Ink.Text(12.5f), p.T.Sub, w - 22, cy);
+            var semi = Ink.Semi(13.5f);
+            float x = CenterStart(w, 28, toast.Title, semi, toast.Detail, Ink.Text(12.5f), 160);
+            p.Icon(toast.Flag ? Ink.IcoWifi : Ink.IcoGlobe, 16f, toast.Flag ? p.T.Text : p.T.Sub, x + 8, cy);
+            p.Text(toast.Title, semi, p.T.Text, x + 28, cy, 200, StringAlignment.Near);
+            float dx = x + 28 + p.Measure(toast.Title, semi) + 14;
+            p.Text(toast.Detail, Ink.Text(12.5f), p.T.Sub, dx, cy, w - dx - 8, StringAlignment.Near);
+        }
+
+        // Lead, title, detail as one centred group
+        float CenterStart(float w, float lead, string title, Font tf, string detail, Font df, float detailMax)
+        {
+            float total = lead + p.Measure(title, tf);
+            if (!string.IsNullOrEmpty(detail)) total += 14 + Math.Min(detailMax, p.Measure(detail, df));
+            return Math.Max(16, (w - total) / 2);
         }
 
         float PrivacyWidth()
@@ -698,11 +712,15 @@ namespace Tepi
         {
             if (toast == null) return;
             float cy = h / 2;
-            p.Icon(toast.Flag ? Ink.IcoCam : Ink.IcoMic, 14f, p.T.Text, 24, cy);
             var semi = Ink.Semi(13f);
-            p.Text(toast.Title, semi, p.T.Text, 44, cy, 200, StringAlignment.Near);
-            float x = 44 + Math.Min(200, p.Measure(toast.Title, semi));
-            p.Text(toast.Flag ? Lang.T(" memakai kamera") : Lang.T(" memakai mikrofon"), Ink.Text(12.5f), p.T.Sub, x, cy, w - x - 16, StringAlignment.Near);
+            var small = Ink.Text(12.5f);
+            string tail = toast.Flag ? Lang.T(" memakai kamera") : Lang.T(" memakai mikrofon");
+            float tw = Math.Min(200, p.Measure(toast.Title, semi));
+            float left = Math.Max(16, (w - 20 - tw - p.Measure(tail, small)) / 2);
+            p.Icon(toast.Flag ? Ink.IcoCam : Ink.IcoMic, 14f, p.T.Text, left + 7, cy);
+            p.Text(toast.Title, semi, p.T.Text, left + 20, cy, 200, StringAlignment.Near);
+            float x = left + 20 + tw;
+            p.Text(tail, small, p.T.Sub, x, cy, w - x - 8, StringAlignment.Near);
         }
 
         float InfoWidth()
@@ -715,16 +733,20 @@ namespace Tepi
         void DrawInfo(float w, float h)
         {
             if (toast == null) return;
-            float cy = h / 2, x = 22;
-            if (toast.Emblem && emblem != null) { DrawEmblem(31, cy, 11f); x = 50; }
-            else if (toast.Glyph == IcoGauge) { Ring(30, cy, 7f, quotaToastLevel, p.T.Accent, 2f); x = 48; }
-            else if (toast.Glyph != '\0') { p.Icon(toast.Glyph, 14f, p.T.Text, 30, cy); x = 48; }
+            float cy = h / 2;
             var semi = Ink.Semi(13.5f);
-            p.Text(toast.Title, semi, p.T.Text, x, cy, w - x - 20, StringAlignment.Near);
+            bool badge = toast.Emblem && emblem != null, gauge = !badge && toast.Glyph == IcoGauge, glyph = !badge && !gauge && toast.Glyph != '\0';
+            float lead = badge ? 28 : gauge || glyph ? 26 : 0;
+            float x = CenterStart(w, lead, toast.Title, semi, toast.Detail, Ink.Text(12.5f), 200);
+            if (badge) DrawEmblem(x + 9, cy, 11f);
+            else if (gauge) Ring(x + 8, cy, 7f, quotaToastLevel, p.T.Accent, 2f);
+            else if (glyph) p.Icon(toast.Glyph, 14f, p.T.Text, x + 8, cy);
+            x += lead;
+            p.Text(toast.Title, semi, p.T.Text, x, cy, w - x - 16, StringAlignment.Near);
             if (toast.Detail.Length > 0)
             {
                 float dx = x + p.Measure(toast.Title, semi) + 14;
-                p.Text(toast.Detail, Ink.Text(12.5f), p.T.Sub, dx, cy, w - dx - 20, StringAlignment.Near);
+                p.Text(toast.Detail, Ink.Text(12.5f), p.T.Sub, dx, cy, w - dx - 8, StringAlignment.Near);
             }
             var act = toast.Data as Action;
             if (act != null) AddHit(new RectangleF(0, 0, w, h), "infoAct", delegate { act(); DismissToast(); });
