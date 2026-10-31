@@ -6,7 +6,7 @@ using System.Windows.Forms;
 
 namespace Tepi
 {
-    // Clipboard history: text only, memory only
+    // Clipboard history: text only, memory only; images go to Shots
     partial class Island
     {
         class ClipItem { public string Text; public DateTime Utc; }
@@ -25,10 +25,11 @@ namespace Tepi
 
         void ApplyClips()
         {
-            bool want = ClipsOn;
+            bool want = ClipsOn || ShotsOn;
+            if (!ClipsOn) clips.Clear();
             if (want == clipListening) return;
             if (want) clipListening = AddClipboardFormatListener(Handle);
-            else { RemoveClipboardFormatListener(Handle); clipListening = false; clipRetry.Stop(); clips.Clear(); }
+            else { RemoveClipboardFormatListener(Handle); clipListening = false; clipRetry.Stop(); }
             clipRetry.Tick -= ClipRetryTick;
             clipRetry.Tick += ClipRetryTick;
         }
@@ -44,7 +45,7 @@ namespace Tepi
             try
             {
                 var data = System.Windows.Forms.Clipboard.GetDataObject();
-                if (data == null || !data.GetDataPresent(DataFormats.UnicodeText)) return;
+                if (data == null) return;
                 // Password managers flag secrets this way
                 if (data.GetDataPresent("ExcludeClipboardContentFromMonitorProcessing") || data.GetDataPresent("Clipboard Viewer Ignore")) return;
                 if (data.GetDataPresent("CanIncludeInClipboardHistory"))
@@ -52,6 +53,13 @@ namespace Tepi
                     var flag = data.GetData("CanIncludeInClipboardHistory") as System.IO.MemoryStream;
                     if (flag != null && flag.Length >= 4 && BitConverter.ToInt32(flag.ToArray(), 0) == 0) return;
                 }
+                // Picture without text: preview it
+                if (data.GetDataPresent(DataFormats.Bitmap) && !data.GetDataPresent(DataFormats.UnicodeText))
+                {
+                    if (ShotsOn) OnClipImage(data);
+                    return;
+                }
+                if (!ClipsOn || !data.GetDataPresent(DataFormats.UnicodeText)) return;
                 text = data.GetData(DataFormats.UnicodeText) as string;
             }
             catch (ExternalException)

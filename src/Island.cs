@@ -13,7 +13,7 @@ using WinTimer = System.Windows.Forms.Timer;
 
 namespace Tepi
 {
-    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Mini, Panel }
+    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mini, Panel }
 
     class Toast
     {
@@ -194,6 +194,7 @@ namespace Tepi
             LoadLayout();
             BuildTray();
             ApplyClips();
+            CleanShots(false);
             ApplyDownloads();
             if (!RegisterHotKey(Handle, HideHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.H)) Log.Write("hotkey Ctrl+Alt+H taken");
             if (!RegisterHotKey(Handle, KeysHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.I)) Log.Write("hotkey Ctrl+Alt+I taken");
@@ -236,6 +237,7 @@ namespace Tepi
             foreach (var reg in new[] { powerSrc, powerPct, powerDisplay })
                 if (reg != IntPtr.Zero) Native.UnregisterPowerSettingNotification(reg);
             ReleaseApprovals();
+            CleanShots(true);
             if (tray != null) { tray.Visible = false; tray.Dispose(); }
             base.OnFormClosed(e);
         }
