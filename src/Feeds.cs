@@ -12,7 +12,9 @@ namespace Tepi
         public bool Online, Wifi, Any;
         public string Name = "";
 
-        public string Sig { get { return Any + "|" + Online + "|" + Wifi + "|" + Name; } }
+        // Behind a login page (hotel, campus)
+        public bool Captive;
+        public string Sig { get { return Any + "|" + Online + "|" + Captive + "|" + Wifi + "|" + Name; } }
     }
 
     // Wi-Fi / LAN / internet transitions, debounced
@@ -28,11 +30,15 @@ namespace Tepi
             debounce = new Timer(delegate { Check(); }, null, Timeout.Infinite, Timeout.Infinite);
             NetworkChange.NetworkAddressChanged += delegate { debounce.Change(1800, Timeout.Infinite); };
             NetworkChange.NetworkAvailabilityChanged += delegate { debounce.Change(1800, Timeout.Infinite); };
+            // Login done: address stays, level moves
+            NetworkInformation.NetworkStatusChanged += delegate { debounce.Change(1800, Timeout.Infinite); };
         }
 
         void Check()
         {
             var now = Read();
+            // Windows re-probes; look again while captive
+            if (now.Captive) debounce.Change(15000, Timeout.Infinite);
             if (now.Sig == last.Sig) return;
             var before = last;
             last = now;
@@ -50,6 +56,7 @@ namespace Tepi
                 s.Any = true;
                 var level = p.GetNetworkConnectivityLevel();
                 s.Online = level == NetworkConnectivityLevel.InternetAccess;
+                s.Captive = level == NetworkConnectivityLevel.ConstrainedInternetAccess;
                 s.Wifi = p.IsWlanConnectionProfile;
                 s.Name = s.Wifi && p.WlanConnectionProfileDetails != null ? p.WlanConnectionProfileDetails.GetConnectedSsid() : (p.ProfileName ?? "");
             }
