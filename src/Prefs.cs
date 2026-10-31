@@ -532,6 +532,8 @@ namespace Tepi
                         add(about);
                         add(UpdateRow());
                         add(Row(Lang.T("Layanan luar"), Lang.T("LRCLIB, NetEase, Kulia, GitHub, dan integrasi yang tersambung; semuanya bisa dimatikan"), null));
+                        // QRIS dialog lives on the site
+                        add(Row(Lang.T("Traktir Tepi kopi"), Lang.T("QRIS, dari bank atau e-wallet mana pun"), Button(Lang.T("Traktir"), false, delegate { OpenUrl("https://odlaver.github.io/tepi/#kopi"); })));
                         break;
                 }
                 flush();
