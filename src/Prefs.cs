@@ -262,14 +262,13 @@ namespace Tepi
                 y += 52 * Ui;
             }
 
-            // Black card: mark, version, running state
-            void Hero()
+            // Tepi 2.0 big, build digits tiny
+            KitRow VersionRow(Control field)
             {
-                var h = new KitHero { Left = (int)(28 * Ui), Top = (int)y, Width = rowW, Height = (int)(168 * Ui), Version = AppVersion, Status = Lang.T("Island berjalan"), Hint = Lang.T("Uji island") };
-                h.AccessibleName = Lang.T("Uji island");
-                h.Test += island.TestIsland;
-                content.Controls.Add(h);
-                y += h.Height + 22 * Ui;
+                var r = Row("Tepi " + AppVersion, Lang.T("Dynamic island untuk Windows · MIT"), field);
+                string[] ver = AppVersion.Split('.');
+                if (ver.Length > 2) { r.Title = "Tepi " + ver[0] + "." + ver[1]; r.Suffix = "." + string.Join(".", ver, 2, ver.Length - 2); }
+                return r;
             }
 
             void Caption(string text)
@@ -415,7 +414,8 @@ namespace Tepi
                 switch (id)
                 {
                     case "general":
-                        if (show) Hero();
+                        add(VersionRow(null));
+                        flush();
                         add(Row(Lang.T("Bahasa"), null, Seg(new[] { "Indonesia", "English" }, Lang.English ? 1 : 0, i => { island.SetLanguage(i == 1); Relayout(); })));
                         add(Row(Lang.T("Mulai bersama Windows"), null, StartupSwitch()));
                         add(Row(Lang.T("Cek versi baru"), Lang.T("Sekali sehari ke GitHub; unduhan hanya saat diminta"), Switch("update.check", true, on => { settings.Set("update.check", on); settings.Save(); })));
@@ -580,11 +580,7 @@ namespace Tepi
                         add(Row(Lang.T("Senyap"), Lang.T("Hanya izin, tenggat, sholat, dan timer yang muncul"), Switch("dnd", false, null)));
                         break;
                     case "about":
-                        var about = Row("Tepi " + AppVersion, Lang.T("Dynamic island untuk Windows · MIT"), Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); }));
-                        // 2.0 stays big; build digits tiny
-                        string[] ver = AppVersion.Split('.');
-                        if (ver.Length > 2) { about.Title = "Tepi " + ver[0] + "." + ver[1]; about.Suffix = "." + string.Join(".", ver, 2, ver.Length - 2); }
-                        add(about);
+                        add(VersionRow(Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); })));
                         add(UpdateRow());
                         add(Row(Lang.T("Layanan luar"), Lang.T("LRCLIB, NetEase, Kulia, GitHub, dan integrasi yang tersambung; semuanya bisa dimatikan"), null));
                         // QRIS dialog lives on the site
