@@ -451,6 +451,8 @@ namespace Tepi
     class KitRow : Panel
     {
         public string Title = "", Detail = "";
+        // Tiny tail after the title, e.g. ".0.2"
+        public string Suffix = "";
         public Control Field;
 
         public KitRow()
@@ -470,10 +472,28 @@ namespace Tepi
             using (var d = new Font(Ink.MenuFamily, 12f * s, GraphicsUnit.Pixel))
             {
                 bool two = Detail.Length > 0;
-                KitInk.Draw(g, Title, f, Enabled ? KitInk.Text : KitInk.Faint, new RectangleF(16 * s, two ? 7 * s : 0, right - 16 * s, two ? 22 * s : Height), ContentAlignment.MiddleLeft);
+                var tr = new RectangleF(16 * s, two ? 7 * s : 0, right - 16 * s, two ? 22 * s : Height);
+                KitInk.Draw(g, Title, f, Enabled ? KitInk.Text : KitInk.Faint, tr, ContentAlignment.MiddleLeft);
+                if (Suffix.Length > 0) DrawSuffix(g, f, tr, s);
                 if (two) KitInk.Draw(g, Detail, d, KitInk.Sub, new RectangleF(16 * s, 28 * s, right - 16 * s, 20 * s), ContentAlignment.MiddleLeft);
             }
         }
+
+        // Small text on the title's baseline
+        void DrawSuffix(Graphics g, Font f, RectangleF tr, float s)
+        {
+            const TextFormatFlags tight = TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
+            using (var small = new Font(Ink.MenuFamily, 9.5f * s, GraphicsUnit.Pixel))
+            {
+                int padded = TextRenderer.MeasureText(g, Title, f, Size.Empty, TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine).Width;
+                int bare = TextRenderer.MeasureText(g, Title, f, Size.Empty, tight).Width;
+                float x = tr.X + (padded - bare) / 2f + bare + 1 * s;
+                float baseline = tr.Y + (tr.Height - f.Height) / 2f + Ascent(f);
+                TextRenderer.DrawText(g, Suffix, small, new Point((int)Math.Round(x), (int)Math.Round(baseline - Ascent(small))), KitInk.Sub, tight);
+            }
+        }
+
+        static float Ascent(Font f) { return f.Size * f.FontFamily.GetCellAscent(f.Style) / f.FontFamily.GetEmHeight(f.Style); }
     }
 
     // Window: theme colours, dark caption, manual DPI
