@@ -270,17 +270,32 @@ namespace Tepi
 
         void OnNet(NetState a, NetState b)
         {
+            if (b.Captive && !a.Captive) { AskWifiLogin(b.Name); return; }
             var t = ShowToast(View.Network, 3.2, 2, false);
             if (t != null)
             {
                 t.Flag = b.Online;
                 if (!b.Any) { t.Title = Lang.T("Jaringan terputus"); t.Detail = a.Name; }
                 else if (!b.Online) { t.Title = Lang.T("Tanpa internet"); t.Detail = b.Name; }
+                else if (a.Captive || (!a.Online && a.Any && a.Name == b.Name)) { t.Title = Lang.T("Internet kembali"); t.Detail = b.Name; }
                 else if (b.Wifi) { t.Title = Lang.T("Wi-Fi tersambung"); t.Detail = b.Name; }
                 else { t.Title = Lang.T("Tersambung"); t.Detail = b.Name.Length > 0 ? b.Name : "LAN"; }
             }
             if (!a.Online && b.Online && tasksError != null) RefreshTasks(false);
             if (!a.Online && b.Online && sources != null) sources.Retry();
+            Kick();
+        }
+
+        // Captive portal: one click to its page
+        void AskWifiLogin(string ssid)
+        {
+            var t = ShowToast(View.Info, 12, 2, true);
+            if (t == null) return;
+            t.Glyph = Ink.IcoWifi;
+            t.Title = Lang.T("Wi-Fi butuh login");
+            t.Detail = ssid;
+            // Plain http on purpose: portals intercept it
+            t.Data = new Action(delegate { OpenUrl("http://www.msftconnecttest.com/redirect"); });
             Kick();
         }
 

@@ -598,6 +598,8 @@ namespace Tepi
             { "Bahasa input", "Input language" },
             { "Gambar disalin", "Image copied" },
             { "Mikrofon", "Microphone" },
+            { "Wi-Fi butuh login", "Wi-Fi needs a sign-in" },
+            { "Internet kembali", "Internet is back" },
             { "Flashdisk", "USB drive" },
             { "Aman dicabut", "Safe to remove" },
             { "Mengeluarkan…", "Ejecting…" },
