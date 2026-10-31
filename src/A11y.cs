@@ -60,6 +60,9 @@ namespace Tepi
                 case View.Privacy:
                     if (toast == null) return "";
                     return toast.Detail.Length > 0 ? toast.Title + ". " + toast.Detail : toast.Title;
+                case View.Drive:
+                    var dc = toast != null ? toast.Data as DriveCard : null;
+                    return dc == null ? "" : DriveTitle(dc) + ". " + DriveDetail(dc);
                 case View.Mic:
                     return MicTitle();
                 case View.Shot:

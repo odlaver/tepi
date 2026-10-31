@@ -13,7 +13,7 @@ using WinTimer = System.Windows.Forms.Timer;
 
 namespace Tepi
 {
-    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Mini, Panel }
+    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Drive, Mini, Panel }
 
     class Toast
     {
@@ -263,6 +263,9 @@ namespace Tepi
                 case AppBarMsg:
                     if (m.WParam.ToInt64() == 2) { fsTimer.Stop(); fsTimer.Start(); }
                     return;
+                case 0x0219: // WM_DEVICECHANGE
+                    OnDeviceChange(m.WParam, m.LParam);
+                    break;
                 case 0x031D: // WM_CLIPBOARDUPDATE
                     OnClipboardUpdate();
                     break;
