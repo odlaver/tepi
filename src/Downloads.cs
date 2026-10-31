@@ -31,13 +31,7 @@ namespace Tepi
 
         [DllImport("shell32.dll")] static extern int SHGetKnownFolderPath([MarshalAs(UnmanagedType.LPStruct)] Guid id, uint flags, IntPtr token, out IntPtr path);
 
-        static string DownloadsFolder()
-        {
-            IntPtr raw;
-            if (SHGetKnownFolderPath(new Guid("374DE290-123F-4565-9164-39C4925E467B"), 0, IntPtr.Zero, out raw) != 0) return null;
-            try { return Marshal.PtrToStringUni(raw); }
-            finally { Marshal.FreeCoTaskMem(raw); }
-        }
+        static string DownloadsFolder() { return KnownFolder(new Guid("374DE290-123F-4565-9164-39C4925E467B")); }
 
         void ApplyDownloads()
         {
