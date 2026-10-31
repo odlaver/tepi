@@ -475,7 +475,7 @@ namespace Tepi
             { "Cek versi baru", "Check for new versions" },
             { "Data", "Data" },
             { "Dihitung di laptop ini, metode Kemenag", "Computed on this laptop, Kemenag method" },
-            { "Dynamic island untuk Windows · MIT", "Dynamic island for Windows · MIT" },
+            { "Dynamic island untuk Windows · MIT · oleh R. Revaldo Vabiansyah", "Dynamic island for Windows · MIT · by R. Revaldo Vabiansyah" },
             { "Traktir Tepi kopi", "Buy Tepi a coffee" },
             { "QRIS, dari bank atau e-wallet mana pun", "QRIS, from any bank or e-wallet" },
             { "Traktir", "Buy a coffee" },

@@ -525,7 +525,7 @@ namespace Tepi
                         add(Row(Lang.T("Senyap"), Lang.T("Hanya izin, tenggat, sholat, dan timer yang muncul"), Switch("dnd", false, null)));
                         break;
                     case "about":
-                        var about = Row("Tepi " + AppVersion, Lang.T("Dynamic island untuk Windows · MIT"), Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); }));
+                        var about = Row("Tepi " + AppVersion, Lang.T("Dynamic island untuk Windows · MIT · oleh R. Revaldo Vabiansyah"), Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); }));
                         // 2.0 stays big; build digits tiny
                         string[] ver = AppVersion.Split('.');
                         if (ver.Length > 2) { about.Title = "Tepi " + ver[0] + "." + ver[1]; about.Suffix = "." + string.Join(".", ver, 2, ver.Length - 2); }
