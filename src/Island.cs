@@ -1389,6 +1389,8 @@ namespace Tepi
             toastTimer.Interval = Math.Max(1, (int)(seconds * 1000));
             toastTimer.Start();
             Kick();
+            // Text is filled after: size again
+            Post(Kick);
             return t;
         }
 

@@ -132,12 +132,14 @@ namespace Tepi
         {
             if (toast == null) return;
             float cy = h / 2;
-            float x = toast.Detail.Length > 1 ? 56 : 48;
-            Keycap(x - 19, cy, 9f, toast.Detail, toast.Flag);
+            float half = toast.Detail.Length > 1 ? 13f : 9f;
             var semi = Ink.Semi(13.5f);
-            p.Text(toast.Title, semi, p.T.Text, x, cy, w - x - 20, StringAlignment.Near);
+            float x = CenterStart(w, half * 2 + 11, toast.Title, semi, LockState(), Ink.Text(12.5f), 120);
+            Keycap(x + half, cy, 9f, toast.Detail, toast.Flag);
+            x += half * 2 + 11;
+            p.Text(toast.Title, semi, p.T.Text, x, cy, w - x - 16, StringAlignment.Near);
             float dx = x + p.Measure(toast.Title, semi) + 14;
-            p.Text(LockState(), Ink.Text(12.5f), p.T.Sub, dx, cy, w - dx - 20, StringAlignment.Near);
+            p.Text(LockState(), Ink.Text(12.5f), p.T.Sub, dx, cy, w - dx - 8, StringAlignment.Near);
         }
 
         // Keycap: filled while locked on
