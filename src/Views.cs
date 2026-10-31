@@ -676,7 +676,7 @@ namespace Tepi
         {
             float cy = h / 2;
             string kind = toast != null ? toast.Data as string : "";
-            string title = kind == "plug" ? Lang.T("Mengisi daya") : kind == "unplug" ? Lang.T("Charger dicabut") : kind == "full" ? Lang.T("Baterai penuh") : Lang.T("Baterai lemah");
+            string title = kind == "plug" ? Lang.T("Mengisi daya") : kind == "unplug" ? Lang.T("Charger dicabut") : kind == "full" ? Lang.T("Baterai penuh") : kind == "enough" ? Lang.T("Cabut charger") : Lang.T("Baterai lemah");
             var semi = Ink.Semi(13.5f);
             string pct = battery + "%";
             float x = CenterStart(w, 44, title, semi, pct, semi, 60);
