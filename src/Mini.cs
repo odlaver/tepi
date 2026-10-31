@@ -98,6 +98,7 @@ namespace Tepi
                 case View.Volume:
                 case View.Brightness:
                 case View.Locks:
+                case View.Shot:
                 case View.AudioDevice:
                 case View.Power:
                 case View.Remind:

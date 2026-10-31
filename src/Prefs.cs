@@ -43,6 +43,7 @@ namespace Tepi
             if (key == "dock") ResetFrost();
             else if (key == "notif") notifWatcher.Enabled = NotifOn;
             else if (key == "lyrics.online") { lyrics = null; SyncLyrics(); }
+            else if (key == "shots") ApplyClips();
             else if (key == "clipboard")
             {
                 ApplyClips();
@@ -467,6 +468,7 @@ namespace Tepi
                         add(Row(Lang.T("Kelas yang berlangsung"), null, Switch("class.island", true, null)));
                         add(Row(Lang.T("Progres unduhan"), null, Switch("downloads", true, null)));
                         add(Row(Lang.T("Riwayat clipboard"), Lang.T("Hanya di memori"), Switch("clipboard", false, null)));
+                        add(Row(Lang.T("Preview screenshot"), Lang.T("Gambar yang disalin tampil di island; salinan sementara dihapus saat Tepi ditutup"), Switch("shots", true, null)));
                         add(Row(Lang.T("Rak berkas"), Lang.T("Jalur berkas saja, hanya di memori"), Switch("shelf", true, null)));
                         add(Row(Lang.T("Istirahat fokus"), null, Slider(1, 30, 1, settings.GetInt("focus.break", 5), v => v + Lang.T(" menit"), v => { settings.Set("focus.break", v); settings.Save(); })));
                         break;
