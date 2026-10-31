@@ -370,4 +370,4 @@ Variabel lingkungan untuk pengembangan:
 
 ## Lisensi
 
-[MIT](LICENSE)
+[MIT](LICENSE), dibuat oleh R. Revaldo Vabiansyah ([@odlaver](https://github.com/odlaver)).
