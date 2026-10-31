@@ -171,13 +171,13 @@
     "coffee.note": "Works with any bank or e-wallet app that supports QRIS.",
     "coffee.dl": "Download QRIS",
     "coffee.close": "Close",
-    "foot.by": "Made by odlaver",
+    "foot.by": "Made by R. Revaldo Vabiansyah",
     "foot.social": "odlaver on social media",
     "foot.project": "Tepi project",
     "foot.src": "Source code",
     "foot.rel": "Releases",
     "foot.mit": "MIT License",
-    "doc.title": "Tepi: a dynamic island for Windows",
+    "doc.title": "Tepi: a free dynamic island for Windows 10 and 11",
     "doc.desc": "Tepi sits at the top edge of your Windows screen and grows when something happens: music and lyrics, coding agents, tasks, messages, timers. Free, one exe, open source."
   };
   // Indonesian strings not present in the markup
@@ -228,6 +228,9 @@
     $$("[data-i18n-alt]").forEach(function (el) { el.alt = t(el.dataset.i18nAlt); });
     $$("[data-i18n-label]").forEach(function (el) { el.setAttribute("aria-label", t(el.dataset.i18nLabel)); });
     document.title = t("doc.title");
+    // English view is its own page for search
+    var canon = $('link[rel="canonical"]');
+    if (canon && /\/tepi\/(\?lang=en)?$/.test(canon.href)) canon.href = "https://odlaver.github.io/tepi/" + (next === "en" ? "?lang=en" : "");
     $('meta[name="description"]').content = t("doc.desc");
     var btn = $("#lang");
     btn.textContent = next === "en" ? "ID" : "EN";
@@ -238,7 +241,8 @@
 
   capture();
   var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || "id"];
-  var first = saved() || (langs.some(function (l) { return /^(id|in)\b/i.test(l); }) ? "id" : "en");
+  var asked = (location.search.match(/[?&]lang=(en|id)\b/) || [])[1];
+  var first = asked || saved() || (langs.some(function (l) { return /^(id|in)\b/i.test(l); }) ? "id" : "en");
   lang = first === "en" ? "en" : "id";
   on($("#lang"), "click", function () { apply(lang === "en" ? "id" : "en"); });
 
