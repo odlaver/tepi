@@ -346,8 +346,7 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
   border: 1px solid var(--line); background: var(--raise); font-size: 16px; font-weight: 600; transition: transform 0.2s var(--grow), border-color 0.12s ease;
 }
 .btn-coffee svg { width: 20px; height: 20px; }
-.btn-coffee:active, .foot-coffee:active { transform: scale(0.97); }
-.foot-coffee { color: var(--sub); font-size: 15px; padding-block: 6px; }
+.btn-coffee:active { transform: scale(0.97); }
 .qris {
   margin: auto; padding: 64px 22px 22px; border: 0; border-radius: 28px; width: min(420px, calc(100vw - 32px)); max-height: calc(100svh - 32px);
   background: #141416; color: var(--text); overflow: visible;
@@ -391,7 +390,6 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
   .acts button:hover, .tabs button:hover, .moods button:hover, .seg button:hover { color: var(--text); }
   .tabs button[aria-selected="true"]:hover, .moods button.on:hover, .seg button[aria-checked="true"]:hover { color: var(--on-cta); }
   .btn-ghost:hover, .pp:hover, .ap-row button:hover, .btn-coffee:hover { border-color: rgba(255, 255, 255, 0.28); }
-  .foot-coffee:hover { color: var(--text); text-decoration: underline; }
   .fab:hover { background: rgba(44, 44, 48, 0.82); }
   .foot a:hover { color: var(--text); text-decoration: underline; }
 }

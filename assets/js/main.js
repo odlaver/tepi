@@ -167,7 +167,6 @@
     "dl.releases": "All releases",
     "coffee.lead": "If Tepi helps you, buy it a coffee through QRIS.",
     "coffee.btn": "Buy Tepi a coffee",
-    "coffee.short": "Buy a coffee",
     "coffee.alt": "QRIS code for Revaldo",
     "coffee.note": "Works with any bank or e-wallet app that supports QRIS.",
     "coffee.dl": "Download QRIS",
