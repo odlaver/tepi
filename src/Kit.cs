@@ -34,7 +34,7 @@ namespace Tepi
         {
             for (var p = c.Parent; p != null; p = p.Parent)
             {
-                if (p is KitGroup) return Group;
+                if (p is KitGroup || p is KitHero) return Group;
                 if (p.BackColor.A == 255) return p.BackColor;
             }
             return Window;
@@ -442,18 +442,93 @@ namespace Tepi
                 for (int i = 1; i < Controls.Count; i++)
                 {
                     int y = Controls[i].Top;
-                    g.DrawLine(pen, 16 * s, y, Width - 16 * s, y);
+                    var row = Controls[i] as KitRow;
+                    float from = row != null && row.Glyph != '\0' ? 56 * s : 16 * s;
+                    g.DrawLine(pen, from, y, Width - 16 * s, y);
                 }
         }
     }
 
     // Setting row: title, detail, control right
+    // Settings hero: wordmark left, a tiny live island right
+    class KitHero : Panel
+    {
+        public string Title = "Tepi", Version = "", Status = "";
+        readonly Timer tick = new Timer { Interval = 15000 };
+
+        public KitHero()
+        {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+            // Clock in the replica stays current
+            tick.Tick += delegate { Invalidate(); };
+            tick.Start();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) tick.Dispose();
+            base.Dispose(disposing);
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            KitInk.Smooth(g);
+            g.Clear(Parent != null ? Parent.BackColor : KitInk.Window);
+            var w = FindForm() as KitWindow;
+            float s = w != null ? w.Ui : 1;
+            var card = new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f);
+            // Soft sheen from the top, hairline edge
+            using (var path = Ink.Round(card, 16 * s))
+            {
+                using (var b = new LinearGradientBrush(card, Ink.Mix(KitInk.Group, KitInk.Text, 0.05f), KitInk.Group, 90f)) g.FillPath(b, path);
+                using (var pen = new Pen(KitInk.Line, 1f)) g.DrawPath(pen, path);
+            }
+            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+            const TextFormatFlags tight = TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
+            string[] v = Version.Split('.');
+            string major = v.Length > 1 ? v[0] + "." + v[1] : Version, build = v.Length > 2 ? "." + string.Join(".", v, 2, v.Length - 2) : "";
+            using (var big = new Font(Ink.MenuFamily, 26f * s, FontStyle.Bold, GraphicsUnit.Pixel))
+            using (var ver = new Font(Ink.MenuFamily, 26f * s, GraphicsUnit.Pixel))
+            using (var tiny = new Font(Ink.MenuFamily, 11f * s, GraphicsUnit.Pixel))
+            using (var line = new Font(Ink.MenuFamily, 12.5f * s, GraphicsUnit.Pixel))
+            {
+                // Wordmark: Tepi 2.0 with build digits small
+                var at = new Point((int)(22 * s), (int)(20 * s));
+                TextRenderer.DrawText(g, Title, big, at, KitInk.Text, tight);
+                int x = at.X + TextRenderer.MeasureText(g, Title, big, Size.Empty, tight).Width + (int)(8 * s);
+                TextRenderer.DrawText(g, major, ver, new Point(x, at.Y), KitInk.Faint, tight);
+                x += TextRenderer.MeasureText(g, major, ver, Size.Empty, tight).Width + (int)(1 * s);
+                int baseline = at.Y + (int)Math.Round(Ascent(big));
+                TextRenderer.DrawText(g, build, tiny, new Point(x, baseline - (int)Math.Round(Ascent(tiny))), KitInk.Faint, tight);
+                // Running: green dot and state
+                float cy = Height - 27 * s;
+                using (var b = new SolidBrush(Color.FromArgb(52, 199, 89))) g.FillEllipse(b, 22 * s, cy - 3.5f * s, 7 * s, 7 * s);
+                KitInk.Draw(g, Status, line, KitInk.Sub, new RectangleF(36 * s, cy - 11 * s, Width / 2f, 22 * s), ContentAlignment.MiddleLeft);
+                // Replica island, always black like the real one
+                var pill = new RectangleF(Width - 22 * s - 128 * s, 20 * s, 128 * s, 32 * s);
+                using (var path = Ink.Round(pill, pill.Height / 2))
+                {
+                    g.FillPath(Brushes.Black, path);
+                    using (var pen = new Pen(Color.FromArgb(34, 255, 255, 255), 1f)) g.DrawPath(pen, path);
+                }
+                using (var clock = new Font(Ink.MenuFamily, 14f * s, FontStyle.Bold, GraphicsUnit.Pixel))
+                    KitInk.Draw(g, DateTime.Now.ToString("HH.mm"), clock, Color.White, pill, ContentAlignment.MiddleCenter);
+            }
+        }
+
+        static float Ascent(Font f) { return f.Size * f.FontFamily.GetCellAscent(f.Style) / f.FontFamily.GetEmHeight(f.Style); }
+    }
+
     class KitRow : Panel
     {
         public string Title = "", Detail = "";
         // Tiny tail after the title, e.g. ".0.2"
         public string Suffix = "";
         public Control Field;
+        // Icon tile before the title
+        public char Glyph;
+        public const char MarkGlyph = '\u0001';
 
         public KitRow()
         {
@@ -468,15 +543,35 @@ namespace Tepi
             float s = w != null ? w.Ui : 1;
             g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
             float right = Field != null ? Field.Left - 12 * s : Width - 16 * s;
+            float x = Glyph != '\0' ? 56 * s : 16 * s;
+            if (Glyph != '\0') DrawGlyph(g, s);
             using (var f = new Font(Ink.MenuFamily, 13.5f * s, GraphicsUnit.Pixel))
             using (var d = new Font(Ink.MenuFamily, 12f * s, GraphicsUnit.Pixel))
             {
                 bool two = Detail.Length > 0;
-                var tr = new RectangleF(16 * s, two ? 7 * s : 0, right - 16 * s, two ? 22 * s : Height);
+                var tr = new RectangleF(x, two ? 7 * s : 0, right - x, two ? 22 * s : Height);
                 KitInk.Draw(g, Title, f, Enabled ? KitInk.Text : KitInk.Faint, tr, ContentAlignment.MiddleLeft);
                 if (Suffix.Length > 0) DrawSuffix(g, f, tr, s);
-                if (two) KitInk.Draw(g, Detail, d, KitInk.Sub, new RectangleF(16 * s, 28 * s, right - 16 * s, 20 * s), ContentAlignment.MiddleLeft);
+                if (two) KitInk.Draw(g, Detail, d, KitInk.Sub, new RectangleF(x, 28 * s, right - x, 20 * s), ContentAlignment.MiddleLeft);
             }
+        }
+
+        void DrawGlyph(Graphics g, float s)
+        {
+            KitInk.Smooth(g);
+            var tile = new RectangleF(14 * s, (Height - 30 * s) / 2, 30 * s, 30 * s);
+            using (var path = Ink.Round(tile, 8 * s))
+            using (var b = new SolidBrush(KitInk.Hover)) g.FillPath(b, path);
+            // Mark glyph: Tepi's own pill
+            if (Glyph == MarkGlyph)
+            {
+                var pill = new RectangleF(tile.X + 5 * s, tile.Y + 10 * s, 20 * s, 10 * s);
+                using (var p2 = Ink.Round(pill, 5 * s)) g.FillPath(Brushes.Black, p2);
+                using (var dot = new SolidBrush(KitInk.Text)) g.FillEllipse(dot, pill.Right - 8 * s, pill.Y + 2.5f * s, 5 * s, 5 * s);
+                return;
+            }
+            using (var icons = new Font(Ink.IconFamily, 15f * s, GraphicsUnit.Pixel))
+                KitInk.Draw(g, Glyph.ToString(), icons, Enabled ? KitInk.Text : KitInk.Faint, tile, ContentAlignment.MiddleCenter);
         }
 
         // Small text on the title's baseline
