@@ -602,6 +602,8 @@ namespace Tepi
             { "Internet kembali", "Internet is back" },
             { "Cabut charger", "Unplug the charger" },
             { "Catatan kilat", "Quick note" },
+            { "Mode rapat", "Meeting mode" },
+            { "Mikrofon dipakai lebih dari 20 detik: durasi tampil, notifikasi biasa ditahan", "Mic in use over 20 seconds: shows the duration, holds routine notifications" },
             { "Baterai {0} {1}%", "{0} battery {1}%" },
             { "Cuaca dan hujan", "Weather and rain" },
             { "Suhu di Ringkasan dan peringatan hujan, dari Open-Meteo", "Temperature in Overview and rain alerts, from Open-Meteo" },
