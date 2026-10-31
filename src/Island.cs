@@ -13,7 +13,7 @@ using WinTimer = System.Windows.Forms.Timer;
 
 namespace Tepi
 {
-    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Drive, Run, Mini, Panel }
+    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Drive, Run, Meet, Mini, Panel }
 
     class Toast
     {
@@ -425,6 +425,7 @@ namespace Tepi
         // What runs underneath toasts and panel
         View ActivityView()
         {
+            if (MeetingOn) return View.Meet;
             if (TimerOn && !MediaVisible()) return View.Timer;
             if (MediaVisible()) return LyricOnIsland() ? View.Lyric : View.Media;
             if (ActiveDownload() != null) return View.Download;
@@ -1368,7 +1369,8 @@ namespace Tepi
         {
             if (toast != null && toast.Priority > priority) return null;
             // Senyap: only what can't wait
-            if (Quiet && priority < 3 && (v == View.Notif || v == View.Track || v == View.Network || v == View.Privacy || v == View.Remind || v == View.Download || v == View.Info || v == View.Done)) return null;
+            // Calls hold the same quiet news
+            if ((Quiet || MeetingOn) && priority < 3 && (v == View.Notif || v == View.Track || v == View.Network || v == View.Privacy || v == View.Remind || v == View.Download || v == View.Info || v == View.Done)) return null;
             // Retracted: quiet news stays in the sliver
             if (MiniOn() && !MiniLets(v, priority)) return null;
             if (expanded && !force)
