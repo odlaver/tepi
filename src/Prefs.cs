@@ -147,6 +147,8 @@ namespace Tepi
                 content.AutoScroll = true;
                 search.BorderStyle = BorderStyle.None;
                 search.TextChanged += delegate { if (!building) { section = search.Text.Trim().Length > 0 ? "search" : section == "search" ? "general" : section; Fill(); } };
+                search.GotFocus += delegate { Invalidate(new Rectangle(0, 0, (int)(220 * Ui), (int)(60 * Ui))); };
+                search.LostFocus += delegate { Invalidate(new Rectangle(0, 0, (int)(220 * Ui), (int)(60 * Ui))); };
                 side.Picked += id => { section = id; building = true; search.Text = ""; building = false; Fill(); };
                 Controls.Add(search);
                 Controls.Add(side);
@@ -178,7 +180,8 @@ namespace Tepi
                 search.Font = UiFont(13f);
                 search.BackColor = KitInk.Line;
                 search.ForeColor = KitInk.Text;
-                SendMessage(search.Handle, 0x1501, IntPtr.Zero, Lang.T("Cari pengaturan"));
+                // Hint stays while focused
+                SendMessage(search.Handle, 0x1501, (IntPtr)1, Lang.T("Cari pengaturan"));
                 Place();
                 Fill();
                 Invalidate(true);
@@ -188,7 +191,7 @@ namespace Tepi
             {
                 float s = Ui;
                 int sideW = (int)(220 * s);
-                search.SetBounds((int)(24 * s), (int)(21 * s), sideW - (int)(44 * s), (int)(22 * s));
+                search.SetBounds((int)(42 * s), (int)(21 * s), sideW - (int)(64 * s), (int)(22 * s));
                 side.SetBounds(0, (int)(58 * s), sideW, ClientSize.Height - (int)(58 * s));
                 content.SetBounds(sideW, 0, Math.Max(10, ClientSize.Width - sideW), ClientSize.Height);
                 content.BackColor = KitInk.Window;
@@ -204,7 +207,13 @@ namespace Tepi
                 var r = new RectangleF(12 * Ui, 13 * Ui, sideW - 24 * Ui, 38 * Ui);
                 KitInk.Smooth(e.Graphics);
                 using (var path = Ink.Round(r, 10 * Ui))
-                using (var b = new SolidBrush(KitInk.Line)) e.Graphics.FillPath(b, path);
+                {
+                    using (var b = new SolidBrush(KitInk.Line)) e.Graphics.FillPath(b, path);
+                    if (search.Focused) using (var pen = new Pen(KitInk.Faint, 1.2f)) e.Graphics.DrawPath(pen, path);
+                }
+                // Magnifier leads the field
+                using (var icons = new Font(Ink.IconFamily, 13f * Ui, GraphicsUnit.Pixel))
+                    KitInk.Draw(e.Graphics, "\uE721", icons, KitInk.Sub, new RectangleF(r.X + 6 * Ui, r.Y, 24 * Ui, r.Height), ContentAlignment.MiddleCenter);
             }
 
             // Page builder: title, then groups of rows
