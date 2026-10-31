@@ -13,7 +13,7 @@ using WinTimer = System.Windows.Forms.Timer;
 
 namespace Tepi
 {
-    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mini, Panel }
+    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Mini, Panel }
 
     class Toast
     {
@@ -202,6 +202,7 @@ namespace Tepi
             StartGlass();
             StartFeeds();
             StartLocks();
+            StartMic();
             StartControls();
             InitShelfDrop();
             EnsureDisc(64);
@@ -277,6 +278,7 @@ namespace Tepi
                     else if (m.WParam.ToInt32() == PrompterAhead) SeekPrompter(5);
                     else if (m.WParam.ToInt32() == KeysHotkey) EnterKeyboard();
                     else if (m.WParam.ToInt32() == MiniHotkey) ToggleMini();
+                    else if (m.WParam.ToInt32() == MicHotkey) ToggleMic();
                     return;
                 case 0x020E: // WM_MOUSEHWHEEL: sideways swipe changes tab
                     if (expanded) WheelTab((short)((m.WParam.ToInt64() >> 16) & 0xFFFF));

@@ -99,6 +99,7 @@ namespace Tepi
                 case View.Brightness:
                 case View.Locks:
                 case View.Shot:
+                case View.Mic:
                 case View.AudioDevice:
                 case View.Power:
                 case View.Remind:
@@ -328,7 +329,7 @@ namespace Tepi
             if (v == View.Idle && !dot && !caps) return;
             float cy = h / 2, right = dot ? w - 15 : w - 12, left = caps ? 15 : 12;
             // Recording: accent dot at the end
-            if (dot) p.Circle(w - 9, cy, 1.7f, p.T.Accent);
+            if (dot) p.Circle(w - 9, cy, 1.7f, MicSilenced ? p.T.Negative : p.T.Accent);
             // Caps Lock: plain dot at the start
             if (caps) p.Circle(9, cy, 1.7f, p.T.Text);
             if (v == View.Idle) return;
