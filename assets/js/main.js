@@ -161,7 +161,7 @@
     "dl.req": "Requirements",
     "dl.req.d": "Windows 10 version 2004 or later, or Windows 11, 64-bit. .NET Framework 4.8 ships with Windows.",
     "dl.ss.d": "The exe is not signed yet, so Windows SmartScreen may show a warning. Choose More info, then Run anyway.",
-    "dl.again": "Already on 2.0.0? Right-click the Tepi icon, then Update to Tepi 2.0.0.1. After that, Settings › About › Check for updates is enough.",
+    "dl.again": "Already on Tepi 2.0? Right-click the Tepi icon, then Update to Tepi 2.0.0.2. After that, Settings › About › Check for updates is enough.",
     "dl.copy": "Copy",
     "dl.copied": "Copied",
     "dl.releases": "All releases",
@@ -815,7 +815,12 @@
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (rel) {
         var ver = String(rel.tag_name || "").replace(/^v/, "");
-        if (/^\d+\.\d+/.test(ver)) $$(".js-version").forEach(function (el) { el.textContent = ver; });
+        // 2.0 big, build digits small
+        var m = /^(\d+\.\d+)((?:\.\d+)*)$/.exec(ver);
+        if (m) $$(".js-version").forEach(function (el) {
+          el.querySelector(".ver-main").textContent = m[1];
+          el.querySelector(".ver-tail").textContent = m[2];
+        });
         var exe = (rel.assets || []).filter(function (a) { return a.name === "Tepi.exe"; })[0];
         if (exe && exe.size) {
           var kb = Math.round(exe.size / 1024);
