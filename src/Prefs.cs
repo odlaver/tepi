@@ -262,6 +262,18 @@ namespace Tepi
                 y += 52 * Ui;
             }
 
+            // Black card: mark, version, running state
+            void Hero()
+            {
+                var h = new KitHero { Left = (int)(28 * Ui), Top = (int)y, Width = rowW, Height = (int)(112 * Ui), Version = AppVersion, Status = Lang.T("Island berjalan") };
+                var b = Button(Lang.T("Uji island"), false, delegate { island.TestIsland(); });
+                b.Left = h.Width - b.Width - (int)(22 * Ui) - ((int)(128 * Ui) - b.Width) / 2;
+                b.Top = h.Height - b.Height - (int)(14 * Ui);
+                h.Controls.Add(b);
+                content.Controls.Add(h);
+                y += h.Height + 22 * Ui;
+            }
+
             void Caption(string text)
             {
                 var l = new Label { Text = text, Font = UiFont(12f), ForeColor = KitInk.Sub, BackColor = KitInk.Window, AutoSize = true };
@@ -298,9 +310,43 @@ namespace Tepi
                 if (!r.Controls.Contains(r.Field)) r.Controls.Add(r.Field);
             }
 
+            // Row icons by source title
+            static readonly string[][] RowGlyphs =
+            {
+                new[] { "Bahasa", "\uE774" }, new[] { "Mulai bersama Windows", "\uE7E8" }, new[] { "Cek versi baru", "\uE72C" },
+                new[] { "Folder data", "\uE8B7" }, new[] { "Folder paket", "\uE8B7" }, new[] { "Tema", "\uE706" }, new[] { "Material", "\uE81E" },
+                new[] { "Aksen", "\uE790" }, new[] { "Paket", "\uE7B8" }, new[] { "Suara sapaan paket tema", "\uE767" },
+                new[] { "Mode", "\uE8A0" }, new[] { "Notifikasi saat mini", "\uEA8F" }, new[] { "Mata", "\uE890" }, new[] { "Ikuti kursor", "\uE7C9" },
+                new[] { "Menempel di tepi atas", "\uE840" }, new[] { "Posisi", "\uE759" }, new[] { "Lebar panel", "\uE740" }, new[] { "Layar", "\uE7F4" },
+                new[] { "Gaya tab", "\uECA5" }, new[] { "Dibuka di", "\uE8A7" },
+                new[] { "Lirik di island", "\uE8D6" }, new[] { "Cari lirik online", "\uE721" }, new[] { "Visualizer", "\uE9E9" },
+                new[] { "Notifikasi pesan", "\uE8BD" }, new[] { "Tampilkan isi pesan", "\uE8BD" }, new[] { "Caps Lock", "\uE765" },
+                new[] { "Num Lock, Scroll Lock", "\uE765" }, new[] { "Bahasa input", "\uE765" }, new[] { "Kelas yang berlangsung", "\uE7BE" },
+                new[] { "Progres unduhan", "\uE896" }, new[] { "Riwayat clipboard", "\uE77F" }, new[] { "Flashdisk", "\uE88E" },
+                new[] { "Preview screenshot", "\uE91B" }, new[] { "Rak berkas", "\uE7B8" }, new[] { "Istirahat fokus", "\uE916" },
+                new[] { "Claude Code", "\uE756" }, new[] { "Kuota Claude", "\uEC4A" }, new[] { "Menahan izin", "\uE72E" },
+                new[] { "Kulia", "\uE7BE" }, new[] { "Tugas dan jadwal", "\uE787" }, new[] { "Kolom tanggal", "\uE787" }, new[] { "Kolom selesai", "\uE73E" },
+                new[] { "Belum ada database", "\uE8F1" }, new[] { "Pengingat sholat", "\uE708" }, new[] { "Kota", "\uE707" }, new[] { "Ingatkan sebelum", "\uEA8F" },
+                new[] { "Minum air", "\uEB42" }, new[] { "Selang minum", "\uE916" }, new[] { "Target harian", "\uE73E" },
+                new[] { "Istirahat mata 20-20-20", "\uE890" }, new[] { "Peregangan", "\uE805" }, new[] { "Selang peregangan", "\uE916" },
+                new[] { "Tampil di rekaman layar", "\uE7F4" }, new[] { "Umumkan ke pembaca layar", "\uE7F5" }, new[] { "Kurangi gerak", "\uE7AD" },
+                new[] { "Senyap", "\uE708" }, new[] { "Pembaruan", "\uE72C" }, new[] { "Layanan luar", "\uE774" }, new[] { "Traktir Tepi kopi", "\uEC32" },
+                new[] { "Ringkasan", "\uE80F" }, new[] { "Musik", "\uE8D6" }, new[] { "Agen", "\uE756" }, new[] { "Kuliah", "\uE7BE" },
+                new[] { "Pesan", "\uE8BD" }, new[] { "Rak", "\uE7B8" }, new[] { "Kontrol", "\uE9E9" }, new[] { "Pengingat", "\uEA8F" },
+                new[] { "Notion", "\uE8F1" }, new[] { "Todoist", "\uE73E" }, new[] { "Kalender iCal", "\uE787" },
+            };
+
+            static char GlyphFor(string title)
+            {
+                foreach (var g in RowGlyphs)
+                    if (Lang.T(g[0]) == title || g[0] == title) return g[1][0];
+                if (title.StartsWith("Tepi")) return KitRow.MarkGlyph;
+                return '\uE713';
+            }
+
             KitRow Row(string title, string detail, Control field)
             {
-                var r = new KitRow { Title = title, Detail = detail ?? "", Field = field, Height = (int)((string.IsNullOrEmpty(detail) ? 46 : 60) * Ui) };
+                var r = new KitRow { Title = title, Detail = detail ?? "", Field = field, Height = (int)((string.IsNullOrEmpty(detail) ? 52 : 62) * Ui), Glyph = GlyphFor(title) };
                 if (field != null)
                 {
                     field.AccessibleName = title;
@@ -371,6 +417,7 @@ namespace Tepi
                 switch (id)
                 {
                     case "general":
+                        if (show) Hero();
                         add(Row(Lang.T("Bahasa"), null, Seg(new[] { "Indonesia", "English" }, Lang.English ? 1 : 0, i => { island.SetLanguage(i == 1); Relayout(); })));
                         add(Row(Lang.T("Mulai bersama Windows"), null, StartupSwitch()));
                         add(Row(Lang.T("Cek versi baru"), Lang.T("Sekali sehari ke GitHub; unduhan hanya saat diminta"), Switch("update.check", true, on => { settings.Set("update.check", on); settings.Save(); })));
@@ -535,7 +582,7 @@ namespace Tepi
                         add(Row(Lang.T("Senyap"), Lang.T("Hanya izin, tenggat, sholat, dan timer yang muncul"), Switch("dnd", false, null)));
                         break;
                     case "about":
-                        var about = Row("Tepi " + AppVersion, Lang.T("Dynamic island untuk Windows · MIT · oleh R. Revaldo Vabiansyah"), Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); }));
+                        var about = Row("Tepi " + AppVersion, Lang.T("Dynamic island untuk Windows · MIT"), Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); }));
                         // 2.0 stays big; build digits tiny
                         string[] ver = AppVersion.Split('.');
                         if (ver.Length > 2) { about.Title = "Tepi " + ver[0] + "." + ver[1]; about.Suffix = "." + string.Join(".", ver, 2, ver.Length - 2); }
@@ -544,6 +591,7 @@ namespace Tepi
                         add(Row(Lang.T("Layanan luar"), Lang.T("LRCLIB, NetEase, Kulia, GitHub, dan integrasi yang tersambung; semuanya bisa dimatikan"), null));
                         // QRIS dialog lives on the site
                         add(Row(Lang.T("Traktir Tepi kopi"), Lang.T("QRIS, dari bank atau e-wallet mana pun"), Button(Lang.T("Traktir"), false, delegate { OpenUrl("https://odlaver.github.io/tepi/#kopi"); })));
+                        cap(Lang.F("Dibuat oleh {0}", "R. Revaldo Vabiansyah"));
                         break;
                 }
                 flush();
