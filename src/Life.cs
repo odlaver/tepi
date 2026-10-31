@@ -169,6 +169,7 @@ namespace Tepi
             PruneRuns();
             TickWeather();
             TickBluetooth(false);
+            if (TickMeeting()) { Kick(); redraw = true; }
             if (mediaInfo.Present) SyncLyrics();
             List<string> stale = null;
             foreach (var s in sessions.Values)
@@ -311,6 +312,7 @@ namespace Tepi
             foreach (var x in cam) if (Array.IndexOf(camApps, x) < 0) { newCam = x; break; }
             micApps = mic;
             camApps = cam;
+            TrackMeeting();
             if (newCam != null || newMic != null)
             {
                 var t = ShowToast(View.Privacy, 3, 2, false);
