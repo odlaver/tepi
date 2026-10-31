@@ -744,14 +744,15 @@
   var cup = new TI.Island($("#isle-q"));
   cup.eyes.base = "happy";
   cup.eyes.rest();
-  $$(".js-coffee").forEach(function (b) {
-    on(b, "click", function () {
-      var img = $("#qris-img");
-      if (!img.getAttribute("src")) img.src = "assets/img/qris-revaldo.jpeg";
-      if (qris.showModal) qris.showModal(); else qris.setAttribute("open", "");
-      fabSync();
-    });
-  });
+  function openCoffee() {
+    var img = $("#qris-img");
+    if (!img.getAttribute("src")) img.src = "assets/img/qris-revaldo.jpeg";
+    if (qris.showModal) qris.showModal(); else qris.setAttribute("open", "");
+    fabSync();
+  }
+  $$(".js-coffee").forEach(function (b) { on(b, "click", openCoffee); });
+  // Settings link from the app: tepi/#kopi
+  if (location.hash === "#kopi") setTimeout(openCoffee, 0);
   // Floating button steps aside when redundant
   var fab = $("#fab");
   var F = { near: {}, ready: false };
