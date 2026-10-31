@@ -40,6 +40,7 @@ namespace Tepi
                 case View.Prompter: return new SizeF(PrompterW, PrompterH);
                 case View.Class: return new SizeF(ClassWidth(), 38);
                 case View.Download: return new SizeF(DownloadWidth(), 38);
+                case View.Locks: return new SizeF(LocksWidth(), 42);
                 case View.Mini: return MiniSize();
                 default: return new SizeF(PanelW, PanelHeight());
             }
@@ -88,6 +89,7 @@ namespace Tepi
                 case View.Prompter: DrawPrompter(w, h, now); break;
                 case View.Class: DrawClass(w, h, now); break;
                 case View.Download: DrawDownload(w, h, now); break;
+                case View.Locks: DrawLocks(w, h); break;
                 case View.Mini: DrawMini(w, h, now); break;
                 case View.Panel: DrawPanel(w, h, now); break;
             }
@@ -161,12 +163,13 @@ namespace Tepi
         bool PrivacyOn { get { return micApps.Length + camApps.Length > 0; } }
 
         // Eyes and their gap before the clock
-        float IdleWidth() { return 112 + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0); }
+        float IdleWidth() { return 112 + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0) + (CapsShown ? 28 : 0); }
 
         void DrawIdle(float w, float h, DateTime now)
         {
-            float cy = h / 2, shift = emblem != null ? 15 : 0, clockX = w / 2 + shift;
+            float cy = h / 2, shift = emblem != null ? 15 : 0, clockX = w / 2 + shift - (CapsShown ? 14 : 0);
             if (emblem != null) DrawEmblem(24, cy, 10.5f);
+            if (CapsShown) Keycap(w - 21 - (unread > 0 ? 28 : 0), cy, 7f, "A", true);
             clockRoller.Draw(p, Ink.Display(15.5f), p.T.Text, clockX, cy, StringAlignment.Center, now);
             if (PrivacyOn) p.Icon(camApps.Length > 0 ? Ink.IcoCam : Ink.IcoMic, 12f, p.T.Sub, 22 + shift * 2, cy);
             if (unread > 0) DrawCount(w - 22, cy, unread);

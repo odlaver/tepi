@@ -60,6 +60,8 @@ namespace Tepi
                 case View.Privacy:
                     if (toast == null) return "";
                     return toast.Detail.Length > 0 ? toast.Title + ". " + toast.Detail : toast.Title;
+                case View.Locks:
+                    return toast == null ? "" : toast.Title + " " + LockState();
                 case View.Class:
                     var c = ClassNow();
                     return c == null ? "" : Lang.F("Kelas berlangsung: {0}", c.Title);

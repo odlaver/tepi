@@ -32,7 +32,7 @@ Persen CPU dihitung terhadap satu core. Selama panel terbuka memori naik ke seki
 | Teleprompter | Tempel naskah, dan island menggulirkannya pelan di tepi atas layar, dekat kamera. Kecepatan dihitung dalam kata per menit. Selama berjalan, teleprompter tembus klik dan dikendalikan lewat pintasan keyboard. Saat dijeda, tepinya bisa diseret untuk mengubah ukuran. Ada hitung mundur, mode cermin untuk teleprompter kaca, penanda `[jeda]`, sisa waktu baca, beberapa naskah tersimpan, dan impor dari `.txt` atau `.md`. Naskah tidak ikut terekam saat screen share atau rekam layar. |
 | Timer | Fokus 25 atau 50 menit lalu istirahat, timer menit bebas yang bisa dijeda dan ditambah semenit, serta stopwatch dengan putaran. Angka besar di island, atau cincin di samping pil musik. |
 | Skrip | Skrip apa pun bisa memunculkan toast atau bilah progres di island lewat `Tepi.exe --notify`. |
-| Aktivitas sistem | Volume, charger dan baterai, Wi-Fi, serta aplikasi yang memakai mikrofon atau kamera. |
+| Aktivitas sistem | Volume, charger dan baterai, Wi-Fi, aplikasi yang memakai mikrofon atau kamera, serta Caps Lock. Selama Caps Lock nyala, island dan sliver Mini menampilkan penanda kecil. Status tombol dibaca langsung, tanpa hook keyboard. |
 | Tampilan | Material Liquid Glass, Frost, atau Hitam pekat; tema gelap atau terang; warna aksen; menempel di tepi atas atau mengambang; posisi, lebar panel, serta tab mana yang tampil. Bila tab lebih dari tujuh, ikonnya berganti titik dan nama tab tampil sebagai judul. Otomatis menyingkir saat ada aplikasi layar penuh. |
 | Aksesibilitas | Seluruh island bisa dipakai dengan keyboard (Ctrl+Alt+I). Toast, tab, tombol, dan permintaan izin dibacakan oleh pembaca layar (Narrator, NVDA); kontrol di jendela Pengaturan punya nama, nilai, dan status untuk pembaca layar. Mengikuti setelan Windows "efek animasi": tanpa pantulan dan efek terbang bila dimatikan. Island bisa dipilih ikut terekam atau tidak saat screenshot dan rekam layar. |
 
@@ -67,7 +67,7 @@ Klik kanan ikon Tepi, lalu **Pengaturan**. Jendelanya punya kolom cari dan bagia
 - **Umum**: bahasa, mulai bersama Windows, cek versi baru, folder data.
 - **Tampilan**: tema, material (Liquid, Frost, Hitam), aksen, paket tema, suara sapaan paket.
 - **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, menempel di tepi atas, posisi, lebar panel, layar, gaya tab (otomatis, ikon, titik), tab yang terbuka pertama, dan tab yang tampil. Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
-- **Aktivitas**: lirik, lirik online, visualizer, notifikasi pesan dan isinya, kelas yang berlangsung, progres unduhan, riwayat clipboard, rak berkas, lama istirahat fokus.
+- **Aktivitas**: lirik, lirik online, visualizer, notifikasi pesan dan isinya, kelas yang berlangsung, progres unduhan, riwayat clipboard, rak berkas, lama istirahat fokus, HUD Caps Lock serta Num Lock dan Scroll Lock.
 - **Agen**: hubungkan atau lepas tiap agent, kuota Claude, port server hook (termasuk **Ganti port acak**), dan berapa lama izin ditahan.
 - **Integrasi**: Kulia, Notion, Todoist, dan kalender iCal untuk tab Tugas dan Jadwal.
 - **Pengingat**: sholat (kota dan menit sebelum), minum (selang dan target), istirahat mata, peregangan.
