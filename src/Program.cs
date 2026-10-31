@@ -13,6 +13,7 @@ namespace Tepi
             // Agent hook bridge: no window, no mutex
             if (args.Length > 0 && args[0] == "--relay") return Relay.Run(args);
             if (args.Length > 0 && args[0] == "--notify") return NotifyCommand.Run(args);
+            if (args.Length > 0 && args[0] == "--run") return RunCommand.Run(args);
             if (args.Length > 0 && args[0] == "--statusline") return StatusLine.Run(args);
             return RunIsland();
         }
