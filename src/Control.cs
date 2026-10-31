@@ -28,7 +28,7 @@ namespace Tepi
             brightness.Changed += (level, own) => Post(() => OnBrightness(level, own));
             radios.Changed += () => Post(Kick);
             volume.DevicesChanged += (list, def) => Post(() => { audioDevices = list; audioDefault = def; Kick(); });
-            volume.DefaultChanged += d => Post(() => OnAudioDevice(d));
+            volume.DefaultChanged += d => Post(() => { TickBluetooth(true); OnAudioDevice(d); });
             brightness.Start();
             radios.Start();
         }
@@ -281,7 +281,7 @@ namespace Tepi
             else
             {
                 p.Text(devTitle, Ink.Semi(13.5f), p.T.Text, tx, cy - 8, room, StringAlignment.Near);
-                p.Text(devSub, Ink.Caption, p.T.Sub, tx, cy + 9, room, StringAlignment.Near);
+                p.Text(devSub + BatteryTail(dev != null ? dev.Name : null), Ink.Caption, p.T.Sub, tx, cy + 9, room, StringAlignment.Near);
             }
             p.Symbol(devicesOpen ? Sym.ChevronUp : Sym.ChevronDown, r.Right - 22, cy, 11f, p.T.Sub);
             Unsquish(r, s);
@@ -440,7 +440,7 @@ namespace Tepi
             p.Module(new RectangleF(11, cy - 15, 30, 30), 15, p.T.Fill);
             p.Icon(DeviceGlyph(d.Form), 15f, p.T.Text, 26, cy);
             p.Text(d.Name, Ink.Headline, p.T.Text, 52, cy - 8, w - 52 - 20, StringAlignment.Near);
-            p.Text(Lang.T("Suara keluar di sini"), Ink.Caption, p.T.Sub, 52, cy + 10, w - 52 - 20, StringAlignment.Near);
+            p.Text(Lang.T("Suara keluar di sini") + BatteryTail(d.Name), Ink.Caption, p.T.Sub, 52, cy + 10, w - 52 - 20, StringAlignment.Near);
         }
     }
 }
