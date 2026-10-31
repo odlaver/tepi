@@ -79,7 +79,7 @@ namespace Tepi
 
         bool MiniOn() { return MiniWanted() && !miniPeek && !MiniHeld(); }
 
-        bool MiniBusy() { return ActivityView() != View.Idle || PrivacyOn; }
+        bool MiniBusy() { return ActivityView() != View.Idle || PrivacyOn || CapsShown; }
 
         SizeF MiniSize()
         {
@@ -97,6 +97,7 @@ namespace Tepi
                 case View.Notif: return settings.GetBool("mini.notif", true);
                 case View.Volume:
                 case View.Brightness:
+                case View.Locks:
                 case View.AudioDevice:
                 case View.Power:
                 case View.Remind:
@@ -322,12 +323,15 @@ namespace Tepi
             View v = ActivityView();
             bool dot = PrivacyOn;
             if (EyesOn) { MiniFace(w, h, now, v, dot); return; }
-            if (v == View.Idle && !dot) return;
-            float cy = h / 2, right = dot ? w - 15 : w - 12;
+            bool caps = CapsShown;
+            if (v == View.Idle && !dot && !caps) return;
+            float cy = h / 2, right = dot ? w - 15 : w - 12, left = caps ? 15 : 12;
             // Recording: accent dot at the end
             if (dot) p.Circle(w - 9, cy, 1.7f, p.T.Accent);
+            // Caps Lock: plain dot at the start
+            if (caps) p.Circle(9, cy, 1.7f, p.T.Text);
             if (v == View.Idle) return;
-            MiniLine(new RectangleF(12, cy - 1, right - 12, 2), v, now);
+            MiniLine(new RectangleF(left, cy - 1, right - left, 2), v, now);
         }
 
         void MiniLine(RectangleF r, View v, DateTime now)

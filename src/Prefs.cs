@@ -459,6 +459,9 @@ namespace Tepi
                         var body = Switch("notif.content", true, null);
                         body.Enabled = settings.GetBool("notif", true);
                         add(Row(Lang.T("Tampilkan isi pesan"), body.Enabled ? null : Lang.T("Ikut notifikasi pesan"), body));
+                        cap(Lang.T("Keyboard"));
+                        add(Row("Caps Lock", Lang.T("HUD saat ditekan, penanda selama nyala"), Switch("keys.caps", true, null)));
+                        add(Row("Num Lock, Scroll Lock", Lang.T("HUD saat ditekan"), Switch("keys.num", false, null)));
                         cap(Lang.T("Lainnya"));
                         add(Row(Lang.T("Kelas yang berlangsung"), null, Switch("class.island", true, null)));
                         add(Row(Lang.T("Progres unduhan"), null, Switch("downloads", true, null)));
