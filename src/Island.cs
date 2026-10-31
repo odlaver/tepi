@@ -1560,6 +1560,7 @@ namespace Tepi
                 else kuliaItem.DropDownItems.Add(Lang.T("Masuk ke Kulia…"), null, delegate { OpenLogin(); });
             };
             trayIcon = MakeTrayIcon();
+            KitWindow.AppIcon = trayIcon;
             tray = new NotifyIcon { Icon = trayIcon, Text = "Tepi", ContextMenuStrip = menu, Visible = true };
             tray.MouseClick += (s, e) => { if (e.Button != MouseButtons.Left) return; if (hiddenByUser) ToggleHidden(); else Expand(DefaultPage(false)); };
         }
