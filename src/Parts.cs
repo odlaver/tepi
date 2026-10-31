@@ -113,9 +113,9 @@ namespace Tepi
         }
 
         // Sliders drawn this frame, for keyboard nudges
-        readonly string[] sliderIds = new string[4];
-        readonly float[] sliderValues = new float[4];
-        readonly Action<float>[] sliderSets = new Action<float>[4];
+        readonly string[] sliderIds = new string[12];
+        readonly float[] sliderValues = new float[12];
+        readonly Action<float>[] sliderSets = new Action<float>[12];
         int sliderCount;
 
         // Arrow keys on a focused slider
