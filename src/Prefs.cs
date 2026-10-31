@@ -265,11 +265,9 @@ namespace Tepi
             // Black card: mark, version, running state
             void Hero()
             {
-                var h = new KitHero { Left = (int)(28 * Ui), Top = (int)y, Width = rowW, Height = (int)(112 * Ui), Version = AppVersion, Status = Lang.T("Island berjalan") };
-                var b = Button(Lang.T("Uji island"), false, delegate { island.TestIsland(); });
-                b.Left = h.Width - b.Width - (int)(22 * Ui) - ((int)(128 * Ui) - b.Width) / 2;
-                b.Top = h.Height - b.Height - (int)(14 * Ui);
-                h.Controls.Add(b);
+                var h = new KitHero { Left = (int)(28 * Ui), Top = (int)y, Width = rowW, Height = (int)(168 * Ui), Version = AppVersion, Status = Lang.T("Island berjalan"), Hint = Lang.T("Uji island") };
+                h.AccessibleName = Lang.T("Uji island");
+                h.Test += island.TestIsland;
                 content.Controls.Add(h);
                 y += h.Height + 22 * Ui;
             }
