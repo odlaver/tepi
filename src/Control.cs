@@ -115,7 +115,7 @@ namespace Tepi
         {
             if (actMute != null) return;
             actMute = delegate { volume.SetMute(!muted); };
-            actDevices = delegate { devicesOpen = !devicesOpen; devicesUtc = DateTime.UtcNow; if (devicesOpen) volume.RefreshDevices(); Kick(); };
+            actDevices = delegate { devicesOpen = !devicesOpen; devicesUtc = DateTime.UtcNow; if (devicesOpen) { volume.RefreshDevices(); volume.RefreshApps(); appsAskedTick = Environment.TickCount; } Kick(); };
             actWifi = delegate { if (radios.Denied) OpenSettings("ms-settings:network-wifi"); else radios.Toggle(true); };
             actBt = delegate { if (radios.Denied) OpenSettings("ms-settings:bluetooth"); else radios.Toggle(false); };
             actQuiet = delegate { settings.Toggle("dnd", false); Kick(); };
@@ -181,7 +181,7 @@ namespace Tepi
 
         float ControlHeight()
         {
-            float h = PanelTop + 2 + (devicesOpen ? CtlRowH + Ink.ModuleGap + DeviceListH() : CtlGridH + Ink.ModuleGap + CtlTimerH);
+            float h = PanelTop + 2 + (devicesOpen ? CtlRowH + Ink.ModuleGap + DeviceListH() + MixerH() : CtlGridH + Ink.ModuleGap + CtlTimerH);
             return Math.Min(MaxH, h + Ink.ModuleInset);
         }
 
@@ -238,13 +238,14 @@ namespace Tepi
             p.Alpha = keep;
         }
 
-        // Sound and output on top, list below
+        // Sound and output on top, devices then apps
         void DrawDeviceMode(float x0, float y, float full)
         {
             float gap = Ink.ModuleGap, col = (full - gap) / 2;
             SoundSlider(new RectangleF(x0, y, col, CtlRowH));
             DeviceChip(new RectangleF(x0 + col + gap, y, col, CtlRowH));
             DrawDeviceList(new RectangleF(x0, y + CtlRowH + gap, full, DeviceListH()));
+            DrawMixer(x0, y + CtlRowH + gap + DeviceListH() + gap, full);
         }
 
         void SoundSlider(RectangleF r)
