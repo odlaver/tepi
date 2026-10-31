@@ -13,7 +13,7 @@ using WinTimer = System.Windows.Forms.Timer;
 
 namespace Tepi
 {
-    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Drive, Mini, Panel }
+    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Drive, Run, Mini, Panel }
 
     class Toast
     {
@@ -429,6 +429,7 @@ namespace Tepi
             if (MediaVisible()) return LyricOnIsland() ? View.Lyric : View.Media;
             if (ActiveDownload() != null) return View.Download;
             if (BusySession() != null) return View.Agent;
+            if (runs.Count > 0) return View.Run;
             if (SoonTask() != null) return View.Task;
             if (ClassNow() != null) return View.Class;
             return View.Idle;

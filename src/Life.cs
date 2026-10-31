@@ -166,6 +166,7 @@ namespace Tepi
             var now = DateTime.UtcNow;
             bool redraw = false;
             TickApps();
+            PruneRuns();
             if (mediaInfo.Present) SyncLyrics();
             List<string> stale = null;
             foreach (var s in sessions.Values)
@@ -548,7 +549,7 @@ namespace Tepi
 
         void OnHookCore(HookEvent ev)
         {
-            if (ev.Agent == "plugin") { OnPlugin(ev); return; }
+            if (ev.Agent == "plugin") { if (Json.Str(ev.Data, "hook_event_name") == "Run") OnRun(ev); else OnPlugin(ev); return; }
             if (ev.Agent == "usage") { OnUsage(ev); return; }
             if ((ev.Agent != "claude" && !AgentAdapters.Normalize(ev)) || ev.SessionId.Length == 0)
             {

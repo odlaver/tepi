@@ -373,6 +373,7 @@ namespace Tepi
                 case View.Agent:
                     var s = BusySession();
                     return s != null && s.Plan != null && s.Plan.Count > 0 ? (float)PlanDone(s) / s.Plan.Count : -1;
+                case View.Run: return -1;
                 case View.Task:
                     var task = SoonTask();
                     return task == null ? 0 : Ease.Clamp01((float)((task.DeadlineUtc - now).TotalHours / 6));
