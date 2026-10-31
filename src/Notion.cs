@@ -338,6 +338,23 @@ namespace Tepi
             return Lang.F("Gagal tersimpan di {0}", "Notion");
         }
 
+        // New page in the first chosen database
+        public override string Create(object snap, string text)
+        {
+            var cfg = (NotionSource)snap;
+            var db = cfg.Dbs.Find(d => d.On);
+            if (db == null || !SafeId(db.Id)) return Lang.T("Belum ada database");
+            // "title" is the id of every title column
+            var body = D("parent", D("type", "data_source_id", "data_source_id", db.Id),
+                         "properties", D("title", D("title", new object[] { D("text", D("content", Clean(text, 500))) })));
+            var r = Call(cfg.Token, "POST", "/v1/pages", body);
+            if (r.Ok) return null;
+            if (r.Status == 403) return Lang.T("Integrasi Notion tanpa izin ubah");
+            if (r.Status == 401) return Lang.F("Token {0} ditolak", "Notion");
+            if (r.Status == 0) return Lang.F("{0} tidak terjangkau", "Notion");
+            return Lang.F("Gagal tersimpan di {0}", "Notion");
+        }
+
         // Check the token, list shared databases
         public static string Connect(string token, out NotionSource made)
         {

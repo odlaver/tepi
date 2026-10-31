@@ -174,6 +174,8 @@ namespace Tepi
         // Worker thread; reads the snapshot only
         public abstract SourceResult Fetch(object snap, DateTime nowUtc);
         public virtual string Close(object snap, KuliaTask t) { return Lang.T("Tidak bisa ditandai dari Tepi"); }
+        // New task from a quick note; null when saved
+        public virtual string Create(object snap, string text) { return Lang.T("Tidak bisa dibuat dari Tepi"); }
         // UI thread; true means save config
         public virtual bool Absorb(SourceResult r) { return false; }
         public virtual bool GivesTasks { get { return true; } }
@@ -450,6 +452,21 @@ namespace Tepi
         {
             var h = Changed;
             if (h != null) h(data);
+        }
+
+        // Quick note as a task; result on the UI thread
+        public void Create(string key, string text, Action<string> done)
+        {
+            var s = Find(key);
+            if (s == null) { done(Lang.T("Sumbernya sudah dilepas")); return; }
+            var snap = s.Snapshot();
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                string err;
+                try { err = s.Create(snap, text); }
+                catch (Exception ex) { err = Lang.T("Gagal tersimpan"); Log.Write("source " + s.Key + " create: " + ex.GetType().Name); }
+                post(delegate { done(err); });
+            });
         }
 
         // Mark done; result on the UI thread

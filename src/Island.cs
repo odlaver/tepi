@@ -203,6 +203,7 @@ namespace Tepi
             StartFeeds();
             StartLocks();
             StartMic();
+            StartNotes();
             StartControls();
             InitShelfDrop();
             EnsureDisc(64);
@@ -282,6 +283,7 @@ namespace Tepi
                     else if (m.WParam.ToInt32() == KeysHotkey) EnterKeyboard();
                     else if (m.WParam.ToInt32() == MiniHotkey) ToggleMini();
                     else if (m.WParam.ToInt32() == MicHotkey) ToggleMic();
+                    else if (m.WParam.ToInt32() == NoteHotkey) BeginInvoke(new Action(OpenNote));
                     return;
                 case 0x020E: // WM_MOUSEHWHEEL: sideways swipe changes tab
                     if (expanded) WheelTab((short)((m.WParam.ToInt64() >> 16) & 0xFFFF));
@@ -1512,9 +1514,10 @@ namespace Tepi
             var miniItem = new ToolStripMenuItem(Lang.T("Mini"), null, delegate { ToggleMini(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+K" };
             var prompterItem = new ToolStripMenuItem(Lang.T("Teleprompter"), null, delegate { if (!PrompterOn) OpenPrompter(); });
             var focusItem = new ToolStripMenuItem(Lang.T("Timer"));
+            var noteItem = new ToolStripMenuItem(Lang.T("Catatan kilat"), null, delegate { OpenNote(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+N" };
             var exit = new ToolStripMenuItem(Lang.T("Keluar"), null, delegate { Close(); });
             var prefsItem = new ToolStripMenuItem(Lang.T("Pengaturan…"), null, delegate { OpenPrefs(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
             menu.Opening += delegate
             {
                 // Style submenus after they're rebuilt
