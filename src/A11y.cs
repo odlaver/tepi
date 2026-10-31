@@ -60,6 +60,8 @@ namespace Tepi
                 case View.Privacy:
                     if (toast == null) return "";
                     return toast.Detail.Length > 0 ? toast.Title + ". " + toast.Detail : toast.Title;
+                case View.Mic:
+                    return MicTitle();
                 case View.Shot:
                     var sh = toast != null ? toast.Data as Shot : null;
                     return sh == null ? "" : (sh.Found != null ? Lang.T("Screenshot") : Lang.T("Gambar disalin")) + ". " + sh.W + " × " + sh.H;

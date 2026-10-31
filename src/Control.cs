@@ -304,21 +304,23 @@ namespace Tepi
             }
         }
 
-        // Radios, quiet, mini and hide
+        // Radios, mic, quiet, mini and hide
         void DrawToggles(RectangleF r)
         {
             Module(r, Ink.RadiusModule);
-            const int n = 5;
+            const int n = 6;
             float cx, cy;
             ToggleSlot(r, 0, n, out cx, out cy);
             CircleToggle(cx, cy, CtlToggleD, Ink.IcoWifi, radios.WifiOn, radios.HasWifi, Lang.T("Wi-Fi"), "tileWifi", actWifi);
             ToggleSlot(r, 1, n, out cx, out cy);
             CircleToggle(cx, cy, CtlToggleD, Ink.IcoBluetooth, radios.BluetoothOn, radios.HasBluetooth, Lang.T("Bluetooth"), "tileBt", actBt);
             ToggleSlot(r, 2, n, out cx, out cy);
-            CircleToggle(cx, cy, CtlToggleD, Ink.IcoQuiet, Quiet, true, Lang.T("Senyap"), "tileQuiet", actQuiet);
+            CircleToggle(cx, cy, CtlToggleD, micMuted ? IcoMicOff : Ink.IcoMic, micPresent && !micMuted, micPresent, Lang.T("Mikrofon"), "tileMic", actMic);
             ToggleSlot(r, 3, n, out cx, out cy);
-            CircleToggle(cx, cy, CtlToggleD, IcoMini, MiniWanted(), true, Lang.T("Mini"), "tileMini", MiniAct());
+            CircleToggle(cx, cy, CtlToggleD, Ink.IcoQuiet, Quiet, true, Lang.T("Senyap"), "tileQuiet", actQuiet);
             ToggleSlot(r, 4, n, out cx, out cy);
+            CircleToggle(cx, cy, CtlToggleD, IcoMini, MiniWanted(), true, Lang.T("Mini"), "tileMini", MiniAct());
+            ToggleSlot(r, 5, n, out cx, out cy);
             CircleToggle(cx, cy, CtlToggleD, Ink.IcoHide, false, true, Lang.T("Sembunyikan"), "tileHide", actHide);
         }
 

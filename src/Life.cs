@@ -60,6 +60,7 @@ namespace Tepi
             lyricsSvc.Ready += l => Post(() => OnLyrics(l));
             volume.Changed += (level, mute, first) => Post(() => OnVolume(level, mute, first));
             volume.DeviceChanged += () => spectrum.Restart();
+            volume.MicChanged += (m, present, first) => Post(() => OnMic(m, present, first));
             net.Changed += (a, b) => Post(() => OnNet(a, b));
             privacy.Changed += (m, c) => Post(() => OnPrivacy(m, c));
             notifWatcher.Updated += (access, list) => Post(() => OnNotifs(access, list));
