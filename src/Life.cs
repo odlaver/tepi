@@ -167,6 +167,7 @@ namespace Tepi
             bool redraw = false;
             TickApps();
             PruneRuns();
+            TickWeather();
             if (mediaInfo.Present) SyncLyrics();
             List<string> stale = null;
             foreach (var s in sessions.Values)

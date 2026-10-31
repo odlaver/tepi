@@ -352,7 +352,7 @@ namespace Tepi
                 new[] { "Menempel di tepi atas", "\uE840" }, new[] { "Posisi", "\uE759" }, new[] { "Lebar panel", "\uE740" }, new[] { "Layar", "\uE7F4" },
                 new[] { "Gaya tab", "\uECA5" }, new[] { "Dibuka di", "\uE8A7" },
                 new[] { "Lirik di island", "\uE8D6" }, new[] { "Cari lirik online", "\uE721" }, new[] { "Visualizer", "\uE9E9" },
-                new[] { "Notifikasi pesan", "\uE8BD" }, new[] { "Tampilkan isi pesan", "\uE8BD" }, new[] { "Caps Lock", "\uE765" }, new[] { "Ingatkan cabut charger", "\uE83E" },
+                new[] { "Notifikasi pesan", "\uE8BD" }, new[] { "Tampilkan isi pesan", "\uE8BD" }, new[] { "Caps Lock", "\uE765" }, new[] { "Ingatkan cabut charger", "\uE83E" }, new[] { "Cuaca dan hujan", "\uE753" },
                 new[] { "Num Lock, Scroll Lock", "\uE765" }, new[] { "Bahasa input", "\uE765" }, new[] { "Kelas yang berlangsung", "\uE7BE" },
                 new[] { "Progres unduhan", "\uE896" }, new[] { "Riwayat clipboard", "\uE77F" }, new[] { "Flashdisk", "\uE88E" },
                 new[] { "Preview screenshot", "\uE91B" }, new[] { "Rak berkas", "\uE7B8" }, new[] { "Istirahat fokus", "\uE916" },
@@ -600,6 +600,9 @@ namespace Tepi
                         })));
                         add(Row(Lang.T("Kota"), null, Popup(cities.ToArray(), cityAt, i => { settings.Set("pray.city", cities[i]); settings.Save(); island.prayToday = null; island.Kick(); })));
                         add(Row(Lang.T("Ingatkan sebelum"), null, Slider(0, 30, 5, settings.GetInt("pray.before", 10), v => v == 0 ? Lang.T("tidak") : v + Lang.T(" menit"), v => { settings.Set("pray.before", v); settings.Save(); })));
+                        var weatherSw = Switch("weather", false, null);
+                        weatherSw.Enabled = island.PrayCity() != null;
+                        add(Row(Lang.T("Cuaca dan hujan"), weatherSw.Enabled ? Lang.T("Suhu di Ringkasan dan peringatan hujan, dari Open-Meteo") : Lang.T("Pilih kota dulu"), weatherSw));
                         cap(Lang.T("Kesehatan"));
                         add(Row(Lang.T("Minum air"), null, Switch("drink", false, null)));
                         add(Row(Lang.T("Selang minum"), null, Slider(30, 120, 15, settings.GetInt("drink.every", 60), v => v + Lang.T(" menit"), v => { settings.Set("drink.every", v); settings.Save(); })));
@@ -619,7 +622,7 @@ namespace Tepi
                     case "about":
                         add(VersionRow(Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); })));
                         add(UpdateRow());
-                        add(Row(Lang.T("Layanan luar"), Lang.T("LRCLIB, NetEase, Kulia, GitHub, dan integrasi yang tersambung; semuanya bisa dimatikan"), null));
+                        add(Row(Lang.T("Layanan luar"), Lang.T("LRCLIB, NetEase, Kulia, GitHub, Open-Meteo, dan integrasi yang tersambung; semuanya bisa dimatikan"), null));
                         // QRIS dialog lives on the site
                         add(Row(Lang.T("Traktir Tepi kopi"), Lang.T("QRIS, dari bank atau e-wallet mana pun"), Button(Lang.T("Traktir"), false, delegate { OpenUrl("https://odlaver.github.io/tepi/#kopi"); })));
                         cap(Lang.F("Dibuat oleh {0}", "R. Revaldo Vabiansyah"));
