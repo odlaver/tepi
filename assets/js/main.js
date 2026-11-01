@@ -20,7 +20,7 @@
     "hero.update": "New in Tepi 2.1: Caps Lock, input language, screenshot preview, mic mute, and USB drives now show on the island.",
     "alt.hero": "Tepi Overview panel: the song playing, a working agent, the next class, and messages",
     "live.title": "Alive when it matters.",
-    "live.body": "Songs with lyrics that sweep word by word, incoming messages, finished agents, prayer times, volume, and battery. The island grows for a moment, then settles back.",
+    "live.body": "Songs with lyrics that sweep word by word, incoming messages, finished agents, prayer times, volume, battery, and now Caps Lock, input language, screenshots, mic mute, and USB drives. The island grows for a moment, then settles back.",
     "acts.label": "Island activities",
     "acts.pause": "Pause",
     "acts.play": "Play",
@@ -31,6 +31,11 @@
     "pill.pray": "Prayer time",
     "pill.volume": "Volume",
     "pill.power": "Charging",
+    "pill.caps": "Caps Lock",
+    "pill.lang": "Input language",
+    "pill.shot": "Screenshot",
+    "pill.mic": "Mic mute",
+    "pill.drive": "USB drive",
     "panels.title": "Eight pages, one gesture.",
     "panels.body": "The panel opens when the cursor rests on the island. Scrolling switches pages.",
     "panels.label": "Panel pages",
@@ -465,7 +470,7 @@
   }, { passive: false });
 
   // Live stage: one island, seven activities
-  var ACTS = ["lyric", "media", "notif", "done", "pray", "volume", "power"];
+  var ACTS = ["lyric", "media", "notif", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive"];
   var live = new TI.Island($("#isle-live"));
   var L = { i: -1, auto: false, vis: false, timer: 0, started: false };
   var actBtns = $$(".acts button");
@@ -735,7 +740,7 @@
   // Warm the island images when idle
   var idle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 1200); };
   idle(function () {
-    ["notif", "lyric", "media", "done", "pray", "volume", "power", "approve"].concat(PANEL_NAMES).forEach(function (n, k) {
+    ["notif", "lyric", "media", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "approve"].concat(PANEL_NAMES).forEach(function (n, k) {
       setTimeout(function () { TI.load(n); }, k * 120);
     });
   });

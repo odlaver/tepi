@@ -22,6 +22,11 @@
     pray: { img: "pray", iw: 253, ox: 6.5, oy: 0.5, w: 240, h: 43.5, r: 22.5, s: 1, tone: "pill" },
     volume: { img: "volume", iw: 313, ox: 6.5, oy: 0.5, w: 300, h: 43.5, r: 22.5, s: 1, tone: "pill" },
     power: { img: "power", iw: 357, ox: 7, oy: 0.5, w: 343.5, h: 47.5, r: 20.5, s: 1, tone: "pill" },
+    caps: { img: "caps", iw: 187, ox: 6.5, oy: 0, w: 174, h: 42, r: 20.5, s: 1, tone: "pill" },
+    lang: { img: "lang", iw: 190, ox: 7, oy: 0, w: 176, h: 42, r: 20.5, s: 1, tone: "pill" },
+    shot: { img: "shot", iw: 407, ox: 13.5, oy: 0, w: 380, h: 76, r: 26, s: 1, tone: "pill" },
+    mic: { img: "mic", iw: 193, ox: 6.5, oy: 0, w: 180, h: 42, r: 20.5, s: 1, tone: "pill" },
+    drive: { img: "drive", iw: 427, ox: 13.5, oy: 0, w: 400, h: 64, r: 26, s: 1, tone: "pill" },
     approve: { img: "approve", iw: 547.5, ox: 13.5, oy: 0, w: 520, h: 237.5, r: 32, s: 0, tone: "light" }
   };
   var PANELS = [["ringkasan", 352], ["musik", 340], ["agen", 254], ["kuliah", 266], ["pesan", 268], ["rak", 288], ["kontrol", 366], ["pengingat", 262]];
