@@ -79,7 +79,7 @@ namespace Tepi
 
         bool MiniOn() { return MiniWanted() && !miniPeek && !MiniHeld(); }
 
-        bool MiniBusy() { return ActivityView() != View.Idle || PrivacyOn || CapsShown; }
+        bool MiniBusy() { return ActivityView() != View.Idle || PrivacyOn || LockShown; }
 
         SizeF MiniSize()
         {
@@ -326,13 +326,13 @@ namespace Tepi
             View v = ActivityView();
             bool dot = PrivacyOn;
             if (EyesOn) { MiniFace(w, h, now, v, dot); return; }
-            bool caps = CapsShown;
+            bool caps = LockShown;
             if (v == View.Idle && !dot && !caps) return;
             float cy = h / 2, right = dot ? w - 15 : w - 12, left = caps ? 15 : 12;
             // Recording: accent dot at the end
             if (dot) p.Circle(w - 9, cy, 1.7f, MicSilenced ? p.T.Negative : p.T.Accent);
-            // Caps Lock: plain dot at the start
-            if (caps) p.Circle(9, cy, 1.7f, p.T.Text);
+            // Lock keys: a caps arrow at the start
+            if (caps) p.Symbol(Sym.ChevronUp, 10, cy, 6.5f, p.T.Text);
             if (v == View.Idle) return;
             MiniLine(new RectangleF(left, cy - 1, right - left, 2), v, now);
         }
@@ -354,6 +354,9 @@ namespace Tepi
         {
             float cy = h / 2;
             DrawEyes(w / 2, cy, MiniEyeK);
+            // Same dots as the plain sliver
+            if (dot) p.Circle(w - 9, cy, 1.7f, MicSilenced ? p.T.Negative : p.T.Accent);
+            if (LockShown) p.Symbol(Sym.ChevronUp, 10, cy, 6.5f, p.T.Text);
         }
 
         // 0..1, or -1 while unknown
