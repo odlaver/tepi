@@ -6,13 +6,13 @@ Tampilannya mengikuti bahasa Liquid Glass: kaca jernih yang menyesuaikan terang 
 
 Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian kecil yang hidup (visualizer, lirik, spinner, timer) digambar ulang sendiri, tepat pada refresh layar. Diukur di laptop Intel Core i3-1115G4 pada 1 November 2026, bergantian dengan versi 2.1 memakai lagu dan lirik tiruan yang sama, 45 detik per putaran, median 3 putaran:
 
-| Kondisi | 2.1 | 2.3 |
+| Kondisi | 2.1 | 2.4 |
 |---|---|---|
-| Musik diputar, lirik di island | 3,8% CPU | 2,3% CPU |
-| Panel terbuka selagi musik diputar | 0,7% CPU | 0,8% CPU |
+| Musik diputar, lirik di island | 3,8% CPU | 2,6% CPU |
+| Panel terbuka selagi musik diputar | 0,7% CPU | 0,6% CPU |
 | Memori saat panel terbuka | sekitar 21 MB | sekitar 22 MB |
 
-Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan jumlah thread, jadi angka di sana lebih kecil. Sejak 2.2, visualizer dan lirik digambar 30 kali per detik tepat pada refresh layar, tanpa frame kosong di antaranya, jadi musik sekitar sepertiga lebih ringan. Fitur baru 2.3 tidak menambah beban: cuaca diambil tiap 30 menit dan hanya kalau dinyalakan, baterai Bluetooth dibaca tiap 5 menit dalam sekitar 7 ms, mode rapat memakai status mikrofon yang sudah dipantau, dan kamera hanya hidup selama cermin terbuka.
+Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan jumlah thread, jadi angka di sana lebih kecil. Sejak 2.2, visualizer dan lirik digambar 30 kali per detik tepat pada refresh layar, tanpa frame kosong di antaranya, jadi musik sekitar sepertiga lebih ringan. Sambungan HP mati sampai dinyalakan; selama menyala, Tepi hanya menunggu pesan dari HP.
 
 ## Fitur
 
