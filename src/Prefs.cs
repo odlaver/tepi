@@ -19,6 +19,12 @@ namespace Tepi
             prefs.Show();
         }
 
+        void OpenPrefs(string section)
+        {
+            OpenPrefs();
+            prefs.Go(section);
+        }
+
         void SetLight(bool light)
         {
             settings.Set("theme", light ? "terang" : "gelap");
@@ -128,7 +134,7 @@ namespace Tepi
             static readonly string[][] Sections =
             {
                 new[] { "general", "Umum", "" }, new[] { "look", "Tampilan", "" }, new[] { "island", "Island", "" },
-                new[] { "activity", "Aktivitas", "" }, new[] { "agents", "Agen", "" }, new[] { "integrasi", "Integrasi", "" },
+                new[] { "activity", "Aktivitas", "" }, new[] { "agents", "Agen", "" }, new[] { "phone", "HP", "" }, new[] { "integrasi", "Integrasi", "" },
                 new[] { "remind", "Pengingat", "" }, new[] { "access", "Aksesibilitas", "" }, new[] { "about", "Tentang", "" },
             };
 
@@ -153,6 +159,15 @@ namespace Tepi
                 Controls.Add(search);
                 Controls.Add(side);
                 Controls.Add(content);
+            }
+
+            public void Go(string id)
+            {
+                section = id;
+                building = true;
+                search.Text = "";
+                building = false;
+                if (IsHandleCreated) { side.Selected = id; Fill(); }
             }
 
             protected override void OnHandleCreated(EventArgs e)
@@ -365,6 +380,7 @@ namespace Tepi
                 new[] { "Senyap", "\uE708" }, new[] { "Pembaruan", "\uE72C" }, new[] { "Layanan luar", "\uE774" }, new[] { "Traktir Tepi kopi", "\uEC32" },
                 new[] { "Ringkasan", "\uE80F" }, new[] { "Musik", "\uE8D6" }, new[] { "Agen", "\uE756" }, new[] { "Kuliah", "\uE7BE" },
                 new[] { "Pesan", "\uE8BD" }, new[] { "Rak", "\uE7B8" }, new[] { "Kontrol", "\uE9E9" }, new[] { "Pengingat", "\uEA8F" },
+                new[] { "Hubungkan HP", "\uE8EA" }, new[] { "Notifikasi HP", "\uE8BD" }, new[] { "Kode OTP", "\uE8D7" },
                 new[] { "Notion", "\uE8F1" }, new[] { "Todoist", "\uE73E" }, new[] { "Kalender iCal", "\uE787" },
             };
 
@@ -581,6 +597,25 @@ namespace Tepi
                         add(Row(Lang.F("Port {0}", port), port == 47821 ? Lang.T("Port bawaan lama; port acak lebih sulit ditebak") : Lang.T("Hanya bisa dijangkau dari laptop ini"),
                             Button(Lang.T("Ganti port acak"), false, delegate { island.MoveToRandomPort(); Relayout(); })));
                         add(Row(Lang.T("Menahan izin"), Lang.T("Lewat batas ini, izin dijawab di terminal"), Slider(30, 300, 10, settings.GetInt("agent.wait", 110), v => v + Lang.T(" dtk"), v => { settings.Set("agent.wait", v); settings.Save(); })));
+                        break;
+                    case "phone":
+                        add(Row(Lang.T("Hubungkan HP"), Lang.T("Tepi di Android, lewat Wi-Fi yang sama"), Switch("phone", false, on =>
+                        {
+                            if (on) island.StartPhone(); else island.StopPhone();
+                            Relayout();
+                        })));
+                        if (island.phone != null)
+                        {
+                            if (island.phone.Error != null) add(Row(island.phone.Error, null, null));
+                            string pc = PhoneLink.Address() + ":" + island.phone.Port;
+                            string pair = island.phone.Code;
+                            add(Row(pair != null ? pair : island.phone.IsPaired ? Lang.F("Tersambung ke {0}", island.phone.Device) : Lang.T("Belum ada HP"),
+                                pair != null ? Lang.F("Alamat {0} · berlaku 5 menit", pc) : Lang.F("Alamat {0}", pc),
+                                Button(island.phone.IsPaired ? Lang.T("Ganti HP") : Lang.T("Buat kode"), false, delegate { island.phone.Forget(); island.phone.NewCode(); Relayout(); })));
+                        }
+                        cap(Lang.T("Dari HP"));
+                        add(Row(Lang.T("Notifikasi HP"), Lang.T("Pesan dari HP ikut masuk ke Pesan"), Switch("phone.notifs", true, null)));
+                        add(Row(Lang.T("Kode OTP"), Lang.T("Kode verifikasi tampil di island, terhapus dari clipboard setelah 1 menit"), Switch("phone.otp", true, null)));
                         break;
                     case "kulia":
                     case "integrasi":

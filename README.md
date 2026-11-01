@@ -26,6 +26,7 @@ Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan juml
 | Pesan | WhatsApp, Telegram, Discord, Teams, Slack, email, dan aplikasi chat lain dari pusat notifikasi Windows. Di Ringkasan, pesan dikelompokkan per pengirim. |
 | Preview screenshot | Setelah Win+Shift+S, PrtSc, atau menyalin gambar, thumbnail muncul di island beserta ukurannya. Seret thumbnail ke aplikasi lain, taruh di Rak, atau buka. Kalau Snipping Tool sudah menyimpannya di folder Screenshots, berkas itu yang dipakai; kalau tidak, Tepi menyimpan salinan sementara yang dihapus saat Tepi ditutup. |
 | Rak | Tab berisi dua segmen. **Berkas**: seret berkas ke island (juga ke sliver Mini), lalu panel langsung membuka Rak; berkas di rak bisa diseret lagi ke aplikasi lain (disalin, tidak dipindah), dibuka, atau ditampilkan di foldernya. Yang disimpan hanya jalurnya, di memori. **Clipboard**: 25 teks terakhir yang kamu salin, klik untuk menyalinnya lagi; hanya di memori dan mati sampai kamu menyalakannya. |
+| HP | Sambungkan Tepi di Android lewat Wi-Fi yang sama. Tab HP menampilkan nama HP, status, dan baterainya. Kode OTP dari SMS, email, aplikasi bank, dan aplikasi lain muncul di island dalam bentuk tersamar; tombol **Salin** menyalin kode utuh, lalu kode itu dihapus dari clipboard semenit kemudian. Notifikasi pesan dari HP masuk ke Pesan. Berkas dari menu bagikan Android (**Kirim ke laptop**) masuk ke `Downloads\Tepi` dan Rak; berkas di laptop dikirim ke HP lewat **Kirim berkas** di tab HP atau klik kanan berkas di Rak. Permintaan izin agen juga bisa dijawab dari HP. |
 | Kontrol | Slider volume dan kecerahan layar, pilihan perangkat output beserta volume tiap aplikasi yang sedang bersuara (Spotify, browser, Zoom, dan lainnya), tombol Wi-Fi, Bluetooth, Mikrofon, Senyap, Mini, dan sembunyikan island, serta timer. Saat headset atau speaker jadi output, island menyebut namanya beserta baterainya kalau perangkat Bluetooth itu melaporkannya ke Windows, dan memberi tahu saat baterainya tinggal 15%; tombol kecerahan di keyboard memunculkan HUD seperti volume. |
 | Cuaca | Suhu dan kondisi cuaca kota pilihanmu di bawah jam Ringkasan, plus peringatan "Hujan sekitar 30 menit lagi" sebelum hujan turun. Data dari Open-Meteo, mati sampai kamu menyalakannya. |
 | Pengingat | Jadwal sholat lima waktu dihitung di laptop ini dari kota yang dipilih (metode Kemenag, tanpa internet), dengan pengingat beberapa menit sebelumnya dan saat waktunya. Pengingat minum dengan target gelas harian, istirahat mata 20-20-20, dan peregangan; semuanya menunggu selama kamu tidak di depan laptop, layar penuh, atau Senyap. |
@@ -249,6 +250,14 @@ Data diperbarui tiap 10 menit, dan saat tab Tugas atau Jadwal dibuka. Token dan 
 - Kalau pesan WhatsApp tidak pernah muncul sama sekali, cek **Pengaturan > Sistem > Notifikasi > WhatsApp** dan pastikan notifikasinya menyala.
 - Isi pesan tidak disimpan ke disk dan tidak dikirim ke mana pun.
 
+### Sambungan HP
+
+1. Di laptop: **Pengaturan > HP**, nyalakan **Hubungkan HP**, lalu klik **Buat kode**.
+2. Di HP: Tepi > Pengaturan > **Laptop**, ketik alamat dan kode yang muncul di laptop.
+3. Windows Firewall akan bertanya sekali; izinkan untuk jaringan privat.
+
+Kode berlaku 5 menit dan hangus setelah lima kali salah. Tab HP muncul sendiri setelah sambungan dinyalakan.
+
 ### Kulia
 
 1. Buka tab **Tugas** (atau klik kanan ikon Tepi, lalu **Kulia > Masuk ke Kulia**).
@@ -274,7 +283,8 @@ Tepi hanya menghubungi layanan luar berikut, dan masing-masing bisa dimatikan. N
 | [Open-Meteo](https://open-meteo.com) | Koordinat kota yang kamu pilih di Pengingat | Tiap 30 menit, hanya kalau **Cuaca dan hujan** dinyalakan | **Pengaturan > Pengingat > Cuaca dan hujan** |
 | GitHub | Permintaan rilis terbaru beserta SHA-256 `Tepi.exe`. Exe baru hanya diunduh saat kamu klik **Perbarui**. | Sekali sehari, dan saat **Cek pembaruan** diklik | `update.check=0` di `settings.ini` |
 
-- Isi pesan, data agent, dan isi layar tidak pernah dikirim ke mana pun. Server hook hanya bisa dijangkau dari komputer ini.
+- Isi pesan, data agent, dan isi layar tidak pernah dikirim ke layanan luar. Server hook hanya bisa dijangkau dari komputer ini.
+- Sambungan HP hanya berjalan di jaringan lokal, antara laptop dan HP yang kamu pasangkan, tanpa server perantara. Yang lewat: baterai HP, notifikasi pesan (isinya mengikuti setelan isi pesan di HP), kode OTP beserta nama aplikasinya, berkas yang kamu kirim, dan permintaan izin agen. Teks notifikasi lain tidak pernah dikirim.
 - Lirik yang ditemukan disimpan di `%APPDATA%\Tepi\lyrics` supaya tidak diambil ulang.
 - Efek kaca membaca layar di belakang island untuk membuat latar buramnya. Karena itu island tidak ikut terekam saat screenshot atau screen share. Nyalakan **Tampil di rekaman layar** di Pengaturan kalau island perlu ikut terekam. Selama teleprompter berjalan, island selalu disembunyikan dari rekaman.
 - Naskah teleprompter hanya disimpan di komputer ini.
@@ -297,6 +307,7 @@ Tepi hanya menghubungi layanan luar berikut, dan masing-masing bisa dimatikan. N
 - **Chat** di tab Agen hanya mengetik setelah Windows memastikan terminal sesi itu sudah di depan, dan memeriksanya lagi tepat sebelum mengetik.
 - `settings.ini` dan sesi Kulia ditulis lewat berkas sementara lalu ditukar, jadi tidak pernah setengah tertulis.
 - Rak menolak jalur jaringan (UNC) dan berkas pintasan (`.lnk`, `.url`, `.scf`, `.library-ms`, `.searchConnector-ms`), karena ikonnya bisa memicu koneksi keluar.
+- Sambungan HP mati sampai kamu menyalakannya. Kunci dibuat dari kode pasangan (PBKDF2-SHA256, 60.000 putaran) dan disimpan dengan DPAPI. Setiap pesan dienkripsi AES-256 dan ditandatangani HMAC-SHA256 beserta waktu dan nonce, jadi pesan yang diubah atau diputar ulang ditolak. Berkas dari HP disimpan dengan nama yang dibersihkan dan ditandai sebagai unduhan, sehingga SmartScreen tetap memeriksanya sebelum dijalankan. Tepi tidak pernah menjalankan apa pun yang datang dari HP.
 - Menemukan celah? Laporkan secara privat lewat tab **Security > Report a vulnerability** di repo ini, jangan lewat issue publik.
 
 ## Tanda tangan kode

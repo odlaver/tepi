@@ -9,10 +9,12 @@ namespace Tepi
     // Panel structure: tabs, segments, heights, scrolling
     partial class Island
     {
-        const int PageHome = 0, PageMusic = 1, PageAgents = 2, PageClass = 3, PageMessages = 4, PageShelf = 5, PageControl = 6, PageRemind = 7;
+        const int PageHome = 0, PageMusic = 1, PageAgents = 2, PageClass = 3, PageMessages = 4, PageShelf = 5, PageControl = 6, PageRemind = 7, PagePhone = 8;
         // Ids for settings; names for labels
-        static readonly string[] PageIds = { "home", "music", "agents", "class", "messages", "shelf", "control", "remind" };
-        static readonly string[] PageNames = { "Ringkasan", "Musik", "Agen", "Kuliah", "Pesan", "Rak", "Kontrol", "Pengingat" };
+        static readonly string[] PageIds = { "home", "music", "agents", "class", "messages", "shelf", "control", "remind", "phone" };
+        static readonly string[] PageNames = { "Ringkasan", "Musik", "Agen", "Kuliah", "Pesan", "Rak", "Kontrol", "Pengingat", "HP" };
+        // HP joins once a phone is linked
+        const string DefaultTabs = "home,music,agents,class,messages,shelf,control,remind";
         const float PanelTop = 54, SegTop = 36;
         float panelW = 488;
         float PanelW { get { return panelW; } }
@@ -29,7 +31,7 @@ namespace Tepi
             shiftPct = Math.Max(-40, Math.Min(40, settings.GetInt("position", 0)));
             MigrateTabs();
             var list = new List<int>();
-            foreach (var part in settings.Get("panel.tabs", string.Join(",", PageIds)).Split(','))
+            foreach (var part in settings.Get("panel.tabs", DefaultTabs).Split(','))
             {
                 int v = Array.IndexOf(PageIds, part.Trim());
                 if (v >= 0 && !list.Contains(v)) list.Add(v);
@@ -95,6 +97,7 @@ namespace Tepi
                 case PageShelf: return Math.Min(MaxH, SegTop + (shelfSeg == 0 ? ShelfHeight() : ClipsHeight()));
                 case PageControl: return ControlHeight();
                 case PageRemind: return RemindHeight();
+                case PagePhone: return PhoneHeight();
                 default: return MessagesHeight();
             }
         }
@@ -321,6 +324,7 @@ namespace Tepi
                 case PageMessages: DrawMessagesPage(w, h); break;
                 case PageControl: DrawControlPage(w, h, now); break;
                 case PageRemind: DrawRemindPage(w, h, now); break;
+                case PagePhone: DrawPhonePage(w, h, now); break;
             }
         }
 
@@ -631,6 +635,9 @@ namespace Tepi
                     break;
                 case PageRemind:
                     p.Icon('\uE823', 15f, c, cx, cy);
+                    break;
+                case PagePhone:
+                    p.Icon(IcoPhone, 15f, c, cx, cy);
                     break;
                 case PageControl:
                     // Two sliders
