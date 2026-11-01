@@ -129,7 +129,7 @@
     "win.chat": "Agent chat",
     "win.chat.d": "Session status, plan, quota, prompt history, and templates.",
     "alt.tp": "Teleprompter being dragged wider",
-    "video.title": "Tepi in 45 seconds.",
+    "video.title": "Tepi in one minute.",
     "video.body": "Captions in the video are in Indonesian.",
     "more.title": "And there's more.",
     "more.shelf": "File shelf",
