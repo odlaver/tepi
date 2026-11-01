@@ -2,7 +2,7 @@
 
 Dynamic island untuk Windows. Tepi duduk di tepi atas layar dan membesar saat ada yang terjadi: lagu yang sedang diputar beserta liriknya, agent coding (Claude Code, Codex, Gemini CLI, Antigravity) yang sedang bekerja atau minta izin, tugas kuliah yang mendekati tenggat, pesan yang masuk, timer, dan pengingat sholat atau minum.
 
-Tampilannya mengikuti bahasa Liquid Glass: kaca jernih yang menyesuaikan terang latar di belakangnya, sudut kontinu seperti iOS, dan gerak pegas. Monokrom secara bawaan; paket tema memberi warna. Native C# tanpa browser engine, exe sekitar 740 KB. Tampilan tersedia dalam bahasa Indonesia dan Inggris.
+Tampilannya mengikuti bahasa Liquid Glass: kaca jernih yang menyesuaikan terang latar di belakangnya, sudut kontinu seperti iOS, dan gerak pegas. Monokrom secara bawaan; paket tema memberi warna. Native C# tanpa browser engine, exe sekitar 770 KB. Tampilan tersedia dalam bahasa Indonesia dan Inggris.
 
 Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian kecil yang hidup (visualizer, lirik, spinner, timer) digambar ulang sendiri, tepat pada refresh layar. Diukur di laptop Intel Core i3-1115G4 pada 1 November 2026, bergantian dengan versi 2.1 memakai lagu dan lirik tiruan yang sama, 45 detik per putaran, median 3 putaran:
 
@@ -52,11 +52,11 @@ Tepi memberi tahu sendiri kalau ada versi baru, termasuk build baru dengan nomor
 
 ## Cara pakai
 
-- **Arahkan kursor** ke island untuk membuka panel. Tab di atas panel: Ringkasan, Musik, Agen, Kuliah, Pesan, Rak, Kontrol, dan Pengingat.
+- **Arahkan kursor** ke island untuk membuka panel. Tab di atas panel: Ringkasan, Musik, Agen, Kuliah, Pesan, Rak, Kontrol, dan Pengingat, plus HP selama sambungan HP menyala.
 - **Scroll** saat panel terbuka untuk pindah tab. Daftar yang lebih panjang dari panel tetap tergulir; scroll di atas deretan tab, atau geser ke samping di touchpad, selalu pindah tab. Saat panel tertutup, scroll di atas island mengubah volume.
 - **Seret berkas** ke island untuk menaruhnya di Rak. Saat island sedang Mini, tahan berkas sebentar di dekat sliver sampai island muncul.
 - **Mini**: klik panah **^** di pojok kiri atas panel, tekan **Ctrl+Alt+K**, atau pakai tile Mini di Kontrol. Untuk memunculkan island dari Mini, diamkan kursor sebentar di tepi atas tepat di atas sliver.
-- **Klik kanan** island atau ikon tray untuk menu: Mini, Sembunyikan island, Navigasi keyboard, Timer, Catatan kilat, Cermin kamera, Teleprompter, Hubungkan agen, Kulia, Pengaturan, Buka folder data. Klik kanan berkas di Rak untuk Buka, Tampilkan di folder, Salin jalur, atau Keluarkan dari rak.
+- **Klik kanan** island atau ikon tray untuk menu: Mini, Sembunyikan island, Navigasi keyboard, Timer, Catatan kilat, Cermin kamera, Teleprompter, Hubungkan agen, Kulia, Pengaturan, Buka folder data. Klik kanan berkas di Rak untuk Buka, Tampilkan di folder, Salin jalur, Kirim ke HP (kalau HP tersambung), atau Keluarkan dari rak.
 - **Cermin kamera**: tekan **Ctrl+Alt+C** atau pilih dari menu tray untuk melihat dirimu di island sebelum kelas atau rapat. Klik island untuk menutupnya; kamera dilepas otomatis setelah 2 menit. Cermin ini tidak ikut terekam selama efek kaca aktif.
 - **Catatan kilat**: tekan **Ctrl+Alt+N**, tulis satu baris, lalu Enter. Catatan masuk ke `catatan.md` di folder data dan tampil di Rak, atau jadi tugas baru di Todoist atau Notion kalau sudah tersambung.
 - **Mikrofon**: tekan **Ctrl+Alt+M** atau pakai tile Mikrofon di Kontrol untuk mematikan atau menyalakan mikrofon di seluruh sistem. Kalau ada aplikasi yang mendengarkan selagi mikrofon mati, ikon mikrofon di island berubah merah dan dicoret.
@@ -76,6 +76,7 @@ Klik ikon gear di pojok kanan atas panel, atau klik kanan ikon Tepi lalu **Penga
 - **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, menempel di tepi atas, posisi, lebar panel, layar, gaya tab (otomatis, ikon, titik), tab yang terbuka pertama, dan tab yang tampil. Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
 - **Aktivitas**: lirik, lirik online, visualizer, notifikasi pesan dan isinya, kelas yang berlangsung, progres unduhan, riwayat clipboard, pengingat cabut charger di 80, 85, atau 90%, flashdisk, preview screenshot, rak berkas, lama istirahat fokus, HUD Caps Lock, Num Lock dan Scroll Lock, bahasa input, serta mode rapat.
 - **Agen**: hubungkan atau lepas tiap agent, kuota Claude, port server hook (termasuk **Ganti port acak**), dan berapa lama izin ditahan.
+- **HP**: hubungkan HP lewat kode pasangan, ganti HP, serta pilih apakah notifikasi pesan dan kode OTP dari HP ditampilkan.
 - **Integrasi**: Kulia, Notion, Todoist, dan kalender iCal untuk tab Tugas dan Jadwal.
 - **Pengingat**: sholat (kota dan menit sebelum), cuaca dan hujan, minum (selang dan target), istirahat mata, peregangan.
 - **Aksesibilitas**: tampil di rekaman layar, umumkan ke pembaca layar, kurangi gerak, dan Senyap.
