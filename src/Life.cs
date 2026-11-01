@@ -170,6 +170,7 @@ namespace Tepi
             TickWeather();
             TickBluetooth(false);
             TickMirror();
+            if (phone != null) phone.Sweep();
             if (TickMeeting()) { Kick(); redraw = true; }
             if (mediaInfo.Present) SyncLyrics();
             List<string> stale = null;
@@ -377,7 +378,8 @@ namespace Tepi
         void OpenNotifApp(NotifItem item)
         {
             // Quoted; a stray quote can't add arguments
-            if (item.AppId.Length > 0 && item.AppId.IndexOfAny(new[] { '"', '\r', '\n' }) < 0)
+            // Phone items: nothing to launch here
+            if (item.AppId.Length > 0 && !item.AppId.StartsWith("phone:") && item.AppId.IndexOfAny(new[] { '"', '\r', '\n' }) < 0)
             {
                 try { Process.Start("explorer.exe", "\"shell:AppsFolder\\" + item.AppId + "\""); }
                 catch (Exception ex) { Log.Write("open app: " + ex.Message); }
@@ -422,6 +424,58 @@ namespace Tepi
             }
             StartHub();
             CheckLinks();
+            if (settings.GetBool("phone", false)) StartPhone();
+        }
+
+        PhoneLink phone;
+
+        // LAN listener for the Android app; off by default
+        void StartPhone()
+        {
+            if (phone != null) return;
+            phone = new PhoneLink();
+            phone.Decided += (id, d) => Post(() =>
+            {
+                var a = approvals.Find(x => x.Id == id);
+                // Truncated requests are never allowed remotely
+                if (a != null && !(d == "allow" && a.Truncated)) Decide(a, d);
+            });
+            phone.Paired += () => Post(() => { ShowInfo(IcoPhone, Lang.T("HP tersambung"), phone.Device, true); PublishPhone(); });
+            WirePhone();
+            phone.Start(settings.GetInt("phone.port", 0));
+            if (phone.Port > 0 && settings.GetInt("phone.port", 0) != phone.Port) { settings.Set("phone.port", phone.Port); settings.Save(); }
+            PublishPhone();
+            if (Array.IndexOf(tabs, PagePhone) < 0) SetLayout("panel.tabs", TabIds(tabs) + ",phone");
+        }
+
+        void StopPhone()
+        {
+            if (phone == null) return;
+            phone.Stop();
+            phone = null;
+            if (Array.IndexOf(tabs, PagePhone) >= 0 && tabs.Length > 1)
+            {
+                var list = new List<int>(tabs);
+                list.Remove(PagePhone);
+                SetLayout("panel.tabs", TabIds(list));
+            }
+        }
+
+        // Approvals and sessions for the phone, JSON
+        void PublishPhone()
+        {
+            if (phone == null) return;
+            var list = new List<object>();
+            foreach (var a in approvals)
+                list.Add(new Dictionary<string, object> {
+                    { "id", a.Id }, { "agent", a.Agent }, { "project", a.Project }, { "tool", a.Tool }, { "key", Fmt.OneLine(a.Key, 300) },
+                    { "note", a.Note }, { "detail", a.Detail.Length > 1500 ? a.Detail.Substring(0, 1500) + "…" : a.Detail },
+                    { "flags", new List<object>(a.Flags) }, { "truncated", a.Truncated } });
+            var ss = new List<object>();
+            foreach (var s in sessions.Values)
+                if (s.State != AgentState.Ended)
+                    ss.Add(new Dictionary<string, object> { { "project", s.Project }, { "state", s.State.ToString().ToLowerInvariant() }, { "activity", Fmt.OneLine(s.Activity, 160) } });
+            phone.Publish(Json.Encode(new Dictionary<string, object> { { "approvals", list }, { "sessions", ss } }));
         }
 
         void StartHub()
@@ -539,7 +593,7 @@ namespace Tepi
         // Failed event must not strand agent
         void OnHook(HookEvent ev)
         {
-            try { OnHookCore(ev); }
+            try { OnHookCore(ev); PublishPhone(); }
             catch (Exception ex)
             {
                 Log.Write("hook event " + ev.Name + ": " + ex);
@@ -794,6 +848,7 @@ namespace Tepi
         {
             a.Answer(decision);
             approvals.Remove(a);
+            PublishPhone();
             AgentSession s;
             if (sessions.TryGetValue(a.SessionId, out s) && !HasApproval(s.Id))
             {
@@ -806,6 +861,7 @@ namespace Tepi
         void DropApproval(Approval a)
         {
             approvals.Remove(a);
+            PublishPhone();
             Kick();
         }
 

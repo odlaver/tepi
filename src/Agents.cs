@@ -41,6 +41,9 @@ namespace Tepi
         public List<DiffLine> Diff;
         public List<KeyValuePair<DiffLine, string>> DiffRows;
         public DateTime CreatedUtc = DateTime.UtcNow, ShownUtc;
+        // Stable handle for the phone link
+        static int nextId;
+        public readonly int Id = Interlocked.Increment(ref nextId);
         public readonly ManualResetEvent Answered = new ManualResetEvent(false);
         public string Decision; // allow, deny, or null = terminal
         int closed;
@@ -268,7 +271,7 @@ namespace Tepi
         // Whole request must arrive within this
         const int RequestMs = 10000;
 
-        static bool ReadHead(NetworkStream s, int started, out string head, out byte[] early)
+        internal static bool ReadHead(NetworkStream s, int started, out string head, out byte[] early)
         {
             head = null;
             early = null;
@@ -291,7 +294,7 @@ namespace Tepi
             return true;
         }
 
-        static bool ReadBody(NetworkStream s, string head, byte[] early, int started, int cap, out byte[] body)
+        internal static bool ReadBody(NetworkStream s, string head, byte[] early, int started, int cap, out byte[] body)
         {
             body = null;
             int length = 0;
@@ -328,7 +331,7 @@ namespace Tepi
             return -1;
         }
 
-        static void Reply(NetworkStream s, int status, string body)
+        internal static void Reply(NetworkStream s, int status, string body)
         {
             var payload = Encoding.UTF8.GetBytes(body);
             string reason = status == 200 ? "OK" : status == 403 ? "Forbidden" : "Bad Request";
