@@ -436,6 +436,8 @@ namespace Tepi
         View BubbleKind()
         {
             if (current != View.Media && current != View.Lyric) return View.Idle;
+            // Locks first: easy to miss while typing
+            if (LockShown) return View.Locks;
             if (BusySession() != null) return View.Agent;
             if (ActiveDownload() != null) return View.Download;
             if (TimerOn) return View.Timer;

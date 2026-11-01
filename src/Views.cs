@@ -171,13 +171,16 @@ namespace Tepi
         bool PrivacyOn { get { return micApps.Length + camApps.Length > 0; } }
 
         // Eyes and their gap before the clock
-        float IdleWidth() { return 112 + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0) + (CapsShown ? 28 : 0); }
+        float IdleWidth() { return 112 + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0) + LockMarks * 26 + (LockMarks > 0 ? 2 : 0); }
 
         void DrawIdle(float w, float h, DateTime now)
         {
-            float cy = h / 2, shift = emblem != null ? 15 : 0, clockX = w / 2 + shift - (CapsShown ? 14 : 0);
+            float cy = h / 2, shift = emblem != null ? 15 : 0, clockX = w / 2 + shift - (LockMarks * 13 + (LockMarks > 0 ? 1 : 0));
             if (emblem != null) DrawEmblem(24, cy, 10.5f);
-            if (CapsShown) Keycap(w - 21 - (unread > 0 ? 28 : 0), cy, 7f, "A", true);
+            // Lock keycaps at the right, Caps outermost
+            float kx = w - 21 - (unread > 0 ? 28 : 0);
+            if (CapsShown) { Keycap(kx, cy, 7f, "A", true); kx -= 26; }
+            if (NumShown) Keycap(kx, cy, 7f, "1", true);
             clockRoller.Draw(p, Ink.Display(15.5f), p.T.Text, clockX, cy, StringAlignment.Center, now);
             if (PrivacyOn)
             {
@@ -819,6 +822,7 @@ namespace Tepi
                 else p.Orbit(bx, cy, 7f, orbitPhase, p.T.Text);
             }
             else if (kind == View.Download) p.Icon(IcoDownload, 12f, p.T.Text, bx, cy);
+            else if (kind == View.Locks) Keycap(bx, cy, 7f, CapsShown ? "A" : "1", true);
             else if (kind == View.Timer) DrawTimerRing(bx, cy, 7f);
             else if (kind == View.Task)
             {

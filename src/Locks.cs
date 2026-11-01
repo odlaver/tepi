@@ -105,6 +105,10 @@ namespace Tepi
 
         // Lasting cue only while Caps is on
         bool CapsShown { get { return capsOn && capsPref; } }
+        // Num Lock marker only if its HUD is on
+        bool NumShown { get { return numOn && settings.GetBool("keys.num", false); } }
+        bool LockShown { get { return CapsShown || NumShown; } }
+        int LockMarks { get { return (CapsShown ? 1 : 0) + (NumShown ? 1 : 0); } }
 
         void ShowLock(string name, string cap, bool on)
         {
