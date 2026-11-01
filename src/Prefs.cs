@@ -191,12 +191,16 @@ namespace Tepi
             {
                 float s = Ui;
                 int sideW = (int)(220 * s);
-                search.SetBounds((int)(42 * s), (int)(21 * s), sideW - (int)(64 * s), (int)(22 * s));
+                // Text centred on the well, by its real height
+                int h = search.PreferredHeight;
+                search.SetBounds((int)(40 * s), (int)Math.Round(SearchWell().Y + SearchWell().Height / 2 - h / 2f + 1 * s), sideW - (int)(62 * s), h);
                 side.SetBounds(0, (int)(58 * s), sideW, ClientSize.Height - (int)(58 * s));
                 content.SetBounds(sideW, 0, Math.Max(10, ClientSize.Width - sideW), ClientSize.Height);
                 content.BackColor = KitInk.Window;
                 side.Invalidate();
             }
+
+            RectangleF SearchWell() { return new RectangleF(12 * Ui, 16 * Ui, 220 * Ui - 24 * Ui, 32 * Ui); }
 
             protected override void OnPaintBackground(PaintEventArgs e)
             {
@@ -204,7 +208,7 @@ namespace Tepi
                 int sideW = (int)(220 * Ui);
                 using (var b = new SolidBrush(KitInk.Side)) e.Graphics.FillRectangle(b, 0, 0, sideW, ClientSize.Height);
                 // Search field: a rounded well
-                var r = new RectangleF(12 * Ui, 13 * Ui, sideW - 24 * Ui, 38 * Ui);
+                var r = SearchWell();
                 KitInk.Smooth(e.Graphics);
                 using (var path = Ink.Round(r, 10 * Ui))
                 {
@@ -213,7 +217,7 @@ namespace Tepi
                 }
                 // Magnifier leads the field
                 using (var icons = new Font(Ink.IconFamily, 13f * Ui, GraphicsUnit.Pixel))
-                    KitInk.Draw(e.Graphics, "\uE721", icons, KitInk.Sub, new RectangleF(r.X + 6 * Ui, r.Y, 24 * Ui, r.Height), ContentAlignment.MiddleCenter);
+                    KitInk.Draw(e.Graphics, "\uE721", icons, KitInk.Sub, new RectangleF(r.X + 5 * Ui, r.Y, 24 * Ui, r.Height), ContentAlignment.MiddleCenter);
             }
 
             // Page builder: title, then groups of rows
