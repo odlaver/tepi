@@ -262,7 +262,7 @@ namespace Tepi
             var next = NextClass();
             var task = tasks != null && tasks.Count > 0 ? tasks[0] : null;
             var now = DateTime.Now;
-            bool classFirst = next != null && (next.Start - now).TotalHours < 12 && (task == null || next.Start.ToUniversalTime() < task.DeadlineUtc);
+            bool classFirst = next != null && (task == null || ((next.Start - now).TotalHours < 12 && next.Start.ToUniversalTime() < task.DeadlineUtc));
             if (classFirst)
             {
                 CardBase(r, "homeClass", delegate { ShowSchedule(); });
