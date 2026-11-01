@@ -276,7 +276,14 @@ namespace Tepi
             return n;
         }
 
-        static readonly Dictionary<Font, float> capShifts = new Dictionary<Font, float>();
+        // Fonts are cached: compare by reference, skip GDI+ name lookups
+        internal sealed class SameFont : IEqualityComparer<Font>
+        {
+            public bool Equals(Font a, Font b) { return ReferenceEquals(a, b); }
+            public int GetHashCode(Font f) { return System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(f); }
+        }
+
+        static readonly Dictionary<Font, float> capShifts = new Dictionary<Font, float>(new SameFont());
 
         // Offset that puts a capital's middle on the line centre
         public static float CapShift(Font f)
@@ -681,7 +688,7 @@ namespace Tepi
         readonly Blend glowBlend = new Blend(3), lipBlend = new Blend(4), splitBlend = new Blend(4);
         readonly Color[] pair = new Color[2];
         // Widths per font, cleared when G changes
-        readonly Dictionary<Font, Dictionary<string, float>> widths = new Dictionary<Font, Dictionary<string, float>>();
+        readonly Dictionary<Font, Dictionary<string, float>> widths = new Dictionary<Font, Dictionary<string, float>>(new Ink.SameFont());
         Graphics widthsFor;
         int widthCount;
 
