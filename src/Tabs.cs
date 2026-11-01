@@ -416,7 +416,7 @@ namespace Tepi
             if (DotTabs)
             {
                 float dotsW = (n - 1) * DotCell + DotActive + (n - 1) * 6;
-                float dx = w / 2 - dotsW / 2 + 30;
+                float dx = Math.Min(w / 2 - dotsW / 2 + 30, w - 96 - dotsW);
                 for (int i = 0; i < n; i++)
                 {
                     xs[i] = dx;
@@ -425,13 +425,14 @@ namespace Tepi
                 }
                 return;
             }
-            float room = w - 116, cell = TabIcon;
+            // Left: hide; right: action and gear
+            float room = w - 152, cell = TabIcon;
             float label = active >= 0 ? p.Measure(TabLabel(tabs[active]), Ink.Semi(12f)) + 7 : 0;
             float total = n * cell + (n - 1) * TabGap + label;
             // Too tight: icons only
             if (total > room) { label = 0; total = n * cell + (n - 1) * TabGap; }
             if (total > room) { cell = (room - (n - 1) * TabGap) / n; total = room; }
-            float x = w / 2 - total / 2;
+            float x = w / 2 - 18 - total / 2;
             for (int i = 0; i < n; i++)
             {
                 xs[i] = x;
@@ -677,6 +678,17 @@ namespace Tepi
             p.Symbol(Sym.ChevronUp, r.X + 17, r.Y + TabH / 2, 14f, Hover("toMini") ? p.T.Text : p.T.Sub);
         }
 
+        // Gear, far right: settings without right-click
+        void DrawPrefsButton(float w)
+        {
+            var r = new RectangleF(w - 52, TabY, 34, TabH);
+            AddHit(r, "prefsOpen", openPrefsAct ?? (openPrefsAct = delegate { BeginInvoke(new Action(OpenPrefs)); }));
+            if (Hover("prefsOpen")) p.FillRound(r, TabH / 2, Pressed("prefsOpen") ? p.T.FillHover : p.T.Fill);
+            p.Icon('', 13f, Hover("prefsOpen") ? p.T.Text : p.T.Sub, r.X + 17, r.Y + TabH / 2);
+        }
+
+        Action openPrefsAct;
+
         void GoMini()
         {
             if (!MiniWanted()) ToggleMini();
@@ -687,7 +699,7 @@ namespace Tepi
         // Round action button; trash swallows flyers
         void TabButton(string id, char glyph, Action act, bool trash)
         {
-            var r = new RectangleF(tabLayoutW - 52, TabY, 34, TabH);
+            var r = new RectangleF(tabLayoutW - 88, TabY, 34, TabH);
             AddHit(r, id, act);
             if (Hover(id)) p.FillRound(r, TabH / 2, Pressed(id) ? p.T.FillHover : p.T.Fill);
             if (trash) { var c = CanvasRect(r); trashPt = new PointF(c.X + c.Width / 2, c.Y + c.Height / 2); }
@@ -699,7 +711,8 @@ namespace Tepi
         void DrawTabAction(float w)
         {
             DrawHideButton();
-            var r = new RectangleF(w - 52, TabY, 34, TabH);
+            DrawPrefsButton(w);
+            var r = new RectangleF(w - 88, TabY, 34, TabH);
             if (page == PageMusic && mediaInfo.Present && mediaInfo.Title.Length > 0)
             {
                 bool album = AlbumMode();
