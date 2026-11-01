@@ -704,6 +704,7 @@ namespace Tepi
             g.Clear(Color.Transparent);
             g.ResetClip();
             g.ScaleTransform(scale, scale);
+            p.HalfPx = 0.5f / scale;
             p.Alpha = 1f;
             p.T = Ink.Base;
             backdropInSurface = false;

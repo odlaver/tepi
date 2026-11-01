@@ -282,10 +282,31 @@ namespace Tepi
                 building = false;
             }
 
+            // Blank a Label draws before its first letter
+            static int LabelPad(Label l)
+            {
+                var size = l.PreferredSize;
+                if (size.Width <= 0 || size.Height <= 0) return 0;
+                using (var bmp = new Bitmap(size.Width, size.Height))
+                {
+                    l.Size = size;
+                    l.DrawToBitmap(bmp, new Rectangle(Point.Empty, size));
+                    var back = l.BackColor;
+                    for (int x = 0; x < size.Width; x++)
+                        for (int y = 0; y < size.Height; y++)
+                        {
+                            var c = bmp.GetPixel(x, y);
+                            if (Math.Abs(c.R - back.R) + Math.Abs(c.G - back.G) + Math.Abs(c.B - back.B) > 90) return x;
+                        }
+                }
+                return 0;
+            }
+
             void Heading(string text)
             {
                 var l = new Label { Text = text, Font = UiFont(24f), ForeColor = KitInk.Text, BackColor = KitInk.Window, AutoSize = true };
-                l.Location = new Point((int)(28 * Ui), (int)y);
+                // Ink on the group's edge
+                l.Location = new Point((int)(28 * Ui) - LabelPad(l), (int)y);
                 content.Controls.Add(l);
                 y += 52 * Ui;
             }
@@ -302,7 +323,8 @@ namespace Tepi
             void Caption(string text)
             {
                 var l = new Label { Text = text, Font = UiFont(12f), ForeColor = KitInk.Sub, BackColor = KitInk.Window, AutoSize = true };
-                l.Location = new Point((int)(40 * Ui), (int)y);
+                // Ink lines up with the row icons
+                l.Location = new Point((int)(42 * Ui) - LabelPad(l), (int)y);
                 content.Controls.Add(l);
                 y += 24 * Ui;
             }

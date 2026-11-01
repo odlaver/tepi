@@ -243,6 +243,66 @@ namespace Tepi
             return s;
         }
 
+        // Glyph ink centred, not its em box
+        static readonly Dictionary<long, PointF> nudges = new Dictionary<long, PointF>();
+        static StringFormat nudgeFormat;
+
+        public static PointF IconNudge(char glyph, float px)
+        {
+            // Speaker glyphs share one centre: no jump
+            char shape = (glyph >= IcoVol0 && glyph <= IcoVol3) || glyph == IcoMute ? IcoVol3 : glyph;
+            long key = ((long)shape << 24) | (long)Math.Round(px * 8);
+            PointF n;
+            if (nudges.TryGetValue(key, out n)) return n;
+            if (nudgeFormat == null)
+            {
+                nudgeFormat = (StringFormat)StringFormat.GenericTypographic.Clone();
+                nudgeFormat.FormatFlags |= StringFormatFlags.NoWrap;
+                nudgeFormat.Alignment = StringAlignment.Center;
+                nudgeFormat.LineAlignment = StringAlignment.Center;
+            }
+            try
+            {
+                using (var fam = new FontFamily(IconFamily))
+                using (var path = new GraphicsPath())
+                {
+                    path.AddString(Str(shape), fam, 0, px, new RectangleF(-px, -px, px * 2, px * 2), nudgeFormat);
+                    var r = path.GetBounds();
+                    n = r.Width > 0 ? new PointF(-(r.X + r.Width / 2), -(r.Y + r.Height / 2)) : PointF.Empty;
+                }
+            }
+            catch (Exception) { n = PointF.Empty; }
+            nudges[key] = n;
+            return n;
+        }
+
+        static readonly Dictionary<Font, float> capShifts = new Dictionary<Font, float>();
+
+        // Offset that puts a capital's middle on the line centre
+        public static float CapShift(Font f)
+        {
+            float shift;
+            if (capShifts.TryGetValue(f, out shift)) return shift;
+            if (nudgeFormat == null) IconNudge(' ', 1);
+            var fmt = (StringFormat)nudgeFormat.Clone();
+            fmt.Alignment = StringAlignment.Near;
+            float h = f.Size * 2;
+            try
+            {
+                using (var fam = new FontFamily(f.Name))
+                using (var path = new GraphicsPath())
+                {
+                    path.AddString("H", fam, (int)f.Style, f.Size, new RectangleF(0, -h / 2, 1000, h), fmt);
+                    var r = path.GetBounds();
+                    shift = r.Height > 0 ? -(r.Y + r.Height / 2) : -f.Size * CapLift;
+                }
+            }
+            catch (Exception) { shift = -f.Size * CapLift; }
+            finally { fmt.Dispose(); }
+            capShifts[f] = shift;
+            return shift;
+        }
+
         static readonly string[] percents = new string[101];
 
         public static string Percent(int v)
@@ -604,6 +664,8 @@ namespace Tepi
     class Painter : IDisposable
     {
         public Graphics G;
+        // Text and glyphs snap to whole pixels; shapes sit half a pixel off
+        public float HalfPx;
         public float Alpha = 1f;
         public Tone T = Ink.Base;
         public bool Shadow; // legibility on see-through glass
@@ -760,11 +822,12 @@ namespace Tepi
             return w;
         }
 
-        static RectangleF LineBox(Font f, float x, float cy, float maxWidth, StringAlignment align)
+        // Capital height centred on cy
+        RectangleF LineBox(Font f, float x, float cy, float maxWidth, StringAlignment align)
         {
             float h = f.Size * 2f;
             float left = align == StringAlignment.Near ? x : align == StringAlignment.Far ? x - maxWidth : x - maxWidth / 2;
-            return new RectangleF(left, cy - h / 2 - f.Size * Ink.CapLift, maxWidth, h);
+            return new RectangleF(left + HalfPx, cy - h / 2 + Ink.CapShift(f) + HalfPx, maxWidth, h);
         }
 
         // One line, centred on cy, ellipsized
@@ -809,16 +872,13 @@ namespace Tepi
             wrap.LineAlignment = StringAlignment.Near;
         }
 
-        public void Icon(char glyph, float px, Color c, float cx, float cy)
-        {
-            line.Alignment = StringAlignment.Center;
-            G.DrawString(Ink.Str(glyph), Ink.Icons(px), B(c), new RectangleF(cx - px, cy - px, px * 2, px * 2), line);
-        }
+        public void Icon(char glyph, float px, Color c, float cx, float cy) { Icon(glyph, px, B(c), cx, cy); }
 
         public void Icon(char glyph, float px, Brush b, float cx, float cy)
         {
             line.Alignment = StringAlignment.Center;
-            G.DrawString(Ink.Str(glyph), Ink.Icons(px), b, new RectangleF(cx - px, cy - px, px * 2, px * 2), line);
+            var n = Ink.IconNudge(glyph, px);
+            G.DrawString(Ink.Str(glyph), Ink.Icons(px), b, new RectangleF(cx - px + n.X + HalfPx, cy - px + n.Y + HalfPx, px * 2, px * 2), line);
         }
 
         // Cached vector symbol at cx, cy
