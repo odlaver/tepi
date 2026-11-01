@@ -36,7 +36,7 @@ Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan juml
 | Unduhan | Unduhan di Chrome, Edge, Firefox, Brave, dan Opera tampil di island beserta ukuran dan kecepatannya. Klik toast **Unduhan selesai** untuk membuka foldernya. |
 | Teleprompter | Tempel naskah, dan island menggulirkannya pelan di tepi atas layar, dekat kamera. Kecepatan dihitung dalam kata per menit. Selama berjalan, teleprompter tembus klik dan dikendalikan lewat pintasan keyboard. Saat dijeda, tepinya bisa diseret untuk mengubah ukuran. Ada hitung mundur, mode cermin untuk teleprompter kaca, penanda `[jeda]`, sisa waktu baca, beberapa naskah tersimpan, dan impor dari `.txt` atau `.md`. Naskah tidak ikut terekam saat screen share atau rekam layar. |
 | Timer | Fokus 25 atau 50 menit lalu istirahat, timer menit bebas yang bisa dijeda dan ditambah semenit, serta stopwatch dengan putaran. Angka besar di island, atau cincin di samping pil musik. |
-| Skrip | Skrip apa pun bisa memunculkan toast atau bilah progres di island lewat `Tepi.exe --notify`. |
+| Skrip | Skrip apa pun bisa memunculkan toast atau bilah progres di island lewat `Tepi.exe --notify`, dan perintah panjang tampil di island beserta hasilnya lewat `Tepi.exe --run`. |
 | Mode rapat | Saat sebuah aplikasi memakai mikrofon lebih dari 20 detik (Zoom, Meet di browser, Teams, Discord), island menampilkan nama aplikasinya dan lama panggilan. Klik untuk mematikan atau menyalakan mikrofon. Selama itu notifikasi biasa ditahan seperti saat Senyap. |
 | Aktivitas sistem | Volume, charger dan baterai, Wi-Fi (termasuk **Wi-Fi butuh login** di jaringan kampus atau hotel: klik toast-nya untuk membuka halaman login, lalu **Internet kembali** setelah berhasil), aplikasi yang memakai mikrofon atau kamera, Caps Lock, serta bahasa input saat layout keyboard berganti (misalnya EN ke ID). Selama Caps Lock nyala, penandanya tetap tampil: tombol kecil di island (atau di gelembung samping saat musik diputar) dan panah kecil di sliver Mini. Num Lock ikut ditandai kalau HUD-nya dinyalakan. Status tombol dibaca langsung, tanpa hook keyboard. |
 | Tampilan | Material Liquid Glass, Frost, atau Hitam pekat; tema gelap atau terang; warna aksen; menempel di tepi atas atau mengambang; posisi, lebar panel, serta tab mana yang tampil. Bila tab lebih dari tujuh, ikonnya berganti titik dan nama tab tampil sebagai judul. Otomatis menyingkir saat ada aplikasi layar penuh. |
@@ -71,7 +71,7 @@ Tepi memberi tahu sendiri kalau ada versi baru, termasuk build baru dengan nomor
 
 ### Pengaturan
 
-Klik kanan ikon Tepi, lalu **Pengaturan**. Jendelanya punya kolom cari dan bagian di samping; setiap perubahan langsung berlaku tanpa perlu menyimpan.
+Klik ikon gear di pojok kanan atas panel, atau klik kanan ikon Tepi lalu **Pengaturan**. Jendelanya punya kolom cari dan bagian di samping; setiap perubahan langsung berlaku tanpa perlu menyimpan.
 
 - **Umum**: bahasa, mulai bersama Windows, cek versi baru, folder data.
 - **Tampilan**: tema, material (Liquid, Frost, Hitam), aksen, paket tema, suara sapaan paket.
