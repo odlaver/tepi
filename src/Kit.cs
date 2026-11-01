@@ -47,8 +47,26 @@ namespace Tepi
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         }
 
+        static StringFormat glyphFormat;
+
         public static void Draw(Graphics g, string s, Font f, Color c, RectangleF r, ContentAlignment align)
         {
+            // Lone icon glyph: centre its ink, not its line box
+            if (s != null && s.Length == 1 && align == ContentAlignment.MiddleCenter && f.Name == Ink.IconFamily)
+            {
+                if (glyphFormat == null)
+                {
+                    glyphFormat = (StringFormat)StringFormat.GenericTypographic.Clone();
+                    glyphFormat.FormatFlags |= StringFormatFlags.NoWrap;
+                    glyphFormat.Alignment = StringAlignment.Center;
+                    glyphFormat.LineAlignment = StringAlignment.Center;
+                }
+                var n = Ink.IconNudge(s[0], f.Size);
+                float half = g.PixelOffsetMode == PixelOffsetMode.HighQuality || g.PixelOffsetMode == PixelOffsetMode.Half ? 0.5f : 0;
+                float cx = r.X + r.Width / 2 + n.X + half, cy = r.Y + r.Height / 2 + n.Y + half;
+                using (var b = new SolidBrush(c)) g.DrawString(s, f, b, new RectangleF(cx - f.Size, cy - f.Size, f.Size * 2, f.Size * 2), glyphFormat);
+                return;
+            }
             var flags = TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine;
             if (align == ContentAlignment.MiddleCenter) flags |= TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter;
             else if (align == ContentAlignment.MiddleRight) flags |= TextFormatFlags.Right | TextFormatFlags.VerticalCenter;
