@@ -17,10 +17,10 @@
     "meta.os": "Windows 10 and 11",
     "note.platform": "Tepi is for Windows 10 and 11.",
     "hero.source": "Source code on GitHub",
-    "hero.update": "New in Tepi 2.2: quick notes, per-app volume, terminal commands, and campus Wi-Fi sign-in right from the island.",
+    "hero.update": "New in Tepi 2.3: weather and rain alerts, meeting mode, a camera mirror, and earbuds battery on the island.",
     "alt.hero": "Tepi Overview panel: the song playing, a working agent, the next class, and messages",
     "live.title": "Alive when it matters.",
-    "live.body": "Songs with lyrics that sweep word by word, incoming messages, finished agents, prayer times, volume, battery, Caps Lock, input language, screenshots, mic mute, USB drives, and now terminal commands and Wi-Fi sign-in. The island grows for a moment, then settles back.",
+    "live.body": "Songs with lyrics that sweep word by word, incoming messages, finished agents, prayer times, volume, battery, Caps Lock, input language, screenshots, mic mute, USB drives, terminal commands, Wi-Fi sign-in, and now meeting mode, earbuds battery, and rain alerts. The island grows for a moment, then settles back.",
     "acts.label": "Island activities",
     "acts.pause": "Pause",
     "acts.play": "Play",
@@ -38,6 +38,9 @@
     "pill.drive": "USB drive",
     "pill.run": "Terminal command",
     "pill.wifi": "Wi-Fi sign-in",
+    "pill.meet": "Meeting mode",
+    "pill.buds": "Earbuds battery",
+    "pill.rain": "Rain alert",
     "panels.title": "Eight pages, one gesture.",
     "panels.body": "The panel opens when the cursor rests on the island. Scrolling switches pages.",
     "panels.label": "Panel pages",
@@ -153,6 +156,8 @@
     "more.script.run": ", and long commands through",
     "more.note": "Quick notes",
     "more.note.d": "Ctrl+Alt+N, one line, Enter. Lands on the shelf, in Todoist, or in Notion.",
+    "more.mirror": "Camera mirror",
+    "more.mirror.d": "Ctrl+Alt+C to check yourself before a class or call. The camera is released after 2 minutes.",
     "more.mixer": "Per-app volume",
     "more.mixer.d": "Spotify, the browser, and Zoom each get their own slider in Controls.",
     "priv.eyebrow": "Privacy and security",
@@ -173,7 +178,7 @@
     "dl.req": "Requirements",
     "dl.req.d": "Windows 10 version 2004 or later, or Windows 11, 64-bit. .NET Framework 4.8 ships with Windows.",
     "dl.ss.d": "The exe is not signed yet, so Windows SmartScreen may show a warning. Choose More info, then Run anyway.",
-    "dl.again": "Already have Tepi? Right-click the Tepi icon, then Update to Tepi 2.2.0. After that, Settings › About › Check for updates is enough.",
+    "dl.again": "Already have Tepi? Right-click the Tepi icon, then Update to Tepi 2.3.0. After that, Settings › About › Check for updates is enough.",
     "dl.copy": "Copy",
     "dl.copied": "Copied",
     "dl.releases": "All releases",
@@ -477,7 +482,7 @@
   }, { passive: false });
 
   // Live stage: one island, seven activities
-  var ACTS = ["lyric", "media", "notif", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi"];
+  var ACTS = ["lyric", "media", "notif", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi", "meet", "buds", "rain"];
   var live = new TI.Island($("#isle-live"));
   var L = { i: -1, auto: false, vis: false, timer: 0, started: false };
   var actBtns = $$(".acts button");
@@ -747,7 +752,7 @@
   // Warm the island images when idle
   var idle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 1200); };
   idle(function () {
-    ["notif", "lyric", "media", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi", "approve"].concat(PANEL_NAMES).forEach(function (n, k) {
+    ["notif", "lyric", "media", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi", "meet", "buds", "rain", "approve"].concat(PANEL_NAMES).forEach(function (n, k) {
       setTimeout(function () { TI.load(n); }, k * 120);
     });
   });

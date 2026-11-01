@@ -29,6 +29,9 @@
     drive: { img: "drive", iw: 427, ox: 13.5, oy: 0, w: 400, h: 64, r: 26, s: 1, tone: "pill" },
     run: { img: "run", iw: 233, ox: 6.5, oy: 0, w: 220, h: 38, r: 18, s: 1, tone: "pill" },
     wifi: { img: "wifi", iw: 273, ox: 7, oy: 0, w: 259.5, h: 42, r: 20, s: 1, tone: "pill" },
+    meet: { img: "meet", iw: 223, ox: 6.5, oy: 0, w: 210, h: 38, r: 18, s: 1, tone: "pill" },
+    buds: { img: "buds", iw: 314, ox: 7, oy: 0, w: 300, h: 52, r: 26, s: 1, tone: "pill" },
+    rain: { img: "rain", iw: 315, ox: 7, oy: 0, w: 301, h: 42, r: 20, s: 1, tone: "pill" },
     approve: { img: "approve", iw: 547.5, ox: 13.5, oy: 0, w: 520, h: 237.5, r: 32, s: 0, tone: "light" }
   };
   var PANELS = [["ringkasan", 352], ["musik", 340], ["agen", 254], ["kuliah", 266], ["pesan", 268], ["rak", 302], ["kontrol", 366], ["pengingat", 262]];
