@@ -94,7 +94,7 @@
       <div class="stage-fit"><div class="stage stage-hero">
         <img src="assets/img/p-ringkasan.webp" width="588" height="370" decoding="async" fetchpriority="high" alt="Panel Ringkasan Tepi: lagu yang diputar, agen yang bekerja, kelas berikutnya, dan pesan" data-i18n-alt="alt.hero">
       </div></div>
-      <figcaption class="cap" data-i18n="hero.update">Baru di Tepi 2.1: Caps Lock, bahasa input, preview screenshot, mute mikrofon, dan flashdisk kini tampil di island.</figcaption>
+      <figcaption class="cap" data-i18n="hero.update">Baru di Tepi 2.2: catatan kilat, volume per aplikasi, perintah terminal, dan login Wi-Fi kampus langsung dari island.</figcaption>
     </figure>
   </section>
 
@@ -102,7 +102,7 @@
     <div class="wrap head">
       <p class="eyebrow">Live activity</p>
       <h2 data-i18n="live.title">Hidup saat dibutuhkan.</h2>
-      <p class="body" data-i18n="live.body">Lagu dengan lirik yang menyapu kata demi kata, pesan masuk, agent yang selesai, waktu sholat, volume, daya baterai, dan sekarang Caps Lock, bahasa input, screenshot, mute mikrofon, serta flashdisk. Island membesar sebentar, lalu kembali tenang.</p>
+      <p class="body" data-i18n="live.body">Lagu dengan lirik yang menyapu kata demi kata, pesan masuk, agent yang selesai, waktu sholat, volume, daya baterai, Caps Lock, bahasa input, screenshot, mute mikrofon, flashdisk, dan sekarang perintah terminal serta login Wi-Fi. Island membesar sebentar, lalu kembali tenang.</p>
     </div>
     <div class="wrap live">
       <div class="stage stage-live" id="stage-live"><div class="isle inline" id="isle-live" data-isle aria-hidden="true"></div></div>
@@ -120,6 +120,8 @@
           <li><button type="button" data-act="9" aria-pressed="false"><span data-i18n="pill.shot">Screenshot</span><i></i></button></li>
           <li><button type="button" data-act="10" aria-pressed="false"><span data-i18n="pill.mic">Mute mikrofon</span><i></i></button></li>
           <li><button type="button" data-act="11" aria-pressed="false"><span data-i18n="pill.drive">Flashdisk</span><i></i></button></li>
+          <li><button type="button" data-act="12" aria-pressed="false"><span data-i18n="pill.run">Perintah terminal</span><i></i></button></li>
+          <li><button type="button" data-act="13" aria-pressed="false"><span data-i18n="pill.wifi">Wi-Fi butuh login</span><i></i></button></li>
         </ol>
         <button type="button" class="pp" id="pp"><svg viewBox="0 0 12 12" aria-hidden="true"><path class="i-pause" d="M3.5 2.5v7M8.5 2.5v7"/><path class="i-play" d="M3.5 2.2v7.6L9.8 6z"/></svg><span id="pp-label" data-i18n="acts.pause">Jeda</span></button>
       </div>
@@ -336,7 +338,9 @@
         <li><b data-i18n="more.dl">Unduhan</b><span data-i18n="more.dl.d">Progres unduhan Chrome, Edge, Firefox, Brave, dan Opera beserta kecepatannya.</span></li>
         <li><b data-i18n="more.kb">Keyboard penuh</b><span data-i18n="more.kb.d">Ctrl+Alt+I untuk navigasi. Toast, tab, tombol, dan permintaan izin dibacakan Narrator atau NVDA.</span></li>
         <li><b data-i18n="more.lang">Dua bahasa</b><span data-i18n="more.lang.d">Indonesia dan Inggris.</span></li>
-        <li><b data-i18n="more.script">Skrip</b><span><span data-i18n="more.script.d">Toast dan bilah progres dari skrip apa pun lewat</span> <code class="cmd">Tepi.exe --notify</code>.</span></li>
+        <li><b data-i18n="more.note">Catatan kilat</b><span data-i18n="more.note.d">Ctrl+Alt+N, satu baris, Enter. Masuk ke Rak, Todoist, atau Notion.</span></li>
+        <li><b data-i18n="more.mixer">Volume per aplikasi</b><span data-i18n="more.mixer.d">Spotify, browser, dan Zoom diatur sendiri-sendiri dari Kontrol.</span></li>
+        <li><b data-i18n="more.script">Skrip</b><span><span data-i18n="more.script.d">Toast dan bilah progres dari skrip apa pun lewat</span> <code class="cmd">Tepi.exe --notify</code><span data-i18n="more.script.run">, dan perintah panjang lewat</span> <code class="cmd">--run</code>.</span></li>
       </ul>
     </div>
   </section>
