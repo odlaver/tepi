@@ -4,15 +4,15 @@ Dynamic island untuk Windows. Tepi duduk di tepi atas layar dan membesar saat ad
 
 Tampilannya mengikuti bahasa Liquid Glass: kaca jernih yang menyesuaikan terang latar di belakangnya, sudut kontinu seperti iOS, dan gerak pegas. Monokrom secara bawaan; paket tema memberi warna. Native C# tanpa browser engine, exe sekitar 720 KB. Tampilan tersedia dalam bahasa Indonesia dan Inggris.
 
-Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian kecil yang hidup (visualizer, lirik, spinner, timer) digambar ulang sendiri. Diukur di laptop Intel Core i3-1115G4 pada 1 November 2026, bergantian dengan versi 2.0.0.2 dalam kondisi yang sama, 35 sampai 40 detik per putaran:
+Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian kecil yang hidup (visualizer, lirik, spinner, timer) digambar ulang sendiri, tepat pada refresh layar. Diukur di laptop Intel Core i3-1115G4 pada 1 November 2026, bergantian dengan versi 2.1 memakai lagu dan lirik tiruan yang sama, 45 detik per putaran, median 3 putaran:
 
-| Kondisi | 2.0.0.2 | 2.1 |
+| Kondisi | 2.1 | 2.2 |
 |---|---|---|
-| Musik diputar, lirik di island (median 3 putaran) | 3,7% CPU | 3,7% CPU |
-| Panel terbuka selagi musik diputar | 2,5% CPU | 2,5% CPU |
-| Memori saat panel terbuka | sekitar 26 MB | sekitar 26 MB |
+| Musik diputar, lirik di island | 3,8% CPU | 2,4% CPU |
+| Panel terbuka selagi musik diputar | 0,7% CPU | 0,7% CPU |
+| Memori saat panel terbuka | sekitar 21 MB | sekitar 22 MB |
 
-Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan jumlah thread, jadi angka di sana lebih kecil. Fitur baru 2.1 tidak menambah beban: status Caps Lock dibaca tanpa hook keyboard, dan flashdisk, mikrofon, serta screenshot hanya bekerja saat ada kejadian.
+Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan jumlah thread, jadi angka di sana lebih kecil. Sejak 2.2, visualizer dan lirik digambar 30 kali per detik tepat pada refresh layar, tanpa frame kosong di antaranya, jadi musik sekitar sepertiga lebih ringan. Fitur baru 2.2 tidak menambah beban: volume per aplikasi hanya dibaca saat daftar suara terbuka, sedangkan Wi-Fi, charger, dan `--run` hanya bekerja saat ada kejadian.
 
 ## Fitur
 
