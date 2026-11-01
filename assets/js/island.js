@@ -29,9 +29,9 @@
     drive: { img: "drive", iw: 427, ox: 13.5, oy: 0, w: 400, h: 64, r: 26, s: 1, tone: "pill" },
     approve: { img: "approve", iw: 547.5, ox: 13.5, oy: 0, w: 520, h: 237.5, r: 32, s: 0, tone: "light" }
   };
-  var PANELS = [["ringkasan", 352], ["musik", 340], ["agen", 254], ["kuliah", 266], ["pesan", 268], ["rak", 288], ["kontrol", 366], ["pengingat", 262]];
+  var PANELS = [["ringkasan", 352], ["musik", 340], ["agen", 254], ["kuliah", 266], ["pesan", 268], ["rak", 302], ["kontrol", 366], ["pengingat", 262]];
   PANELS.forEach(function (p) {
-    STATES["p-" + p[0]] = { img: "p-" + p[0], iw: 583.5, ox: 11.5, oy: 0, w: 560, h: p[1], r: 32, s: 0, tone: "panel", split: true };
+    STATES["p-" + p[0]] = { img: "p-" + p[0], iw: 587.5, ox: 13.5, oy: 0, w: 560, h: p[1], r: 32, s: 0, tone: "panel", split: true };
   });
 
   function src(name) { return "assets/img/" + name + ".webp"; }
