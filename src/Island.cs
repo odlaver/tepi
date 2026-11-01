@@ -561,6 +561,8 @@ namespace Tepi
                 }
                 double before = clock.Elapsed.TotalMilliseconds;
                 bool failed = Native.DwmFlush() != 0;
+                // Paced areas: skip vsyncs until due
+                if (mode == Paced && !failed) PaceToDue();
                 // Compositor stopped blocking: avoid spinning
                 quickFlushes = clock.Elapsed.TotalMilliseconds - before < 0.3 ? quickFlushes + 1 : 0;
                 if (failed || quickFlushes > 3) Thread.Sleep(8);

@@ -217,7 +217,7 @@ namespace Tepi
             DateTime nextFull = DateTime.MinValue;
             while (true)
             {
-                if (wake.WaitOne(1000)) Thread.Sleep(350);
+                if (wake.WaitOne(watcher != null ? 10000 : 1000)) Thread.Sleep(350);
                 if (!enabled) continue;
                 try
                 {

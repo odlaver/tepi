@@ -32,8 +32,8 @@ namespace Tepi
     {
         // Motion at 30 fps; times each second
         const float LiveFps = 30, TickFps = 1;
-        // Bars follow the display
-        const float BarsLiveFps = 60;
+        // Bars at 30 fps, vsync aligned
+        const float BarsLiveFps = 30;
         readonly List<LiveSlot> slots = new List<LiveSlot>();
         int slotCount, liveInline, framePxW, framePxH;
         // Steady frames record; partial frames replay
@@ -178,6 +178,12 @@ namespace Tepi
                 if (s.Hot) hot++;
             }
             if (hot == 0) return;
+            // Fast slots due next vsync join now
+            for (int i = 0; i < slotCount; i++)
+            {
+                var s = slots[i];
+                if (!s.Hot && s.Due > 0 && s.Wait < 0.045 && s.Due - t <= 0.018 && (s.Sig == null || s.Sig() != s.LastSig)) s.Hot = true;
+            }
             // Overlapping neighbours redraw too, in order
             for (bool grew = true; grew; )
             {
@@ -364,6 +370,17 @@ namespace Tepi
             ambientTimer.Stop();
             ambientTimer.Interval = 1;
             ambientTimer.Start();
+        }
+
+        // Sleep whole vsyncs, no empty frames
+        void PaceToDue()
+        {
+            for (int n = 0; n < 4 && !Native.HasPendingMessage(); n++)
+            {
+                double due = double.MaxValue;
+                for (int i = 0; i < slotCount; i++) if (slots[i].Due > 0) due = Math.Min(due, slots[i].Due - slots[i].Slack);
+                if (due - clock.Elapsed.TotalSeconds < 0.002 || Native.DwmFlush() != 0) return;
+            }
         }
 
         bool LiveDue()
