@@ -102,7 +102,9 @@ namespace Tepi
             var result = new Lyrics { Key = key, State = LyricState.Missing };
             string title, artist;
             Clean(rawTitle, rawArtist, out title, out artist);
-            string stem = Path.Combine(CacheDir, Hash((artist + "|" + title).ToLowerInvariant()));
+            // No artist: a clip or recording, not a song
+            if (artist.Length == 0 || title.Length == 0) return result;
+            string stem =Path.Combine(CacheDir, Hash((artist + "|" + title).ToLowerInvariant()));
             string file = stem + ".lrc", plainFile = stem + ".txt";
             try
             {
@@ -298,7 +300,9 @@ namespace Tepi
             t = Regex.Replace(t, @"\s+\|.*$", "");
             bool channel = a.Length == 0 || Regex.IsMatch(a, @"(?i)(vevo|\s-\s*topic|official|records|music|channel|\btv)$|^official");
             var dash = Regex.Match(t, @"^(.+?)\s+[-–—]\s+(.+)$");
-            if (dash.Success && (channel || dash.Groups[1].Value.IndexOf(a, StringComparison.OrdinalIgnoreCase) >= 0))
+            // "NoDoubt" channel, "No Doubt - ..." title
+            string na = Norm(Regex.Replace(a, @"(?i)vevo$|\s*-\s*topic$", "")), nd = dash.Success ? Norm(dash.Groups[1].Value) : "";
+            if (dash.Success && (channel || (na.Length > 0 && nd.Length > 0 && (nd.Contains(na) || na.Contains(nd)))))
             {
                 a = dash.Groups[1].Value.Trim();
                 t = dash.Groups[2].Value.Trim();
