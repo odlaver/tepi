@@ -255,9 +255,10 @@ Data diperbarui tiap 10 menit, dan saat tab Tugas atau Jadwal dibuka. Token dan 
 
 ### Sambungan HP
 
-1. Di laptop: **Pengaturan > HP**, nyalakan **Hubungkan HP**, lalu klik **Buat kode**.
-2. Di HP: Tepi > Pengaturan > **Laptop**, ketik alamat dan kode yang muncul di laptop.
-3. Windows Firewall akan bertanya sekali; izinkan untuk jaringan privat.
+1. Di HP: pasang APK Tepi Android dari [tepi-android/releases](https://github.com/odlaver/tepi-android/releases).
+2. Di laptop: **Pengaturan > HP**, nyalakan **Hubungkan HP**, lalu klik **Buat kode**.
+3. Di HP: Tepi > Pengaturan > **Laptop**, ketik alamat dan kode yang muncul di laptop.
+4. Windows Firewall akan bertanya sekali; izinkan untuk jaringan privat.
 
 Kode berlaku 5 menit dan hangus setelah lima kali salah. Tab HP muncul sendiri setelah sambungan dinyalakan.
 
