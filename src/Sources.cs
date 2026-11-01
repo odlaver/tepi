@@ -44,7 +44,8 @@ namespace Tepi
                     var req = (HttpWebRequest)WebRequest.Create(uri);
                     req.Method = method;
                     req.AllowAutoRedirect = false;
-                    req.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+                    // Gzip only: .NET misreads zlib deflate
+                    req.AutomaticDecompression = DecompressionMethods.GZip;
                     req.Timeout = req.ReadWriteTimeout = timeoutMs;
                     req.UserAgent = "Tepi/" + Island.AppVersion + " (+https://github.com/odlaver/tepi)";
                     req.ServicePoint.Expect100Continue = false;
