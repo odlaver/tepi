@@ -17,10 +17,10 @@
     "meta.os": "Windows 10 and 11",
     "note.platform": "Tepi is for Windows 10 and 11.",
     "hero.source": "Source code on GitHub",
-    "hero.update": "New in Tepi 2.3: weather and rain alerts, meeting mode, a camera mirror, and earbuds battery on the island.",
+    "hero.update": "New in Tepi 2.4: connect your Android phone. OTP codes, notifications, battery, and files move over the same Wi-Fi.",
     "alt.hero": "Tepi Overview panel: the song playing, a working agent, the next class, and messages",
     "live.title": "Alive when it matters.",
-    "live.body": "Songs with lyrics that sweep word by word, incoming messages, finished agents, prayer times, volume, battery, Caps Lock, input language, screenshots, mic mute, USB drives, terminal commands, Wi-Fi sign-in, and now meeting mode, earbuds battery, and rain alerts. The island grows for a moment, then settles back.",
+    "live.body": "Songs with lyrics that sweep word by word, incoming messages, finished agents, prayer times, volume, battery, Caps Lock, input language, screenshots, mic mute, USB drives, terminal commands, Wi-Fi sign-in, meeting mode, earbuds battery, rain alerts, and now OTP codes from your phone. The island grows for a moment, then settles back.",
     "acts.label": "Island activities",
     "acts.pause": "Pause",
     "acts.play": "Play",
@@ -41,7 +41,9 @@
     "pill.meet": "Meeting mode",
     "pill.buds": "Earbuds battery",
     "pill.rain": "Rain alert",
-    "panels.title": "Eight pages, one gesture.",
+    "pill.otp": "OTP code",
+    "panels.title": "Nine pages, one gesture.",
+    "pg.phone": "Phone",
     "panels.body": "The panel opens when the cursor rests on the island. Scrolling switches pages.",
     "panels.label": "Panel pages",
     "pg.home": "Overview",
@@ -59,6 +61,7 @@
     "pg.ctl.d": "Sound, display, Wi-Fi, Bluetooth, timer",
     "pg.rem": "Reminders",
     "pg.rem.d": "Prayer, water, eye breaks",
+    "pg.phone.d": "OTP codes, notifications, battery, files",
     "mini.eyebrow": "Mini mode",
     "mini.title": "Out of the way while you focus.",
     "mini.body": "The island shrinks to a small click-through sliver, so the browser tabs underneath stay clickable. Auto mode shrinks it when a browser is maximized or after a minute of quiet. Important alerts still come through.",
@@ -178,7 +181,7 @@
     "dl.req": "Requirements",
     "dl.req.d": "Windows 10 version 2004 or later, or Windows 11, 64-bit. .NET Framework 4.8 ships with Windows.",
     "dl.ss.d": "The exe is not signed yet, so Windows SmartScreen may show a warning. Choose More info, then Run anyway.",
-    "dl.again": "Already have Tepi? Right-click the Tepi icon, then Update to Tepi 2.3.0. After that, Settings › About › Check for updates is enough.",
+    "dl.again": "Already have Tepi? Right-click the Tepi icon, then Update to Tepi 2.4.0. After that, Settings › About › Check for updates is enough.",
     "dl.copy": "Copy",
     "dl.copied": "Copied",
     "dl.releases": "All releases",
@@ -211,6 +214,7 @@
     "pg.shelf.d": "Seret berkas masuk, seret lagi keluar",
     "pg.ctl.d": "Suara, layar, Wi-Fi, Bluetooth, timer",
     "pg.rem.d": "Sholat, minum, istirahat mata",
+    "pg.phone.d": "Kode OTP, notifikasi, baterai, berkas",
     "style.liquid.d": "Kaca jernih yang menyesuaikan terang latar",
     "style.frost.d": "Kaca yang lebih berkabut dan lembut",
     "style.light.d": "Semua halaman ikut terang"
@@ -359,7 +363,9 @@
   // Panel scene: the page scroll switches tabs
   var sc = { el: $("#panel"), on: false, idx: -1, step: 0 };
   var tabs = $$(".tabs [role=tab]");
-  var DESC = ["pg.home.d", "pg.music.d", "", "pg.class.d", "pg.msg.d", "pg.shelf.d", "pg.ctl.d", "pg.rem.d"];
+  var DESC = ["pg.home.d", "pg.music.d", "", "pg.class.d", "pg.msg.d", "pg.shelf.d", "pg.ctl.d", "pg.rem.d", "pg.phone.d"];
+  var NP = PANEL_NAMES.length;
+  sc.el.style.setProperty("--n", NP);
   sc.el.classList.add("pinned");
   function sceneSize() {
     sc.step = Math.round(window.innerHeight * 0.42);
@@ -370,7 +376,7 @@
     top.root.style.setProperty("--fit", f.toFixed(3));
   }
   function nowText() {
-    var i = Math.max(0, Math.min(7, sc.idx));
+    var i = Math.max(0, Math.min(NP - 1, sc.idx));
     $("#now-name").textContent = tabs[i].textContent;
     $("#now-desc").textContent = DESC[i] ? t(DESC[i]) : "Claude Code, Codex, Gemini CLI, Antigravity";
   }
@@ -385,7 +391,7 @@
   function sceneGo(i) {
     var prev = sc.idx;
     sc.idx = i;
-    var inside = i >= 0 && i < 8;
+    var inside = i >= 0 && i < NP;
     if (inside) {
       if (!sc.on) {
         sc.on = true;
@@ -409,7 +415,7 @@
   }
   function sceneTick() {
     var r = sc.el.getBoundingClientRect();
-    var i = r.top > 0 ? -1 : Math.min(8, Math.floor(-r.top / sc.step));
+    var i = r.top > 0 ? -1 : Math.min(NP, Math.floor(-r.top / sc.step));
     if (i !== sc.idx) sceneGo(i);
   }
   function tabScroll(i) {
@@ -420,10 +426,10 @@
   on($(".tabs"), "keydown", function (e) {
     var i = tabs.indexOf(document.activeElement);
     if (i < 0) return;
-    var n = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: 7 }[e.key];
+    var n = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: NP - 1 }[e.key];
     if (n === undefined) return;
     e.preventDefault();
-    n = (n + 8) % 8;
+    n = (n + NP) % NP;
     tabs[n].focus();
     tabScroll(n);
   });
@@ -469,7 +475,7 @@
     var d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     var dir = d > 0 ? 1 : -1;
     var n = hov.tab + dir;
-    if (n < 0 || n > 7) return;
+    if (n < 0 || n > PANEL_NAMES.length - 1) return;
     e.preventDefault();
     hov.acc += d;
     if (Math.abs(hov.acc) < 60 || Date.now() < hov.lock) return;
@@ -482,7 +488,7 @@
   }, { passive: false });
 
   // Live stage: one island, seven activities
-  var ACTS = ["lyric", "media", "notif", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi", "meet", "buds", "rain"];
+  var ACTS = ["lyric", "media", "notif", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi", "meet", "buds", "rain", "otp"];
   var live = new TI.Island($("#isle-live"));
   var L = { i: -1, auto: false, vis: false, timer: 0, started: false };
   var actBtns = $$(".acts button");
@@ -752,7 +758,7 @@
   // Warm the island images when idle
   var idle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 1200); };
   idle(function () {
-    ["notif", "lyric", "media", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi", "meet", "buds", "rain", "approve"].concat(PANEL_NAMES).forEach(function (n, k) {
+    ["notif", "lyric", "media", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi", "meet", "buds", "rain", "otp", "approve"].concat(PANEL_NAMES).forEach(function (n, k) {
       setTimeout(function () { TI.load(n); }, k * 120);
     });
   });
