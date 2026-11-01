@@ -4,16 +4,15 @@ Dynamic island untuk Windows. Tepi duduk di tepi atas layar dan membesar saat ad
 
 Tampilannya mengikuti bahasa Liquid Glass: kaca jernih yang menyesuaikan terang latar di belakangnya, sudut kontinu seperti iOS, dan gerak pegas. Monokrom secara bawaan; paket tema memberi warna. Native C# tanpa browser engine, exe sekitar 700 KB. Tampilan tersedia dalam bahasa Indonesia dan Inggris.
 
-Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian kecil yang hidup (visualizer, lirik, spinner, timer) digambar ulang sendiri. Diukur di laptop Intel Core i3-1115G4, 60 detik per kondisi, dibanding versi 1.7.0:
+Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian kecil yang hidup (visualizer, lirik, spinner, timer) digambar ulang sendiri. Diukur di laptop Intel Core i3-1115G4 pada 1 November 2026, bergantian dengan versi 2.0.0.2 dalam kondisi yang sama, 35 sampai 40 detik per putaran:
 
-| Kondisi | 1.7.0 | 2.0 |
+| Kondisi | 2.0.0.2 | 2.1 |
 |---|---|---|
-| Diam | 1,9% CPU | 0,22% CPU |
-| Musik diputar | 7,0% CPU | 2,1% CPU |
-| Panel terbuka | 7,3% CPU | 0,47% CPU |
-| Memori di Task Manager saat diam | 7 sampai 9 MB | 3 sampai 5 MB |
+| Musik diputar, lirik di island (median 3 putaran) | 3,7% CPU | 3,7% CPU |
+| Panel terbuka selagi musik diputar | 2,5% CPU | 2,5% CPU |
+| Memori saat panel terbuka | sekitar 26 MB | sekitar 26 MB |
 
-Persen CPU dihitung terhadap satu core. Selama panel terbuka memori naik ke sekitar 23 MB, lalu kembali ke 3 sampai 5 MB beberapa detik setelah panel ditutup.
+Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan jumlah thread, jadi angka di sana lebih kecil. Fitur baru 2.1 tidak menambah beban: status Caps Lock dibaca tanpa hook keyboard, dan flashdisk, mikrofon, serta screenshot hanya bekerja saat ada kejadian.
 
 ## Fitur
 
