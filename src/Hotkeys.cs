@@ -158,7 +158,7 @@ namespace Tepi
             if (names.Count == 0) return;
             var t = ShowToast(View.Info, 6, 2, false, true);
             if (t == null) return;
-            t.Glyph = '';
+            t.Glyph = '\uE765';
             t.Title = names.Count == 1 ? Lang.F("{0} dipakai aplikasi lain", names[0]) : Lang.F("{0} pintasan dipakai aplikasi lain", names.Count);
             t.Detail = Lang.T("Ganti di Pengaturan");
             t.Data = (Action)delegate { OpenPrefs("keys"); };

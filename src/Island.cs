@@ -291,8 +291,9 @@ namespace Tepi
                     if (expanded) WheelTab((short)((m.WParam.ToInt64() >> 16) & 0xFFFF));
                     m.Result = IntPtr.Zero;
                     return;
-                case 0x001A: // WM_SETTINGCHANGE: animation effects toggled
+                case 0x001A: // WM_SETTINGCHANGE: animation effects, light or dark
                     if (m.WParam.ToInt64() == 0x1043) { Anim.Read(settings); Kick(); }
+                    else if (m.LParam != IntPtr.Zero && Marshal.PtrToStringUni(m.LParam) == "ImmersiveColorSet") OnColorSetChanged();
                     break;
                 case Native.WM_DPICHANGED:
                 case Native.WM_DISPLAYCHANGE:

@@ -94,7 +94,7 @@ namespace Tepi
         static readonly string[] DevIds = { "dev0", "dev1", "dev2", "dev3", "dev4" }, ChipIds = { "chip0", "chip1", "chip2", "chip3", "chip4" };
         static readonly string[] ChipNames = { "Fokus 25", "5 mnt", "10 mnt", "15 mnt", "Stopwatch" };
         // Delegates built once, never per frame
-        Action actMute, actDevices, actWifi, actBt, actQuiet, actHide, actAwake, actAwakeMenu, actVolStep, actBrightStep, actTmPause, actTmAdd, actTmLap, actTmStop;
+        Action actMute, actDevices, actWifi, actBt, actQuiet, actHide, actAwake, actAwakeMenu, actDark, actVolStep, actBrightStep, actTmPause, actTmAdd, actTmLap, actTmStop;
         Action<float> setVol, setBright;
         Action[] chipActs, devActs = new Action[0];
         List<AudioDevice> devActsFor;
@@ -122,6 +122,7 @@ namespace Tepi
             actHide = delegate { ToggleHidden(); };
             actAwake = ToggleAwake;
             actAwakeMenu = AwakeMenu;
+            actDark = ToggleWindowsDark;
             setVol = delegate (float f)
             {
                 vol = f;
@@ -307,11 +308,11 @@ namespace Tepi
             }
         }
 
-        // Radios, mic, quiet, mini, hide, awake
+        // Radios, mic, quiet, mini, hide, dark, awake
         void DrawToggles(RectangleF r)
         {
             Module(r, Ink.RadiusModule);
-            const int n = 7;
+            const int n = 8;
             float cx, cy, d = ToggleD(n), hw = r.Width / 4;
             ToggleSlot(r, 0, n, out cx, out cy);
             CircleToggle(cx, cy, d, Ink.IcoWifi, radios.WifiOn, radios.HasWifi, Lang.T("Wi-Fi"), "tileWifi", actWifi, null, hw);
@@ -325,7 +326,10 @@ namespace Tepi
             CircleToggle(cx, cy, d, IcoMini, MiniWanted(), true, Lang.T("Mini"), "tileMini", MiniAct(), null, hw);
             ToggleSlot(r, 5, n, out cx, out cy);
             CircleToggle(cx, cy, d, Ink.IcoHide, false, true, Lang.T("Sembunyikan"), "tileHide", actHide, null, hw);
+            // Short label beside the long one
             ToggleSlot(r, 6, n, out cx, out cy);
+            CircleToggle(cx, cy, d, IcoDarkMode, winDark, true, Lang.T("Gelap"), "tileDark", actDark, null, hw);
+            ToggleSlot(r, 7, n, out cx, out cy);
             CircleToggle(cx, cy, d, IcoAwake, AwakeOn, true, AwakeLabel(), "tileAwake", actAwake, actAwakeMenu, hw);
         }
 
