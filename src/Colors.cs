@@ -139,11 +139,13 @@ namespace Tepi
         }
     }
 
-    // Colour chip: swatch plus hex, opens the picker
+    // Colour chip: presets, screen pick, or the full dialog
     class KitSwatch : KitButton
     {
         Color color;
         public event Action<Color> Picked;
+        // Name and hex per preset
+        public string[][] Presets = new string[0][];
 
         public Color Value
         {
@@ -151,16 +153,45 @@ namespace Tepi
             set { color = value; Text = "      " + Island.HexOf(value); AccessibleDescription = Island.HexOf(value); Invalidate(); }
         }
 
+        void Choose(Color c)
+        {
+            Value = Color.FromArgb(255, c);
+            var h = Picked;
+            if (h != null) h(color);
+        }
+
         protected override void OnClick(EventArgs e)
         {
             base.OnClick(e);
-            using (var dlg = new ColorDialog { Color = color, FullOpen = true, AnyColor = true })
+            var m = new ContextMenuStrip();
+            foreach (var p in Presets)
             {
-                if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
-                Value = Color.FromArgb(255, dlg.Color);
-                var h = Picked;
-                if (h != null) h(color);
+                var c = ColorTranslator.FromHtml(p[1]);
+                var dot = new Bitmap(14, 14);
+                using (var g = Graphics.FromImage(dot))
+                {
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    using (var b = new SolidBrush(c)) g.FillEllipse(b, 1, 1, 12, 12);
+                    using (var pen = new Pen(Color.FromArgb(110, 128, 128, 128))) g.DrawEllipse(pen, 1, 1, 12, 12);
+                }
+                m.Items.Add(new ToolStripMenuItem(Lang.T(p[0]), dot, delegate { Choose(c); }) { Checked = Island.HexOf(c) == Island.HexOf(color) });
             }
+            if (m.Items.Count > 0) m.Items.Add(new ToolStripSeparator());
+            m.Items.Add(Lang.T("Ambil dari layar"), null, delegate
+            {
+                var picker = new PickerOverlay();
+                picker.Picked += Choose;
+                picker.Show();
+                picker.Activate();
+            });
+            m.Items.Add(Lang.T("Warna lain…"), null, delegate
+            {
+                using (var dlg = new ColorDialog { Color = color, FullOpen = true, AnyColor = true })
+                    if (dlg.ShowDialog(FindForm()) == DialogResult.OK) Choose(dlg.Color);
+            });
+            MenuLook.Apply(m);
+            m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
+            m.Show(this, new Point(0, Height));
         }
 
         protected override void OnPaint(PaintEventArgs e)
