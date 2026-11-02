@@ -9,7 +9,7 @@ namespace Tepi
     partial class Island
     {
         const string PersonalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
-        const char IcoDarkMode = '\uE793';
+        const char IcoDarkMode = '\uE7A1';
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint msg, UIntPtr wParam, string lParam, uint flags, uint timeout, out UIntPtr result);

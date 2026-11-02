@@ -622,6 +622,7 @@ namespace Tepi
             { "Selang minum", "Drink every" },
             { "Selang peregangan", "Stretch every" },
             { "Sembunyikan", "Hide" },
+            { "Sembunyi", "Hide" },
             { "Mini", "Mini" },
             { "Mode", "Mode" },
             { "Normal", "Normal" },

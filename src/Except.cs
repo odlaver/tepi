@@ -91,7 +91,7 @@ namespace Tepi
             return found;
         }
 
-        static bool Shown(IntPtr hwnd)
+        static bool WindowShown(IntPtr hwnd)
         {
             int cloaked;
             return IsWindowVisible(hwnd) && !(DwmGetWindowAttribute(hwnd, 14, out cloaked, 4) == 0 && cloaked != 0);
@@ -135,7 +135,7 @@ namespace Tepi
             {
                 try
                 {
-                    if (p.Id == ownPid || p.MainWindowHandle == IntPtr.Zero || p.MainWindowTitle.Length == 0 || !Shown(p.MainWindowHandle)) continue;
+                    if (p.Id == ownPid || p.MainWindowHandle == IntPtr.Zero || p.MainWindowTitle.Length == 0 || !WindowShown(p.MainWindowHandle)) continue;
                     string exe = ExeOf((uint)p.Id);
                     string name = p.ProcessName;
                     if (exe == FrameHost)
