@@ -41,7 +41,7 @@ namespace Tepi
                 case View.Class: return new SizeF(ClassWidth(), 38);
                 case View.Download: return new SizeF(DownloadWidth(), 38);
                 case View.Locks: return new SizeF(LocksWidth(), 42);
-                case View.Shot: return new SizeF(380, 76);
+                case View.Shot: return new SizeF(OcrShown ? 438 : 380, 76);
                 case View.Mic: return new SizeF(MicWidth(), 42);
                 case View.Drive: return new SizeF(DriveWidth(), 64);
                 case View.Run: return new SizeF(RunWidth(), 38);
