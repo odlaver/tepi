@@ -25,6 +25,21 @@ namespace Tepi
             prefs.Go(section);
         }
 
+        void SetClock24(bool h24)
+        {
+            settings.Set("clock.24", h24);
+            settings.Save();
+            Fmt.H24 = h24;
+            clockRoller.Set(Fmt.Clock(DateTime.Now));
+            // Cached prayer strings follow at once
+            if (prayToday != null)
+            {
+                for (int i = 0; i < 6; i++) prayHm[i] = Fmt.Hm(prayToday[i]);
+                prayTomorrowHm = Fmt.Hm(prayTomorrow);
+            }
+            Kick();
+        }
+
         void SetLight(bool light)
         {
             settings.Set("theme", light ? "terang" : "gelap");
@@ -386,7 +401,7 @@ namespace Tepi
                 new[] { "Sembunyikan island", "\uED1A" }, new[] { "Navigasi keyboard", "\uE765" }, new[] { "Mini", "\uE898" }, new[] { "Mikrofon", "\uE720" },
                 new[] { "Catatan kilat", "\uE70B" }, new[] { "Cermin kamera", "\uE714" }, new[] { "Jeda dan lanjut", "\uE769" }, new[] { "Ulang dari awal", "\uE72C" },
                 new[] { "Mundur 5 detik", "\uE76B" }, new[] { "Maju 5 detik", "\uE76C" }, new[] { "Lebih cepat", "\uE710" }, new[] { "Lebih lambat", "\uE738" },
-                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" },
+                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" },
             };
 
             static char GlyphFor(string title)
@@ -500,6 +515,7 @@ namespace Tepi
                         add(VersionRow(null));
                         flush();
                         add(Row(Lang.T("Bahasa"), null, Seg(new[] { "Indonesia", "English" }, Lang.English ? 1 : 0, i => { island.SetLanguage(i == 1); Relayout(); })));
+                        add(Row(Lang.T("Format jam"), null, Seg(new[] { "14.30", "2.30 pm" }, Fmt.H24 ? 0 : 1, i => island.SetClock24(i == 0))));
                         add(Row(Lang.T("Mulai bersama Windows"), null, StartupSwitch()));
                         add(Row(Lang.T("Cek versi baru"), Lang.T("Sekali sehari ke GitHub; unduhan hanya saat diminta"), Switch("update.check", true, on => { settings.Set("update.check", on); settings.Save(); })));
                         cap(Lang.T("Data"));

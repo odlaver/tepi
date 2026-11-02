@@ -630,6 +630,7 @@ namespace Tepi
             { "Mata", "Eyes" },
             { "Ikuti kursor", "Follow the cursor" },
             { "Buka panel", "Open panel" },
+            { "Format jam", "Time format" },
             { "Arahkan kursor", "Hover" },
             { "Klik", "Click" },
             { "Jeda buka", "Open delay" },

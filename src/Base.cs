@@ -548,7 +548,17 @@ namespace Tepi
             return (n / 1073741824.0).ToString("0.00", Id) + " GB";
         }
 
-        public static string Hm(DateTime local) { return local.ToString("HH.mm", CultureInfo.InvariantCulture); }
+        // clock.24: 24-hour, or 12-hour with am/pm
+        public static bool H24 = true;
+
+        public static string Hm(DateTime local)
+        {
+            if (H24) return local.ToString("HH.mm", CultureInfo.InvariantCulture);
+            return local.ToString("h.mm", CultureInfo.InvariantCulture) + (local.Hour < 12 ? " am" : " pm");
+        }
+
+        // Big clocks drop am/pm, like a phone
+        public static string Clock(DateTime local) { return local.ToString(H24 ? "HH.mm" : "h.mm", CultureInfo.InvariantCulture); }
 
         public static string Ago(DateTime utc)
         {
