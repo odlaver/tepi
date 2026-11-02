@@ -80,7 +80,7 @@ Klik ikon gear di pojok kanan atas panel, atau klik kanan ikon Tepi lalu **Penga
 - **HP**: hubungkan HP lewat kode pasangan, ganti HP, serta pilih apakah notifikasi pesan dan kode OTP dari HP ditampilkan.
 - **Integrasi**: Kulia, Notion, Todoist, dan kalender iCal untuk tab Tugas dan Jadwal.
 - **Pengingat**: sholat (kota dan menit sebelum), cuaca dan hujan, minum (selang dan target), istirahat mata, peregangan.
-- **Aksesibilitas**: tampil di rekaman layar, umumkan ke pembaca layar, kurangi gerak, dan Senyap.
+- **Aksesibilitas**: tampil di rekaman layar, umumkan ke pembaca layar, kurangi gerak, gerak (Tenang tanpa pantulan, Bawaan, atau Lincah), dan Senyap.
 
 Island yang ikut terekam tidak bisa memakai efek kaca, karena kaca membaca layar di belakangnya dan akan ikut membaca dirinya sendiri. Selama opsi itu menyala, latarnya polos.
 
@@ -384,6 +384,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `note.to` | `rak` | Tujuan catatan kilat: `rak`, `todoist`, atau `notion` |
 | `dnd` | `0` | Senyap: hanya izin, tenggat, sholat, dan timer yang muncul |
 | `motion.reduce` | `auto` | `auto` mengikuti efek animasi Windows, `1` selalu tenang, `0` selalu penuh |
+| `motion.feel` | `bawaan` | `tenang` (lebih lambat, tanpa pantulan), `bawaan`, atau `lincah` (lebih cepat, pantulan lebih besar). `motion.reduce` tetap menang |
 | `pray`, `pray.city`, `pray.before` | `0`, kosong, `10` | Pengingat sholat, kota, menit sebelum |
 | `drink`, `drink.every`, `drink.goal` | `0`, `60`, `8` | Pengingat minum, selang menit, target gelas |
 | `eyes` | `0` | Istirahat mata 20-20-20 |
