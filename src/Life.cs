@@ -675,6 +675,7 @@ namespace Tepi
                         break;
                     }
                     approvals.Add(a);
+                    SoundCue(CueAsk);
                     s.State = AgentState.Waiting;
                     s.Tool = tool;
                     s.Activity = AgentHub.Describe(tool, input);
@@ -694,6 +695,7 @@ namespace Tepi
                     s.State = AgentState.Done;
                     s.Failed = ev.Name == "StopFailure";
                     s.LastMessage = Fmt.OneLine(Json.Str(ev.Data, "last_assistant_message"), 600);
+                    SoundCue(s.Failed ? CueFail : CueDone);
                     var t = ShowToast(View.Done, 6, 2, false);
                     if (t != null) t.Data = s;
                     break;

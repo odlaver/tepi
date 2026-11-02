@@ -39,6 +39,8 @@ namespace Tepi
             int code;
             int.TryParse(Json.Str(ev.Data, "code"), out code);
             string took = Elapsed(DateTime.UtcNow - r.StartedUtc);
+            SoundCue(code == 0 ? CueDone : CueFail);
+            if (code != 0) EyesReact(EyeMood.Sad, 0);
             var t = ShowToast(View.Info, 5, 2, false, true);
             if (t != null)
             {
