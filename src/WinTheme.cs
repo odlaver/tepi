@@ -39,6 +39,7 @@ namespace Tepi
             }
             catch (Exception ex) { Log.Write("dark mode: " + ex.Message); return; }
             winDark = dark;
+            ApplyThemeMode();
             Kick();
             // Hung windows can stall a broadcast
             ThreadPool.QueueUserWorkItem(delegate
@@ -54,6 +55,7 @@ namespace Tepi
             bool dark = ReadWindowsDark();
             if (dark == winDark) return;
             winDark = dark;
+            ApplyThemeMode();
             Kick();
         }
     }
