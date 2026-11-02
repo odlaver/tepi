@@ -14,6 +14,10 @@ namespace Tepi
         public static readonly MediaInfo None = new MediaInfo();
 
         public bool Present, Playing, CanSeek;
+        // Only players that report them
+        public bool CanShuffle, Shuffle, CanRepeat;
+        // 0 off, 1 track, 2 list
+        public int Repeat;
         public string Title = "", Artist = "", App = "", Key = "";
         public double PositionMs, DurationMs;
         public DateTime PositionAtUtc;
@@ -54,6 +58,8 @@ namespace Tepi
         public void Next() { Enqueue(s => Fire(s.TrySkipNextAsync())); }
         public void Previous() { Enqueue(s => Fire(s.TrySkipPreviousAsync())); }
         public void Seek(double ms) { Enqueue(s => Fire(s.TryChangePlaybackPositionAsync((long)(ms * 10000)))); }
+        public void SetShuffle(bool on) { Enqueue(s => Fire(s.TryChangeShuffleActiveAsync(on))); }
+        public void SetRepeat(int mode) { Enqueue(s => Fire(s.TryChangeAutoRepeatModeAsync(mode == 1 ? Windows.Media.MediaPlaybackAutoRepeatMode.Track : mode == 2 ? Windows.Media.MediaPlaybackAutoRepeatMode.List : Windows.Media.MediaPlaybackAutoRepeatMode.None))); }
 
         // Results arrive through the session events
         static void Fire(IAsyncOperation<bool> op) { }
@@ -214,6 +220,11 @@ namespace Tepi
             info.Key = k;
             info.Playing = playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
             info.CanSeek = playback.Controls.IsPlaybackPositionEnabled;
+            info.CanShuffle = playback.Controls.IsShuffleEnabled && playback.IsShuffleActive.HasValue;
+            info.Shuffle = playback.IsShuffleActive ?? false;
+            info.CanRepeat = playback.Controls.IsRepeatEnabled && playback.AutoRepeatMode.HasValue;
+            var rep = playback.AutoRepeatMode ?? Windows.Media.MediaPlaybackAutoRepeatMode.None;
+            info.Repeat = rep == Windows.Media.MediaPlaybackAutoRepeatMode.Track ? 1 : rep == Windows.Media.MediaPlaybackAutoRepeatMode.List ? 2 : 0;
             info.PositionMs = timeline.Position.TotalMilliseconds;
             info.DurationMs = (timeline.EndTime - timeline.StartTime).TotalMilliseconds;
             var updated = timeline.LastUpdatedTime.UtcDateTime;
@@ -230,7 +241,8 @@ namespace Tepi
 
         static bool Same(MediaInfo a, MediaInfo b)
         {
-            if (a == null || a.Key != b.Key || a.Playing != b.Playing || a.CanSeek != b.CanSeek || !ReferenceEquals(a.Cover, b.Cover) || Math.Abs(a.DurationMs - b.DurationMs) > 1) return false;
+            if (a == null || a.Key != b.Key || a.Playing != b.Playing || a.CanSeek != b.CanSeek || a.Shuffle != b.Shuffle || a.Repeat != b.Repeat ||
+                a.CanShuffle != b.CanShuffle || a.CanRepeat != b.CanRepeat || !ReferenceEquals(a.Cover, b.Cover) || Math.Abs(a.DurationMs - b.DurationMs) > 1) return false;
             var now = DateTime.UtcNow;
             return Math.Abs(a.Position(now) - b.Position(now)) < 1000;
         }
