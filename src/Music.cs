@@ -78,6 +78,44 @@ namespace Tepi
             return !hasLyrics;
         }
 
+        // Cover click: the player's window to the front
+        void OpenPlayer()
+        {
+            string id = mediaInfo.AppId;
+            if (id.Length == 0) return;
+            if (id.IndexOf('!') < 0)
+            {
+                string exe = id.Substring(id.LastIndexOf('\\') + 1);
+                if (exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) exe = exe.Substring(0, exe.Length - 4);
+                foreach (var proc in System.Diagnostics.Process.GetProcessesByName(exe))
+                    try { if (proc.MainWindowHandle != IntPtr.Zero && TerminalFinder.Focus(proc.MainWindowHandle)) return; }
+                    finally { proc.Dispose(); }
+            }
+            // Store apps and the rest: shell activation
+            try { System.Diagnostics.Process.Start("explorer.exe", "shell:AppsFolder\\" + id); }
+            catch (Exception ex) { Log.Write("open player: " + ex.Message); }
+        }
+
+        void PlayerMenu()
+        {
+            if (!mediaInfo.Present) return;
+            var m = new System.Windows.Forms.ContextMenuStrip();
+            m.Items.Add(Lang.F("Buka {0}", mediaInfo.App), null, delegate { OpenPlayer(); });
+            if (mediaInfo.Sources.Length > 1)
+            {
+                m.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+                m.Items.Add(new System.Windows.Forms.ToolStripMenuItem(Lang.T("Tampilkan dari")) { Enabled = false });
+                foreach (var src in mediaInfo.Sources)
+                {
+                    string id = src[0];
+                    m.Items.Add(new System.Windows.Forms.ToolStripMenuItem(src[1], null, delegate { media.Prefer(id); }) { Checked = id == mediaInfo.AppId });
+                }
+            }
+            StyleMenu(m);
+            m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
+            m.Show(System.Windows.Forms.Control.MousePosition);
+        }
+
         void ToggleMusicView()
         {
             settings.Set("music.view", AlbumMode() ? "lyrics" : "album");
@@ -345,6 +383,7 @@ namespace Tepi
             var cover = new RectangleF(24, 64, 120, 120);
             DrawCoverShadow(cover, 16);
             DrawCover(cover, 16);
+            AddHit(cover, "cover", OpenPlayer, null, PlayerMenu);
             DrawTransport(cover.X + cover.Width / 2, 214, false);
             float tx = 166, tw = w - tx - 24;
             FitText(mediaInfo.Title, 18f, 14f, p.T.Text, tx, 78, tw - 40);
@@ -368,6 +407,7 @@ namespace Tepi
             double pc = Prof.T();
             DrawCoverShadow(cover, 14);
             DrawCover(cover, 14);
+            AddHit(cover, "cover", OpenPlayer, null, PlayerMenu);
             Prof.Add("cover", pc);
             float tx = 252, tw = w - tx - 26;
             double pt = Prof.T();
