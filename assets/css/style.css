@@ -240,9 +240,9 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 .droid-list span { display: block; margin-top: 4px; font-size: 16px; color: var(--sub); text-wrap: pretty; }
 .droid-cta { margin-top: 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
 .droid-cta .btn .ico { width: 18px; height: 18px; }
-.droid-shots { display: grid; gap: 14px; }
-.droid-shots img { width: 100%; height: auto; border-radius: 22px; border: 1px solid var(--line); background: #000; }
-.droid-shots img:nth-child(n+2) { display: none; }
+.droid-shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(8px, 1.6vw, 18px); align-items: start; }
+.droid-shots img:nth-child(2) { margin-top: clamp(16px, 3vw, 40px); }
+.droid-shots img { width: 100%; height: auto; border-radius: clamp(14px, 2.2vw, 28px); padding: clamp(3px, 0.4vw, 6px); background: #2a2a2e; box-shadow: 0 0 0 1px var(--line); }
 
 /* Mini, up close */
 .split { display: grid; gap: 40px; align-items: center; }
@@ -429,9 +429,6 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
   .priv li { grid-template-columns: 280px 1fr; }
 }
 @media (min-width: 860px) {
-  .droid-shots { grid-template-columns: 1fr 1fr; }
-  .droid-shots img:first-child { grid-column: 1 / -1; }
-  .droid-shots img:nth-child(n+2) { display: block; }
   .live { grid-template-columns: 1.55fr 1fr; align-items: center; gap: 48px; }
   .split { grid-template-columns: 1fr 1fr; gap: 56px; }
   .agent { grid-template-columns: 1fr 1fr; }

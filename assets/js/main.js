@@ -29,7 +29,7 @@
     "droid.local.d": "Laptop and phone talk directly over the same Wi-Fi, encrypted with AES-256.",
     "droid.cta": "Download APK",
     "droid.req": "Android 10 or later, arm64",
-    "droid.alt": "Tepi Android: Prayer, Music, and Notes tabs on the island around the front camera",
+    "droid.alt": "Tepi Android on a phone: Home, Music with lyrics, and Agents",
     "dl.apk": "Tepi Android",
     "dl.apk.d": "APK for Android 10 or later on arm64. On Android 13 or later, open App info › ⋮ › Allow restricted settings before granting notification access.",
     "more.color": "Your own colors",
