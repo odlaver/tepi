@@ -155,7 +155,7 @@ namespace Tepi
             var pen = p.P(p.T.Sub, 1.6f);
             g.DrawLine(pen, x0, cy, x1, cy);
             g.DrawLines(pen, new[] { new PointF(x1 - 5, cy - 5), new PointF(x1, cy), new PointF(x1 - 5, cy + 5) });
-            if (convFrom.Moving(now) || convTo.Moving(now)) return 1 / 60.0;
+            if (convFrom.Moving(now) || convTo.Moving(now)) return 1 / 30.0;
             if (Anim.Reduced) return 0;
             double into = (now - convPageUtc).TotalSeconds % ConvPairSecs;
             return Math.Max(0.05, ConvPairSecs - into);
