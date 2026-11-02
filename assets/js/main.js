@@ -10,14 +10,36 @@
   var EN = {
     "skip": "Skip to download",
     "nav.download": "Download",
-    "hero.title": "A dynamic island for Windows.",
+    "hero.title": "A dynamic island for Windows and Android.",
     "hero.lead": "It sits quietly at the top edge of your screen and grows when something happens: music, coding agents, deadlines, messages, timers.",
     "cta.download": "Download for Windows",
     "meta.free": "Free",
     "meta.os": "Windows 10 and 11",
-    "note.platform": "Tepi is for Windows 10 and 11.",
+    "note.platform": "Tepi is available for Windows 10 and 11, and Android 10 or later.",
+    "cta.android": "Download for Android",
     "hero.source": "Source code on GitHub",
-    "hero.update": "New in Tepi 2.5: clicking a message opens the sender's chat, your own island colors, remappable shortcuts, and pairing your phone by scanning a QR code.",
+    "hero.update": "New in 2.5: Tepi is now on Android too. On the laptop, clicking a message opens the sender's chat, the island takes your own colors, and your phone pairs by scanning a QR code.",
+    "droid.title": "Now the island is on your phone too.",
+    "droid.body": "The first release of Tepi for Android: a dynamic island around the front camera, for phones without one. Songs and lyrics, messages with quick reply, calls, downloads, Maps navigation, timers, and prayer times.",
+    "droid.pair": "Pairs with your laptop by QR",
+    "droid.pair.d": "Scan the code from Settings › Phone on the laptop. OTP codes are ready to copy on the laptop, phone notifications land in Messages, files go both ways, and agent permissions are answered with your fingerprint.",
+    "droid.bank": "Bank mode",
+    "droid.bank.d": "Tepi's accessibility service turns itself off while a banking app is open, so the bank still opens.",
+    "droid.local": "No server",
+    "droid.local.d": "Laptop and phone talk directly over the same Wi-Fi, encrypted with AES-256.",
+    "droid.cta": "Download APK",
+    "droid.req": "Android 10 or later, arm64",
+    "droid.alt": "Tepi Android: Prayer, Music, and Notes tabs on the island around the front camera",
+    "dl.apk": "Tepi Android",
+    "dl.apk.d": "APK for Android 10 or later on arm64. On Android 13 or later, open App info › ⋮ › Allow restricted settings before granting notification access.",
+    "more.color": "Your own colors",
+    "more.color.d": "Pick the background, text, and accent, grab a color from the screen, or follow the album cover playing.",
+    "more.keys": "Free shortcuts",
+    "more.keys.d": "Every shortcut can be changed or cleared. Ones that clash with another app are rejected on the spot.",
+    "more.ocr": "Text from screenshots",
+    "more.ocr.d": "The Text button on a screenshot preview copies its words with Windows' built-in OCR.",
+    "more.except": "Per-app rules",
+    "more.except.d": "Choose apps that make the island step aside or hold notifications while their window is in front.",
     "alt.hero": "Tepi Overview panel: the song playing, a working agent, the next class, and messages",
     "live.title": "Alive when it matters.",
     "live.body": "Songs with lyrics that sweep word by word, incoming messages, finished agents, prayer times, volume, battery, Caps Lock, input language, screenshots, mic mute, USB drives, terminal commands, Wi-Fi sign-in, meeting mode, earbuds battery, rain alerts, OTP codes from your phone, and now a box that converts files. The island grows for a moment, then settles back.",
@@ -204,8 +226,8 @@
     "foot.src": "Source code",
     "foot.rel": "Releases",
     "foot.mit": "MIT License",
-    "doc.title": "Tepi: a free dynamic island for Windows 10 and 11",
-    "doc.desc": "Tepi sits at the top edge of your Windows screen and grows when something happens: music and lyrics, coding agents, tasks, messages, timers. Free, one exe, open source."
+    "doc.title": "Tepi: a free dynamic island for Windows and Android",
+    "doc.desc": "Tepi sits at the top edge of your Windows screen, and now around the front camera of your Android phone, and grows when something happens: music and lyrics, coding agents, tasks, messages, timers. Free and open source."
   };
   // Indonesian strings not present in the markup
   var ID = {
@@ -836,9 +858,17 @@
   // Non-Windows visitors get a note
   var plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent;
   var phone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (phone || !/win/i.test(plat)) {
+  var android = /Android/i.test(navigator.userAgent);
+  if (!android && (phone || !/win/i.test(plat))) {
     $$(".platform").forEach(function (p) { p.hidden = false; });
   }
+  // Android visitors: APK becomes the main button
+  if (android) $$(".cta-row").forEach(function (row) {
+    var apk = $(".js-apk", row), exe = $(".js-dl", row);
+    if (!apk || !exe) return;
+    apk.classList.remove("btn-alt"); exe.classList.add("btn-alt");
+    row.insertBefore(apk, exe);
+  });
 
   // Portrait poster for the video
   var film = $(".film");
@@ -864,6 +894,17 @@
         var sha = exe && exe.digest && /^sha256:([0-9a-f]{64})$/i.exec(exe.digest);
         var hex = sha ? sha[1] : (/SHA-256[\s\S]{0,40}?([0-9A-Fa-f]{64})/.exec(rel.body || "") || [])[1];
         if (hex) $(".js-sha").textContent = hex.toUpperCase();
+      })
+      .catch(function () { });
+    // Newest APK, static link as fallback
+    fetch("https://api.github.com/repos/odlaver/tepi-android/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (rel) {
+        var apk = (rel.assets || []).filter(function (a) { return /\.apk$/i.test(a.name); })[0];
+        if (!apk) return;
+        $$(".js-apk").forEach(function (a) { a.href = apk.browser_download_url; });
+        var ver = String(rel.tag_name || "").replace(/^v/, "");
+        if (ver) $$(".js-apk-ver").forEach(function (el) { el.textContent = ver; });
       })
       .catch(function () { });
   }

@@ -165,6 +165,10 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 .lead { margin: clamp(10px, 2.4svh, 22px) auto 0; max-width: 34ch; font-size: clamp(17px, min(2.1vw, 2.8svh), 25px); line-height: 1.4; color: var(--sub); text-wrap: pretty; }
 .cta { margin-top: clamp(14px, 3svh, 36px); display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1.5svh, 14px); }
 .meta { font-size: 15px; color: var(--faint); font-variant-numeric: tabular-nums; }
+/* Windows first, Android beside it */
+.cta-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.btn-alt { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); }
+.btn-alt .ico { opacity: 0.9; }
 .ver-tail { font-size: 0.62em; letter-spacing: 0.01em; }
 .platform { max-width: 420px; font-size: 15px; color: var(--sub); }
 .hero-fig { flex: 1 1 0; min-height: 0; max-height: calc(370px + clamp(12px, 3svh, 64px) + 96px); display: flex; flex-direction: column; margin-top: clamp(16px, 3.5svh, 72px); }
@@ -229,6 +233,16 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 }
 .tabs button[aria-selected="true"] { background: var(--text); border-color: var(--text); color: var(--on-cta); }
 .scene:not(.pinned) .scene-copy { padding-bottom: 12px; }
+
+/* Tepi Android: real captures, stacked like a deck */
+.droid-list { margin-top: 28px; display: grid; gap: 18px; max-width: 56ch; }
+.droid-list b { display: block; font-size: 17px; font-weight: 600; color: var(--text); }
+.droid-list span { display: block; margin-top: 4px; font-size: 16px; color: var(--sub); text-wrap: pretty; }
+.droid-cta { margin-top: 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.droid-cta .btn .ico { width: 18px; height: 18px; }
+.droid-shots { display: grid; gap: 14px; }
+.droid-shots img { width: 100%; height: auto; border-radius: 22px; border: 1px solid var(--line); background: #000; }
+.droid-shots img:nth-child(n+2) { display: none; }
 
 /* Mini, up close */
 .split { display: grid; gap: 40px; align-items: center; }
@@ -398,6 +412,7 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 
 @media (hover: hover) {
   .btn:hover { background: #ffffff; }
+  .btn-alt:hover { background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.36); }
   .lang:hover { color: var(--text); border-color: rgba(255, 255, 255, 0.24); }
   .link:hover { color: var(--text); }
   .acts button:hover, .tabs button:hover, .moods button:hover, .seg button:hover { color: var(--text); }
@@ -414,6 +429,9 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
   .priv li { grid-template-columns: 280px 1fr; }
 }
 @media (min-width: 860px) {
+  .droid-shots { grid-template-columns: 1fr 1fr; }
+  .droid-shots img:first-child { grid-column: 1 / -1; }
+  .droid-shots img:nth-child(n+2) { display: block; }
   .live { grid-template-columns: 1.55fr 1fr; align-items: center; gap: 48px; }
   .split { grid-template-columns: 1fr 1fr; gap: 56px; }
   .agent { grid-template-columns: 1fr 1fr; }
