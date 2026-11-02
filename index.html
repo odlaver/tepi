@@ -18,7 +18,7 @@
 <meta property="og:locale" content="id_ID">
 <meta property="og:locale:alternate" content="en_US">
 <meta property="og:title" content="Tepi 2.4: dynamic island untuk Windows">
-<meta property="og:description" content="Baru di 2.4: sambungkan HP Android. Kode OTP, notifikasi, baterai, dan berkas pindah lewat Wi-Fi yang sama. Gratis, satu exe, kode terbuka.">
+<meta property="og:description" content="Baru di 2.4: sambungkan HP Android, dan ubah format berkas cukup dengan menyeretnya ke island. Gratis, satu exe, kode terbuka.">
 <meta property="og:url" content="https://odlaver.github.io/tepi/">
 <meta property="og:image" content="https://odlaver.github.io/tepi/assets/img/og-24.jpg">
 <meta property="og:image:width" content="1200">
@@ -26,7 +26,7 @@
 <meta property="og:image:alt" content="Tepi 2.4, dynamic island di tepi atas layar Windows, menampilkan kode OTP dari HP">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Tepi 2.4: dynamic island gratis untuk Windows 10 dan 11">
-<meta name="twitter:description" content="Baru di 2.4: sambungkan HP Android. Kode OTP, notifikasi, baterai, dan berkas pindah lewat Wi-Fi yang sama. Gratis, satu exe, kode terbuka.">
+<meta name="twitter:description" content="Baru di 2.4: sambungkan HP Android, dan ubah format berkas cukup dengan menyeretnya ke island. Gratis, satu exe, kode terbuka.">
 <meta name="twitter:image" content="https://odlaver.github.io/tepi/assets/img/og-24.jpg">
 <script type="application/ld+json">
 {
@@ -38,7 +38,7 @@
   "url": "https://odlaver.github.io/tepi/",
   "downloadUrl": "https://github.com/odlaver/tepi/releases/latest/download/Tepi.exe",
   "softwareVersion": "2.4.0",
-  "fileSize": "771 KB",
+  "fileSize": "825 KB",
   "operatingSystem": "Windows 10, Windows 11",
   "applicationCategory": "UtilitiesApplication",
   "inLanguage": ["id", "en"],
@@ -85,7 +85,7 @@
           <svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0-3.5-3.5M10 12l3.5-3.5M4 15.5h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span data-i18n="cta.download">Unduh untuk Windows</span>
         </a>
-        <p class="meta"><span data-i18n="meta.free">Gratis</span> · v<span class="js-version"><span class="ver-main">2.4</span><span class="ver-tail">.0</span></span> · <span class="js-size">771 KB</span> · <span data-i18n="meta.os">Windows 10 dan 11</span></p>
+        <p class="meta"><span data-i18n="meta.free">Gratis</span> · v<span class="js-version"><span class="ver-main">2.4</span><span class="ver-tail">.0</span></span> · <span class="js-size">825 KB</span> · <span data-i18n="meta.os">Windows 10 dan 11</span></p>
         <p class="platform" hidden data-i18n="note.platform">Tepi khusus Windows 10 dan 11.</p>
         <a class="link" href="https://github.com/odlaver/tepi" data-i18n="hero.source">Kode sumber di GitHub</a>
       </div>
@@ -94,7 +94,7 @@
       <div class="stage-fit"><div class="stage stage-hero">
         <img src="assets/img/p-ringkasan.webp" width="588" height="370" decoding="async" fetchpriority="high" alt="Panel Ringkasan Tepi: lagu yang diputar, agen yang bekerja, kelas berikutnya, dan pesan" data-i18n-alt="alt.hero">
       </div></div>
-      <figcaption class="cap" data-i18n="hero.update">Baru di Tepi 2.4: sambungkan HP Android. Kode OTP, notifikasi, baterai, dan berkas pindah lewat Wi-Fi yang sama.</figcaption>
+      <figcaption class="cap" data-i18n="hero.update">Baru di Tepi 2.4: sambungkan HP Android untuk kode OTP, notifikasi, baterai, dan kirim berkas. Seret berkas ke island untuk mengubah formatnya.</figcaption>
     </figure>
   </section>
 
@@ -102,7 +102,7 @@
     <div class="wrap head">
       <p class="eyebrow">Live activity</p>
       <h2 data-i18n="live.title">Hidup saat dibutuhkan.</h2>
-      <p class="body" data-i18n="live.body">Lagu dengan lirik yang menyapu kata demi kata, pesan masuk, agent yang selesai, waktu sholat, volume, daya baterai, Caps Lock, bahasa input, screenshot, mute mikrofon, flashdisk, perintah terminal, login Wi-Fi, mode rapat, baterai earbuds, peringatan hujan, dan sekarang kode OTP dari HP. Island membesar sebentar, lalu kembali tenang.</p>
+      <p class="body" data-i18n="live.body">Lagu dengan lirik yang menyapu kata demi kata, pesan masuk, agent yang selesai, waktu sholat, volume, daya baterai, Caps Lock, bahasa input, screenshot, mute mikrofon, flashdisk, perintah terminal, login Wi-Fi, mode rapat, baterai earbuds, peringatan hujan, kode OTP dari HP, dan sekarang kotak untuk mengubah format berkas. Island membesar sebentar, lalu kembali tenang.</p>
     </div>
     <div class="wrap live">
       <div class="stage stage-live" id="stage-live"><div class="isle inline" id="isle-live" data-isle aria-hidden="true"></div></div>
@@ -126,6 +126,7 @@
           <li><button type="button" data-act="15" aria-pressed="false"><span data-i18n="pill.buds">Baterai earbuds</span><i></i></button></li>
           <li><button type="button" data-act="16" aria-pressed="false"><span data-i18n="pill.rain">Peringatan hujan</span><i></i></button></li>
           <li><button type="button" data-act="17" aria-pressed="false"><span data-i18n="pill.otp">Kode OTP</span><i></i></button></li>
+          <li><button type="button" data-act="18" aria-pressed="false"><span data-i18n="pill.convert">Ubah format</span><i></i></button></li>
         </ol>
         <button type="button" class="pp" id="pp"><svg viewBox="0 0 12 12" aria-hidden="true"><path class="i-pause" d="M3.5 2.5v7M8.5 2.5v7"/><path class="i-play" d="M3.5 2.2v7.6L9.8 6z"/></svg><span id="pp-label" data-i18n="acts.pause">Jeda</span></button>
       </div>
@@ -136,7 +137,7 @@
     <div class="scene-pin">
       <div class="wrap scene-copy">
         <p class="eyebrow">Panel</p>
-        <h2 data-i18n="panels.title">Sembilan halaman, satu gerakan.</h2>
+        <h2 data-i18n="panels.title">Sepuluh halaman, satu gerakan.</h2>
         <p class="body" data-i18n="panels.body">Panel terbuka saat kursor berada di atas island. Scroll memindahkan halaman.</p>
         <p class="now" id="now" aria-live="polite"><b id="now-name">Ringkasan</b><span id="now-desc">Yang paling penting, di satu tempat</span></p>
         <div class="tabs" role="tablist" aria-label="Halaman panel" data-i18n-label="panels.label">
@@ -149,6 +150,7 @@
           <button type="button" role="tab" data-tab="6" aria-selected="false" tabindex="-1" data-i18n="pg.ctl">Kontrol</button>
           <button type="button" role="tab" data-tab="7" aria-selected="false" tabindex="-1" data-i18n="pg.rem">Pengingat</button>
           <button type="button" role="tab" data-tab="8" aria-selected="false" tabindex="-1" data-i18n="pg.phone">HP</button>
+          <button type="button" role="tab" data-tab="9" aria-selected="false" tabindex="-1" data-i18n="pg.convert">Ubah</button>
         </div>
       </div>
     </div>
@@ -262,7 +264,7 @@
         </li>
       </ul>
       <div class="perf-foot">
-        <p class="exe"><b class="js-size">771 KB</b> <span data-i18n="perf.exe">satu file exe, tanpa instalasi.</span></p>
+        <p class="exe"><b class="js-size">825 KB</b> <span data-i18n="perf.exe">satu file exe, tanpa instalasi.</span></p>
         <p class="note" data-i18n="perf.frame">Membuka dan menutup panel paling lama sekitar 10 ms per frame, di bawah 16,7 ms untuk 60 fps.</p>
         <p class="note" data-i18n="perf.note">Diukur di laptop Intel Core i3-1115G4, 60 detik per kondisi. Persen CPU dihitung terhadap satu core.</p>
       </div>
@@ -336,7 +338,8 @@
     </div>
     <div class="wrap">
       <ul class="more">
-        <li><b data-i18n="more.shelf">Rak berkas</b><span data-i18n="more.shelf.d">Seret berkas ke island, termasuk ke sliver Mini, lalu seret lagi ke aplikasi lain.</span></li>
+        <li><b data-i18n="more.shelf">Rak berkas</b><span data-i18n="more.shelf.d">Seret berkas ke island, termasuk ke sliver Mini, atau pilih dari folder. Lalu seret lagi ke aplikasi lain.</span></li>
+        <li><b data-i18n="more.convert">Ubah format</b><span data-i18n="more.convert.d">Lepas berkas di kotak Ubah format, lalu pilih formatnya: gambar, PDF, video, audio, dokumen, atau ZIP. Hasilnya muncul di samping berkas asli.</span></li>
         <li><b data-i18n="more.timer">Timer dan stopwatch</b><span data-i18n="more.timer.d">Fokus 25 atau 50 menit, timer bebas, dan stopwatch dengan putaran.</span></li>
         <li><b data-i18n="more.tasks">Tugas dan jadwal</b><span data-i18n="more.tasks.d">Kulia, Notion, Todoist, dan kalender iCal jadi satu, dengan pengingat tenggat.</span></li>
         <li data-ev="pray"><b data-i18n="more.remind">Pengingat</b><span data-i18n="more.remind.d">Jadwal sholat dihitung di laptop tanpa internet, plus minum, istirahat mata 20-20-20, dan peregangan.</span></li>
@@ -362,6 +365,7 @@
         <li><b data-i18n="priv.vault">Token terenkripsi</b><span data-i18n="priv.vault.d">Token dan tautan rahasia disimpan dengan DPAPI, dikirim hanya lewat HTTPS, dan tidak pernah ditulis ke log.</span></li>
         <li><b data-i18n="priv.hook">Server hook lokal</b><span data-i18n="priv.hook.d">Hanya mendengarkan di 127.0.0.1, dengan token acak 48 karakter dan port acak untuk instalasi baru.</span></li>
         <li><b data-i18n="priv.ask">Tidak pernah mengizinkan sendiri</b><span data-i18n="priv.ask.d">Kalau Tepi tidak menjawab, agent kembali ke prompt izinnya sendiri.</span></li>
+        <li><b data-i18n="priv.convert">Konversi di laptop</b><span data-i18n="priv.convert.d">Berkas diubah di laptop ini memakai Windows, ffmpeg, LibreOffice, atau Pandoc yang sudah terpasang. Tidak ada yang diunggah.</span></li>
         <li><b data-i18n="priv.update">Pembaruan terverifikasi</b><span data-i18n="priv.update.d">Exe baru hanya diunduh saat kamu klik Perbarui, lalu SHA-256-nya dicocokkan dengan digest dari GitHub.</span></li>
         <li><b data-i18n="priv.open">Terbuka</b><span data-i18n="priv.open.d">Kode sumber lengkap di GitHub dengan lisensi MIT.</span></li>
       </ul>
@@ -375,13 +379,13 @@
         <svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0-3.5-3.5M10 12l3.5-3.5M4 15.5h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span data-i18n="cta.download">Unduh untuk Windows</span>
       </a>
-      <p class="meta"><span data-i18n="meta.free">Gratis</span> · v<span class="js-version"><span class="ver-main">2.4</span><span class="ver-tail">.0</span></span> · <span class="js-size">771 KB</span></p>
+      <p class="meta"><span data-i18n="meta.free">Gratis</span> · v<span class="js-version"><span class="ver-main">2.4</span><span class="ver-tail">.0</span></span> · <span class="js-size">825 KB</span></p>
       <p class="again" data-i18n="dl.again">Sudah memasang Tepi? Klik kanan ikon Tepi, lalu Perbarui ke Tepi 2.4.0. Berikutnya cukup Pengaturan › Tentang › Cek pembaruan.</p>
       <p class="platform" hidden data-i18n="note.platform">Tepi khusus Windows 10 dan 11.</p>
       <dl class="facts">
         <div><dt data-i18n="dl.req">Syarat</dt><dd data-i18n="dl.req.d">Windows 10 versi 2004 atau lebih baru, atau Windows 11, 64-bit. .NET Framework 4.8 sudah bawaan Windows.</dd></div>
         <div><dt>SmartScreen</dt><dd data-i18n="dl.ss.d">Exe belum ditandatangani, jadi Windows SmartScreen bisa memunculkan peringatan. Pilih More info, lalu Run anyway.</dd></div>
-        <div><dt>SHA-256 Tepi.exe</dt><dd class="sha"><code class="js-sha">DB9E4C1EF00A097D71821C888688ADED1D87BC5D4B3C404A62A2CBFFB01F6A77</code><button type="button" class="btn-ghost" id="copy" data-i18n="dl.copy">Salin</button></dd></div>
+        <div><dt>SHA-256 Tepi.exe</dt><dd class="sha"><code class="js-sha">A2AC7D56C7D0301E653858A9526994F1672CBA9FAE9374BE5D9A8F3842062200</code><button type="button" class="btn-ghost" id="copy" data-i18n="dl.copy">Salin</button></dd></div>
       </dl>
       <a class="link" href="https://github.com/odlaver/tepi/releases" data-i18n="dl.releases">Semua rilis</a>
       <div class="coffee">

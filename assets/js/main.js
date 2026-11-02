@@ -17,10 +17,10 @@
     "meta.os": "Windows 10 and 11",
     "note.platform": "Tepi is for Windows 10 and 11.",
     "hero.source": "Source code on GitHub",
-    "hero.update": "New in Tepi 2.4: connect your Android phone. OTP codes, notifications, battery, and files move over the same Wi-Fi.",
+    "hero.update": "New in Tepi 2.4: connect your Android phone for OTP codes, notifications, battery, and file transfer. Drag a file onto the island to convert it.",
     "alt.hero": "Tepi Overview panel: the song playing, a working agent, the next class, and messages",
     "live.title": "Alive when it matters.",
-    "live.body": "Songs with lyrics that sweep word by word, incoming messages, finished agents, prayer times, volume, battery, Caps Lock, input language, screenshots, mic mute, USB drives, terminal commands, Wi-Fi sign-in, meeting mode, earbuds battery, rain alerts, and now OTP codes from your phone. The island grows for a moment, then settles back.",
+    "live.body": "Songs with lyrics that sweep word by word, incoming messages, finished agents, prayer times, volume, battery, Caps Lock, input language, screenshots, mic mute, USB drives, terminal commands, Wi-Fi sign-in, meeting mode, earbuds battery, rain alerts, OTP codes from your phone, and now a box that converts files. The island grows for a moment, then settles back.",
     "acts.label": "Island activities",
     "acts.pause": "Pause",
     "acts.play": "Play",
@@ -42,8 +42,10 @@
     "pill.buds": "Earbuds battery",
     "pill.rain": "Rain alert",
     "pill.otp": "OTP code",
-    "panels.title": "Nine pages, one gesture.",
+    "pill.convert": "Convert files",
+    "panels.title": "Ten pages, one gesture.",
     "pg.phone": "Phone",
+    "pg.convert": "Convert",
     "panels.body": "The panel opens when the cursor rests on the island. Scrolling switches pages.",
     "panels.label": "Panel pages",
     "pg.home": "Overview",
@@ -62,6 +64,7 @@
     "pg.rem": "Reminders",
     "pg.rem.d": "Prayer, water, eye breaks",
     "pg.phone.d": "OTP codes, notifications, battery, files",
+    "pg.convert.d": "Images, video, audio, documents, PDF, ZIP",
     "mini.eyebrow": "Mini mode",
     "mini.title": "Out of the way while you focus.",
     "mini.body": "The island shrinks to a small click-through sliver, so the browser tabs underneath stay clickable. Auto mode shrinks it when a browser is maximized or after a minute of quiet. Important alerts still come through.",
@@ -141,7 +144,9 @@
     "video.body": "Captions in the video are in Indonesian.",
     "more.title": "And there's more.",
     "more.shelf": "File shelf",
-    "more.shelf.d": "Drag files onto the island, even onto the Mini sliver, then drag them out to another app.",
+    "more.shelf.d": "Drag files onto the island, even onto the Mini sliver, or pick them from a folder. Then drag them out to another app.",
+    "more.convert": "Convert files",
+    "more.convert.d": "Drop a file on the Convert box and pick a format: images, PDF, video, audio, documents, or ZIP. The result lands next to the original.",
     "more.timer": "Timer and stopwatch",
     "more.timer.d": "25 or 50 minute focus, a free timer, and a stopwatch with laps.",
     "more.tasks": "Tasks and schedule",
@@ -169,6 +174,8 @@
     "priv.net.d": "LRCLIB for lyrics and GitHub for version checks, both can be turned off. Kulia, Notion, Todoist, and calendars are contacted only if you connect them.",
     "priv.vault": "Encrypted tokens",
     "priv.vault.d": "Tokens and secret links are stored with DPAPI, sent only over HTTPS, and never written to logs.",
+    "priv.convert": "Converted on your laptop",
+    "priv.convert.d": "Files are converted on this laptop with Windows, or with the ffmpeg, LibreOffice, or Pandoc you already have. Nothing is uploaded.",
     "priv.hook": "Local hook server",
     "priv.hook.d": "Listens only on 127.0.0.1, with a random 48-character token and a random port on new installs.",
     "priv.ask": "Never approves on its own",
@@ -215,6 +222,7 @@
     "pg.ctl.d": "Suara, layar, Wi-Fi, Bluetooth, timer",
     "pg.rem.d": "Sholat, minum, istirahat mata",
     "pg.phone.d": "Kode OTP, notifikasi, baterai, berkas",
+    "pg.convert.d": "Gambar, video, audio, dokumen, PDF, ZIP",
     "style.liquid.d": "Kaca jernih yang menyesuaikan terang latar",
     "style.frost.d": "Kaca yang lebih berkabut dan lembut",
     "style.light.d": "Semua halaman ikut terang"
@@ -363,7 +371,7 @@
   // Panel scene: the page scroll switches tabs
   var sc = { el: $("#panel"), on: false, idx: -1, step: 0 };
   var tabs = $$(".tabs [role=tab]");
-  var DESC = ["pg.home.d", "pg.music.d", "", "pg.class.d", "pg.msg.d", "pg.shelf.d", "pg.ctl.d", "pg.rem.d", "pg.phone.d"];
+  var DESC = ["pg.home.d", "pg.music.d", "", "pg.class.d", "pg.msg.d", "pg.shelf.d", "pg.ctl.d", "pg.rem.d", "pg.phone.d", "pg.convert.d"];
   var NP = PANEL_NAMES.length;
   sc.el.style.setProperty("--n", NP);
   sc.el.classList.add("pinned");
@@ -488,7 +496,7 @@
   }, { passive: false });
 
   // Live stage: one island, seven activities
-  var ACTS = ["lyric", "media", "notif", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi", "meet", "buds", "rain", "otp"];
+  var ACTS = ["lyric", "media", "notif", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi", "meet", "buds", "rain", "otp", "ubah"];
   var live = new TI.Island($("#isle-live"));
   var L = { i: -1, auto: false, vis: false, timer: 0, started: false };
   var actBtns = $$(".acts button");
@@ -758,7 +766,7 @@
   // Warm the island images when idle
   var idle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 1200); };
   idle(function () {
-    ["notif", "lyric", "media", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi", "meet", "buds", "rain", "otp", "approve"].concat(PANEL_NAMES).forEach(function (n, k) {
+    ["notif", "lyric", "media", "done", "pray", "volume", "power", "caps", "lang", "shot", "mic", "drive", "run", "wifi", "meet", "buds", "rain", "otp", "ubah", "approve"].concat(PANEL_NAMES).forEach(function (n, k) {
       setTimeout(function () { TI.load(n); }, k * 120);
     });
   });
