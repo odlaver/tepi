@@ -18,7 +18,9 @@ namespace Tepi
         public bool CanShuffle, Shuffle, CanRepeat;
         // 0 off, 1 track, 2 list
         public int Repeat;
-        public string Title = "", Artist = "", App = "", Key = "";
+        public string Title = "", Artist = "", App = "", Key = "", AppId = "";
+        // Every player with a session: id, name
+        public string[][] Sources = new string[0][];
         public double PositionMs, DurationMs;
         public DateTime PositionAtUtc;
         public Bitmap Cover;
@@ -104,11 +106,23 @@ namespace Tepi
 
         readonly HashSet<string> watched = new HashSet<string>();
 
-        // Audible player wins, else current session
+        // Chosen in the panel; lasts while its session does
+        volatile string preferred;
+        string[][] sources = new string[0][];
+
+        public void Prefer(string id)
+        {
+            preferred = id;
+            signal.Set();
+        }
+
+        // Chosen player, else audible, else current
         GlobalSystemMediaTransportControlsSession Pick()
         {
             var current = manager.GetCurrentSession();
-            GlobalSystemMediaTransportControlsSession playing = current != null && IsPlaying(current) ? current : null;
+            GlobalSystemMediaTransportControlsSession playing = current != null && IsPlaying(current) ? current : null, chosen = null;
+            string want = preferred;
+            var list = new List<string[]>();
             try
             {
                 foreach (var s in manager.GetSessions())
@@ -119,10 +133,14 @@ namespace Tepi
                     lock (watched) fresh = watched.Add(id);
                     if (fresh) s.PlaybackInfoChanged += OnPlayback;
                     if (playing == null && IsPlaying(s)) playing = s;
+                    if (want != null && id == want) chosen = s;
+                    list.Add(new[] { id, AppName(id) });
                 }
             }
             catch (Exception) { }
-            return playing ?? current;
+            sources = list.ToArray();
+            if (want != null && chosen == null) preferred = null;
+            return chosen ?? playing ?? current;
         }
 
         static bool IsPlaying(GlobalSystemMediaTransportControlsSession s)
@@ -217,6 +235,8 @@ namespace Tepi
             info.Title = title;
             info.Artist = artist;
             info.App = app;
+            info.AppId = s.SourceAppUserModelId ?? "";
+            info.Sources = sources;
             info.Key = k;
             info.Playing = playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
             info.CanSeek = playback.Controls.IsPlaybackPositionEnabled;
@@ -242,7 +262,8 @@ namespace Tepi
         static bool Same(MediaInfo a, MediaInfo b)
         {
             if (a == null || a.Key != b.Key || a.Playing != b.Playing || a.CanSeek != b.CanSeek || a.Shuffle != b.Shuffle || a.Repeat != b.Repeat ||
-                a.CanShuffle != b.CanShuffle || a.CanRepeat != b.CanRepeat || !ReferenceEquals(a.Cover, b.Cover) || Math.Abs(a.DurationMs - b.DurationMs) > 1) return false;
+                a.CanShuffle != b.CanShuffle || a.CanRepeat != b.CanRepeat || !ReferenceEquals(a.Cover, b.Cover) || Math.Abs(a.DurationMs - b.DurationMs) > 1 ||
+                a.Sources.Length != b.Sources.Length) return false;
             var now = DateTime.UtcNow;
             return Math.Abs(a.Position(now) - b.Position(now)) < 1000;
         }

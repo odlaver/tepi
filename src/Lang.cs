@@ -649,6 +649,8 @@ namespace Tepi
             { "Warnaku", "My colors" },
             { "Dari sampul album", "From the album cover" },
             { "Waktu lirik asli", "Original lyric timing" },
+            { "Buka {0}", "Open {0}" },
+            { "Tampilkan dari", "Show from" },
             { "Waktu lirik digeser {0}", "Lyric timing shifted {0}" },
             { "Lirik lebih awal 0,5 dtk", "Lyrics 0.5 s earlier" },
             { "Lirik lebih lambat 0,5 dtk", "Lyrics 0.5 s later" },
