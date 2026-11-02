@@ -202,7 +202,7 @@ namespace Tepi
             m.Items.Add(Lang.T("Tampilkan di folder"), null, delegate { RevealShelfItem(item); });
             m.Items.Add(Lang.T("Salin jalur"), null, delegate { try { Clipboard.SetText(item.Path); } catch (Exception) { } });
             string ext = Path.GetExtension(item.Path).ToLowerInvariant();
-            if (OcrShown && (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".gif" || ext == ".tif" || ext == ".tiff"))
+            if (OcrNow() && (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".gif" || ext == ".tif" || ext == ".tiff"))
                 m.Items.Add(Lang.T("Salin teks"), null, delegate { CopyText(item.Path); });
             if (PhonePaired && File.Exists(item.Path)) m.Items.Add(Lang.T("Kirim ke HP"), null, delegate { SendToPhone(item.Path); });
             m.Items.Add(new ToolStripSeparator());
