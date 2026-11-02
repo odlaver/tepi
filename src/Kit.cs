@@ -461,7 +461,7 @@ namespace Tepi
                 {
                     int y = Controls[i].Top;
                     var row = Controls[i] as KitRow;
-                    float from = row != null && row.Glyph != '\0' ? 56 * s : 16 * s;
+                    float from = row != null && row.Glyph != '\0' ? (56 + row.Lead) * s : 16 * s;
                     g.DrawLine(pen, from, y, Width - 16 * s, y);
                 }
         }
@@ -477,6 +477,9 @@ namespace Tepi
         // Icon tile before the title
         public char Glyph;
         public const char MarkGlyph = '\u0001';
+        // Room left of the icon, e.g. a grip
+        public float Lead;
+        public bool Divider;
 
         public KitRow()
         {
@@ -491,8 +494,12 @@ namespace Tepi
             float s = w != null ? w.Ui : 1;
             g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
             float right = Field != null ? Field.Left - 12 * s : Width - 16 * s;
-            float x = Glyph != '\0' ? 56 * s : 16 * s;
+            float x = (Glyph != '\0' ? 56 : 16) * s + Lead * s;
             if (Glyph != '\0') DrawGlyph(g, s);
+            // Hairline between grip and icon
+            if (Divider)
+                using (var pen = new Pen(Ink.Mix(KitInk.Line, KitInk.Sub, 0.45f), Math.Max(1f, s)))
+                    g.DrawLine(pen, (Lead - 2) * s, Height * 0.3f, (Lead - 2) * s, Height * 0.7f);
             using (var f = new Font(Ink.MenuFamily, 13.5f * s, GraphicsUnit.Pixel))
             using (var d = new Font(Ink.MenuFamily, 12f * s, GraphicsUnit.Pixel))
             {
@@ -507,7 +514,7 @@ namespace Tepi
         void DrawGlyph(Graphics g, float s)
         {
             KitInk.Smooth(g);
-            var tile = new RectangleF(14 * s, (Height - 30 * s) / 2, 30 * s, 30 * s);
+            var tile = new RectangleF((14 + Lead) * s, (Height - 30 * s) / 2, 30 * s, 30 * s);
             using (var path = Ink.Round(tile, 8 * s))
             using (var b = new SolidBrush(KitInk.Hover)) g.FillPath(b, path);
             // Mark glyph: Tepi's own pill

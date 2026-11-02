@@ -29,6 +29,8 @@ namespace Tepi
         const float ShelfCellW = 104, ShelfCellH = 100, ShelfThumbPx = 56;
         long shelfIds;
         bool dropActive;
+        // Drop target: 0 Rak, 1 Ubah
+        int dropTarget;
         DateTime dropUtc = DateTime.MinValue, droppedUtc = DateTime.MinValue;
         int droppedCount;
 
@@ -93,14 +95,24 @@ namespace Tepi
 
         void InitShelfDrop()
         {
-            AllowDrop = ShelfOn;
+            AllowDrop = ShelfOn || ConvertSetting;
+        }
+
+        bool DropSplit { get { return ShelfOn && ConvertSetting; } }
+
+        int DropTargetAt(int screenX, int screenY)
+        {
+            if (!DropSplit) return ShelfOn ? 0 : 1;
+            var c = PointToClient(new Point(screenX, screenY));
+            return c.X / scale < shell.X + shell.Width / 2 ? 0 : 1;
         }
 
         protected override void OnDragEnter(DragEventArgs e)
         {
             base.OnDragEnter(e);
-            if (!ShelfOn || !e.Data.GetDataPresent(DataFormats.FileDrop) || PrompterOn) { e.Effect = DragDropEffects.None; return; }
+            if ((!ShelfOn && !ConvertSetting) || !e.Data.GetDataPresent(DataFormats.FileDrop) || PrompterOn) { e.Effect = DragDropEffects.None; return; }
             e.Effect = DragDropEffects.Copy;
+            dropTarget = DropTargetAt(e.X, e.Y);
             if (!dropActive) { dropActive = true; dropUtc = DateTime.UtcNow; if (!Anim.Reduced) topGap.Velocity += 60; Kick(); }
         }
 
@@ -108,6 +120,8 @@ namespace Tepi
         {
             base.OnDragOver(e);
             e.Effect = dropActive ? DragDropEffects.Copy : DragDropEffects.None;
+            int at = DropTargetAt(e.X, e.Y);
+            if (dropActive && at != dropTarget) { dropTarget = at; Kick(); }
         }
 
         protected override void OnDragLeave(EventArgs e)
@@ -122,7 +136,8 @@ namespace Tepi
             base.OnDragDrop(e);
             dropActive = false;
             var files = e.Data.GetData(DataFormats.FileDrop) as string[];
-            if (files != null && files.Length > 0)
+            if (files != null && files.Length > 0 && DropTargetAt(e.X, e.Y) == 1) OpenConvert(files);
+            else if (files != null && files.Length > 0)
             {
                 AddToShelf(files);
                 // Straight to Rak, Berkas segment
@@ -196,12 +211,12 @@ namespace Tepi
         float ShelfContentH()
         {
             int cols = ShelfCols(PanelW);
-            return (shelf.Count + cols - 1) / cols * ShelfCellH;
+            return (shelf.Count + cols) / cols * ShelfCellH;
         }
 
         float ShelfHeight()
         {
-            if (shelf.Count == 0) return 214;
+            if (shelf.Count == 0) return 252;
             return Clamp(PanelTop + 12 + ShelfContentH(), 170, MaxH - SegTop);
         }
 
@@ -224,7 +239,8 @@ namespace Tepi
             }
             if (shelf.Count == 0)
             {
-                Empty(w, '', Lang.T("Rak kosong"), Lang.T("Berkas yang diseret ke island muncul di sini, siap diseret ke aplikasi lain"));
+                float by = Empty(w, '', Lang.T("Rak kosong"), Lang.T("Seret berkas ke island, atau pilih dari folder"));
+                Button(new RectangleF(w / 2 - 74, by, 148, 34), "shelfPick", Lang.T("Pilih berkas"), true, PickShelfFiles);
                 return;
             }
             int cols = ShelfCols(w);
@@ -233,19 +249,51 @@ namespace Tepi
             var st = g.Save();
             g.IntersectClip(area);
             shelfCells.Clear();
-            for (int i = 0; i < shelf.Count; i++)
+            for (int i = 0; i <= shelf.Count; i++)
             {
-                var item = shelf[i];
                 float dy, a = RowIn(i / cols, now, out dy);
                 var cell = new RectangleF(x0 + (i % cols) * ShelfCellW, area.Y + (i / cols) * ShelfCellH - shelfScroll.Value + dy, ShelfCellW, ShelfCellH);
                 if (cell.Bottom < area.Top || cell.Y > area.Bottom) continue;
-                shelfCells[item.Id] = new RectangleF(cell.X + originX, cell.Y + originY + hitDy, cell.Width, cell.Height);
                 float keep = p.Alpha;
                 p.Alpha = keep * a;
-                DrawShelfCell(item, cell);
+                if (i == 0) DrawShelfAdd(cell);
+                else
+                {
+                    var item = shelf[i - 1];
+                    shelfCells[item.Id] = new RectangleF(cell.X + originX, cell.Y + originY + hitDy, cell.Width, cell.Height);
+                    DrawShelfCell(item, cell);
+                }
                 p.Alpha = keep;
             }
             g.Restore(st);
+        }
+
+        // First cell: add from a picker
+        void DrawShelfAdd(RectangleF cell)
+        {
+            var hit = RectangleF.Inflate(cell, -4, -4);
+            AddHit(hit, "shelfAdd", PickShelfFiles);
+            bool hover = Hover("shelfAdd");
+            if (hover) p.FillRound(hit, 16, Pressed("shelfAdd") ? p.T.FillHover : p.T.Fill);
+            var box = new RectangleF(cell.X + cell.Width / 2 - ShelfThumbPx / 2, cell.Y + 10, ShelfThumbPx, ShelfThumbPx);
+            using (var pen = new Pen(Ink.A(p.T.Text, (hover ? 0.6f : 0.35f) * p.Alpha), 1.4f) { DashPattern = new[] { 4f, 3f } })
+            using (var path = Ink.Round(box, 12)) g.DrawPath(pen, path);
+            float cx = box.X + box.Width / 2, cy = box.Y + box.Height / 2;
+            var plus = p.P(hover ? p.T.Text : p.T.Sub, 1.8f);
+            g.DrawLine(plus, cx - 8, cy, cx + 8, cy);
+            g.DrawLine(plus, cx, cy - 8, cx, cy + 8);
+            p.Text(Lang.T("Tambah"), Ink.Small(11f), hover ? p.T.Text : p.T.Sub, cell.X + cell.Width / 2, cell.Y + 82, cell.Width - 12, StringAlignment.Center);
+        }
+
+        void PickShelfFiles()
+        {
+            using (var d = new OpenFileDialog { Multiselect = true, Title = Lang.T("Pilih berkas untuk rak"), RestoreDirectory = true })
+            {
+                if (d.ShowDialog(this) != DialogResult.OK || d.FileNames.Length == 0) return;
+                AddToShelf(d.FileNames);
+                SetSegment(PageShelf, 0, true);
+                Show(PageShelf);
+            }
         }
 
         void DrawShelfCell(ShelfItem item, RectangleF cell)
@@ -279,11 +327,12 @@ namespace Tepi
         }
 
         // Compact drop target and its thanks
-        float ShelfDropWidth() { return dropActive ? 300 : 260; }
+        float ShelfDropWidth() { return dropActive ? (DropSplit ? 380 : 300) : 260; }
 
         void DrawShelfDrop(float w, float h, DateTime now)
         {
             float cy = h / 2;
+            if (dropActive && DropSplit) { DrawDropBoxes(w, h, now); return; }
             if (dropActive)
             {
                 // Dashed target that breathes while files hover
@@ -291,8 +340,8 @@ namespace Tepi
                 var target = new RectangleF(10 - breath, 8 - breath, w - 20 + breath * 2, h - 16 + breath * 2);
                 using (var pen = new Pen(Ink.A(p.T.Text, 0.55f * p.Alpha), 1.4f) { DashPattern = new[] { 4f, 3f } })
                 using (var path = Ink.Round(target, (h - 16) / 2)) g.DrawPath(pen, path);
-                p.Icon('', 16f, p.T.Text, 34, cy);
-                p.Text(Lang.T("Lepas untuk menaruh di rak"), Ink.Semi(13f), p.T.Text, 54, cy, w - 70, StringAlignment.Near);
+                p.Icon(ShelfOn ? '' : IcoConvert, 16f, p.T.Text, 34, cy);
+                p.Text(ShelfOn ? Lang.T("Lepas untuk menaruh di rak") : Lang.T("Lepas untuk mengubah format"), Ink.Semi(13f), p.T.Text, 54, cy, w - 70, StringAlignment.Near);
                 return;
             }
             float k = Ease.OutBack(Ease.Clamp01((float)((now - droppedUtc).TotalSeconds / 0.45)));
@@ -300,6 +349,26 @@ namespace Tepi
             p.Check(30, cy, 12, p.T.Bg, Ease.Clamp01((float)((now - droppedUtc).TotalSeconds / 0.5)));
             p.Text(droppedCount > 0 ? Lang.F("{0} berkas di rak", shelf.Count) : Lang.T("Tidak ada yang bisa ditaruh"), Ink.Semi(13f), p.T.Text, 54, cy, w - 70, StringAlignment.Near);
             AddHit(new RectangleF(0, 0, w, h), "shelfToast", delegate { DismissToast(); SetSegment(PageShelf, 0, true); Show(PageShelf); });
+        }
+
+        // Box under the files lights up
+        void DrawDropBoxes(float w, float h, DateTime now)
+        {
+            float breath = Anim.Reduced ? 0 : (float)Math.Sin((now - dropUtc).TotalSeconds * Math.PI * 2) * 1.5f;
+            float bw = (w - 26) / 2, bh = h - 16;
+            for (int i = 0; i < 2; i++)
+            {
+                bool on = i == dropTarget;
+                var box = new RectangleF(10 + i * (bw + 6), 8, bw, bh);
+                if (on) { box.Inflate(breath, breath); p.FillRound(box, bh / 2, p.T.Fill); }
+                using (var pen = new Pen(Ink.A(on ? p.T.Text : p.T.Sub, (on ? 0.6f : 0.3f) * p.Alpha), 1.4f) { DashPattern = new[] { 4f, 3f } })
+                using (var path = Ink.Round(box, bh / 2)) g.DrawPath(pen, path);
+                string label = i == 0 ? Lang.T("Taruh di rak") : Lang.T("Ubah format");
+                var font = Ink.Semi(13f);
+                float tw = p.Measure(label, font), x = box.X + box.Width / 2 - (tw + 24) / 2;
+                p.Icon(i == 0 ? IcoShelf : IcoConvert, 15f, on ? p.T.Text : p.T.Sub, x + 8, h / 2);
+                p.Text(label, font, on ? p.T.Text : p.T.Sub, x + 24, h / 2, tw + 4, StringAlignment.Near);
+            }
         }
 
         // Thumbnails: STA worker, shell's own cache
@@ -341,7 +410,7 @@ namespace Tepi
                     var made = bmp;
                     Post(delegate
                     {
-                        if (!shelf.Contains(item)) { made.Dispose(); return; }
+                        if (!shelf.Contains(item) && !ConvOwns(item)) { made.Dispose(); return; }
                         if (item.Thumb != null) item.Thumb.Dispose();
                         item.Thumb = made;
                         Kick();

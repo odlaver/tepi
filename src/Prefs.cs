@@ -57,7 +57,7 @@ namespace Tepi
             }
             else if (key == "downloads") ApplyDownloads();
             else if (key == "capture.show") ApplyGlass();
-            else if (key == "shelf") InitShelfDrop();
+            else if (key == "shelf" || key == "convert") InitShelfDrop();
             Kick();
         }
 
@@ -380,6 +380,7 @@ namespace Tepi
                 new[] { "Senyap", "\uE708" }, new[] { "Pembaruan", "\uE72C" }, new[] { "Layanan luar", "\uE774" }, new[] { "Traktir Tepi kopi", "\uEC32" },
                 new[] { "Ringkasan", "\uE80F" }, new[] { "Musik", "\uE8D6" }, new[] { "Agen", "\uE756" }, new[] { "Kuliah", "\uE7BE" },
                 new[] { "Pesan", "\uE8BD" }, new[] { "Rak", "\uE7B8" }, new[] { "Kontrol", "\uE9E9" }, new[] { "Pengingat", "\uEA8F" },
+                new[] { "HP", "\uE8EA" }, new[] { "Ubah", "\uE8AB" }, new[] { "Ubah format", "\uE8AB" },
                 new[] { "Hubungkan HP", "\uE8EA" }, new[] { "Notifikasi HP", "\uE8BD" }, new[] { "Kode OTP", "\uE8D7" },
                 new[] { "Notion", "\uE8F1" }, new[] { "Todoist", "\uE73E" }, new[] { "Kalender iCal", "\uE787" },
             };
@@ -533,22 +534,11 @@ namespace Tepi
                         int openAt = Array.IndexOf(PageIds, settings.Get("panel.first", "")) + 1;
                         add(Row(Lang.T("Dibuka di"), null, Popup(openNames.ToArray(), Math.Max(0, openAt), i => island.SetLayout("panel.first", i > 0 ? PageIds[i - 1] : ""))));
                         cap(Lang.T("Tab yang tampil"));
-                        for (int pg = 0; pg < PageNames.Length; pg++)
-                        {
-                            int page = pg;
-                            var sw = new KitSwitch { Checked = Array.IndexOf(island.tabs, pg) >= 0, Size = new Size((int)(46 * Ui), (int)(26 * Ui)) };
-                            sw.CheckedChanged += delegate
-                            {
-                                if (building) return;
-                                var list = new List<int>(island.tabs);
-                                if (sw.Checked && !list.Contains(page)) list.Add(page);
-                                else if (!sw.Checked && list.Count > 1) list.Remove(page);
-                                list.Sort();
-                                island.SetLayout("panel.tabs", island.TabIds(list));
-                                Preview();
-                            };
-                            add(Row(Lang.T(PageNames[pg]), null, sw));
-                        }
+                        // Shown in panel order, hidden after
+                        var order = new List<int>(island.tabs);
+                        for (int pg = 0; pg < PageNames.Length; pg++) if (!order.Contains(pg)) order.Add(pg);
+                        tabFocus.Clear();
+                        foreach (int pg in order) add(TabRow(pg));
                         break;
                     case "activity":
                         add(Row(Lang.T("Lirik di island"), null, Switch("lyrics", true, null)));
@@ -573,6 +563,7 @@ namespace Tepi
                         add(Row(Lang.T("Flashdisk"), Lang.T("Saat dicolok, dengan tombol Buka dan Keluarkan"), Switch("drives", true, null)));
                         add(Row(Lang.T("Preview screenshot"), Lang.T("Gambar yang disalin tampil di island; salinan sementara dihapus saat Tepi ditutup"), Switch("shots", true, null)));
                         add(Row(Lang.T("Rak berkas"), Lang.T("Jalur berkas saja, hanya di memori"), Switch("shelf", true, null)));
+                        add(Row(Lang.T("Ubah format"), Lang.T("Kotak di samping Rak saat berkas diseret ke island"), Switch("convert", true, null)));
                         add(Row(Lang.T("Istirahat fokus"), null, Slider(1, 30, 1, settings.GetInt("focus.break", 5), v => v + Lang.T(" menit"), v => { settings.Set("focus.break", v); settings.Save(); })));
                         break;
                     case "agents":
@@ -696,6 +687,181 @@ namespace Tepi
                 island.UpdateChanged += show;
                 row.Disposed += delegate { island.UpdateChanged -= show; };
                 return row;
+            }
+
+            // Tab row: grip | icon, name, switch
+            readonly Dictionary<string, Control> tabFocus = new Dictionary<string, Control>();
+
+            KitRow TabRow(int page)
+            {
+                int at = Array.IndexOf(island.tabs, page);
+                string name = Lang.T(PageNames[page]);
+                var sw = new KitSwitch { Checked = at >= 0, Size = new Size((int)(46 * Ui), (int)(26 * Ui)) };
+                sw.CheckedChanged += delegate
+                {
+                    if (building) return;
+                    var list = new List<int>(island.tabs);
+                    if (sw.Checked && !list.Contains(page)) list.Add(page);
+                    else if (!sw.Checked && list.Count > 1) list.Remove(page);
+                    island.SetLayout("panel.tabs", island.TabIds(list));
+                    Preview();
+                    RefillTabs(page + "sw");
+                };
+                tabFocus[page + "sw"] = sw;
+                var r = Row(name, null, sw);
+                r.Lead = 38;
+                if (at < 0) return r;
+                r.Divider = true;
+                var grip = new TabGrip { Size = new Size((int)(30 * Ui), (int)(30 * Ui)), AccessibleName = Lang.F("Urutan {0}", name), AccessibleDescription = Lang.T("Seret, atau tekan panah atas dan bawah") };
+                grip.Location = new Point((int)(5 * Ui), (r.Height - grip.Height) / 2);
+                grip.Dropped = to => MoveTabTo(page, to);
+                grip.Nudge = step => MoveTabTo(page, at + step);
+                r.Controls.Add(grip);
+                tabFocus[page + "grip"] = grip;
+                return r;
+            }
+
+            void MoveTabTo(int page, int to)
+            {
+                var list = new List<int>(island.tabs);
+                int i = list.IndexOf(page);
+                if (i < 0 || to < 0 || to >= list.Count || to == i) return;
+                list.RemoveAt(i);
+                list.Insert(to, page);
+                island.SetLayout("panel.tabs", island.TabIds(list));
+                Preview();
+                RefillTabs(page + "grip");
+            }
+
+            // Rebuild rows; scroll and focus stay
+            void RefillTabs(string focusKey)
+            {
+                var at = content.AutoScrollPosition;
+                bool refocus = ContainsFocus;
+                BeginInvoke(new Action(delegate
+                {
+                    Fill();
+                    content.AutoScrollPosition = new Point(-at.X, -at.Y);
+                    Control c;
+                    if (refocus && tabFocus.TryGetValue(focusKey, out c) && c.Visible) c.Focus();
+                }));
+            }
+
+            // Six-dot handle: drag, or arrow keys
+            class TabGrip : KitControl
+            {
+                public Action<int> Dropped, Nudge;
+                KitRow row;
+                List<KitRow> peers;
+                int grabY, startTop, baseTop, slot, target;
+                bool dragging;
+
+                public TabGrip() { Cursor = Cursors.SizeNS; }
+
+                protected override bool IsInputKey(Keys k) { return k == Keys.Up || k == Keys.Down || base.IsInputKey(k); }
+
+                protected override void OnKeyDown(KeyEventArgs e)
+                {
+                    base.OnKeyDown(e);
+                    if ((e.KeyCode != Keys.Up && e.KeyCode != Keys.Down) || Nudge == null) return;
+                    e.Handled = true;
+                    Nudge(e.KeyCode == Keys.Up ? -1 : 1);
+                }
+
+                static bool Shown(KitRow r)
+                {
+                    foreach (Control c in r.Controls) if (c is TabGrip) return true;
+                    return false;
+                }
+
+                // Group space: scrolling keeps the row under the pointer
+                int GroupY(MouseEventArgs e) { return row.Parent.PointToClient(PointToScreen(e.Location)).Y; }
+
+                protected override void OnMouseDown(MouseEventArgs e)
+                {
+                    base.OnMouseDown(e);
+                    if (e.Button != MouseButtons.Left || Parent == null) return;
+                    row = Parent as KitRow;
+                    if (row == null || row.Parent == null) return;
+                    peers = new List<KitRow>();
+                    foreach (Control c in row.Parent.Controls)
+                    {
+                        var r = c as KitRow;
+                        if (r != null && Shown(r)) peers.Add(r);
+                    }
+                    peers.Sort((a, b) => a.Top.CompareTo(b.Top));
+                    slot = target = peers.IndexOf(row);
+                    baseTop = peers[0].Top;
+                    startTop = row.Top;
+                    grabY = GroupY(e);
+                    dragging = true;
+                    Capture = true;
+                    row.BringToFront();
+                    Lift(true);
+                }
+
+                protected override void OnMouseMove(MouseEventArgs e)
+                {
+                    base.OnMouseMove(e);
+                    if (!dragging) return;
+                    int h = row.Height, max = baseTop + (peers.Count - 1) * h;
+                    int top = Math.Max(baseTop, Math.Min(max, startTop + GroupY(e) - grabY));
+                    row.Top = top;
+                    target = Math.Max(0, Math.Min(peers.Count - 1, (top - baseTop + h / 2) / h));
+                    // Others close ranks around the gap
+                    int k = 0;
+                    foreach (var p in peers)
+                    {
+                        if (p == row) continue;
+                        if (k == target) k++;
+                        p.Top = baseTop + k * h;
+                        k++;
+                    }
+                    row.Parent.Invalidate();
+                }
+
+                protected override void OnMouseUp(MouseEventArgs e)
+                {
+                    base.OnMouseUp(e);
+                    Drop();
+                }
+
+                protected override void OnMouseCaptureChanged(EventArgs e)
+                {
+                    base.OnMouseCaptureChanged(e);
+                    if (!Capture) Drop();
+                }
+
+                void Drop()
+                {
+                    if (!dragging) return;
+                    dragging = false;
+                    Capture = false;
+                    Lift(false);
+                    row.Top = baseTop + target * row.Height;
+                    if (target != slot && Dropped != null) Dropped(target);
+                }
+
+                // Held row takes the hover tint
+                void Lift(bool on)
+                {
+                    row.BackColor = on ? KitInk.Hover : Color.Transparent;
+                    row.Invalidate(true);
+                }
+
+                protected override void OnPaint(PaintEventArgs e)
+                {
+                    var g = e.Graphics;
+                    KitInk.Smooth(g);
+                    g.Clear(KitInk.Under(this));
+                    float s = Ui, cx = Width / 2f, cy = Height / 2f, d = 3f * s;
+                    if (Hovered && !dragging) Fill(g, new RectangleF(0.5f, 0.5f, Width - 1, Height - 1), Height / 2f, KitInk.Line);
+                    using (var b = new SolidBrush(dragging || Hovered || Focused ? KitInk.Text : KitInk.Sub))
+                        for (int x = -1; x <= 1; x += 2)
+                            for (int y = -1; y <= 1; y++)
+                                g.FillEllipse(b, cx + x * 3f * s - d / 2, cy + y * 5f * s - d / 2, d, d);
+                    Ring(g, new RectangleF(1, 1, Width - 2, Height - 2), Height / 2f);
+                }
             }
 
             Control StartupSwitch()
