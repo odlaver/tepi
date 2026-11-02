@@ -28,11 +28,12 @@ namespace Tepi
             new[] { "PNG", "JPG" }, new[] { "MOV", "MP4" }, new[] { "WAV", "MP3" }, new[] { "DOCX", "PDF" },
             new[] { "PDF", "PNG" }, new[] { "HEIC", "JPG" }, new[] { "MD", "DOCX" }, new[] { "MKV", "GIF" },
         };
-        const double ConvPairSecs = 2.4;
         readonly Roller convFrom = new Roller(), convTo = new Roller();
         Func<DateTime, double> convHeroPaint;
         RectangleF convArt;
-        DateTime convPageUtc = DateTime.UtcNow;
+        // Next pair each time the tab is shown
+        int convPair = -1;
+        DateTime convShownUtc, convPairUtc;
 
         bool ConvOwns(ShelfItem item)
         {
@@ -112,6 +113,13 @@ namespace Tepi
                 Button(new RectangleF(w / 2 - 74, by, 148, 34), "convOn", Lang.T("Nyalakan"), true, delegate { SetFlag("convert", true); });
                 return;
             }
+            var shown = pageSwitchUtc > panelOpenedUtc ? pageSwitchUtc : panelOpenedUtc;
+            if (shown != convShownUtc && (convPair < 0 || !Anim.Reduced))
+            {
+                convShownUtc = shown;
+                convPair = (convPair + 1) % ConvPairs.Length;
+                convPairUtc = DateTime.UtcNow;
+            }
             var hero = new RectangleF(16, PanelTop + 4, w - 32, ConvBoxH);
             DrawConvertHero(hero);
             DrawConvertKinds(new RectangleF(hero.X, hero.Bottom + 12, hero.Width, ConvKindH));
@@ -134,10 +142,10 @@ namespace Tepi
             p.Text(Lang.T("atau klik di sini untuk memilih"), Ink.Text(12.5f), p.T.Sub, x, cy + 11, box.Right - x - 18, StringAlignment.Near);
         }
 
-        // Pair rolls every few seconds; area only
+        // One roll per visit, then still
         double PaintConvertArt(DateTime now)
         {
-            int i = Anim.Reduced ? 0 : (int)((now - convPageUtc).TotalSeconds / ConvPairSecs) % ConvPairs.Length;
+            int i = Math.Max(0, convPair);
             convFrom.Set(ConvPairs[i][0]);
             convTo.Set(ConvPairs[i][1]);
             var r = convArt;
@@ -150,15 +158,12 @@ namespace Tepi
             convFrom.Draw(p, label, p.T.Text, a.X + dw / 2, cy + 8, StringAlignment.Center, now);
             convTo.Draw(p, label, p.T.Bg, b.X + dw / 2, cy + 8, StringAlignment.Center, now);
             // Arrow between, nudged while rolling
-            float k = convTo.Moving(now) ? (float)Math.Sin(Math.Min(1, (now - convPageUtc).TotalSeconds % ConvPairSecs / 0.42) * Math.PI) * 4 : 0;
+            float k = convTo.Moving(now) ? (float)Math.Sin(Math.Min(1, (now - convPairUtc).TotalSeconds / 0.42) * Math.PI) * 4 : 0;
             float x0 = a.Right + 12 + k, x1 = b.X - 12 + k;
             var pen = p.P(p.T.Sub, 1.6f);
             g.DrawLine(pen, x0, cy, x1, cy);
             g.DrawLines(pen, new[] { new PointF(x1 - 5, cy - 5), new PointF(x1, cy), new PointF(x1 - 5, cy + 5) });
-            if (convFrom.Moving(now) || convTo.Moving(now)) return 1 / 30.0;
-            if (Anim.Reduced) return 0;
-            double into = (now - convPageUtc).TotalSeconds % ConvPairSecs;
-            return Math.Max(0.05, ConvPairSecs - into);
+            return convFrom.Moving(now) || convTo.Moving(now) ? 1 / 30.0 : 0;
         }
 
         // Page with a folded corner
