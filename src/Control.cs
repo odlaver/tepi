@@ -318,19 +318,19 @@ namespace Tepi
             CircleToggle(cx, cy, d, Ink.IcoWifi, radios.WifiOn, radios.HasWifi, Lang.T("Wi-Fi"), "tileWifi", actWifi, null, hw);
             ToggleSlot(r, 1, n, out cx, out cy);
             CircleToggle(cx, cy, d, Ink.IcoBluetooth, radios.BluetoothOn, radios.HasBluetooth, Lang.T("Bluetooth"), "tileBt", actBt, null, hw);
+            // Long labels sit at row ends
             ToggleSlot(r, 2, n, out cx, out cy);
-            CircleToggle(cx, cy, d, micMuted ? IcoMicOff : Ink.IcoMic, micPresent && !micMuted, micPresent, Lang.T("Mikrofon"), "tileMic", actMic, null, hw);
-            ToggleSlot(r, 3, n, out cx, out cy);
             CircleToggle(cx, cy, d, Ink.IcoQuiet, Quiet, true, Lang.T("Senyap"), "tileQuiet", actQuiet, null, hw);
+            ToggleSlot(r, 3, n, out cx, out cy);
+            CircleToggle(cx, cy, d, micMuted ? IcoMicOff : Ink.IcoMic, micPresent && !micMuted, micPresent, Lang.T("Mikrofon"), "tileMic", actMic, null, hw);
             ToggleSlot(r, 4, n, out cx, out cy);
             CircleToggle(cx, cy, d, IcoMini, MiniWanted(), true, Lang.T("Mini"), "tileMini", MiniAct(), null, hw);
             ToggleSlot(r, 5, n, out cx, out cy);
-            CircleToggle(cx, cy, d, Ink.IcoHide, false, true, Lang.T("Sembunyikan"), "tileHide", actHide, null, hw);
-            // Short label beside the long one
-            ToggleSlot(r, 6, n, out cx, out cy);
             CircleToggle(cx, cy, d, IcoDarkMode, winDark, true, Lang.T("Gelap"), "tileDark", actDark, null, hw);
-            ToggleSlot(r, 7, n, out cx, out cy);
+            ToggleSlot(r, 6, n, out cx, out cy);
             CircleToggle(cx, cy, d, IcoAwake, AwakeOn, true, AwakeLabel(), "tileAwake", actAwake, actAwakeMenu, hw);
+            ToggleSlot(r, 7, n, out cx, out cy);
+            CircleToggle(cx, cy, d, Ink.IcoHide, false, true, Lang.T("Sembunyi"), "tileHide", actHide, null, hw);
         }
 
         // Four across past six tiles
