@@ -87,6 +87,7 @@ namespace Tepi
             using (var f = new PrompterSetup(last, wpm0, px0, mirror0, bg0, live))
             {
                 if (tray != null) f.Icon = tray.Icon;
+                PrompterKeys(f);
                 // Live script previews every change
                 if (live) f.Changed += delegate { if (!PrompterOn) return; PrompterLook(f.Wpm, f.Px, f.Mirror, f.Bg); Kick(); };
                 bool ok = f.ShowDialog() == DialogResult.OK;
@@ -126,14 +127,7 @@ namespace Tepi
             expanded = false;
             Rewind();
             // Shortcut is held only while a script runs
-            if (!RegisterHotKey(Handle, PrompterHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.Space)) Log.Write("hotkey Ctrl+Alt+Space taken");
-            if (!RegisterHotKey(Handle, PrompterFaster, 0x0001 | 0x0002 | 0x4000, (uint)Keys.Oemplus)) Log.Write("hotkey Ctrl+Alt+= taken");
-            if (!RegisterHotKey(Handle, PrompterSlower, 0x0001 | 0x0002 | 0x4000, (uint)Keys.OemMinus)) Log.Write("hotkey Ctrl+Alt+- taken");
-            if (!RegisterHotKey(Handle, PrompterSetupKey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.P)) Log.Write("hotkey Ctrl+Alt+P taken");
-            if (!RegisterHotKey(Handle, PrompterRestart, 0x0001 | 0x0002 | 0x4000, (uint)Keys.R)) Log.Write("hotkey Ctrl+Alt+R taken");
-            if (!RegisterHotKey(Handle, PrompterStop, 0x0001 | 0x0002 | 0x4000, (uint)Keys.X)) Log.Write("hotkey Ctrl+Alt+X taken");
-            if (!RegisterHotKey(Handle, PrompterBack, 0x0001 | 0x0002 | 0x4000, (uint)Keys.Left)) Log.Write("hotkey Ctrl+Alt+Left taken");
-            if (!RegisterHotKey(Handle, PrompterAhead, 0x0001 | 0x0002 | 0x4000, (uint)Keys.Right)) Log.Write("hotkey Ctrl+Alt+Right taken");
+            PrompterHotkeys(true);
             prompterHalf = PrompterW / 2;
             if (WantHalf > canvasHalf) CreateCanvas();
             ApplyGlass();
@@ -147,14 +141,7 @@ namespace Tepi
             prompterWrapped = false;
             prompterHeld = false;
             PrompterCursor(0);
-            UnregisterHotKey(Handle, PrompterHotkey);
-            UnregisterHotKey(Handle, PrompterFaster);
-            UnregisterHotKey(Handle, PrompterSlower);
-            UnregisterHotKey(Handle, PrompterSetupKey);
-            UnregisterHotKey(Handle, PrompterRestart);
-            UnregisterHotKey(Handle, PrompterStop);
-            UnregisterHotKey(Handle, PrompterBack);
-            UnregisterHotKey(Handle, PrompterAhead);
+            PrompterHotkeys(false);
             // Frame shrinks canvas once shell fits
             ApplyGlass();
             Kick();
@@ -715,7 +702,6 @@ namespace Tepi
             markHint.Text = Lang.T("Tulis [jeda] untuk berhenti otomatis.");
             count.TextAlign = ContentAlignment.MiddleRight;
             markHint.TextAlign = sizeHint.TextAlign = ContentAlignment.MiddleLeft;
-            keysCap.Text = Lang.T("Pintasan, dengan Ctrl+Alt");
             sizeHint.Text = Lang.T("Saat jeda, tarik tepi island untuk mengubah ukurannya.");
 
             Slider(speedRow, speed, Lang.T("Kecepatan"), 60, 400, 20, wpm, v => Lang.F("{0} kata/menit", v));
@@ -728,18 +714,6 @@ namespace Tepi
             mirror.CheckedChanged += delegate { Notify(); };
             foreach (var r in new[] { speedRow, sizeRow, shadeRow, mirrorRow }) { r.Controls.Add(r.Field); group.Controls.Add(r); }
 
-            keys.Rows = new[]
-            {
-                new[] { Lang.T("Jeda dan lanjut"), Lang.T("Spasi") },
-                new[] { Lang.T("Ulang dari awal"), "R" },
-                new[] { Lang.T("Mundur atau maju 5 detik"), "←", "→" },
-                new[] { Lang.T("Lebih cepat atau lambat"), "=", "−" },
-                new[] { Lang.T("Buka jendela ini"), "P" },
-                new[] { Lang.T("Hentikan"), "X" },
-            };
-            keys.AccessibleName = keysCap.Text;
-            keys.AccessibleDescription = keys.Spoken();
-
             Controls.AddRange(new Control[] { title, library, import, keep, remove, well, markHint, count, group, keysCap, keys, sizeHint, cancel, start });
             int tab = 0;
             foreach (Control c in Controls) c.TabIndex = tab++;
@@ -747,6 +721,16 @@ namespace Tepi
             Count();
             ActiveControl = script;
             ready = true;
+        }
+
+        public void SetKeys(string caption, string prefix, string[][] rows)
+        {
+            keysCap.Text = caption;
+            keys.Prefix = prefix;
+            keys.Rows = rows;
+            keys.AccessibleName = caption;
+            keys.AccessibleDescription = keys.Spoken();
+            keys.Invalidate();
         }
 
         void Slider(KitRow row, KitSlider s, string name, int min, int max, int step, int value, Func<int, string> fmt)
@@ -1073,6 +1057,8 @@ namespace Tepi
     class KeyList : Control
     {
         public string[][] Rows = new string[0][];
+        // Shared modifiers, spoken before each key
+        public string Prefix = "";
 
         public KeyList()
         {
@@ -1088,7 +1074,7 @@ namespace Tepi
             var sb = new StringBuilder();
             foreach (var r in Rows)
             {
-                sb.Append(r[0]).Append(": Ctrl+Alt+").Append(r[1]);
+                sb.Append(r[0]).Append(": ").Append(Prefix).Append(r[1]);
                 for (int i = 2; i < r.Length; i++) sb.Append(" / ").Append(r[i]);
                 sb.Append(". ");
             }

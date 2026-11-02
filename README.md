@@ -81,6 +81,7 @@ Klik ikon gear di pojok kanan atas panel, atau klik kanan ikon Tepi lalu **Penga
 - **Integrasi**: Kulia, Notion, Todoist, dan kalender iCal untuk tab Tugas dan Jadwal.
 - **Pengingat**: sholat (kota dan menit sebelum), cuaca dan hujan, minum (selang dan target), istirahat mata, peregangan.
 - **Aksesibilitas**: tampil di rekaman layar, umumkan ke pembaca layar, kurangi gerak, gerak (Tenang tanpa pantulan, Bawaan, atau Lincah), dan Senyap.
+- **Pintasan**: ganti atau kosongkan setiap pintasan, termasuk pintasan teleprompter. Klik pintasannya lalu tekan kombinasi baru (Backspace mengosongkan, Esc batal). Kombinasi yang sudah dipakai aplikasi lain ditolak saat itu juga, dan saat Tepi dibuka island memberi tahu kalau ada pintasan yang direbut aplikasi lain. **Kembalikan** memasang lagi semua pintasan bawaan.
 
 Island yang ikut terekam tidak bisa memakai efek kaca, karena kaca membaca layar di belakangnya dan akan ikut membaca dirinya sendiri. Selama opsi itu menyala, latarnya polos.
 
@@ -162,7 +163,7 @@ Naskah mulai setelah hitung mundur 3 detik. Selama naskah berjalan:
   | Ctrl+Alt+P | Buka jendela teleprompter, naskah tetap di tempatnya |
   | Ctrl+Alt+X | Hentikan |
 
-  Pintasan ini hanya terpakai selama teleprompter terbuka, dan semuanya juga ada di submenu **Teleprompter** di menu tray.
+  Pintasan ini hanya terpakai selama teleprompter terbuka, bisa diganti di **Pengaturan › Pintasan**, dan semuanya juga ada di submenu **Teleprompter** di menu tray.
 - Saat dijeda, island bisa diklik: seret tepi kiri atau kanan untuk mengubah lebar, tepi bawah untuk tinggi, atau sudut bawah untuk keduanya. Posisi baca tidak hilang.
 - Tulis `[jeda]` di naskah untuk berhenti otomatis di titik itu. Baris itu ditandai titik di kiri.
 - Sisa waktu baca tampil di kanan atas.
@@ -395,6 +396,8 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `weather` | `0` | Cuaca dan peringatan hujan, memakai kota `pray.city` |
 | `phone`, `phone.notifs`, `phone.otp` | `0`, `1`, `1` | Sambungan HP, notifikasi pesan dari HP, kode OTP dari HP |
 | `phone.port` | acak | Port sambungan HP, dipilih saat pertama dinyalakan |
+| `key.hide`, `key.nav`, `key.mini`, `key.mic`, `key.note`, `key.mirror` | `Ctrl+Alt+H`, `I`, `K`, `M`, `N`, `C` | Pintasan global, misalnya `Ctrl+Shift+F10` atau `Win+Alt+H`; `none` mematikannya |
+| `key.prompter.pause`, `.restart`, `.back`, `.ahead`, `.faster`, `.slower`, `.setup`, `.stop` | `Ctrl+Alt+Space`, `R`, `Left`, `Right`, `=`, `-`, `P`, `X` | Pintasan teleprompter, hanya terpakai selama naskah berjalan |
 | `kulia.url`, `kulia.key` | server kulia.live | Arahkan ke instance Kulia lain |
 
 Variabel lingkungan untuk pengembangan:

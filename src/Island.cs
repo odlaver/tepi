@@ -196,15 +196,12 @@ namespace Tepi
             ApplyClips();
             CleanShots(false);
             ApplyDownloads();
-            if (!RegisterHotKey(Handle, HideHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.H)) Log.Write("hotkey Ctrl+Alt+H taken");
-            if (!RegisterHotKey(Handle, KeysHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.I)) Log.Write("hotkey Ctrl+Alt+I taken");
+            StartHotkeys();
             MiniInit();
             StartGlass();
             StartFeeds();
             StartLocks();
             StartMic();
-            StartNotes();
-            if (!RegisterHotKey(Handle, MirrorHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.C)) Log.Write("hotkey Ctrl+Alt+C taken");
             StartControls();
             InitShelfDrop();
             EnsureDisc(64);
@@ -1380,7 +1377,7 @@ namespace Tepi
             if (hiddenByUser && !hideTipShown && tray != null)
             {
                 hideTipShown = true;
-                tray.ShowBalloonTip(5000, Lang.T("Island disembunyikan"), Lang.T("Klik ikon Tepi di tray atau tekan Ctrl+Alt+H untuk memunculkannya lagi."), ToolTipIcon.None);
+                tray.ShowBalloonTip(5000, Lang.T("Island disembunyikan"), HotkeyText(HideHotkey).Length > 0 ? Lang.F("Klik ikon Tepi di tray atau tekan {0} untuk memunculkannya lagi.", HotkeyText(HideHotkey)) : Lang.T("Klik ikon Tepi di tray untuk memunculkannya lagi."), ToolTipIcon.None);
             }
             Kick();
         }
@@ -1534,13 +1531,13 @@ namespace Tepi
                 try { Process.Start("explorer.exe", "\"" + Settings.Dir + "\""); } catch (Exception ex) { Log.Write("open dir: " + ex.Message); }
             });
             var updateItem = new ToolStripMenuItem(Lang.T("Perbarui"), null, delegate { InstallUpdate(); }) { Visible = false };
-            var hideItem = new ToolStripMenuItem(Lang.T("Sembunyikan island"), null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+H" };
-            var keysItem = new ToolStripMenuItem(Lang.T("Navigasi keyboard"), null, delegate { EnterKeyboard(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+I" };
-            var miniItem = new ToolStripMenuItem(Lang.T("Mini"), null, delegate { ToggleMini(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+K" };
+            var hideItem = new ToolStripMenuItem(Lang.T("Sembunyikan island"), null, delegate { ToggleHidden(); }) { ShortcutKeyDisplayString = HotkeyText(HideHotkey) };
+            var keysItem = new ToolStripMenuItem(Lang.T("Navigasi keyboard"), null, delegate { EnterKeyboard(); }) { ShortcutKeyDisplayString = HotkeyText(KeysHotkey) };
+            var miniItem = new ToolStripMenuItem(Lang.T("Mini"), null, delegate { ToggleMini(); }) { ShortcutKeyDisplayString = HotkeyText(MiniHotkey) };
             var prompterItem = new ToolStripMenuItem(Lang.T("Teleprompter"), null, delegate { if (!PrompterOn) OpenPrompter(); });
             var focusItem = new ToolStripMenuItem(Lang.T("Timer"));
-            var noteItem = new ToolStripMenuItem(Lang.T("Catatan kilat"), null, delegate { OpenNote(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+N" };
-            var mirrorItem = new ToolStripMenuItem(Lang.T("Cermin kamera"), null, delegate { ToggleMirror(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+C" };
+            var noteItem = new ToolStripMenuItem(Lang.T("Catatan kilat"), null, delegate { OpenNote(); }) { ShortcutKeyDisplayString = HotkeyText(NoteHotkey) };
+            var mirrorItem = new ToolStripMenuItem(Lang.T("Cermin kamera"), null, delegate { ToggleMirror(); }) { ShortcutKeyDisplayString = HotkeyText(MirrorHotkey) };
             var exit = new ToolStripMenuItem(Lang.T("Keluar"), null, delegate { Close(); });
             var prefsItem = new ToolStripMenuItem(Lang.T("Pengaturan…"), null, delegate { OpenPrefs(); });
             menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, mirrorItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
@@ -1548,6 +1545,12 @@ namespace Tepi
             {
                 // Style submenus after they're rebuilt
                 BeginInvoke(new Action(delegate { MenuLook.Apply(menu); }));
+                // Shortcuts may have been remapped
+                hideItem.ShortcutKeyDisplayString = HotkeyText(HideHotkey);
+                keysItem.ShortcutKeyDisplayString = HotkeyText(KeysHotkey);
+                miniItem.ShortcutKeyDisplayString = HotkeyText(MiniHotkey);
+                noteItem.ShortcutKeyDisplayString = HotkeyText(NoteHotkey);
+                mirrorItem.ShortcutKeyDisplayString = HotkeyText(MirrorHotkey);
                 hideItem.Checked = hiddenByUser;
                 miniItem.Checked = MiniWanted();
                 prompterItem.Checked = PrompterOn;
@@ -1556,15 +1559,15 @@ namespace Tepi
                 if (PrompterOn)
                     prompterItem.DropDownItems.AddRange(new ToolStripItem[]
                     {
-                        new ToolStripMenuItem(Lang.T(prompterPaused ? "Lanjutkan" : "Jeda"), null, delegate { TogglePrompter(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+Space" },
-                        new ToolStripMenuItem(Lang.T("Ulang dari awal"), null, delegate { RestartPrompter(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+R" },
-                        new ToolStripMenuItem(Lang.T("Mundur 5 detik"), null, delegate { SeekPrompter(-5); }) { ShortcutKeyDisplayString = "Ctrl+Alt+Left" },
-                        new ToolStripMenuItem(Lang.T("Maju 5 detik"), null, delegate { SeekPrompter(5); }) { ShortcutKeyDisplayString = "Ctrl+Alt+Right" },
-                        new ToolStripMenuItem(Lang.T("Atur…"), null, delegate { BeginInvoke(new Action(OpenPrompter)); }) { ShortcutKeyDisplayString = "Ctrl+Alt+P" },
-                        new ToolStripMenuItem(Lang.T("Lebih cepat"), null, delegate { NudgeSpeed(1); }) { ShortcutKeyDisplayString = "Ctrl+Alt+=" },
-                        new ToolStripMenuItem(Lang.T("Lebih lambat"), null, delegate { NudgeSpeed(-1); }) { ShortcutKeyDisplayString = "Ctrl+Alt+-" },
+                        new ToolStripMenuItem(Lang.T(prompterPaused ? "Lanjutkan" : "Jeda"), null, delegate { TogglePrompter(); }) { ShortcutKeyDisplayString = HotkeyText(PrompterHotkey) },
+                        new ToolStripMenuItem(Lang.T("Ulang dari awal"), null, delegate { RestartPrompter(); }) { ShortcutKeyDisplayString = HotkeyText(PrompterRestart) },
+                        new ToolStripMenuItem(Lang.T("Mundur 5 detik"), null, delegate { SeekPrompter(-5); }) { ShortcutKeyDisplayString = HotkeyText(PrompterBack) },
+                        new ToolStripMenuItem(Lang.T("Maju 5 detik"), null, delegate { SeekPrompter(5); }) { ShortcutKeyDisplayString = HotkeyText(PrompterAhead) },
+                        new ToolStripMenuItem(Lang.T("Atur…"), null, delegate { BeginInvoke(new Action(OpenPrompter)); }) { ShortcutKeyDisplayString = HotkeyText(PrompterSetupKey) },
+                        new ToolStripMenuItem(Lang.T("Lebih cepat"), null, delegate { NudgeSpeed(1); }) { ShortcutKeyDisplayString = HotkeyText(PrompterFaster) },
+                        new ToolStripMenuItem(Lang.T("Lebih lambat"), null, delegate { NudgeSpeed(-1); }) { ShortcutKeyDisplayString = HotkeyText(PrompterSlower) },
                         new ToolStripSeparator(),
-                        new ToolStripMenuItem(Lang.T("Hentikan"), null, delegate { StopPrompter(); }) { ShortcutKeyDisplayString = "Ctrl+Alt+X" },
+                        new ToolStripMenuItem(Lang.T("Hentikan"), null, delegate { StopPrompter(); }) { ShortcutKeyDisplayString = HotkeyText(PrompterStop) },
                     });
                 FillFocusMenu(focusItem);
                 updateItem.Visible = newVersion != null;

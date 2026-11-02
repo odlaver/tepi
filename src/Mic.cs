@@ -80,7 +80,6 @@ namespace Tepi
 
         void StartMic()
         {
-            if (!RegisterHotKey(Handle, MicHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.M)) Log.Write("hotkey Ctrl+Alt+M taken");
             actMic = ToggleMic;
         }
 
