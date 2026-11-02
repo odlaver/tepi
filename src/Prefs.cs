@@ -507,9 +507,19 @@ namespace Tepi
             }
 
             // Swatch row; a pick repaints island and window
+            // Starting points that read well together
+            static string[][] SwatchPresets(string key)
+            {
+                if (key == "bg") return new[] { new[] { "Hitam", "#000000" }, new[] { "Arang", "#1C1C1E" }, new[] { "Navy", "#0E1734" }, new[] { "Hijau tua", "#0F2A22" }, new[] { "Putih", "#FFFFFF" }, new[] { "Krem", "#F5EFE6" } };
+                if (key == "text") return new[] { new[] { "Putih", "#FFFFFF" }, new[] { "Putih lembut", "#EEF4FF" }, new[] { "Hitam", "#111111" }, new[] { "Cokelat tua", "#3B2F2F" } };
+                var list = new System.Collections.Generic.List<string[]>();
+                foreach (var a in Accents) if (a[1].StartsWith("#")) list.Add(a);
+                return list.ToArray();
+            }
+
             KitRow ColorRow(string key, string title, string detail)
             {
-                var sw = new KitSwatch { Font = UiFont(12.5f), Value = island.CustomColor(key) };
+                var sw = new KitSwatch { Font = UiFont(12.5f), Value = island.CustomColor(key), Presets = SwatchPresets(key) };
                 sw.Size = new Size(TextRenderer.MeasureText("      #DDDDDD", sw.Font).Width + (int)(32 * Ui), (int)(30 * Ui));
                 sw.Picked += c => { island.SetCustomColor(key, c); BeginInvoke(new Action(Relayout)); };
                 var row = Row(title, detail, sw);
@@ -663,9 +673,9 @@ namespace Tepi
                         })));
                         if (custom)
                         {
-                            add(ColorRow("bg", Lang.T("Latar"), Lang.T("Klik untuk memilih warna")));
+                            add(ColorRow("bg", Lang.T("Latar"), Lang.T("Klik untuk memilih atau ambil dari layar")));
                             add(ColorRow("text", Lang.T("Teks"), ContrastNote()));
-                            add(ColorRow("accent", Lang.T("Aksen"), Lang.T("Klik untuk memilih warna")));
+                            add(ColorRow("accent", Lang.T("Aksen"), Lang.T("Klik untuk memilih atau ambil dari layar")));
                             KitRow saved = null;
                             saved = Row(Lang.T("Simpan jadi paket"), Lang.T("Ke folder themes, lalu bisa ditambah gambar"), Button(Lang.T("Simpan"), false, delegate
                             {
