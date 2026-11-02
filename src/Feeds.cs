@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Net.NetworkInformation;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using Microsoft.Win32;
 using Windows.Networking.Connectivity;
@@ -65,6 +69,64 @@ namespace Tepi
         }
     }
 
+    // Running processes, to drop stale registry entries
+    class Procs
+    {
+        [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+        [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, int flags, StringBuilder name, ref int size);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern int GetPackageFamilyName(IntPtr h, ref int length, StringBuilder name);
+
+        readonly Dictionary<string, long> oldest = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        readonly HashSet<string> sealedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        public static Procs Take()
+        {
+            var r = new Procs();
+            var sb = new StringBuilder(1024);
+            foreach (var p in Process.GetProcesses())
+            {
+                using (p)
+                {
+                    IntPtr h = OpenProcess(0x1000, false, p.Id);
+                    if (h == IntPtr.Zero)
+                    {
+                        try { r.sealedNames.Add(p.ProcessName); } catch (Exception) { }
+                        continue;
+                    }
+                    try
+                    {
+                        long created, e, k, u;
+                        if (!Native.GetProcessTimes(h, out created, out e, out k, out u)) continue;
+                        sb.Length = 0;
+                        int size = sb.Capacity;
+                        if (QueryFullProcessImageName(h, 0, sb, ref size)) r.Note(sb.ToString(), created);
+                        sb.Length = 0;
+                        size = sb.Capacity;
+                        if (GetPackageFamilyName(h, ref size, sb) == 0) r.Note(sb.ToString(), created);
+                    }
+                    finally { CloseHandle(h); }
+                }
+            }
+            return r;
+        }
+
+        void Note(string key, long created)
+        {
+            long t;
+            if (!oldest.TryGetValue(key, out t) || created < t) oldest[key] = created;
+        }
+
+        // Live only if its process predates the session
+        public bool Holds(string key, bool packaged, long since)
+        {
+            string id = packaged ? key : key.Replace('#', '\\');
+            long t;
+            if (oldest.TryGetValue(id, out t)) return t <= since;
+            return !packaged && sealedNames.Contains(Path.GetFileNameWithoutExtension(id));
+        }
+    }
+
     // Mic/camera users from privacy registry
     class PrivacyWatcher
     {
@@ -97,12 +159,16 @@ namespace Tepi
                 using (var camEvt = new AutoResetEvent(false))
                 {
                     string last = null;
+                    bool armMic = true, armCam = true;
+                    var waits = new WaitHandle[] { micEvt, camEvt };
                     while (true)
                     {
-                        if (mic != null) Native.RegNotifyChangeKeyValue(mic.Handle, true, 0x5, micEvt.SafeWaitHandle, true);
-                        if (cam != null) Native.RegNotifyChangeKeyValue(cam.Handle, true, 0x5, camEvt.SafeWaitHandle, true);
-                        var m = Users("microphone");
-                        var c = Users("webcam");
+                        if (armMic && mic != null) Native.RegNotifyChangeKeyValue(mic.Handle, true, 0x5, micEvt.SafeWaitHandle, true);
+                        if (armCam && cam != null) Native.RegNotifyChangeKeyValue(cam.Handle, true, 0x5, camEvt.SafeWaitHandle, true);
+                        armMic = armCam = false;
+                        Procs procs = null;
+                        var m = Users("microphone", ref procs);
+                        var c = Users("webcam", ref procs);
                         string sig = string.Join("|", m) + "#" + string.Join("|", c);
                         if (sig != last)
                         {
@@ -110,7 +176,10 @@ namespace Tepi
                             var h = Changed;
                             if (h != null) h(m, c);
                         }
-                        WaitHandle.WaitAny(new WaitHandle[] { micEvt, camEvt });
+                        // Crashed apps leave no registry trace
+                        int hit = WaitHandle.WaitAny(waits, m.Length + c.Length > 0 ? 3000 : Timeout.Infinite);
+                        if (hit == WaitHandle.WaitTimeout) continue;
+                        if (hit == 0) armMic = true; else armCam = true;
                         Thread.Sleep(250);
                     }
                 }
@@ -118,15 +187,15 @@ namespace Tepi
             catch (Exception ex) { Log.Write("privacy: " + ex.Message); }
         }
 
-        static string[] Users(string capability)
+        static string[] Users(string capability, ref Procs procs)
         {
             var names = new List<string>();
-            Collect(Base + capability, names);
-            Collect(Base + capability + @"\NonPackaged", names);
+            Collect(Base + capability, true, names, ref procs);
+            Collect(Base + capability + @"\NonPackaged", false, names, ref procs);
             return names.ToArray();
         }
 
-        static void Collect(string path, List<string> names)
+        static void Collect(string path, bool packaged, List<string> names, ref Procs procs)
         {
             using (var root = Registry.CurrentUser.OpenSubKey(path))
             {
@@ -141,8 +210,11 @@ namespace Tepi
                         if (start == null || stop == null) continue;
                         try
                         {
-                            if (Convert.ToInt64(start) > 0 && Convert.ToInt64(stop) == 0)
+                            long since = Convert.ToInt64(start);
+                            if (since > 0 && Convert.ToInt64(stop) == 0)
                             {
+                                if (procs == null) procs = Procs.Take();
+                                if (!procs.Holds(sub, packaged, since)) continue;
                                 string n = Friendly(sub);
                                 if (!names.Contains(n)) names.Add(n);
                             }
