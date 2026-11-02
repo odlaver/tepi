@@ -38,7 +38,7 @@ Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan juml
 | Skrip | Skrip apa pun bisa memunculkan toast atau bilah progres di island lewat `Tepi.exe --notify`, dan perintah panjang tampil di island beserta hasilnya lewat `Tepi.exe --run`. |
 | Mode rapat | Saat sebuah aplikasi memakai mikrofon lebih dari 20 detik (Zoom, Meet di browser, Teams, Discord), island menampilkan nama aplikasinya dan lama panggilan. Klik untuk mematikan atau menyalakan mikrofon. Selama itu notifikasi biasa ditahan seperti saat Senyap. |
 | Aktivitas sistem | Volume, charger dan baterai, Wi-Fi (termasuk **Wi-Fi butuh login** di jaringan kampus atau hotel: klik toast-nya untuk membuka halaman login, lalu **Internet kembali** setelah berhasil), aplikasi yang memakai mikrofon atau kamera, Caps Lock, serta bahasa input saat layout keyboard berganti (misalnya EN ke ID). Selama Caps Lock nyala, penandanya tetap tampil: tombol kecil di island (atau di gelembung samping saat musik diputar) dan panah kecil di sliver Mini. Num Lock ikut ditandai kalau HUD-nya dinyalakan. Status tombol dibaca langsung, tanpa hook keyboard. |
-| Tampilan | Material Liquid Glass, Frost, atau Hitam pekat; tema gelap atau terang; warna aksen; menempel di tepi atas atau mengambang; posisi, lebar panel, serta tab mana yang tampil. Bila tab lebih dari tujuh, ikonnya berganti titik dan nama tab tampil sebagai judul. Otomatis menyingkir saat ada aplikasi layar penuh. |
+| Tampilan | Material Liquid Glass, Frost, atau Hitam pekat; tema gelap atau terang; warna aksen; menempel di tepi atas atau mengambang; posisi, lebar panel, serta tab mana yang tampil. Bila tab lebih dari tujuh, ikonnya berganti titik dan nama tab tampil sebagai judul. Otomatis menyingkir saat ada aplikasi layar penuh, dan bisa diatur menyingkir atau menahan notifikasi saat aplikasi tertentu di depan. |
 | Aksesibilitas | Seluruh island bisa dipakai dengan keyboard (Ctrl+Alt+I). Toast, tab, tombol, dan permintaan izin dibacakan oleh pembaca layar (Narrator, NVDA); kontrol di jendela Pengaturan punya nama, nilai, dan status untuk pembaca layar. Mengikuti setelan Windows "efek animasi": tanpa pantulan dan efek terbang bila dimatikan. Island bisa dipilih ikut terekam atau tidak saat screenshot dan rekam layar. |
 
 ## Pasang
@@ -74,7 +74,7 @@ Klik ikon gear di pojok kanan atas panel, atau klik kanan ikon Tepi lalu **Penga
 
 - **Umum**: bahasa, mulai bersama Windows, cek versi baru, folder data.
 - **Tampilan**: tema, material (Liquid, Frost, Hitam), aksen, paket tema, suara sapaan paket.
-- **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, buka panel dengan arahkan kursor atau klik beserta jedanya, menempel di tepi atas, posisi, lebar panel, layar, gaya tab (otomatis, ikon, titik), tab yang terbuka pertama, serta tab yang tampil beserta urutannya (seret pegangan di kiri ikon, atau fokuskan lalu tekan panah atas dan bawah). Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
+- **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, buka panel dengan arahkan kursor atau klik beserta jedanya, aplikasi yang membuat island menyingkir atau menahan notifikasi saat jendelanya di depan, menempel di tepi atas, posisi, lebar panel, layar, gaya tab (otomatis, ikon, titik), tab yang terbuka pertama, serta tab yang tampil beserta urutannya (seret pegangan di kiri ikon, atau fokuskan lalu tekan panah atas dan bawah). Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
 - **Aktivitas**: lirik, lirik online, visualizer, notifikasi pesan dan isinya, kelas yang berlangsung, progres unduhan, riwayat clipboard, pengingat cabut charger di 80, 85, atau 90%, flashdisk, preview screenshot, rak berkas, ubah format, lama istirahat fokus, HUD Caps Lock, Num Lock dan Scroll Lock, bahasa input, serta mode rapat.
 - **Agen**: hubungkan atau lepas tiap agent, kuota Claude, port server hook (termasuk **Ganti port acak**), dan berapa lama izin ditahan.
 - **HP**: hubungkan HP lewat kode pasangan, ganti HP, serta pilih apakah notifikasi pesan dan kode OTP dari HP ditampilkan.
@@ -361,6 +361,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `panel.tabs` | semua | Tab yang tampil dan urutannya: `home`, `music`, `agents`, `class`, `messages`, `shelf`, `control`, `remind`, `convert`, `phone`. Kunci lama `tabs` dipindahkan sekali |
 | `panel.first` | kosong | Tab yang terbuka pertama, misalnya `music`; kosong untuk tab pertama di urutan |
 | `panel.open`, `panel.delay` | `hover`, `330` | Panel terbuka saat kursor diam di island (`hover`) atau saat diklik (`click`); jeda hover dalam ms, `150` sampai `800` |
+| `island.except` | kosong | Aturan per aplikasi, dipisah koma: `exe:hide:Nama` menyembunyikan island, `exe:quiet:Nama` menahan notifikasi biasa selama jendela aplikasi itu di depan |
 | `tabs.style` | `auto` | `auto` (titik bila lebih dari tujuh tab), `icons`, atau `dots` |
 | `mini` | `auto` | `normal`, `mini`, atau `auto` (Mini saat tepi atas tertutup atau setelah diam semenit) |
 | `mini.notif` | `1` | Notifikasi pesan tetap muncul saat Mini |
