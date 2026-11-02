@@ -173,6 +173,7 @@ namespace Tepi
             TickConvert();
             if (phone != null) phone.Sweep();
             if (TickMeeting()) { Kick(); redraw = true; }
+            if (AwakeTick(now, minute)) redraw = true;
             if (mediaInfo.Present) SyncLyrics();
             List<string> stale = null;
             foreach (var s in sessions.Values)
