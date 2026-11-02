@@ -1234,7 +1234,17 @@ namespace Tepi
                 pointerInside = true;
                 Kick();
                 leaveTimer.Stop();
-                if (!expanded) { hoverTimer.Stop(); hoverTimer.Start(); PrefetchFrost(); }
+                if (!expanded)
+                {
+                    hoverTimer.Stop();
+                    // Click mode opens from OnMouseUp
+                    if (settings.Get("panel.open", "hover") != "click")
+                    {
+                        hoverTimer.Interval = Math.Max(150, Math.Min(800, settings.GetInt("panel.delay", 330)));
+                        hoverTimer.Start();
+                    }
+                    PrefetchFrost();
+                }
             }
             else if (!inside && pointerInside) { PointerLeave(); return; }
             string id = inside ? HitAt(mouse) : null;

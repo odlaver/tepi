@@ -53,7 +53,7 @@ Tepi memberi tahu sendiri kalau ada versi baru, termasuk build baru dengan nomor
 
 ## Cara pakai
 
-- **Arahkan kursor** ke island untuk membuka panel. Tab di atas panel: Ringkasan, Musik, Agen, Kuliah, Pesan, Rak, Kontrol, Pengingat, dan Ubah, plus HP selama sambungan HP menyala.
+- **Arahkan kursor** ke island untuk membuka panel, atau klik island kalau **Pengaturan › Island › Buka panel** diganti ke Klik. Tab di atas panel: Ringkasan, Musik, Agen, Kuliah, Pesan, Rak, Kontrol, Pengingat, dan Ubah, plus HP selama sambungan HP menyala.
 - **Scroll** saat panel terbuka untuk pindah tab. Daftar yang lebih panjang dari panel tetap tergulir; scroll di atas deretan tab, atau geser ke samping di touchpad, selalu pindah tab. Saat panel tertutup, scroll di atas island mengubah volume.
 - **Seret berkas** ke island, lalu lepas di kotak **Taruh di rak** atau **Ubah format**. Saat island sedang Mini, tahan berkas sebentar di dekat sliver sampai island muncul.
 - **Mini**: klik panah **^** di pojok kiri atas panel, tekan **Ctrl+Alt+K**, atau pakai tile Mini di Kontrol. Untuk memunculkan island dari Mini, diamkan kursor sebentar di tepi atas tepat di atas sliver.
@@ -74,7 +74,7 @@ Klik ikon gear di pojok kanan atas panel, atau klik kanan ikon Tepi lalu **Penga
 
 - **Umum**: bahasa, mulai bersama Windows, cek versi baru, folder data.
 - **Tampilan**: tema, material (Liquid, Frost, Hitam), aksen, paket tema, suara sapaan paket.
-- **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, menempel di tepi atas, posisi, lebar panel, layar, gaya tab (otomatis, ikon, titik), tab yang terbuka pertama, serta tab yang tampil beserta urutannya (seret pegangan di kiri ikon, atau fokuskan lalu tekan panah atas dan bawah). Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
+- **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, buka panel dengan arahkan kursor atau klik beserta jedanya, menempel di tepi atas, posisi, lebar panel, layar, gaya tab (otomatis, ikon, titik), tab yang terbuka pertama, serta tab yang tampil beserta urutannya (seret pegangan di kiri ikon, atau fokuskan lalu tekan panah atas dan bawah). Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
 - **Aktivitas**: lirik, lirik online, visualizer, notifikasi pesan dan isinya, kelas yang berlangsung, progres unduhan, riwayat clipboard, pengingat cabut charger di 80, 85, atau 90%, flashdisk, preview screenshot, rak berkas, ubah format, lama istirahat fokus, HUD Caps Lock, Num Lock dan Scroll Lock, bahasa input, serta mode rapat.
 - **Agen**: hubungkan atau lepas tiap agent, kuota Claude, port server hook (termasuk **Ganti port acak**), dan berapa lama izin ditahan.
 - **HP**: hubungkan HP lewat kode pasangan, ganti HP, serta pilih apakah notifikasi pesan dan kode OTP dari HP ditampilkan.
@@ -359,6 +359,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `panel.width` | `488` | Lebar panel, `440` sampai `560` |
 | `panel.tabs` | semua | Tab yang tampil dan urutannya: `home`, `music`, `agents`, `class`, `messages`, `shelf`, `control`, `remind`, `convert`, `phone`. Kunci lama `tabs` dipindahkan sekali |
 | `panel.first` | kosong | Tab yang terbuka pertama, misalnya `music`; kosong untuk tab pertama di urutan |
+| `panel.open`, `panel.delay` | `hover`, `330` | Panel terbuka saat kursor diam di island (`hover`) atau saat diklik (`click`); jeda hover dalam ms, `150` sampai `800` |
 | `tabs.style` | `auto` | `auto` (titik bila lebih dari tujuh tab), `icons`, atau `dots` |
 | `mini` | `auto` | `normal`, `mini`, atau `auto` (Mini saat tepi atas tertutup atau setelah diam semenit) |
 | `mini.notif` | `1` | Notifikasi pesan tetap muncul saat Mini |
