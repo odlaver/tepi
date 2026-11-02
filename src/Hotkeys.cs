@@ -24,6 +24,8 @@ namespace Tepi
             Def(MicHotkey, "key.mic", "Mikrofon", "Ctrl+Alt+M", false),
             Def(NoteHotkey, "key.note", "Catatan kilat", "Ctrl+Alt+N", false),
             Def(MirrorHotkey, "key.mirror", "Cermin kamera", "Ctrl+Alt+C", false),
+            // No default: free combos vary per PC
+            Def(PickerHotkey, "key.picker", "Ambil warna", "", false),
             Def(PrompterHotkey, "key.prompter.pause", "Jeda dan lanjut", "Ctrl+Alt+Space", true),
             Def(PrompterRestart, "key.prompter.restart", "Ulang dari awal", "Ctrl+Alt+R", true),
             Def(PrompterBack, "key.prompter.back", "Mundur 5 detik", "Ctrl+Alt+Left", true),
