@@ -657,6 +657,8 @@ namespace Tepi
             { "Pengirim prioritas", "Priority senders" },
             { "Nama atau kata yang tetap muncul saat Senyap", "Names or words that still show in Quiet" },
             { "Ibu, dosen", "Mom, professor" },
+            { "Senyap ikut Windows", "Quiet follows Windows" },
+            { "Ikut menyala saat Jangan ganggu Windows aktif", "Turns on while Windows Do not disturb is on" },
             { "Pindai dari HP", "Scan from your phone" },
             { "Di HP: Integrasi › Laptop › Pindai QR", "On the phone: Connections › Laptop › Scan QR" },
             { "Waktu lirik digeser {0}", "Lyric timing shifted {0}" },

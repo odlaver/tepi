@@ -21,7 +21,10 @@ namespace Tepi
         readonly Dictionary<string, Spring> switches = new Dictionary<string, Spring>();
 
         // Quiet mode: only urgent toasts pass
-        bool Quiet { get { return settings.GetBool("dnd", false); } }
+        bool Quiet { get { return QuietSwitch || (settings.GetBool("dnd.follow", false) && Native.DoNotDisturb()); } }
+
+        // Tepi's own switch, what the tile shows
+        bool QuietSwitch { get { return settings.GetBool("dnd", false); } }
 
         void StartControls()
         {
@@ -320,7 +323,7 @@ namespace Tepi
             CircleToggle(cx, cy, d, Ink.IcoBluetooth, radios.BluetoothOn, radios.HasBluetooth, Lang.T("Bluetooth"), "tileBt", actBt, null, hw);
             // Long labels sit at row ends
             ToggleSlot(r, 2, n, out cx, out cy);
-            CircleToggle(cx, cy, d, Ink.IcoQuiet, Quiet, true, Lang.T("Senyap"), "tileQuiet", actQuiet, null, hw);
+            CircleToggle(cx, cy, d, Ink.IcoQuiet, QuietSwitch, true, Lang.T("Senyap"), "tileQuiet", actQuiet, null, hw);
             ToggleSlot(r, 3, n, out cx, out cy);
             CircleToggle(cx, cy, d, micMuted ? IcoMicOff : Ink.IcoMic, micPresent && !micMuted, micPresent, Lang.T("Mikrofon"), "tileMic", actMic, null, hw);
             ToggleSlot(r, 4, n, out cx, out cy);
