@@ -420,7 +420,7 @@ namespace Tepi
                 new[] { "Sembunyikan island", "\uED1A" }, new[] { "Navigasi keyboard", "\uE765" }, new[] { "Mini", "\uE898" }, new[] { "Mikrofon", "\uE720" },
                 new[] { "Catatan kilat", "\uE70B" }, new[] { "Cermin kamera", "\uE714" }, new[] { "Jeda dan lanjut", "\uE769" }, new[] { "Ulang dari awal", "\uE72C" },
                 new[] { "Mundur 5 detik", "\uE76B" }, new[] { "Maju 5 detik", "\uE76C" }, new[] { "Lebih cepat", "\uE710" }, new[] { "Lebih lambat", "\uE738" },
-                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" }, new[] { "Pakai warna sendiri", "\uE790" }, new[] { "Simpan jadi paket", "\uE74E" }, new[] { "Pembuat paket", "\uE774" },
+                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" }, new[] { "Pakai warna sendiri", "\uE790" }, new[] { "Simpan jadi paket", "\uE74E" }, new[] { "Pembuat paket", "\uE774" }, new[] { "Pindai dari HP", "\uED14" },
             };
 
             static char GlyphFor(string title)
@@ -763,6 +763,17 @@ namespace Tepi
                             add(Row(pair != null ? pair : island.phone.IsPaired ? Lang.F("Tersambung ke {0}", island.phone.Device) : Lang.T("Belum ada HP"),
                                 pair != null ? Lang.F("Alamat {0} · berlaku 5 menit", pc) : Lang.F("Alamat {0}", pc),
                                 Button(island.phone.IsPaired ? Lang.T("Ganti HP") : Lang.T("Buat kode"), false, delegate { island.phone.Forget(); island.phone.NewCode(); Relayout(); })));
+                            if (pair != null)
+                            {
+                                var link = island.phone;
+                                var qr = new KitQr(PhoneLink.PairLink(link.Port, pair)) { Size = new Size((int)(168 * Ui), (int)(168 * Ui)), AccessibleName = Lang.T("Kode QR pasangan") };
+                                // Paired, expired, or replaced: rebuild
+                                qr.StillValid = () => link.Code == pair;
+                                qr.Expired += () => BeginInvoke(new Action(Relayout));
+                                var qrRow = Row(Lang.T("Pindai dari HP"), Lang.T("Di HP: Integrasi › Laptop › Pindai QR"), qr);
+                                qrRow.Height = (int)(188 * Ui);
+                                add(qrRow);
+                            }
                         }
                         cap(Lang.T("Dari HP"));
                         add(Row(Lang.T("Notifikasi HP"), Lang.T("Pesan dari HP ikut masuk ke Pesan"), Switch("phone.notifs", true, null)));

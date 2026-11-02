@@ -259,10 +259,10 @@ Data diperbarui tiap 10 menit, dan saat tab Tugas atau Jadwal dibuka. Token dan 
 
 1. Di HP: pasang APK Tepi Android dari [tepi-android/releases](https://github.com/odlaver/tepi-android/releases).
 2. Di laptop: **Pengaturan > HP**, nyalakan **Hubungkan HP**, lalu klik **Buat kode**.
-3. Di HP: Tepi > **Integrasi** > **Laptop**, ketik alamat dan kode 12 karakter yang muncul di laptop.
+3. Di HP: Tepi > **Integrasi** > **Laptop** > **Pindai QR**, arahkan kamera ke kode QR di laptop, lalu ketuk **Sambungkan**. Bisa juga dipindai dari aplikasi kamera HP. Tanpa kamera, ketik alamat dan kode 12 karakter yang muncul di laptop.
 4. Windows Firewall akan bertanya sekali; izinkan untuk jaringan privat.
 
-Kode berlaku 5 menit dan hangus setelah lima kali salah. Tab HP muncul sendiri setelah sambungan dinyalakan.
+Kode berlaku 5 menit dan hangus setelah lima kali salah. Tab HP muncul sendiri setelah sambungan dinyalakan. Selama kode QR tampil, jendela Pengaturan tidak ikut terekam saat screen share.
 
 ### Kulia
 

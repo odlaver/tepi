@@ -286,6 +286,14 @@ namespace Tepi
         // First LAN IPv4 with a gateway
         public static string Address()
         {
+            var all = Addresses();
+            return all.Count > 0 ? all[0] : "";
+        }
+
+        // Up to three, for the QR
+        public static List<string> Addresses()
+        {
+            var list = new List<string>();
             try
             {
                 foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
@@ -294,11 +302,19 @@ namespace Tepi
                     var props = ni.GetIPProperties();
                     if (props.GatewayAddresses.Count == 0) continue;
                     foreach (var ua in props.UnicastAddresses)
-                        if (ua.Address.AddressFamily == AddressFamily.InterNetwork) return ua.Address.ToString();
+                        if (ua.Address.AddressFamily == AddressFamily.InterNetwork && list.Count < 3) list.Add(ua.Address.ToString());
                 }
             }
             catch (Exception ex) { Log.Write("phone address: " + ex.Message); }
-            return "";
+            return list;
+        }
+
+        // tepi://pair?a=ip:port,ip:port&c=CODE
+        public static string PairLink(int port, string code)
+        {
+            var hosts = new List<string>();
+            foreach (var a in Addresses()) hosts.Add(a + ":" + port);
+            return "tepi://pair?a=" + string.Join(",", hosts.ToArray()) + "&c=" + code;
         }
 
         static byte[] Derive(string c)
