@@ -416,7 +416,7 @@ namespace Tepi
                 new[] { "Sembunyikan island", "\uED1A" }, new[] { "Navigasi keyboard", "\uE765" }, new[] { "Mini", "\uE898" }, new[] { "Mikrofon", "\uE720" },
                 new[] { "Catatan kilat", "\uE70B" }, new[] { "Cermin kamera", "\uE714" }, new[] { "Jeda dan lanjut", "\uE769" }, new[] { "Ulang dari awal", "\uE72C" },
                 new[] { "Mundur 5 detik", "\uE76B" }, new[] { "Maju 5 detik", "\uE76C" }, new[] { "Lebih cepat", "\uE710" }, new[] { "Lebih lambat", "\uE738" },
-                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" },
+                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" }, new[] { "Pakai warna sendiri", "\uE790" }, new[] { "Simpan jadi paket", "\uE74E" }, new[] { "Pembuat paket", "\uE774" },
             };
 
             static char GlyphFor(string title)
@@ -473,6 +473,24 @@ namespace Tepi
                 c.Size = new Size((int)Math.Min(260 * Ui, w + 30 * Ui), (int)(30 * Ui));
                 c.Changed += i => { if (!building) changed(i); };
                 return c;
+            }
+
+            // Swatch row; a pick repaints island and window
+            KitRow ColorRow(string key, string title, string detail)
+            {
+                var sw = new KitSwatch { Font = UiFont(12.5f), Value = island.CustomColor(key) };
+                sw.Size = new Size(TextRenderer.MeasureText("      #DDDDDD", sw.Font).Width + (int)(32 * Ui), (int)(30 * Ui));
+                sw.Picked += c => { island.SetCustomColor(key, c); BeginInvoke(new Action(Relayout)); };
+                var row = Row(title, detail, sw);
+                row.Glyph = '\uE790';
+                return row;
+            }
+
+            string ContrastNote()
+            {
+                double c = Contrast(island.CustomColor("text"), island.CustomColor("bg"));
+                string v = c.ToString("0.0", Lang.English ? System.Globalization.CultureInfo.InvariantCulture : new System.Globalization.CultureInfo("id-ID"));
+                return c >= 4.5 ? Lang.F("Kontras dengan latar {0}:1", v) : Lang.F("Kontras {0}:1, teks sulit dibaca", v);
             }
 
             // Shortcut row: detail shows default or the clash
@@ -551,7 +569,30 @@ namespace Tepi
                         int at = 0;
                         string accent = settings.Get("accent", "");
                         for (int i = 0; i < Accents.Length; i++) { names.Add(Lang.T(Accents[i][0])); if (Accents[i][1] == accent) at = i; }
-                        add(Row(Lang.T("Aksen"), settings.Get("theme.pack", "").Length > 0 ? Lang.T("Paket tema bisa menimpanya") : null, Popup(names.ToArray(), at, i => island.SetAccentHex(Accents[i][1]))));
+                        bool custom = island.CustomOn;
+                        var accentPick = Popup(names.ToArray(), at, i => island.SetAccentHex(Accents[i][1]));
+                        accentPick.Enabled = !custom;
+                        add(Row(Lang.T("Aksen"), custom ? Lang.T("Warna sendiri sedang dipakai") : settings.Get("theme.pack", "").Length > 0 ? Lang.T("Paket tema bisa menimpanya") : null, accentPick));
+                        cap(Lang.T("Warna sendiri"));
+                        add(Row(Lang.T("Pakai warna sendiri"), Lang.T("Menimpa warna paket tema, gambarnya tetap"), Switch("look.custom", false, on =>
+                        {
+                            island.SetCustom(on);
+                            BeginInvoke(new Action(Relayout));
+                        })));
+                        if (custom)
+                        {
+                            add(ColorRow("bg", Lang.T("Latar"), null));
+                            add(ColorRow("text", Lang.T("Teks"), ContrastNote()));
+                            add(ColorRow("accent", Lang.T("Aksen"), null));
+                            KitRow saved = null;
+                            saved = Row(Lang.T("Simpan jadi paket"), Lang.T("Ke folder themes, lalu bisa ditambah gambar"), Button(Lang.T("Simpan"), false, delegate
+                            {
+                                try { saved.Detail = Lang.F("Tersimpan sebagai {0}", island.SaveCustomPack()); }
+                                catch (Exception ex) { saved.Detail = Lang.T("Gagal menyimpan"); Log.Write("save pack: " + ex.Message); }
+                                saved.Invalidate();
+                            }));
+                            add(saved);
+                        }
                         cap(Lang.T("Paket tema"));
                         var packs = new List<string> { Lang.T("Tanpa") };
                         packs.AddRange(ThemePacks());
@@ -569,6 +610,7 @@ namespace Tepi
                             string dir = System.IO.Path.Combine(Settings.Dir, "themes");
                             try { System.IO.Directory.CreateDirectory(dir); Process.Start("explorer.exe", "\"" + dir + "\""); } catch (Exception) { }
                         })));
+                        add(Row(Lang.T("Pembuat paket"), Lang.T("Gambar, sapaan, dan suara, di situs Tepi"), Button(Lang.T("Buka"), false, delegate { OpenUrl("https://odlaver.github.io/tepi/pack/"); })));
                         break;
                     case "island":
                         add(Row(Lang.T("Menempel di tepi atas"), null, Switch("dock", true, null)));
@@ -615,7 +657,7 @@ namespace Tepi
                                 island.SaveExceptRules(rules);
                                 if (i == 2) BeginInvoke(new Action(Relayout));
                             }));
-                            appRow.Glyph = '';
+                            appRow.Glyph = '\uE71D';
                             add(appRow);
                         }
                         KitButton pick = null;

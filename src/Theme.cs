@@ -104,7 +104,8 @@ namespace Tepi
             waterOn = colors.TryGetValue("effects", out fx) && fx.IndexOf("water", StringComparison.OrdinalIgnoreCase) >= 0;
             PickDecor();
             PrepareCorner();
-            Ink.SetPack(colors);
+            packColors = colors;
+            Ink.SetPack(MergedColors());
             Ink.Apply(Ink.Light);
         }
 
