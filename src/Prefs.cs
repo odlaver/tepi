@@ -69,6 +69,9 @@ namespace Tepi
             settings.Set("accent", hex);
             settings.Save();
             Ink.SetAccent(hex);
+            albumAccentFor = null;
+            albumTinted = false;
+            AlbumAccent();
             Kick();
         }
 
@@ -148,6 +151,7 @@ namespace Tepi
         {
             new[] { "Monokrom", "" }, new[] { "Biru", "#4C8DFF" }, new[] { "Hijau", "#3DD68C" }, new[] { "Kuning", "#FFD24A" },
             new[] { "Oranye", "#FF9F43" }, new[] { "Merah muda", "#FF6B9A" }, new[] { "Ungu", "#A78BFA" }, new[] { "Navy", "#7F8DC6" },
+            new[] { "Dari sampul album", AccentAlbum },
         };
 
         partial class PrefsWindow : KitWindow

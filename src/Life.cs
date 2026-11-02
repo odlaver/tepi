@@ -219,6 +219,7 @@ namespace Tepi
             // Free old artwork now, not at finalization
             if (prev.Cover != null && !ReferenceEquals(prev.Cover, m.Cover)) prev.Cover.Dispose();
             if (m.Cover != null && !ReferenceEquals(prev.Cover, m.Cover)) PrewarmArt();
+            AlbumAccent();
             if (m.Present) mediaSeen = true;
             SyncLyrics();
             if (pendingTrack != null && pendingTrack == m.Key && m.Playing)
