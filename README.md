@@ -64,7 +64,7 @@ Tepi memberi tahu sendiri kalau ada versi baru, termasuk build baru dengan nomor
 - **Timer** ada di tab Kontrol dan di menu tray: Fokus 25 atau 50 menit lalu istirahat, timer 5, 10, atau 15 menit, dan stopwatch.
 - **Hapus semua** di Pesan, Clipboard, atau Rak menyedot isinya ke tombol tempat sampah; menghapus satu item memecahnya jadi serpihan.
 - **Sembunyikan island** sepenuhnya: tekan **Ctrl+Alt+H** atau pakai tile Sembunyikan di Kontrol. Untuk memunculkannya lagi, klik ikon Tepi di tray atau tekan Ctrl+Alt+H. Kartu izin agent tetap muncul walau island disembunyikan.
-- Di tab **Musik**, tombol di kanan atas mengganti tata letak antara lirik dan kartu album. Klik baris lirik untuk loncat ke bagian lagu itu, atau seret bilah progres. Tombol acak dan ulang (semua, lalu satu lagu) ada di bawah bilah progres, kalau pemutarnya mendukung, misalnya Spotify. Lirik terlalu cepat atau telat? Klik kanan lirik untuk menggesernya 0,5 detik; geseran disimpan per lagu di `%APPDATA%Tepiyricsoffsets.txt`.
+- Di tab **Musik**, tombol di kanan atas mengganti tata letak antara lirik dan kartu album. Klik baris lirik untuk loncat ke bagian lagu itu, atau seret bilah progres. Tombol acak dan ulang (semua, lalu satu lagu) ada di bawah bilah progres, kalau pemutarnya mendukung, misalnya Spotify. Lirik terlalu cepat atau telat? Klik kanan lirik untuk menggesernya 0,5 detik; geseran disimpan per lagu di `%APPDATA%\Tepi\lyrics\offsets.txt`.
 - Di **Kuliah › Jadwal**, klik hari di deretan tengah untuk melihat kelas tanggal itu. Kelas daring yang punya tautan bisa diklik untuk membukanya.
 - Di **Rak › Clipboard**, klik teks untuk menyalinnya lagi.
 
