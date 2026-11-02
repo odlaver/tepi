@@ -363,7 +363,7 @@ namespace Tepi
                 new[] { "Bahasa", "\uE774" }, new[] { "Mulai bersama Windows", "\uE7E8" }, new[] { "Cek versi baru", "\uE72C" },
                 new[] { "Folder data", "\uE8B7" }, new[] { "Folder paket", "\uE8B7" }, new[] { "Tema", "\uE706" }, new[] { "Material", "\uE81E" },
                 new[] { "Aksen", "\uE790" }, new[] { "Paket", "\uE7B8" }, new[] { "Suara sapaan paket tema", "\uE767" },
-                new[] { "Mode", "\uE8A0" }, new[] { "Notifikasi saat mini", "\uEA8F" }, new[] { "Mata", "\uE890" }, new[] { "Ikuti kursor", "\uE7C9" },
+                new[] { "Mode", "\uE8A0" }, new[] { "Notifikasi saat mini", "\uEA8F" }, new[] { "Mata", "\uE890" }, new[] { "Ikuti kursor", "\uE7C9" }, new[] { "Buka panel", "\uE8A7" }, new[] { "Jeda buka", "\uE916" },
                 new[] { "Menempel di tepi atas", "\uE840" }, new[] { "Posisi", "\uE759" }, new[] { "Lebar panel", "\uE740" }, new[] { "Layar", "\uE7F4" },
                 new[] { "Gaya tab", "\uECA5" }, new[] { "Dibuka di", "\uE8A7" },
                 new[] { "Lirik di island", "\uE8D6" }, new[] { "Cari lirik online", "\uE721" }, new[] { "Visualizer", "\uE9E9" },
@@ -525,6 +525,15 @@ namespace Tepi
                         add(Row(Lang.T("Notifikasi saat mini"), null, Switch("mini.notif", true, null)));
                         add(Row(Lang.T("Mata"), null, Switch("island.eyes", true, null)));
                         add(Row(Lang.T("Ikuti kursor"), null, Switch("island.follow", true, null)));
+                        bool byClick = settings.Get("panel.open", "hover") == "click";
+                        var delay = Slider(150, 800, 50, settings.GetInt("panel.delay", 330), v => v + " ms", v => { settings.Set("panel.delay", v); settings.Save(); });
+                        delay.Enabled = !byClick;
+                        add(Row(Lang.T("Buka panel"), null, Seg(new[] { Lang.T("Arahkan kursor"), Lang.T("Klik") }, byClick ? 1 : 0, i =>
+                        {
+                            island.SetChoice("panel.open", i == 1 ? "click" : "hover");
+                            delay.Enabled = i == 0;
+                        })));
+                        add(Row(Lang.T("Jeda buka"), Lang.T("Lama kursor diam di island sebelum panel terbuka"), delay));
                         cap(Lang.T("Tab panel"));
                         string style = settings.Get("tabs.style", "auto");
                         add(Row(Lang.T("Gaya tab"), Lang.T("Otomatis: titik bila lebih dari tujuh tab"),
