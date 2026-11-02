@@ -4,7 +4,7 @@ using System.Drawing.Drawing2D;
 
 namespace Tepi
 {
-    enum EyeMood { None, Happy, Surprised, Sleepy, Glance }
+    enum EyeMood { None, Happy, Surprised, Sleepy, Glance, Sad, Worried }
 
     // Idle eyes: blink, look, short moods
     partial class Island
@@ -127,6 +127,7 @@ namespace Tepi
             else { tx = ty = 0; Gaze(2); }
             // Moods and the bubble steer gaze
             if (k > 0 && moodSide != 0) { tx = moodSide * EyeReachX; ty = 0.3f; Gaze(0); }
+            if (k > 0 && (mood == EyeMood.Sad || mood == EyeMood.Worried)) { tx = 0; ty = mood == EyeMood.Sad ? 0.9f : -0.5f; Gaze(0); }
             if (!reduced && !bubbleRect.IsEmpty) tx = EyeReachX;
             lookX.Target = tx;
             lookY.Target = ty;
@@ -136,7 +137,10 @@ namespace Tepi
             eyeLid.Step(dt);
             float close = BlinkClose(now, sleepy);
             bool still = lookX.Settled && lookY.Settled && eyeLid.Settled && close <= 0 && !MoodMoving(now);
-            PaintEyePair(eyeCx + lookX.Value * eyeK, eyeCy + lookY.Value * eyeK, close, mood == EyeMood.Happy ? k : 0, mood == EyeMood.Surprised ? k : 0,
+            // Outer corners sag; worried wider and lighter
+            slant = mood == EyeMood.Sad ? k : mood == EyeMood.Worried ? 0.6f * k : 0;
+            float wide = mood == EyeMood.Surprised ? k : mood == EyeMood.Worried ? 0.5f * k : 0;
+            PaintEyePair(eyeCx + lookX.Value * eyeK, eyeCy + lookY.Value * eyeK, close, mood == EyeMood.Happy ? k : 0, wide,
                          Ease.Clamp01(eyeLid.Value), Math.Abs(lookX.Value) / EyeReachX, still, p.T.Text);
             if (!still) return EyesPace(now, close);
             // At rest: wake for next event
@@ -252,10 +256,10 @@ namespace Tepi
             var m = moodQueued;
             moodQueued = EyeMood.None;
             if ((DateTime.UtcNow - moodQueuedUtc).TotalSeconds > 20) return;
-            // No smile for a failed run
+            // A failed run gets a sad face
             var s = moodToast != null ? moodToast.Data as AgentSession : null;
             moodToast = null;
-            if (m == EyeMood.Happy && s != null && s.Failed) return;
+            if (m == EyeMood.Happy && s != null && s.Failed) m = EyeMood.Sad;
             mood = m;
             moodUtc = DateTime.UtcNow.AddSeconds(0.25);
         }
@@ -272,11 +276,37 @@ namespace Tepi
         void PaintEyePair(float cx, float cy, float close, float happy, float wow, float lid, float side, bool snap, Color c)
         {
             float half = (EyeGap + EyeW) / 2 * eyeK * (1 - 0.06f * Ease.Clamp01(side));
-            PaintEye(cx - half, cy, close, happy, wow, lid, snap, c);
-            PaintEye(cx + half, cy, close, happy, wow, lid, snap, c);
+            PaintEye(cx - half, cy, close, happy, wow, lid, snap, c, -1);
+            PaintEye(cx + half, cy, close, happy, wow, lid, snap, c, 1);
         }
 
-        void PaintEye(float x, float cy, float close, float happy, float wow, float lid, bool snap, Color c)
+        // Outer corner sag, 0 to 1
+        float slant;
+
+        void PaintEye(float x, float cy, float close, float happy, float wow, float lid, bool snap, Color c, int outer)
+        {
+            if (slant > 0.01f)
+            {
+                PaintSlanted(x, cy, close, happy, wow, lid, snap, c, outer);
+                return;
+            }
+            PaintEyeShape(x, cy, close, happy, wow, lid, snap, c);
+        }
+
+        // Clip the eye under a tilted lid line
+        void PaintSlanted(float x, float cy, float close, float happy, float wow, float lid, bool snap, Color c, int outer)
+        {
+            float w = EyeW * eyeK, h = EyeH * eyeK, drop = h * 0.9f * slant;
+            float lowX = x + outer * w, highX = x - outer * w, top = cy - h;
+            var st = g.Save();
+            eyeShape.Reset();
+            eyeShape.AddPolygon(new[] { new PointF(highX, top + h * 0.5f - drop * 0.15f), new PointF(lowX, top + h * 0.5f + drop), new PointF(lowX, cy + h), new PointF(highX, cy + h) });
+            g.SetClip(eyeShape, System.Drawing.Drawing2D.CombineMode.Intersect);
+            PaintEyeShape(x, cy, close, happy, wow, lid, snap, c);
+            g.Restore(st);
+        }
+
+        void PaintEyeShape(float x, float cy, float close, float happy, float wow, float lid, bool snap, Color c)
         {
             float w = EyeW * eyeK * (1 + 0.27f * wow), h = EyeH * eyeK * (1 + 0.16f * wow);
             // Blink folds toward a point below centre
