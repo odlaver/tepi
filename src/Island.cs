@@ -13,7 +13,7 @@ using WinTimer = System.Windows.Forms.Timer;
 
 namespace Tepi
 {
-    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Drive, Run, Meet, Mirror, Otp, Mini, Panel }
+    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Drive, Run, Meet, Mirror, Convert, Otp, Mini, Panel }
 
     class Toast
     {
@@ -242,6 +242,7 @@ namespace Tepi
             ReleaseApprovals();
             CleanShots(true);
             CloseMirror();
+            CloseConvert();
             if (tray != null) { tray.Visible = false; tray.Dispose(); }
             base.OnFormClosed(e);
         }
@@ -419,6 +420,7 @@ namespace Tepi
             if (dropActive) return View.ShelfDrop;
             if (PrompterOn) return View.Prompter;
             if (MirrorOn) return View.Mirror;
+            if (ConvertOn) return View.Convert;
             if (expanded) return View.Panel;
             // Retracted: only urgent toasts pop out
             if (MiniOn() && (toast == null || !MiniLets(toast.View, toast.Priority))) return View.Mini;
@@ -1190,7 +1192,7 @@ namespace Tepi
             return s.Contains(pt) || (!bubbleRect.IsEmpty && bubbleRect.Contains(pt));
         }
 
-        bool CanExpand() { return !hiddenByUser && !PrompterOn && approvals.Count == 0 && (toast == null || !toast.Interactive); }
+        bool CanExpand() { return !hiddenByUser && !PrompterOn && !ConvertOn && approvals.Count == 0 && (toast == null || !toast.Interactive); }
 
         void Expand(int pg)
         {

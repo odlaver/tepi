@@ -47,6 +47,7 @@ namespace Tepi
                 case View.Run: return new SizeF(RunWidth(), 38);
                 case View.Meet: return new SizeF(MeetWidth(), 38);
                 case View.Mirror: return new SizeF(MirrorW, MirrorH);
+                case View.Convert: return new SizeF(ConvertW, ConvertHeight());
                 case View.Otp: return new SizeF(OtpWidth(), 64);
                 case View.Mini: return MiniSize();
                 default: return new SizeF(PanelW, PanelHeight());
@@ -68,6 +69,7 @@ namespace Tepi
                 case View.Otp:
                 case View.Prompter: return 26;
                 case View.Mirror: return 28;
+                case View.Convert: return 26;
             }
             return s.Height / 2;
         }
@@ -107,6 +109,7 @@ namespace Tepi
                 case View.Run: DrawRun(w, h); break;
                 case View.Meet: DrawMeet(w, h); break;
                 case View.Mirror: DrawMirror(w, h); break;
+                case View.Convert: DrawConvert(w, h, now); break;
                 case View.Otp: DrawOtp(w, h); break;
                 case View.Mini: DrawMini(w, h, now); break;
                 case View.Panel: DrawPanel(w, h, now); break;
@@ -156,6 +159,7 @@ namespace Tepi
         {
             if (current == View.Approve || PrompterRunning()) return true;
             if (current == View.ShelfDrop && dropActive) return true;
+            if (current == View.Convert && ConvRunning) return true;
             if (current == View.Panel && page == PageClass && classSeg == 0 && tasksLoading) return true;
             return false;
         }

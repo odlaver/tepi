@@ -65,6 +65,8 @@ namespace Tepi
                     return dc == null ? "" : DriveTitle(dc) + ". " + DriveDetail(dc);
                 case View.Mic:
                     return MicTitle();
+                case View.Convert:
+                    return DescribeConvert();
                 case View.Otp:
                     return Lang.F("Kode dari {0}", otpApp) + ". " + Lang.F("Berakhiran {0}", otpCode.Length > 2 ? otpCode.Substring(otpCode.Length - 2) : "");
                 case View.Shot:
