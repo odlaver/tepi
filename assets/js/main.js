@@ -209,7 +209,7 @@
     "dl.req": "Requirements",
     "dl.req.d": "Windows 10 version 2004 or later, or Windows 11, 64-bit. .NET Framework 4.8 ships with Windows.",
     "dl.ss.d": "The exe is not signed yet, so Windows SmartScreen may show a warning. Choose More info, then Run anyway.",
-    "dl.again": "Already have Tepi? Right-click the Tepi icon, then Update to Tepi 2.5.0. After that, Settings › About › Check for updates is enough.",
+    "dl.again": "Already have Tepi? Right-click the Tepi icon, then Update to Tepi 2.5.1. After that, Settings › About › Check for updates is enough.",
     "dl.copy": "Copy",
     "dl.copied": "Copied",
     "dl.releases": "All releases",
