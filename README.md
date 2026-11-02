@@ -2,7 +2,7 @@
 
 Dynamic island untuk Windows. Tepi duduk di tepi atas layar dan membesar saat ada yang terjadi: lagu yang sedang diputar beserta liriknya, agent coding (Claude Code, Codex, Gemini CLI, Antigravity) yang sedang bekerja atau minta izin, tugas kuliah yang mendekati tenggat, pesan yang masuk, timer, dan pengingat sholat atau minum.
 
-Tampilannya mengikuti bahasa Liquid Glass: kaca jernih yang menyesuaikan terang latar di belakangnya, sudut kontinu seperti iOS, dan gerak pegas. Monokrom secara bawaan; paket tema memberi warna. Native C# tanpa browser engine, exe sekitar 826 KB. Tampilan tersedia dalam bahasa Indonesia dan Inggris.
+Tampilannya mengikuti bahasa Liquid Glass: kaca jernih yang menyesuaikan terang latar di belakangnya, sudut kontinu seperti iOS, dan gerak pegas. Monokrom secara bawaan; paket tema memberi warna. Native C# tanpa browser engine, exe sekitar 904 KB. Tampilan tersedia dalam bahasa Indonesia dan Inggris.
 
 Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian kecil yang hidup (visualizer, lirik, spinner, timer) digambar ulang sendiri, tepat pada refresh layar. Diukur di laptop Intel Core i3-1115G4 pada 1 November 2026, bergantian dengan versi 2.1 memakai lagu dan lirik tiruan yang sama, 45 detik per putaran, median 3 putaran:
 
@@ -12,7 +12,7 @@ Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian k
 | Panel terbuka selagi musik diputar | 0,7% CPU | 0,6% CPU |
 | Memori saat panel terbuka | sekitar 21 MB | sekitar 22 MB |
 
-Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan jumlah thread, jadi angka di sana lebih kecil. Sejak 2.2, visualizer dan lirik digambar 30 kali per detik tepat pada refresh layar, tanpa frame kosong di antaranya, jadi musik sekitar sepertiga lebih ringan. Sambungan HP mati sampai dinyalakan; selama menyala, Tepi hanya menunggu pesan dari HP.
+Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan jumlah thread, jadi angka di sana lebih kecil. Sejak 2.2, bagian yang hidup digambar tepat pada refresh layar, tanpa frame kosong di antaranya, jadi musik sekitar sepertiga lebih ringan. Di 2.5, visualizer turun ke 24 kali per detik dan penangkap suaranya hanya bangun sekali per frame. Diukur 2 November 2026 dengan menghitung siklus CPU, 2.5 dan 2.4 berjalan berdampingan: musik dengan visualizer 7% lebih ringan, island diam dengan musik 10% lebih ringan, panel terbuka sama, memori selisih 1 MB. Sambungan HP mati sampai dinyalakan; selama menyala, Tepi hanya menunggu pesan dari HP.
 
 ## Fitur
 
