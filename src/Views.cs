@@ -159,7 +159,6 @@ namespace Tepi
         {
             if (current == View.Approve || PrompterRunning()) return true;
             if (current == View.ShelfDrop && dropActive) return true;
-            if (current == View.Convert && ConvRunning) return true;
             if (current == View.Panel && page == PageClass && classSeg == 0 && tasksLoading) return true;
             return false;
         }

@@ -27,6 +27,8 @@ namespace Tepi
         public string Id, Label;
         // Outside tools this target needs
         public string[] Needs = new string[0];
+        // Snapshot of Ready when the box opens
+        public bool Ok = true;
         public bool Ready { get { foreach (var n in Needs) if (Converter.Tool(n) == null) return false; return true; } }
     }
 
