@@ -388,7 +388,7 @@ namespace Tepi
         }
 
         // WinRT awaits without Windows.winmd
-        static T W<T>(Windows.Foundation.IAsyncOperation<T> op)
+        internal static T W<T>(Windows.Foundation.IAsyncOperation<T> op)
         {
             using (var done = new ManualResetEvent(false))
             {
@@ -399,7 +399,7 @@ namespace Tepi
             return op.GetResults();
         }
 
-        static void W(IAsyncAction op)
+        internal static void W(IAsyncAction op)
         {
             using (var done = new ManualResetEvent(false))
             {
