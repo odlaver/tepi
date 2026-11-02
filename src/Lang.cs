@@ -646,6 +646,7 @@ namespace Tepi
             { "Kontras dengan latar {0}:1", "Contrast with background {0}:1" },
             { "Kontras {0}:1, teks sulit dibaca", "Contrast {0}:1, text is hard to read" },
             { "Warnaku", "My colors" },
+            { "Dari sampul album", "From the album cover" },
             { "Terjaga", "Awake" },
             { "Terjaga selesai", "Awake ended" },
             { "Laptop boleh tidur lagi", "The laptop can sleep again" },
