@@ -150,6 +150,10 @@ namespace Tepi
             values[key] = Convert.ToString(value, CultureInfo.InvariantCulture);
         }
 
+        public void Remove(string key) { values.Remove(key); }
+
+        public List<string> Keys() { return new List<string>(values.Keys); }
+
         public void Toggle(string key, bool fallback)
         {
             Set(key, !GetBool(key, fallback));
