@@ -292,6 +292,9 @@ namespace Tepi
                 t.Title = c.Title + " · " + Fmt.Hm(c.Start);
                 string note = SlotNote(c);
                 t.Detail = (c.Exam ? Lang.T("ujian · ") : "") + (note.Length > 0 ? note : Math.Ceiling(mins) + Lang.T(" menit lagi"));
+                // Click joins, like the Jadwal button
+                string url = c.Url;
+                if (url.Length > 0) t.Data = (Action)delegate { OpenUrl(url); };
                 break;
             }
         }
