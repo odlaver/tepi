@@ -215,6 +215,8 @@ namespace Tepi
     static class Anim
     {
         public static bool Reduced;
+        // motion.feel: tenang, bawaan, lincah
+        public static float Pace = 1, Bounce = 1;
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         static extern bool SystemParametersInfo(uint action, uint param, out bool value, uint winIni);
@@ -222,11 +224,23 @@ namespace Tepi
         // motion.reduce: auto, 1, 0
         public static void Read(Settings settings)
         {
+            string feel = settings.Get("motion.feel", "bawaan");
+            Pace = feel == "tenang" ? 1.15f : feel == "lincah" ? 0.88f : 1;
+            Bounce = feel == "tenang" ? 0 : feel == "lincah" ? 0.85f : 1;
             string v = settings.Get("motion.reduce", "auto");
             if (v == "1") { Reduced = true; return; }
             if (v == "0") { Reduced = false; return; }
             bool on;
             Reduced = SystemParametersInfo(0x1042, 0, out on, 0) && !on;
+        }
+
+        public static float Response(float seconds) { return seconds * Pace; }
+
+        // Calm never overshoots
+        public static float Damping(float zeta)
+        {
+            if (Reduced || Bounce == 0) return Math.Max(1f, zeta);
+            return zeta >= 1 ? zeta : Math.Max(0.45f, zeta * Bounce);
         }
     }
 

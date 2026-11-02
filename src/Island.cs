@@ -535,11 +535,12 @@ namespace Tepi
             fpsStart = t;
         }
 
-        // Reduced motion: no overshoot anywhere
+        // Stiffness scales with response squared
         static void Tune(Spring s, float k, float zeta)
         {
+            k /= Anim.Pace * Anim.Pace;
             s.K = k;
-            s.D = 2 * (Anim.Reduced ? Math.Max(1f, zeta) : zeta) * (float)Math.Sqrt(k);
+            s.D = 2 * Anim.Damping(zeta) * (float)Math.Sqrt(k);
         }
 
         // One frame per vsync while moving

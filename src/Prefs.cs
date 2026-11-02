@@ -66,7 +66,7 @@ namespace Tepi
             settings.Set(key, value);
             settings.Save();
             if (key == "material") { ApplyGlass(); ResetFrost(); }
-            else if (key == "motion.reduce") Anim.Read(settings);
+            else if (key == "motion.reduce" || key == "motion.feel") Anim.Read(settings);
             else if (key == "tabs.style") tabSnap = true;
             Kick();
         }
@@ -376,7 +376,7 @@ namespace Tepi
                 new[] { "Belum ada database", "\uE8F1" }, new[] { "Pengingat sholat", "\uE708" }, new[] { "Kota", "\uE707" }, new[] { "Ingatkan sebelum", "\uEA8F" },
                 new[] { "Minum air", "\uEB42" }, new[] { "Selang minum", "\uE916" }, new[] { "Target harian", "\uE73E" },
                 new[] { "Istirahat mata 20-20-20", "\uE890" }, new[] { "Peregangan", "\uE805" }, new[] { "Selang peregangan", "\uE916" },
-                new[] { "Tampil di rekaman layar", "\uE7F4" }, new[] { "Umumkan ke pembaca layar", "\uE7F5" }, new[] { "Kurangi gerak", "\uE7AD" },
+                new[] { "Tampil di rekaman layar", "\uE7F4" }, new[] { "Umumkan ke pembaca layar", "\uE7F5" }, new[] { "Kurangi gerak", "\uE7AD" }, new[] { "Gerak", "\uE7AD" },
                 new[] { "Senyap", "\uE708" }, new[] { "Pembaruan", "\uE72C" }, new[] { "Layanan luar", "\uE774" }, new[] { "Traktir Tepi kopi", "\uEC32" },
                 new[] { "Ringkasan", "\uE80F" }, new[] { "Musik", "\uE8D6" }, new[] { "Agen", "\uE756" }, new[] { "Kuliah", "\uE7BE" },
                 new[] { "Pesan", "\uE8BD" }, new[] { "Rak", "\uE7B8" }, new[] { "Kontrol", "\uE9E9" }, new[] { "Pengingat", "\uEA8F" },
@@ -644,6 +644,9 @@ namespace Tepi
                         string motion = settings.Get("motion.reduce", "auto");
                         add(Row(Lang.T("Kurangi gerak"), Lang.T("Tanpa pantulan dan efek terbang"),
                             Seg(new[] { Lang.T("Ikuti Windows"), Lang.T("Nyala"), Lang.T("Mati") }, motion == "1" ? 1 : motion == "0" ? 2 : 0, i => island.SetChoice("motion.reduce", i == 1 ? "1" : i == 2 ? "0" : "auto"))));
+                        string feel = settings.Get("motion.feel", "bawaan");
+                        add(Row(Lang.T("Gerak"), Lang.T("Kecepatan dan pantulan island"),
+                            Seg(new[] { Lang.T("Tenang"), Lang.T("Bawaan"), Lang.T("Lincah") }, feel == "tenang" ? 0 : feel == "lincah" ? 2 : 1, i => island.SetChoice("motion.feel", i == 0 ? "tenang" : i == 2 ? "lincah" : "bawaan"))));
                         add(Row(Lang.T("Senyap"), Lang.T("Hanya izin, tenggat, sholat, dan timer yang muncul"), Switch("dnd", false, null)));
                         break;
                     case "about":
