@@ -40,12 +40,27 @@ namespace Tepi
             Kick();
         }
 
-        void SetLight(bool light)
+        // theme: gelap, terang, otomatis
+        void SetThemeMode(string mode)
         {
-            settings.Set("theme", light ? "terang" : "gelap");
+            settings.Set("theme", mode);
             settings.Save();
+            ApplyThemeMode();
+        }
+
+        bool ThemeLight()
+        {
+            string mode = settings.Get("theme", "gelap");
+            return mode == "terang" || (mode == "otomatis" && !winDark);
+        }
+
+        void ApplyThemeMode()
+        {
+            bool light = ThemeLight();
+            if (light == Ink.Light) return;
             Ink.Apply(light);
             ResetFrost();
+            if (prefs != null && !prefs.IsDisposed) prefs.Relayout();
             Kick();
         }
 
@@ -522,7 +537,13 @@ namespace Tepi
                         add(Row(Lang.T("Folder data"), Settings.Dir, Button(Lang.T("Buka"), false, delegate { try { Process.Start("explorer.exe", "\"" + Settings.Dir + "\""); } catch (Exception) { } })));
                         break;
                     case "look":
-                        add(Row(Lang.T("Tema"), null, Seg(new[] { Lang.T("Gelap"), Lang.T("Terang") }, Ink.Light ? 1 : 0, i => { island.SetLight(i == 1); Relayout(); })));
+                        string themeMode = settings.Get("theme", "gelap");
+                        add(Row(Lang.T("Tema"), themeMode == "otomatis" ? Lang.T("Mengikuti mode aplikasi Windows") : null,
+                            Seg(new[] { Lang.T("Gelap"), Lang.T("Terang"), Lang.T("Otomatis") }, themeMode == "terang" ? 1 : themeMode == "otomatis" ? 2 : 0, i =>
+                            {
+                                island.SetThemeMode(i == 1 ? "terang" : i == 2 ? "otomatis" : "gelap");
+                                BeginInvoke(new Action(Relayout));
+                            })));
                         string mat = island.MaterialName;
                         add(Row(Lang.T("Material"), Lang.T("Kaca membaca layar di belakangnya; Hitam paling hemat"),
                             Seg(new[] { "Liquid", "Frost", Lang.T("Hitam") }, mat == "frost" ? 1 : mat == "solid" ? 2 : 0, i => island.SetChoice("material", i == 1 ? "frost" : i == 2 ? "solid" : "liquid"))));

@@ -631,6 +631,7 @@ namespace Tepi
             { "Ikuti kursor", "Follow the cursor" },
             { "Buka panel", "Open panel" },
             { "Format jam", "Time format" },
+            { "Mengikuti mode aplikasi Windows", "Follows the Windows app mode" },
             { "Terjaga", "Awake" },
             { "Terjaga selesai", "Awake ended" },
             { "Laptop boleh tidur lagi", "The laptop can sleep again" },

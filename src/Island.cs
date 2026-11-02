@@ -109,7 +109,7 @@ namespace Tepi
             Ink.Init();
             Anim.Read(settings);
             Fmt.H24 = settings.GetBool("clock.24", true);
-            Ink.Apply(settings.Get("theme", "gelap") == "terang");
+            Ink.Apply(ThemeLight());
             Ink.SetAccent(settings.Get("accent", ""));
             clockTimer.Tick += delegate { ClockTick(); };
             toastTimer.Tick += delegate { toastTimer.Stop(); DismissToast(); };
