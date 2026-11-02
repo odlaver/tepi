@@ -15,11 +15,6 @@ namespace Tepi
 
         static string NotesPath { get { return Path.Combine(Settings.Dir, "catatan.md"); } }
 
-        void StartNotes()
-        {
-            if (!RegisterHotKey(Handle, NoteHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.N)) Log.Write("hotkey Ctrl+Alt+N taken");
-        }
-
         void OpenNote()
         {
             if (noteBox != null && !noteBox.IsDisposed) { noteBox.Activate(); return; }

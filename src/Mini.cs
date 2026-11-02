@@ -59,7 +59,6 @@ namespace Tepi
         void MiniInit()
         {
             miniTimer.Tick += delegate { MiniTick(); };
-            if (!RegisterHotKey(Handle, MiniHotkey, 0x0001 | 0x0002 | 0x4000, (uint)Keys.K)) Log.Write("hotkey Ctrl+Alt+K taken");
         }
 
         // Policy says mini, before holds

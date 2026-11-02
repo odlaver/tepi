@@ -135,7 +135,7 @@ namespace Tepi
             {
                 new[] { "general", "Umum", "" }, new[] { "look", "Tampilan", "" }, new[] { "island", "Island", "" },
                 new[] { "activity", "Aktivitas", "" }, new[] { "agents", "Agen", "" }, new[] { "phone", "HP", "" }, new[] { "integrasi", "Integrasi", "" },
-                new[] { "remind", "Pengingat", "" }, new[] { "access", "Aksesibilitas", "" }, new[] { "about", "Tentang", "" },
+                new[] { "remind", "Pengingat", "" }, new[] { "access", "Aksesibilitas", "" }, new[] { "keys", "Pintasan", "" }, new[] { "about", "Tentang", "" },
             };
 
             [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, string l);
@@ -383,6 +383,10 @@ namespace Tepi
                 new[] { "HP", "\uE8EA" }, new[] { "Ubah", "\uE8AB" }, new[] { "Ubah format", "\uE8AB" },
                 new[] { "Hubungkan HP", "\uE8EA" }, new[] { "Notifikasi HP", "\uE8BD" }, new[] { "Kode OTP", "\uE8D7" },
                 new[] { "Notion", "\uE8F1" }, new[] { "Todoist", "\uE73E" }, new[] { "Kalender iCal", "\uE787" },
+                new[] { "Sembunyikan island", "\uED1A" }, new[] { "Navigasi keyboard", "\uE765" }, new[] { "Mini", "\uE898" }, new[] { "Mikrofon", "\uE720" },
+                new[] { "Catatan kilat", "\uE70B" }, new[] { "Cermin kamera", "\uE714" }, new[] { "Jeda dan lanjut", "\uE769" }, new[] { "Ulang dari awal", "\uE72C" },
+                new[] { "Mundur 5 detik", "\uE76B" }, new[] { "Maju 5 detik", "\uE76C" }, new[] { "Lebih cepat", "\uE710" }, new[] { "Lebih lambat", "\uE738" },
+                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" },
             };
 
             static char GlyphFor(string title)
@@ -439,6 +443,33 @@ namespace Tepi
                 c.Size = new Size((int)Math.Min(260 * Ui, w + 30 * Ui), (int)(30 * Ui));
                 c.Changed += i => { if (!building) changed(i); };
                 return c;
+            }
+
+            // Shortcut row: detail shows default or the clash
+            KitRow HotkeyRow(HotkeyDef d)
+            {
+                var field = new KitHotkey { Font = UiFont(12.5f) };
+                var row = Row(Lang.T(d.Name), HotkeyDetail(d), field);
+                field.Size = new Size(TextRenderer.MeasureText("Ctrl+Alt+Shift+PageDown", field.Font).Width + (int)(32 * Ui), (int)(30 * Ui));
+                field.Combo = island.HotkeyText(d.Id);
+                field.Begin = delegate { island.HoldHotkeys(true); };
+                field.End = delegate { island.HoldHotkeys(false); };
+                field.Commit = combo =>
+                {
+                    string error = island.SetHotkey(d.Id, combo);
+                    field.Combo = island.HotkeyText(d.Id);
+                    row.Detail = error ?? HotkeyDetail(d);
+                    field.AccessibleDescription = row.Detail;
+                    row.Invalidate();
+                    return error == null;
+                };
+                return row;
+            }
+
+            string HotkeyDetail(HotkeyDef d)
+            {
+                if (island.HotkeyTaken(d.Id)) return Lang.T("Dipakai aplikasi lain");
+                return Lang.F("Bawaan: {0}", d.Fallback);
             }
 
             KitButton Button(string text, bool primary, Action click)
@@ -657,6 +688,16 @@ namespace Tepi
                         add(Row(Lang.T("Gerak"), Lang.T("Kecepatan dan pantulan island"),
                             Seg(new[] { Lang.T("Tenang"), Lang.T("Bawaan"), Lang.T("Lincah") }, feel == "tenang" ? 0 : feel == "lincah" ? 2 : 1, i => island.SetChoice("motion.feel", i == 0 ? "tenang" : i == 2 ? "lincah" : "bawaan"))));
                         add(Row(Lang.T("Senyap"), Lang.T("Hanya izin, tenggat, sholat, dan timer yang muncul"), Switch("dnd", false, null)));
+                        break;
+                    case "keys":
+                        bool prompterCap = false;
+                        foreach (var d in Hotkeys)
+                        {
+                            if (d.Prompter && !prompterCap) { cap(Lang.T("Teleprompter, hanya selama berjalan")); prompterCap = true; }
+                            add(HotkeyRow(d));
+                        }
+                        flush();
+                        add(Row(Lang.T("Pintasan bawaan"), null, Button(Lang.T("Kembalikan"), false, delegate { island.ResetHotkeys(); Relayout(); })));
                         break;
                     case "about":
                         add(VersionRow(Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); })));
