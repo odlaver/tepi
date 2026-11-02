@@ -201,13 +201,13 @@ namespace Tepi
                     var now = DateTime.UtcNow;
                     if (now >= nextFft)
                     {
-                        nextFft = now.AddMilliseconds(30);
+                        nextFft = now.AddMilliseconds(42);
                         // Silent window: zero bands, no FFT
                         if ((now - heardUtc).TotalMilliseconds < 80) { Analyse(re, im, rate); cleared = false; }
                         else if (!cleared) { lock (bands) Array.Clear(bands, 0, Bands); cleared = true; }
                     }
-                    // Drain capture; FFT per 30 fps frame
-                    Thread.Sleep(15);
+                    // Wake once per FFT; buffer holds 200 ms
+                    Thread.Sleep(Math.Max(5, (int)(nextFft - DateTime.UtcNow).TotalMilliseconds));
                 }
             }
             catch (Exception ex) { Log.Write("spectrum: " + ex.Message); Fail(); }
