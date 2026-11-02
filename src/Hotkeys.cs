@@ -294,7 +294,7 @@ namespace Tepi
             set { combo = value ?? ""; if (!recording) Text = Shown(); }
         }
 
-        string Shown() { return combo.Length > 0 ? combo : Lang.T("Mati"); }
+        string Shown() { return combo.Length > 0 ? combo : Lang.T("Belum diatur"); }
 
         protected override void OnClick(EventArgs e)
         {

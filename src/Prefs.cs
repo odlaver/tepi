@@ -201,7 +201,7 @@ namespace Tepi
                 building = true;
                 search.Text = "";
                 building = false;
-                if (IsHandleCreated) { side.Selected = id; Fill(); }
+                if (IsHandleCreated) { side.Selected = id; side.Invalidate(); Fill(); }
             }
 
             protected override void OnHandleCreated(EventArgs e)
@@ -463,7 +463,7 @@ namespace Tepi
 
             KitSlider Slider(int min, int max, int step, int value, Func<int, string> fmt, Action<int> changed)
             {
-                var c = new KitSlider { Minimum = min, Maximum = max, Step = step, Value = Math.Max(min, Math.Min(max, value)), Format = fmt, Size = new Size((int)(200 * Ui), (int)(30 * Ui)) };
+                var c = new KitSlider { Minimum = min, Maximum = max, Step = step, Value = Math.Max(min, Math.Min(max, value)), Format = fmt, ShowValue = true, Size = new Size((int)(270 * Ui), (int)(30 * Ui)) };
                 c.Changed += v => { if (!building) { changed(v); content.Invalidate(true); } };
                 return c;
             }
@@ -480,10 +480,15 @@ namespace Tepi
             }
 
             // Comma list saved on Enter or leaving the box
-            KitField ListField(string key, string cue)
+            // Row says Tersimpan for a moment after a save
+            KitRow ListRow(string title, string detail, string key, string cue)
             {
                 var f = new KitField(Ui, false, cue, 300);
                 f.Box.Text = settings.Get(key, "");
+                var row = Row(title, detail, f);
+                var back = new System.Windows.Forms.Timer { Interval = 2500 };
+                back.Tick += delegate { back.Stop(); row.Detail = detail; row.Invalidate(); };
+                f.Disposed += delegate { back.Dispose(); };
                 Action save = delegate
                 {
                     string clean = string.Join(", ", CommaList(f.Box.Text));
@@ -491,10 +496,14 @@ namespace Tepi
                     settings.Set(key, clean);
                     settings.Save();
                     island.ApplyNotifLists();
+                    row.Detail = Lang.T("Tersimpan");
+                    row.Invalidate();
+                    back.Stop();
+                    back.Start();
                 };
                 f.Submit = save;
                 f.Box.LostFocus += delegate { save(); };
-                return f;
+                return row;
             }
 
             // Swatch row; a pick repaints island and window
@@ -603,17 +612,29 @@ namespace Tepi
                         add(inRow);
                         // Second click within 4 s confirms
                         KitButton resetBtn = null;
+                        KitRow resetRow = null;
+                        string resetNote = Lang.T("Integrasi, agen, dan HP tetap tersambung");
                         var armed = new System.Windows.Forms.Timer { Interval = 4000 };
-                        armed.Tick += delegate { armed.Stop(); resetBtn.Text = Lang.T("Setel ulang"); resetBtn.Invalidate(); };
+                        armed.Tick += delegate { armed.Stop(); resetBtn.Text = Lang.T("Setel ulang"); resetRow.Detail = resetNote; resetBtn.Invalidate(); resetRow.Invalidate(); };
                         resetBtn = Button(Lang.T("Setel ulang"), false, delegate
                         {
-                            if (!armed.Enabled) { armed.Start(); resetBtn.Text = Lang.T("Klik lagi"); resetBtn.Invalidate(); return; }
+                            if (!armed.Enabled)
+                            {
+                                armed.Start();
+                                resetBtn.Text = Lang.T("Klik lagi");
+                                resetRow.Detail = Lang.T("Klik sekali lagi dalam 4 detik untuk menyetel ulang");
+                                resetBtn.Invalidate();
+                                resetRow.Invalidate();
+                                return;
+                            }
                             armed.Stop();
                             island.ResetSettings();
                             island.RestartTepi();
                         });
                         resetBtn.Disposed += delegate { armed.Dispose(); };
-                        add(Row(Lang.T("Setel ulang pengaturan"), Lang.T("Integrasi, agen, dan HP tetap tersambung"), resetBtn));
+                        resetRow = Row(Lang.T("Setel ulang pengaturan"), resetNote, resetBtn);
+                        resetRow.Glyph = '\uE7A7';
+                        add(resetRow);
                         break;
                     case "look":
                         string themeMode = settings.Get("theme", "gelap");
@@ -624,7 +645,7 @@ namespace Tepi
                                 BeginInvoke(new Action(Relayout));
                             })));
                         string mat = island.MaterialName;
-                        add(Row(Lang.T("Material"), Lang.T("Kaca membaca layar di belakangnya; Hitam paling hemat"),
+                        add(Row(Lang.T("Material"), Lang.T("Hitam paling hemat daya"),
                             Seg(new[] { "Liquid", "Frost", Lang.T("Hitam") }, mat == "frost" ? 1 : mat == "solid" ? 2 : 0, i => island.SetChoice("material", i == 1 ? "frost" : i == 2 ? "solid" : "liquid"))));
                         var names = new List<string>();
                         int at = 0;
@@ -642,9 +663,9 @@ namespace Tepi
                         })));
                         if (custom)
                         {
-                            add(ColorRow("bg", Lang.T("Latar"), null));
+                            add(ColorRow("bg", Lang.T("Latar"), Lang.T("Klik untuk memilih warna")));
                             add(ColorRow("text", Lang.T("Teks"), ContrastNote()));
-                            add(ColorRow("accent", Lang.T("Aksen"), null));
+                            add(ColorRow("accent", Lang.T("Aksen"), Lang.T("Klik untuk memilih warna")));
                             KitRow saved = null;
                             saved = Row(Lang.T("Simpan jadi paket"), Lang.T("Ke folder themes, lalu bisa ditambah gambar"), Button(Lang.T("Simpan"), false, delegate
                             {
@@ -691,11 +712,14 @@ namespace Tepi
                         mon.Enabled = screens.Length > 1;
                         add(Row(Lang.T("Layar"), null, mon));
                         string mode = settings.Get("mini", "auto");
-                        add(Row(Lang.T("Mode"), Lang.T("Otomatis: mini saat tepi atas tertutup atau 1 menit diam"),
+                        add(Row(Lang.T("Mode"), Lang.T("Otomatis: mini saat tertutup jendela atau diam"),
                             Seg(new[] { Lang.T("Normal"), Lang.T("Mini"), Lang.T("Otomatis") }, mode == "normal" ? 0 : mode == "mini" ? 1 : 2, i => island.SetMiniMode(i == 0 ? "normal" : i == 1 ? "mini" : "auto"))));
                         add(Row(Lang.T("Notifikasi saat mini"), null, Switch("mini.notif", true, null)));
-                        add(Row(Lang.T("Mata"), null, Switch("island.eyes", true, null)));
-                        add(Row(Lang.T("Ikuti kursor"), null, Switch("island.follow", true, null)));
+                        add(Row(Lang.T("Mata"), null, Switch("island.eyes", true, on => { island.SetFlag("island.eyes", on); BeginInvoke(new Action(Relayout)); })));
+                        // Only means something while eyes show
+                        var follow = Switch("island.follow", true, null);
+                        follow.Enabled = settings.GetBool("island.eyes", true);
+                        add(Row(Lang.T("Ikuti kursor"), follow.Enabled ? Lang.T("Mata melirik ke arah kursor") : Lang.T("Nyalakan Mata dulu"), follow));
                         bool byClick = settings.Get("panel.open", "hover") == "click";
                         var delay = Slider(150, 800, 50, settings.GetInt("panel.delay", 330), v => v + " ms", v => { settings.Set("panel.delay", v); settings.Save(); });
                         delay.Enabled = !byClick;
@@ -705,7 +729,7 @@ namespace Tepi
                             delay.Enabled = i == 0;
                         })));
                         add(Row(Lang.T("Jeda buka"), Lang.T("Sebelum panel terbuka"), delay));
-                        cap(Lang.T("Saat aplikasi ini di depan"));
+                        cap(Lang.T("Pengecualian aplikasi"));
                         var rules = island.ExceptRules();
                         foreach (var rule in rules)
                         {
@@ -741,7 +765,7 @@ namespace Tepi
                             m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
                             m.Show(pick, new Point(0, pick.Height));
                         });
-                        add(Row(Lang.T("Tambah aplikasi"), Lang.T("Dari jendela yang sedang terbuka"), pick));
+                        add(Row(Lang.T("Tambah aplikasi"), Lang.T("Island menyingkir atau diam saat aplikasinya di depan"), pick));
                         cap(Lang.T("Tab panel"));
                         string style = settings.Get("tabs.style", "auto");
                         add(Row(Lang.T("Gaya tab"), Lang.T("Otomatis: titik bila lebih dari tujuh tab"),
@@ -766,8 +790,8 @@ namespace Tepi
                         var body = Switch("notif.content", true, null);
                         body.Enabled = settings.GetBool("notif", true);
                         add(Row(Lang.T("Tampilkan isi pesan"), body.Enabled ? null : Lang.T("Ikut notifikasi pesan"), body));
-                        add(Row(Lang.T("Aplikasi chat tambahan"), Lang.T("Nama aplikasi, pisahkan dengan koma"), ListField("notif.apps", "Element, Zalo")));
-                        add(Row(Lang.T("Pengirim prioritas"), Lang.T("Nama atau kata yang tetap muncul saat Senyap"), ListField("notif.vip", Lang.T("Ibu, dosen"))));
+                        add(ListRow(Lang.T("Aplikasi chat tambahan"), Lang.T("Nama aplikasi dipisah koma, Enter menyimpan"), "notif.apps", "Element, Zalo"));
+                        add(ListRow(Lang.T("Pengirim prioritas"), Lang.T("Tetap muncul saat Senyap, Enter menyimpan"), "notif.vip", Lang.T("Ibu, dosen")));
                         cap(Lang.T("Keyboard"));
                         add(Row("Caps Lock", Lang.T("HUD saat ditekan, penanda selama nyala"), Switch("keys.caps", true, null)));
                         add(Row("Num Lock, Scroll Lock", Lang.T("HUD saat ditekan"), Switch("keys.num", false, null)));
@@ -803,9 +827,12 @@ namespace Tepi
                             string aid = agentId;
                             bool present = AgentSetup.Present(aid), on = false;
                             try { on = present && AgentSetup.Installed(aid); } catch (Exception) { }
-                            add(Row(AgentSetup.Label(aid), !present ? Lang.T("tidak ditemukan") : on ? Lang.T("terhubung") : Lang.T("belum terhubung"),
-                                AgentButton(present, on, delegate { island.ToggleAgent(aid); Relayout(); })));
+                            var agentRow = Row(AgentSetup.Label(aid), !present ? Lang.T("tidak ditemukan") : on ? Lang.T("terhubung") : Lang.T("belum terhubung"),
+                                AgentButton(present, on, delegate { island.ToggleAgent(aid); Relayout(); }));
+                            agentRow.Glyph = '\uE756';
+                            add(agentRow);
                         }
+                        cap(Lang.T("Pemberitahuan"));
                         add(Row(Lang.T("Suara"), Lang.T("Saat agen minta izin atau selesai, dan saat --run selesai"), Switch("sound.agent", false, null)));
                         cap(Lang.T("Server hook"));
                         int port = island.hub != null ? island.hub.Port : settings.GetInt("agent.port", 47821);
@@ -840,8 +867,13 @@ namespace Tepi
                             }
                         }
                         cap(Lang.T("Dari HP"));
-                        add(Row(Lang.T("Notifikasi HP"), Lang.T("Pesan dari HP ikut masuk ke Pesan"), Switch("phone.notifs", true, null)));
-                        add(Row(Lang.T("Kode OTP"), Lang.T("Kode verifikasi tampil di island, terhapus dari clipboard setelah 1 menit"), Switch("phone.otp", true, null)));
+                        // Meaningless until a phone is linked
+                        bool linked = island.phone != null;
+                        var fromNotifs = Switch("phone.notifs", true, null);
+                        var fromOtp = Switch("phone.otp", true, null);
+                        fromNotifs.Enabled = fromOtp.Enabled = linked;
+                        add(Row(Lang.T("Notifikasi HP"), linked ? Lang.T("Pesan dari HP ikut masuk ke Pesan") : Lang.T("Nyalakan Hubungkan HP dulu"), fromNotifs));
+                        add(Row(Lang.T("Kode OTP"), linked ? Lang.T("Di island; hilang dari clipboard 1 menit kemudian") : Lang.T("Nyalakan Hubungkan HP dulu"), fromOtp));
                         break;
                     case "kulia":
                     case "integrasi":
@@ -878,7 +910,7 @@ namespace Tepi
                         add(Row(Lang.T("Umumkan ke pembaca layar"), null, Switch("a11y.announce", true, null)));
                         string motion = settings.Get("motion.reduce", "auto");
                         add(Row(Lang.T("Kurangi gerak"), Lang.T("Tanpa pantulan dan efek terbang"),
-                            Seg(new[] { Lang.T("Ikuti Windows"), Lang.T("Nyala"), Lang.T("Mati") }, motion == "1" ? 1 : motion == "0" ? 2 : 0, i => island.SetChoice("motion.reduce", i == 1 ? "1" : i == 2 ? "0" : "auto"))));
+                            Seg(new[] { Lang.T("Otomatis"), Lang.T("Nyala"), Lang.T("Mati") }, motion == "1" ? 1 : motion == "0" ? 2 : 0, i => island.SetChoice("motion.reduce", i == 1 ? "1" : i == 2 ? "0" : "auto"))));
                         string feel = settings.Get("motion.feel", "bawaan");
                         add(Row(Lang.T("Gerak"), Lang.T("Kecepatan dan pantulan island"),
                             Seg(new[] { Lang.T("Tenang"), Lang.T("Bawaan"), Lang.T("Lincah") }, feel == "tenang" ? 0 : feel == "lincah" ? 2 : 1, i => island.SetChoice("motion.feel", i == 0 ? "tenang" : i == 2 ? "lincah" : "bawaan"))));
@@ -886,6 +918,8 @@ namespace Tepi
                         add(Row(Lang.T("Senyap ikut Windows"), Lang.T("Ikut menyala saat Jangan ganggu Windows aktif"), Switch("dnd.follow", false, null)));
                         break;
                     case "keys":
+                        // How to change, said once up top
+                        cap(Lang.T("Klik pintasan, lalu tekan kombinasi baru. Backspace mengosongkan, Esc batal."));
                         bool prompterCap = false;
                         foreach (var d in Hotkeys)
                         {
