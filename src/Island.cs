@@ -207,6 +207,7 @@ namespace Tepi
             StartMic();
             StartControls();
             InitShelfDrop();
+            LoadShelf();
             EnsureDisc(64);
             var warm = new WinTimer { Interval = 2500 };
             warm.Tick += delegate { warm.Stop(); warm.Dispose(); WarmUp(); WarmTabs(); TrimSoon(); };
