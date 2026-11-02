@@ -16,6 +16,14 @@ namespace Tepi
         List<ConvTarget> convTargets;
         ConvJob convJob;
         DateTime convSeenUtc, convDoneUtc;
+        // Worked out once per box, not per frame
+        string convKind = "", convMissing = "";
+        long convBytes;
+        volatile int convIndexSeen = -1;
+        volatile bool convKnownSeen;
+        RectangleF convTrack;
+        Action<DateTime> convTrackPaint;
+        Func<int> convTrackSig;
 
         bool ConvertSetting { get { return settings.GetBool("convert", true); } }
         bool ConvertOn { get { return convItems != null; } }
@@ -45,6 +53,10 @@ namespace Tepi
             convItems = list;
             for (int i = 0; i < Math.Min(2, list.Count); i++) LoadThumb(list[i]);
             convTargets = Converter.Targets(ConvPaths());
+            foreach (var t in convTargets) t.Ok = t.Ready;
+            convKind = Converter.KindName(ConvPaths());
+            convMissing = ConvMissing();
+            convBytes = ConvBytes();
             convJob = null;
             convSeenUtc = DateTime.UtcNow;
             expanded = false;
@@ -71,6 +83,8 @@ namespace Tepi
         {
             if (ConvRunning || convItems == null) return;
             var job = new ConvJob { Files = ConvPaths(), Target = target };
+            convIndexSeen = 0;
+            convKnownSeen = job.Files.Count > 1;
             job.Changed += delegate { ConvChanged(job); };
             convJob = job;
             Converter.Start(job);
@@ -83,14 +97,20 @@ namespace Tepi
             var job = convJob;
             if (job == null || job.Finished) return;
             job.Cancelled = true;
+            Kick();
             var proc = job.Proc;
             if (proc != null) System.Threading.ThreadPool.QueueUserWorkItem(delegate { Converter.Kill(proc); });
         }
 
-        // Progress redraws ride the live rate
+        // Whole frame only when the text or bar kind changes
         void ConvChanged(ConvJob job)
         {
-            if (job.Finished) Post(delegate { ConvFinished(job); });
+            if (job.Finished) { Post(delegate { ConvFinished(job); }); return; }
+            bool known = job.Part >= 0 || job.Files.Count > 1;
+            if (job.Index == convIndexSeen && known == convKnownSeen) return;
+            convIndexSeen = job.Index;
+            convKnownSeen = known;
+            Post(Kick);
         }
 
         void ConvFinished(ConvJob job)
@@ -119,7 +139,7 @@ namespace Tepi
 
         float ConvertHeight()
         {
-            if (convJob == null) return ConvHead + ConvChipRows() * (ConvChipH + ConvGap) - ConvGap + (ConvMissing().Length > 0 ? 30 : 0) + ConvPad;
+            if (convJob == null) return ConvHead + ConvChipRows() * (ConvChipH + ConvGap) - ConvGap + (convMissing.Length > 0 ? 30 : 0) + ConvPad;
             if (!convJob.Finished) return 100;
             return ConvHead + ConvChipH + ConvPad;
         }
@@ -198,18 +218,16 @@ namespace Tepi
         {
             ConvThumbs(new RectangleF(ConvPad, 18, 40, 40));
             string title = convItems.Count == 1 ? convItems[0].Name : Lang.F("{0} berkas", convItems.Count);
-            long bytes = ConvBytes();
-            string kind = Converter.KindName(ConvPaths());
-            ConvHeader(w, title, bytes > 0 ? kind + " · " + Fmt.Bytes(bytes) : kind);
+            ConvHeader(w, title, convBytes > 0 ? convKind + " · " + Fmt.Bytes(convBytes) : convKind);
             ConvClose(w);
             float chipW = (w - 2 * ConvPad - (ConvCols - 1) * ConvGap) / ConvCols;
             for (int i = 0; i < convTargets.Count; i++)
             {
                 var t = convTargets[i];
                 var r = new RectangleF(ConvPad + (i % ConvCols) * (chipW + ConvGap), ConvHead + (i / ConvCols) * (ConvChipH + ConvGap), chipW, ConvChipH);
-                Pill(r, "conv_" + t.Id, t.Label, PillKind.Secondary, delegate { StartConvert(t); }, t.Ready);
+                Pill(r, "conv_" + t.Id, t.Label, PillKind.Secondary, delegate { StartConvert(t); }, t.Ok);
             }
-            string missing = ConvMissing();
+            string missing = convMissing;
             if (missing.Length > 0)
             {
                 float y = ConvHead + ConvChipRows() * (ConvChipH + ConvGap) - ConvGap + 18;
@@ -227,19 +245,35 @@ namespace Tepi
             p.Text(Lang.F("Mengubah ke {0}", job.Target.Label), Ink.Semi(14f), p.T.Text, x, 30, bx - 8 - x, StringAlignment.Near);
             p.Text(detail, Ink.Text(12.5f), p.T.Sub, x, 50, bx - 8 - x, StringAlignment.Near);
             Pill(new RectangleF(bx, 23, 64, 30), "convCancel", Lang.T("Batal"), PillKind.Secondary, CancelConvert, !job.Cancelled);
-            var track = new RectangleF(ConvPad, ConvHead + 6, w - 2 * ConvPad, 4);
-            p.FillRound(track, 2, p.T.Line);
-            bool known = job.Part >= 0 || job.Files.Count > 1;
-            if (known) p.FillRound(new RectangleF(track.X, track.Y, Math.Max(4, track.Width * job.Overall), track.Height), 2, p.T.Accent);
-            else
+            convTrack = new RectangleF(ConvPad, ConvHead + 6, w - 2 * ConvPad, 4);
+            if (convTrackPaint == null)
             {
-                // Unknown length: a sliding segment
-                float seg = track.Width * 0.28f, at = (track.Width + seg) * orbitPhase - seg;
-                var st = g.Save();
-                g.IntersectClip(track);
-                p.FillRound(new RectangleF(track.X + at, track.Y, seg, track.Height), 2, p.T.Accent);
-                g.Restore(st);
+                convTrackPaint = PaintConvTrack;
+                convTrackSig = () => { var j = convJob; return j == null ? -1 : (int)(j.Overall * convTrack.Width * scale); };
             }
+            // Only the bar redraws: on change, or sliding when length is unknown
+            var area = RectangleF.Inflate(convTrack, 2, 3);
+            if (job.Part >= 0 || job.Files.Count > 1) LiveRect(area, 8, convTrackSig, convTrackPaint);
+            else LiveRect(area, 15, convTrackPaint);
+        }
+
+        void PaintConvTrack(DateTime now)
+        {
+            var job = convJob;
+            var track = convTrack;
+            p.FillRound(track, 2, p.T.Line);
+            if (job == null) return;
+            if (job.Part >= 0 || job.Files.Count > 1)
+            {
+                p.FillRound(new RectangleF(track.X, track.Y, Math.Max(4, track.Width * job.Overall), track.Height), 2, p.T.Accent);
+                return;
+            }
+            float phase = (float)(now.Ticks / 1e7 % 1.15 / 1.15);
+            float seg = track.Width * 0.28f, at = (track.Width + seg) * phase - seg;
+            var st = g.Save();
+            g.IntersectClip(track);
+            p.FillRound(new RectangleF(track.X + at, track.Y, seg, track.Height), 2, p.T.Accent);
+            g.Restore(st);
         }
 
         void DrawConvertDone(float w, ConvJob job)
