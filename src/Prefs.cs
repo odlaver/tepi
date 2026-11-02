@@ -386,7 +386,7 @@ namespace Tepi
                 new[] { "Sembunyikan island", "\uED1A" }, new[] { "Navigasi keyboard", "\uE765" }, new[] { "Mini", "\uE898" }, new[] { "Mikrofon", "\uE720" },
                 new[] { "Catatan kilat", "\uE70B" }, new[] { "Cermin kamera", "\uE714" }, new[] { "Jeda dan lanjut", "\uE769" }, new[] { "Ulang dari awal", "\uE72C" },
                 new[] { "Mundur 5 detik", "\uE76B" }, new[] { "Maju 5 detik", "\uE76C" }, new[] { "Lebih cepat", "\uE710" }, new[] { "Lebih lambat", "\uE738" },
-                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" },
+                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" },
             };
 
             static char GlyphFor(string title)
@@ -564,7 +564,44 @@ namespace Tepi
                             island.SetChoice("panel.open", i == 1 ? "click" : "hover");
                             delay.Enabled = i == 0;
                         })));
-                        add(Row(Lang.T("Jeda buka"), Lang.T("Lama kursor diam di island sebelum panel terbuka"), delay));
+                        add(Row(Lang.T("Jeda buka"), Lang.T("Sebelum panel terbuka"), delay));
+                        cap(Lang.T("Saat aplikasi ini di depan"));
+                        var rules = island.ExceptRules();
+                        foreach (var rule in rules)
+                        {
+                            var r = rule;
+                            var modes = new[] { Lang.T("Sembunyikan island"), Lang.T("Tanpa notifikasi"), Lang.T("Hapus dari daftar") };
+                            var appRow = Row(r.Name, r.Exe, Popup(modes, r.Mode == ExceptQuiet ? 1 : 0, i =>
+                            {
+                                if (i == 2) rules.Remove(r);
+                                else r.Mode = i == 1 ? ExceptQuiet : ExceptHide;
+                                island.SaveExceptRules(rules);
+                                if (i == 2) BeginInvoke(new Action(Relayout));
+                            }));
+                            appRow.Glyph = '';
+                            add(appRow);
+                        }
+                        KitButton pick = null;
+                        pick = Button(Lang.T("Pilih aplikasi"), false, delegate
+                        {
+                            var m = new ContextMenuStrip();
+                            foreach (var app in island.OpenApps())
+                            {
+                                var a = app;
+                                bool listed = rules.Exists(x => x.Exe == a.Exe);
+                                m.Items.Add(new ToolStripMenuItem(a.Name, null, delegate
+                                {
+                                    rules.Add(a);
+                                    island.SaveExceptRules(rules);
+                                    BeginInvoke(new Action(Relayout));
+                                }) { Enabled = !listed, ToolTipText = a.Exe });
+                            }
+                            if (m.Items.Count == 0) m.Items.Add(new ToolStripMenuItem(Lang.T("Tidak ada jendela aplikasi yang terbuka")) { Enabled = false });
+                            MenuLook.Apply(m);
+                            m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
+                            m.Show(pick, new Point(0, pick.Height));
+                        });
+                        add(Row(Lang.T("Tambah aplikasi"), Lang.T("Dari jendela yang sedang terbuka"), pick));
                         cap(Lang.T("Tab panel"));
                         string style = settings.Get("tabs.style", "auto");
                         add(Row(Lang.T("Gaya tab"), Lang.T("Otomatis: titik bila lebih dari tujuh tab"),

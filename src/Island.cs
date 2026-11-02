@@ -1389,7 +1389,7 @@ namespace Tepi
             if (toast != null && toast.Priority > priority) return null;
             // Senyap: only what can't wait
             // Calls hold the same quiet news
-            if ((Quiet || MeetingOn) && priority < 3 && (v == View.Notif || v == View.Track || v == View.Network || v == View.Privacy || v == View.Remind || v == View.Download || v == View.Info || v == View.Done)) return null;
+            if ((Quiet || MeetingOn || ExceptQuieted()) && priority < 3 && (v == View.Notif || v == View.Track || v == View.Network || v == View.Privacy || v == View.Remind || v == View.Download || v == View.Info || v == View.Done)) return null;
             // Retracted: quiet news stays in the sliver
             if (MiniOn() && !MiniLets(v, priority)) return null;
             if (expanded && !force)
@@ -1449,7 +1449,7 @@ namespace Tepi
 
         void CheckFullscreen()
         {
-            bool fs = Native.IsFullscreenOn(monitorHandle);
+            bool fs = Native.IsFullscreenOn(monitorHandle) || ExceptHidden();
             if (!fs && windowShown) Native.SetWindowPos(Handle, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
             if (fs == fullscreen) return;
             fullscreen = fs;
