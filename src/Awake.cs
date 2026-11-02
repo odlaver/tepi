@@ -9,7 +9,7 @@ namespace Tepi
     {
         [DllImport("kernel32.dll")] static extern uint SetThreadExecutionState(uint flags);
         const uint EsContinuous = 0x80000000, EsSystem = 0x1, EsDisplay = 0x2;
-        const char IcoAwake = '';
+        const char IcoAwake = '\uEC32';
 
         // MinValue off, MaxValue until turned off
         DateTime awakeUntilUtc = DateTime.MinValue;
