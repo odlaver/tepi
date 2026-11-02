@@ -8,7 +8,7 @@ Setelah tersambung ke Tepi di laptop:
 
 - Kode OTP dari SMS, email, aplikasi bank, dan aplikasi lain muncul di island dalam bentuk tersamar. **Salin** menyalin kode utuh, lalu kode itu dihapus dari clipboard semenit kemudian.
 - Notifikasi pesan dari HP masuk ke Pesan di laptop.
-- Berkas dari menu bagikan Android (**Kirim ke laptop**) masuk ke `Downloads\Tepi` dan Rak. Berkas di laptop dikirim ke HP lewat **Kirim berkas** di tab HP atau klik kanan berkas di Rak.
+- Berkas dari HP (menu Bagikan › **Kirim ke laptop**, tombol **Pilih berkas** di Integrasi › Laptop, atau aksi **Kirim ke laptop** di Rak) masuk ke `Downloads\Tepi` dan Rak. Berkas di laptop dikirim ke HP lewat **Kirim berkas** di tab HP atau klik kanan berkas di Rak.
 - Permintaan izin agen bisa dijawab dari HP.
 - Tab HP menampilkan nama HP, status, dan baterainya.
 
