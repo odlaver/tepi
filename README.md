@@ -357,7 +357,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `dock` | `1` | Menempel di tepi atas; `0` untuk mengambang |
 | `position` | `0` | Geser island, `-40` (kiri) sampai `40` (kanan), persen dari ruang kosong |
 | `panel.width` | `488` | Lebar panel, `440` sampai `560` |
-| `panel.tabs` | semua | Tab yang tampil dan urutannya: `home`, `music`, `agents`, `class`, `messages`, `shelf`, `control`, `remind`. Kunci lama `tabs` dipindahkan sekali |
+| `panel.tabs` | semua | Tab yang tampil dan urutannya: `home`, `music`, `agents`, `class`, `messages`, `shelf`, `control`, `remind`, `convert`, `phone`. Kunci lama `tabs` dipindahkan sekali |
 | `panel.first` | kosong | Tab yang terbuka pertama, misalnya `music`; kosong untuk tab pertama di urutan |
 | `tabs.style` | `auto` | `auto` (titik bila lebih dari tujuh tab), `icons`, atau `dots` |
 | `mini` | `auto` | `normal`, `mini`, atau `auto` (Mini saat tepi atas tertutup atau setelah diam semenit) |
@@ -375,6 +375,13 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `downloads` | `1` | Progres unduhan |
 | `class.island` | `1` | Kelas yang sedang berjalan tampil di island |
 | `shelf` | `1` | Rak berkas |
+| `convert` | `1` | Kotak **Ubah format** saat berkas diseret ke island |
+| `shots` | `1` | Preview screenshot |
+| `drives` | `1` | Flashdisk dicolok dan dikeluarkan |
+| `meeting` | `1` | Mode rapat |
+| `keys.caps`, `keys.num`, `keys.lang` | `1`, `0`, `1` | HUD Caps Lock, HUD Num Lock dan Scroll Lock, HUD bahasa input |
+| `battery.unplug` | `0` | Ingatkan cabut charger di `80`, `85`, atau `90` persen; `0` mati |
+| `note.to` | `rak` | Tujuan catatan kilat: `rak`, `todoist`, atau `notion` |
 | `dnd` | `0` | Senyap: hanya izin, tenggat, sholat, dan timer yang muncul |
 | `motion.reduce` | `auto` | `auto` mengikuti efek animasi Windows, `1` selalu tenang, `0` selalu penuh |
 | `pray`, `pray.city`, `pray.before` | `0`, kosong, `10` | Pengingat sholat, kota, menit sebelum |
@@ -382,6 +389,10 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `eyes` | `0` | Istirahat mata 20-20-20 |
 | `stretch`, `stretch.every` | `0`, `60` | Peregangan dan selangnya |
 | `theme.pack` | kosong | Nama folder paket tema di `%APPDATA%\Tepi\themes` |
+| `theme.voice` | `1` | Suara sapaan paket tema |
+| `weather` | `0` | Cuaca dan peringatan hujan, memakai kota `pray.city` |
+| `phone`, `phone.notifs`, `phone.otp` | `0`, `1`, `1` | Sambungan HP, notifikasi pesan dari HP, kode OTP dari HP |
+| `phone.port` | acak | Port sambungan HP, dipilih saat pertama dinyalakan |
 | `kulia.url`, `kulia.key` | server kulia.live | Arahkan ke instance Kulia lain |
 
 Variabel lingkungan untuk pengembangan:
