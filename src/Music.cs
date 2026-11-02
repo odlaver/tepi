@@ -330,37 +330,38 @@ namespace Tepi
                 AddHit(new RectangleF(x0, y - 8, x1 - x0, 20), "seek", null, f => { scrubbing = true; scrubFrac = f; },
                        null, delegate { if (scrubbing) media.Seek(scrubFrac * mediaInfo.DurationMs); scrubbing = false; });
             bool active = scrubbing || Hover("seek");
-            // Shuffle and repeat between the times
-            float mid = w / 2, iy = y + 18;
-            if (mediaInfo.CanShuffle) AddHit(new RectangleF(mid - ModeGap - 15, iy - 13, 30, 26), "shuffle", delegate { media.SetShuffle(!mediaInfo.Shuffle); });
-            if (mediaInfo.CanRepeat) AddHit(new RectangleF(mid + ModeGap - 15, iy - 13, 30, 26), "repeat", delegate { media.SetRepeat((mediaInfo.Repeat + 1) % 3); });
             // Redrawn when a second or pixel turns
             LiveRect(new RectangleF(x0 - 8, y - 26, x1 - x0 + 16, 54), mediaInfo.Playing && !active ? 4 : 0, () => ProgressSig(x1 - x0), t => PaintProgressRow(x0, x1, y, active, t));
         }
 
-        const float ModeGap = 22;
         const char IcoShuffle = '\uE8B1', IcoRepeatAll = '\uE8EE', IcoRepeatOne = '\uE8ED';
 
         int ProgressSig(float width)
         {
-            // Mode and hover changes repaint too
-            int modes = (mediaInfo.Shuffle ? 1 : 0) + mediaInfo.Repeat * 2 + (Hover("shuffle") ? 8 : 0) + (Hover("repeat") ? 16 : 0);
-            if (mediaInfo.DurationMs <= 0) return modes;
+            if (mediaInfo.DurationMs <= 0) return 0;
             double pos = mediaInfo.Position(frameNow);
-            return (int)(pos / 1000) * 100003 + (int)(pos / mediaInfo.DurationMs * width * scale * 2) * 32 + modes;
+            return (int)(pos / 1000) * 100003 + (int)(pos / mediaInfo.DurationMs * width * scale * 2);
         }
 
-        void PaintModes(float mid, float iy)
+        // Shuffle under back, repeat under next
+        void DrawModes(float cx, float cy, float gap)
         {
-            if (mediaInfo.CanShuffle) ModeIcon(IcoShuffle, mediaInfo.Shuffle, "shuffle", mid - ModeGap, iy);
-            if (mediaInfo.CanRepeat) ModeIcon(mediaInfo.Repeat == 1 ? IcoRepeatOne : IcoRepeatAll, mediaInfo.Repeat > 0, "repeat", mid + ModeGap, iy);
+            if (mediaInfo.CanShuffle)
+                ModeButton(IcoShuffle, mediaInfo.Shuffle, "shuffle", cx - gap, cy, delegate { media.SetShuffle(!mediaInfo.Shuffle); });
+            if (mediaInfo.CanRepeat)
+                ModeButton(mediaInfo.Repeat == 1 ? IcoRepeatOne : IcoRepeatAll, mediaInfo.Repeat > 0, "repeat", cx + gap, cy,
+                           delegate { media.SetRepeat((mediaInfo.Repeat + 1) % 3); });
         }
 
-        // On: accent with a dot under it
-        void ModeIcon(char glyph, bool on, string id, float cx, float cy)
+        // On: accent pill; off: plain glyph
+        void ModeButton(char glyph, bool on, string id, float cx, float cy, Action act)
         {
-            p.Icon(glyph, 13f, on ? p.T.Accent : Hover(id) ? p.T.Text : p.T.Sub, cx, cy - 1);
-            if (on) p.Circle(cx, cy + 9, 1.6f, p.T.Accent);
+            var r = new RectangleF(cx - 16, cy - 14, 32, 28);
+            AddHit(r, id, act);
+            bool hover = Hover(id);
+            if (on) p.FillRound(r, 14, Ink.A(p.T.Accent, 0.22f));
+            else if (hover) p.FillRound(r, 14, p.T.Fill);
+            p.Icon(glyph, 14f, on ? p.T.Accent : hover ? p.T.Text : p.T.Sub, cx, cy);
         }
 
         void PaintProgressRow(float x0, float x1, float y, bool active, DateTime now)
@@ -373,7 +374,6 @@ namespace Tepi
                 p.Circle(x0 + (x1 - x0) * Ease.Clamp01((float)(pos / mediaInfo.DurationMs)), y + 2, active ? 7f : 4.5f, p.T.Accent);
             p.Text(Fmt.Clock(pos), Ink.Small(11f), scrubbing ? p.T.Text : p.T.Sub, x0, y + 18);
             if (mediaInfo.DurationMs > 0) p.TextRight("-" + Fmt.Clock(mediaInfo.DurationMs - pos), Ink.Small(11f), scrubbing ? p.T.Text : p.T.Sub, x1, y + 18);
-            PaintModes((x0 + x1) / 2, y + 18);
         }
 
         void DrawLyricsLayout(float w, float h, DateTime now, float dy)
@@ -445,6 +445,7 @@ namespace Tepi
             float gap = bold ? 58 : 40;
             DrawControl(new RectangleF(cx - gap - 17, cy - 17, 34, 34), "prev", delegate { media.Previous(); }, (r, c) => p.Skip(r.X + 17, r.Y + 17, 12, c, false));
             DrawControl(new RectangleF(cx + gap - 17, cy - 17, 34, 34), "next", delegate { media.Next(); }, (r, c) => p.Skip(r.X + 17, r.Y + 17, 12, c, true));
+            DrawModes(cx, cy + (bold ? 46 : 40), gap);
             if (!bold)
             {
                 DrawControl(new RectangleF(cx - 19, cy - 19, 38, 38), "play", delegate { media.TogglePlay(); },
