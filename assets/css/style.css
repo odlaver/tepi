@@ -187,10 +187,11 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 .live { display: grid; gap: 28px; }
 .stage-live { height: calc(116px + 84px * var(--fit, 1)); }
 .acts-side { display: flex; flex-direction: column; justify-content: center; gap: 18px; }
-.acts { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; }
+/* Wraps like a sentence, not a tall column */
+.acts { display: flex; flex-wrap: wrap; gap: 0 22px; }
 .acts button {
-  position: relative; width: 100%; min-height: 44px; padding: 10px 0 12px; text-align: left;
-  font-size: 17px; color: var(--faint); transition: color 0.12s ease;
+  position: relative; min-height: 44px; padding: 10px 0 12px; text-align: left; white-space: nowrap;
+  font-size: 16px; color: var(--faint); transition: color 0.12s ease;
 }
 .acts button[aria-pressed="true"] { color: var(--text); }
 .acts button i { position: absolute; left: 0; right: 0; bottom: 4px; height: 1px; background: var(--line); overflow: hidden; }
@@ -408,7 +409,6 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 
 @media (min-width: 560px) {
   .stats, .more { grid-template-columns: 1fr 1fr; }
-  .acts { grid-template-columns: 1fr; }
 }
 @media (min-width: 720px) {
   .priv li { grid-template-columns: 280px 1fr; }
