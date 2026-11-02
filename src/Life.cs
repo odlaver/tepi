@@ -384,12 +384,20 @@ namespace Tepi
 
         void OpenNotifApp(NotifItem item)
         {
-            // Quoted; a stray quote can't add arguments
             // Phone items: nothing to launch here
             if (item.AppId.Length > 0 && !item.AppId.StartsWith("phone:") && item.AppId.IndexOfAny(new[] { '"', '\r', '\n' }) < 0)
             {
-                try { Process.Start("explorer.exe", "\"shell:AppsFolder\\" + item.AppId + "\""); }
-                catch (Exception ex) { Log.Write("open app: " + ex.Message); }
+                var it = item;
+                // The sender's chat first, the app window after
+                NotifOpen.AllowSetForegroundWindow(-1);
+                ThreadPool.QueueUserWorkItem(delegate
+                {
+                    bool chat = NotifOpen.Open(it);
+                    if (chat) Thread.Sleep(400);
+                    // Quoted; a stray quote can't add arguments
+                    try { Process.Start("explorer.exe", "\"shell:AppsFolder\\" + it.AppId + "\""); }
+                    catch (Exception ex) { Log.Write("open app: " + ex.Message); }
+                });
             }
             notifs.RemoveAll(n => n.Held && n.AppId == item.AppId);
             unread = 0;
