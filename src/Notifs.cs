@@ -87,10 +87,17 @@ namespace Tepi
             catch (Exception) { return true; }
         }
 
+        // notif.apps, lowercased
+        public static volatile string[] ExtraApps = new string[0];
+
         static bool IsChat(string app, string text)
         {
             app = app.ToLowerInvariant();
-            foreach (var c in ChatApps) if (app.Contains(c)) return true;
+            // Short names match whole words: "line" not "online"
+            var words = app.Split(new[] { ' ', '.', '_', '!', '-', '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var c in ChatApps)
+                if (c.Length <= 4 ? Array.IndexOf(words, c) >= 0 : app.Contains(c)) return true;
+            foreach (var c in ExtraApps) if (app.Contains(c)) return true;
             bool browser = false;
             foreach (var b in Browsers) if (app.Contains(b)) browser = true;
             if (!browser) return false;

@@ -420,7 +420,7 @@ namespace Tepi
                 new[] { "Sembunyikan island", "\uED1A" }, new[] { "Navigasi keyboard", "\uE765" }, new[] { "Mini", "\uE898" }, new[] { "Mikrofon", "\uE720" },
                 new[] { "Catatan kilat", "\uE70B" }, new[] { "Cermin kamera", "\uE714" }, new[] { "Jeda dan lanjut", "\uE769" }, new[] { "Ulang dari awal", "\uE72C" },
                 new[] { "Mundur 5 detik", "\uE76B" }, new[] { "Maju 5 detik", "\uE76C" }, new[] { "Lebih cepat", "\uE710" }, new[] { "Lebih lambat", "\uE738" },
-                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" }, new[] { "Pakai warna sendiri", "\uE790" }, new[] { "Simpan jadi paket", "\uE74E" }, new[] { "Pembuat paket", "\uE774" }, new[] { "Pindai dari HP", "\uED14" },
+                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" }, new[] { "Pakai warna sendiri", "\uE790" }, new[] { "Simpan jadi paket", "\uE74E" }, new[] { "Pembuat paket", "\uE774" }, new[] { "Pindai dari HP", "\uED14" }, new[] { "Aplikasi chat tambahan", "\uE8BD" }, new[] { "Pengirim prioritas", "\uE77B" },
             };
 
             static char GlyphFor(string title)
@@ -477,6 +477,24 @@ namespace Tepi
                 c.Size = new Size((int)Math.Min(260 * Ui, w + 30 * Ui), (int)(30 * Ui));
                 c.Changed += i => { if (!building) changed(i); };
                 return c;
+            }
+
+            // Comma list saved on Enter or leaving the box
+            KitField ListField(string key, string cue)
+            {
+                var f = new KitField(Ui, false, cue, 300);
+                f.Box.Text = settings.Get(key, "");
+                Action save = delegate
+                {
+                    string clean = string.Join(", ", CommaList(f.Box.Text));
+                    if (clean == settings.Get(key, "")) return;
+                    settings.Set(key, clean);
+                    settings.Save();
+                    island.ApplyNotifLists();
+                };
+                f.Submit = save;
+                f.Box.LostFocus += delegate { save(); };
+                return f;
             }
 
             // Swatch row; a pick repaints island and window
@@ -709,6 +727,8 @@ namespace Tepi
                         var body = Switch("notif.content", true, null);
                         body.Enabled = settings.GetBool("notif", true);
                         add(Row(Lang.T("Tampilkan isi pesan"), body.Enabled ? null : Lang.T("Ikut notifikasi pesan"), body));
+                        add(Row(Lang.T("Aplikasi chat tambahan"), Lang.T("Nama aplikasi, pisahkan dengan koma"), ListField("notif.apps", "Element, Zalo")));
+                        add(Row(Lang.T("Pengirim prioritas"), Lang.T("Nama atau kata yang tetap muncul saat Senyap"), ListField("notif.vip", Lang.T("Ibu, dosen"))));
                         cap(Lang.T("Keyboard"));
                         add(Row("Caps Lock", Lang.T("HUD saat ditekan, penanda selama nyala"), Switch("keys.caps", true, null)));
                         add(Row("Num Lock, Scroll Lock", Lang.T("HUD saat ditekan"), Switch("keys.num", false, null)));
