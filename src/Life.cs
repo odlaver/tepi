@@ -243,12 +243,14 @@ namespace Tepi
             var l = lyricsSvc.Get(mediaInfo);
             if (l == null) return;
             if (lyrics == null || lyrics.Key != l.Key) { lyricIndex = lyricPrev = -1; lyricScroll.Snap(0); }
+            ApplyLyricOffset(l);
             lyrics = l;
         }
 
         void OnLyrics(Lyrics l)
         {
             if (l.Key != mediaInfo.Key) return;
+            ApplyLyricOffset(l);
             lyrics = l;
             lyricIndex = lyricPrev = -1;
             Kick();

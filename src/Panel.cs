@@ -66,6 +66,8 @@ namespace Tepi
             }
             // Seek targets where lines come to rest
             float anchor = box.Y + 34;
+            // Right click shifts lyric timing
+            if (!mediaInfo.CanSeek && lyrics.State == LyricState.Synced) AddHit(box, "lyBox", delegate { }, null, LyricMenu);
             if (mediaInfo.CanSeek)
                 for (int i = Math.Max(0, (int)(lyricScroll.Target / LyricLineH) - 2); i < lyrics.Lines.Count; i++)
                 {
@@ -73,7 +75,7 @@ namespace Tepi
                     if (y > box.Bottom + LyricLineH) break;
                     if (lyrics.Lines[i].Text.Length == 0 || y <= box.Top || y >= box.Bottom) continue;
                     double at = lyrics.Lines[i].AtMs;
-                    AddHit(new RectangleF(box.X, y - LyricLineH / 2, box.Width, LyricLineH), "ly" + i, delegate { media.Seek(at + 50); });
+                    AddHit(new RectangleF(box.X, y - LyricLineH / 2, box.Width, LyricLineH), "ly" + i, delegate { media.Seek(at + 50); }, null, LyricMenu);
                 }
             // List scrolls alone
             LiveRect(box, t => PaintTeleprompter(box, t));
