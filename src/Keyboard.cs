@@ -137,6 +137,11 @@ namespace Tepi
                 case "prayCity": return Lang.T("Pilih kota");
                 case "praySwitch": return Lang.T("Pengingat sholat");
                 case "drinkPlus": return Lang.T("Minum air");
+                case "prev": return Lang.T("Lagu sebelumnya");
+                case "next": return Lang.T("Lagu berikutnya");
+                case "play": return Lang.T(mediaInfo.Playing ? "Jeda" : "Putar");
+                case "shuffle": return Lang.T(mediaInfo.Shuffle ? "Acak nyala" : "Acak mati");
+                case "repeat": return Lang.T(mediaInfo.Repeat == 1 ? "Ulang satu lagu" : mediaInfo.Repeat == 2 ? "Ulang semua" : "Ulang mati");
             }
             if (id.StartsWith("send", StringComparison.Ordinal)) return Lang.T("Chat");
             return "";

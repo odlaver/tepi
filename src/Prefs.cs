@@ -25,12 +25,42 @@ namespace Tepi
             prefs.Go(section);
         }
 
-        void SetLight(bool light)
+        void SetClock24(bool h24)
         {
-            settings.Set("theme", light ? "terang" : "gelap");
+            settings.Set("clock.24", h24);
             settings.Save();
+            Fmt.H24 = h24;
+            clockRoller.Set(Fmt.Clock(DateTime.Now));
+            // Cached prayer strings follow at once
+            if (prayToday != null)
+            {
+                for (int i = 0; i < 6; i++) prayHm[i] = Fmt.Hm(prayToday[i]);
+                prayTomorrowHm = Fmt.Hm(prayTomorrow);
+            }
+            Kick();
+        }
+
+        // theme: gelap, terang, otomatis
+        void SetThemeMode(string mode)
+        {
+            settings.Set("theme", mode);
+            settings.Save();
+            ApplyThemeMode();
+        }
+
+        bool ThemeLight()
+        {
+            string mode = settings.Get("theme", "gelap");
+            return mode == "terang" || (mode == "otomatis" && !winDark);
+        }
+
+        void ApplyThemeMode()
+        {
+            bool light = ThemeLight();
+            if (light == Ink.Light) return;
             Ink.Apply(light);
             ResetFrost();
+            if (prefs != null && !prefs.IsDisposed) prefs.Relayout();
             Kick();
         }
 
@@ -39,6 +69,9 @@ namespace Tepi
             settings.Set("accent", hex);
             settings.Save();
             Ink.SetAccent(hex);
+            albumAccentFor = null;
+            albumTinted = false;
+            AlbumAccent();
             Kick();
         }
 
@@ -66,7 +99,7 @@ namespace Tepi
             settings.Set(key, value);
             settings.Save();
             if (key == "material") { ApplyGlass(); ResetFrost(); }
-            else if (key == "motion.reduce") Anim.Read(settings);
+            else if (key == "motion.reduce" || key == "motion.feel") Anim.Read(settings);
             else if (key == "tabs.style") tabSnap = true;
             Kick();
         }
@@ -118,6 +151,7 @@ namespace Tepi
         {
             new[] { "Monokrom", "" }, new[] { "Biru", "#4C8DFF" }, new[] { "Hijau", "#3DD68C" }, new[] { "Kuning", "#FFD24A" },
             new[] { "Oranye", "#FF9F43" }, new[] { "Merah muda", "#FF6B9A" }, new[] { "Ungu", "#A78BFA" }, new[] { "Navy", "#7F8DC6" },
+            new[] { "Dari sampul album", AccentAlbum },
         };
 
         partial class PrefsWindow : KitWindow
@@ -133,9 +167,10 @@ namespace Tepi
 
             static readonly string[][] Sections =
             {
-                new[] { "general", "Umum", "" }, new[] { "look", "Tampilan", "" }, new[] { "island", "Island", "" },
-                new[] { "activity", "Aktivitas", "" }, new[] { "agents", "Agen", "" }, new[] { "phone", "HP", "" }, new[] { "integrasi", "Integrasi", "" },
-                new[] { "remind", "Pengingat", "" }, new[] { "access", "Aksesibilitas", "" }, new[] { "about", "Tentang", "" },
+                new[] { "general", "Umum", "\uE713", "0" }, new[] { "look", "Tampilan", "\uE790", "0" }, new[] { "island", "Island", "\uE737", "0" }, new[] { "tabs", "Tab panel", "\uE8A9", "0" },
+                new[] { "music", "Musik", "\uE8D6", "1" }, new[] { "messages", "Pesan", "\uE8BD", "1" }, new[] { "system", "Sistem", "\uE9D9", "1" }, new[] { "files", "Rak dan berkas", "\uE7B8", "1" },
+                new[] { "agents", "Agen", "\uE756", "2" }, new[] { "phone", "HP", "\uE8EA", "2" }, new[] { "integrasi", "Integrasi", "\uE71B", "2" }, new[] { "remind", "Pengingat", "\uE823", "2" },
+                new[] { "access", "Aksesibilitas", "\uE776", "3" }, new[] { "keys", "Pintasan", "\uE765", "3" }, new[] { "about", "Tentang", "\uE946", "3" },
             };
 
             [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, string l);
@@ -167,7 +202,7 @@ namespace Tepi
                 building = true;
                 search.Text = "";
                 building = false;
-                if (IsHandleCreated) { side.Selected = id; Fill(); }
+                if (IsHandleCreated) { side.Selected = id; side.Invalidate(); Fill(); }
             }
 
             protected override void OnHandleCreated(EventArgs e)
@@ -190,7 +225,7 @@ namespace Tepi
                 try { SetWindowTheme(content.Handle, Ink.Light ? "Explorer" : "DarkMode_Explorer", null); } catch (Exception) { }
                 Text = Lang.T("Pengaturan Tepi");
                 side.Items = new List<string[]>();
-                foreach (var s in Sections) side.Items.Add(new[] { s[0], Lang.T(s[1]), s[2] });
+                foreach (var s in Sections) side.Items.Add(new[] { s[0], Lang.T(s[1]), s[2], s[3] });
                 side.Selected = section;
                 search.Font = UiFont(13f);
                 search.BackColor = KitInk.Line;
@@ -363,7 +398,7 @@ namespace Tepi
                 new[] { "Bahasa", "\uE774" }, new[] { "Mulai bersama Windows", "\uE7E8" }, new[] { "Cek versi baru", "\uE72C" },
                 new[] { "Folder data", "\uE8B7" }, new[] { "Folder paket", "\uE8B7" }, new[] { "Tema", "\uE706" }, new[] { "Material", "\uE81E" },
                 new[] { "Aksen", "\uE790" }, new[] { "Paket", "\uE7B8" }, new[] { "Suara sapaan paket tema", "\uE767" },
-                new[] { "Mode", "\uE8A0" }, new[] { "Notifikasi saat mini", "\uEA8F" }, new[] { "Mata", "\uE890" }, new[] { "Ikuti kursor", "\uE7C9" },
+                new[] { "Mode", "\uE8A0" }, new[] { "Notifikasi saat mini", "\uEA8F" }, new[] { "Mata", "\uE890" }, new[] { "Ikuti kursor", "\uE7C9" }, new[] { "Buka panel", "\uE8A7" }, new[] { "Jeda buka", "\uE916" },
                 new[] { "Menempel di tepi atas", "\uE840" }, new[] { "Posisi", "\uE759" }, new[] { "Lebar panel", "\uE740" }, new[] { "Layar", "\uE7F4" },
                 new[] { "Gaya tab", "\uECA5" }, new[] { "Dibuka di", "\uE8A7" },
                 new[] { "Lirik di island", "\uE8D6" }, new[] { "Cari lirik online", "\uE721" }, new[] { "Visualizer", "\uE9E9" },
@@ -376,13 +411,17 @@ namespace Tepi
                 new[] { "Belum ada database", "\uE8F1" }, new[] { "Pengingat sholat", "\uE708" }, new[] { "Kota", "\uE707" }, new[] { "Ingatkan sebelum", "\uEA8F" },
                 new[] { "Minum air", "\uEB42" }, new[] { "Selang minum", "\uE916" }, new[] { "Target harian", "\uE73E" },
                 new[] { "Istirahat mata 20-20-20", "\uE890" }, new[] { "Peregangan", "\uE805" }, new[] { "Selang peregangan", "\uE916" },
-                new[] { "Tampil di rekaman layar", "\uE7F4" }, new[] { "Umumkan ke pembaca layar", "\uE7F5" }, new[] { "Kurangi gerak", "\uE7AD" },
+                new[] { "Tampil di rekaman layar", "\uE7F4" }, new[] { "Umumkan ke pembaca layar", "\uE7F5" }, new[] { "Kurangi gerak", "\uE7AD" }, new[] { "Gerak", "\uE7AD" },
                 new[] { "Senyap", "\uE708" }, new[] { "Pembaruan", "\uE72C" }, new[] { "Layanan luar", "\uE774" }, new[] { "Traktir Tepi kopi", "\uEC32" },
                 new[] { "Ringkasan", "\uE80F" }, new[] { "Musik", "\uE8D6" }, new[] { "Agen", "\uE756" }, new[] { "Kuliah", "\uE7BE" },
                 new[] { "Pesan", "\uE8BD" }, new[] { "Rak", "\uE7B8" }, new[] { "Kontrol", "\uE9E9" }, new[] { "Pengingat", "\uEA8F" },
                 new[] { "HP", "\uE8EA" }, new[] { "Ubah", "\uE8AB" }, new[] { "Ubah format", "\uE8AB" },
                 new[] { "Hubungkan HP", "\uE8EA" }, new[] { "Notifikasi HP", "\uE8BD" }, new[] { "Kode OTP", "\uE8D7" },
                 new[] { "Notion", "\uE8F1" }, new[] { "Todoist", "\uE73E" }, new[] { "Kalender iCal", "\uE787" },
+                new[] { "Sembunyikan island", "\uED1A" }, new[] { "Navigasi keyboard", "\uE765" }, new[] { "Mini", "\uE898" }, new[] { "Mikrofon", "\uE720" },
+                new[] { "Catatan kilat", "\uE70B" }, new[] { "Cermin kamera", "\uE714" }, new[] { "Jeda dan lanjut", "\uE769" }, new[] { "Ulang dari awal", "\uE72C" },
+                new[] { "Mundur 5 detik", "\uE76B" }, new[] { "Maju 5 detik", "\uE76C" }, new[] { "Lebih cepat", "\uE710" }, new[] { "Lebih lambat", "\uE738" },
+                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" }, new[] { "Pakai warna sendiri", "\uE790" }, new[] { "Simpan jadi paket", "\uE74E" }, new[] { "Pembuat paket", "\uE774" }, new[] { "Pindai dari HP", "\uED14" }, new[] { "Aplikasi chat tambahan", "\uE8BD" }, new[] { "Pengirim prioritas", "\uE77B" }, new[] { "Senyap ikut Windows", "\uE708" }, new[] { "Suara", "\uE767" }, new[] { "Simpan isi rak", "\uE74E" }, new[] { "Kosongkan rak otomatis", "\uE916" }, new[] { "Ambil warna", "\uE790" }, new[] { "Ekspor pengaturan", "\uEDE1" }, new[] { "Impor pengaturan", "\uE8B5" }, new[] { "Setel ulang pengaturan", "\uE72C" },
             };
 
             static char GlyphFor(string title)
@@ -425,7 +464,7 @@ namespace Tepi
 
             KitSlider Slider(int min, int max, int step, int value, Func<int, string> fmt, Action<int> changed)
             {
-                var c = new KitSlider { Minimum = min, Maximum = max, Step = step, Value = Math.Max(min, Math.Min(max, value)), Format = fmt, Size = new Size((int)(200 * Ui), (int)(30 * Ui)) };
+                var c = new KitSlider { Minimum = min, Maximum = max, Step = step, Value = Math.Max(min, Math.Min(max, value)), Format = fmt, ShowValue = true, Size = new Size((int)(270 * Ui), (int)(30 * Ui)) };
                 c.Changed += v => { if (!building) { changed(v); content.Invalidate(true); } };
                 return c;
             }
@@ -439,6 +478,88 @@ namespace Tepi
                 c.Size = new Size((int)Math.Min(260 * Ui, w + 30 * Ui), (int)(30 * Ui));
                 c.Changed += i => { if (!building) changed(i); };
                 return c;
+            }
+
+            // Comma list saved on Enter or leaving the box
+            // Row says Tersimpan for a moment after a save
+            KitRow ListRow(string title, string detail, string key, string cue)
+            {
+                var f = new KitField(Ui, false, cue, 300);
+                f.Box.Text = settings.Get(key, "");
+                var row = Row(title, detail, f);
+                var back = new System.Windows.Forms.Timer { Interval = 2500 };
+                back.Tick += delegate { back.Stop(); row.Detail = detail; row.Invalidate(); };
+                f.Disposed += delegate { back.Dispose(); };
+                Action save = delegate
+                {
+                    string clean = string.Join(", ", CommaList(f.Box.Text));
+                    if (clean == settings.Get(key, "")) return;
+                    settings.Set(key, clean);
+                    settings.Save();
+                    island.ApplyNotifLists();
+                    row.Detail = Lang.T("Tersimpan");
+                    row.Invalidate();
+                    back.Stop();
+                    back.Start();
+                };
+                f.Submit = save;
+                f.Box.LostFocus += delegate { save(); };
+                return row;
+            }
+
+            // Swatch row; a pick repaints island and window
+            // Starting points that read well together
+            static string[][] SwatchPresets(string key)
+            {
+                if (key == "bg") return new[] { new[] { "Hitam", "#000000" }, new[] { "Arang", "#1C1C1E" }, new[] { "Navy", "#0E1734" }, new[] { "Hijau tua", "#0F2A22" }, new[] { "Putih", "#FFFFFF" }, new[] { "Krem", "#F5EFE6" } };
+                if (key == "text") return new[] { new[] { "Putih", "#FFFFFF" }, new[] { "Putih lembut", "#EEF4FF" }, new[] { "Hitam", "#111111" }, new[] { "Cokelat tua", "#3B2F2F" } };
+                var list = new System.Collections.Generic.List<string[]>();
+                foreach (var a in Accents) if (a[1].StartsWith("#")) list.Add(a);
+                return list.ToArray();
+            }
+
+            KitRow ColorRow(string key, string title, string detail)
+            {
+                var sw = new KitSwatch { Font = UiFont(12.5f), Value = island.CustomColor(key), Presets = SwatchPresets(key) };
+                sw.Size = new Size(TextRenderer.MeasureText("      #DDDDDD", sw.Font).Width + (int)(32 * Ui), (int)(30 * Ui));
+                sw.Picked += c => { island.SetCustomColor(key, c); BeginInvoke(new Action(Relayout)); };
+                var row = Row(title, detail, sw);
+                row.Glyph = '\uE790';
+                return row;
+            }
+
+            string ContrastNote()
+            {
+                double c = Contrast(island.CustomColor("text"), island.CustomColor("bg"));
+                string v = c.ToString("0.0", Lang.English ? System.Globalization.CultureInfo.InvariantCulture : new System.Globalization.CultureInfo("id-ID"));
+                return c >= 4.5 ? Lang.F("Kontras dengan latar {0}:1", v) : Lang.F("Kontras {0}:1, teks sulit dibaca", v);
+            }
+
+            // Shortcut row: detail shows default or the clash
+            KitRow HotkeyRow(HotkeyDef d)
+            {
+                var field = new KitHotkey { Font = UiFont(12.5f) };
+                var row = Row(Lang.T(d.Name), HotkeyDetail(d), field);
+                field.Size = new Size(TextRenderer.MeasureText("Ctrl+Alt+Shift+PageDown", field.Font).Width + (int)(32 * Ui), (int)(30 * Ui));
+                field.Combo = island.HotkeyText(d.Id);
+                field.Begin = delegate { island.HoldHotkeys(true); };
+                field.End = delegate { island.HoldHotkeys(false); };
+                field.Commit = combo =>
+                {
+                    string error = island.SetHotkey(d.Id, combo);
+                    field.Combo = island.HotkeyText(d.Id);
+                    row.Detail = error ?? HotkeyDetail(d);
+                    field.AccessibleDescription = row.Detail;
+                    row.Invalidate();
+                    return error == null;
+                };
+                return row;
+            }
+
+            string HotkeyDetail(HotkeyDef d)
+            {
+                if (island.HotkeyTaken(d.Id)) return Lang.T("Dipakai aplikasi lain");
+                return d.Fallback.Length == 0 ? Lang.T("Tanpa pintasan bawaan") : Lang.F("Bawaan: {0}", d.Fallback);
             }
 
             KitButton Button(string text, bool primary, Action click)
@@ -469,21 +590,102 @@ namespace Tepi
                         add(VersionRow(null));
                         flush();
                         add(Row(Lang.T("Bahasa"), null, Seg(new[] { "Indonesia", "English" }, Lang.English ? 1 : 0, i => { island.SetLanguage(i == 1); Relayout(); })));
+                        add(Row(Lang.T("Format jam"), null, Seg(new[] { "14.30", "2.30 pm" }, Fmt.H24 ? 0 : 1, i => island.SetClock24(i == 0))));
                         add(Row(Lang.T("Mulai bersama Windows"), null, StartupSwitch()));
                         add(Row(Lang.T("Cek versi baru"), Lang.T("Sekali sehari ke GitHub; unduhan hanya saat diminta"), Switch("update.check", true, on => { settings.Set("update.check", on); settings.Save(); })));
                         cap(Lang.T("Data"));
                         add(Row(Lang.T("Folder data"), Settings.Dir, Button(Lang.T("Buka"), false, delegate { try { Process.Start("explorer.exe", "\"" + Settings.Dir + "\""); } catch (Exception) { } })));
+                        KitRow io = null;
+                        io = Row(Lang.T("Ekspor pengaturan"), Lang.T("Tanpa token, port, dan pasangan HP"), Button(Lang.T("Simpan…"), false, delegate
+                        {
+                            using (var d = new SaveFileDialog { FileName = "tepi-pengaturan.ini", Filter = "INI|*.ini", RestoreDirectory = true })
+                            {
+                                if (d.ShowDialog(this) != DialogResult.OK) return;
+                                try { io.Detail = Lang.F("{0} pengaturan disimpan", island.ExportSettings(d.FileName)); }
+                                catch (Exception ex) { io.Detail = Lang.T("Gagal menyimpan"); Log.Write("export: " + ex.Message); }
+                                io.Invalidate();
+                            }
+                        }));
+                        add(io);
+                        KitRow inRow = null;
+                        inRow = Row(Lang.T("Impor pengaturan"), Lang.T("Tepi dibuka ulang sesudahnya"), Button(Lang.T("Buka…"), false, delegate
+                        {
+                            using (var d = new OpenFileDialog { Filter = "INI|*.ini|*.*|*.*", RestoreDirectory = true })
+                            {
+                                if (d.ShowDialog(this) != DialogResult.OK) return;
+                                int n = 0;
+                                try { n = island.ImportSettings(d.FileName); }
+                                catch (Exception ex) { Log.Write("import: " + ex.Message); }
+                                if (n == 0) { inRow.Detail = Lang.T("Tidak ada pengaturan Tepi di berkas itu"); inRow.Invalidate(); return; }
+                                island.RestartTepi();
+                            }
+                        }));
+                        add(inRow);
+                        // Second click within 4 s confirms
+                        KitButton resetBtn = null;
+                        KitRow resetRow = null;
+                        string resetNote = Lang.T("Integrasi, agen, dan HP tetap tersambung");
+                        var armed = new System.Windows.Forms.Timer { Interval = 4000 };
+                        armed.Tick += delegate { armed.Stop(); resetBtn.Text = Lang.T("Setel ulang"); resetRow.Detail = resetNote; resetBtn.Invalidate(); resetRow.Invalidate(); };
+                        resetBtn = Button(Lang.T("Setel ulang"), false, delegate
+                        {
+                            if (!armed.Enabled)
+                            {
+                                armed.Start();
+                                resetBtn.Text = Lang.T("Klik lagi");
+                                resetRow.Detail = Lang.T("Klik sekali lagi dalam 4 detik untuk menyetel ulang");
+                                resetBtn.Invalidate();
+                                resetRow.Invalidate();
+                                return;
+                            }
+                            armed.Stop();
+                            island.ResetSettings();
+                            island.RestartTepi();
+                        });
+                        resetBtn.Disposed += delegate { armed.Dispose(); };
+                        resetRow = Row(Lang.T("Setel ulang pengaturan"), resetNote, resetBtn);
+                        resetRow.Glyph = '\uE7A7';
+                        add(resetRow);
                         break;
                     case "look":
-                        add(Row(Lang.T("Tema"), null, Seg(new[] { Lang.T("Gelap"), Lang.T("Terang") }, Ink.Light ? 1 : 0, i => { island.SetLight(i == 1); Relayout(); })));
+                        string themeMode = settings.Get("theme", "gelap");
+                        add(Row(Lang.T("Tema"), themeMode == "otomatis" ? Lang.T("Mengikuti mode aplikasi Windows") : null,
+                            Seg(new[] { Lang.T("Gelap"), Lang.T("Terang"), Lang.T("Otomatis") }, themeMode == "terang" ? 1 : themeMode == "otomatis" ? 2 : 0, i =>
+                            {
+                                island.SetThemeMode(i == 1 ? "terang" : i == 2 ? "otomatis" : "gelap");
+                                BeginInvoke(new Action(Relayout));
+                            })));
                         string mat = island.MaterialName;
-                        add(Row(Lang.T("Material"), Lang.T("Kaca membaca layar di belakangnya; Hitam paling hemat"),
+                        add(Row(Lang.T("Material"), Lang.T("Hitam paling hemat daya"),
                             Seg(new[] { "Liquid", "Frost", Lang.T("Hitam") }, mat == "frost" ? 1 : mat == "solid" ? 2 : 0, i => island.SetChoice("material", i == 1 ? "frost" : i == 2 ? "solid" : "liquid"))));
                         var names = new List<string>();
                         int at = 0;
                         string accent = settings.Get("accent", "");
                         for (int i = 0; i < Accents.Length; i++) { names.Add(Lang.T(Accents[i][0])); if (Accents[i][1] == accent) at = i; }
-                        add(Row(Lang.T("Aksen"), settings.Get("theme.pack", "").Length > 0 ? Lang.T("Paket tema bisa menimpanya") : null, Popup(names.ToArray(), at, i => island.SetAccentHex(Accents[i][1]))));
+                        bool custom = island.CustomOn;
+                        var accentPick = Popup(names.ToArray(), at, i => island.SetAccentHex(Accents[i][1]));
+                        accentPick.Enabled = !custom;
+                        add(Row(Lang.T("Aksen"), custom ? Lang.T("Warna sendiri sedang dipakai") : settings.Get("theme.pack", "").Length > 0 ? Lang.T("Paket tema bisa menimpanya") : null, accentPick));
+                        cap(Lang.T("Warna sendiri"));
+                        add(Row(Lang.T("Pakai warna sendiri"), Lang.T("Menimpa warna paket tema, gambarnya tetap"), Switch("look.custom", false, on =>
+                        {
+                            island.SetCustom(on);
+                            BeginInvoke(new Action(Relayout));
+                        })));
+                        if (custom)
+                        {
+                            add(ColorRow("bg", Lang.T("Latar"), Lang.T("Klik untuk memilih atau ambil dari layar")));
+                            add(ColorRow("text", Lang.T("Teks"), ContrastNote()));
+                            add(ColorRow("accent", Lang.T("Aksen"), Lang.T("Klik untuk memilih atau ambil dari layar")));
+                            KitRow saved = null;
+                            saved = Row(Lang.T("Simpan jadi paket"), Lang.T("Ke folder themes, lalu bisa ditambah gambar"), Button(Lang.T("Simpan"), false, delegate
+                            {
+                                try { saved.Detail = Lang.F("Tersimpan sebagai {0}", island.SaveCustomPack()); }
+                                catch (Exception ex) { saved.Detail = Lang.T("Gagal menyimpan"); Log.Write("save pack: " + ex.Message); }
+                                saved.Invalidate();
+                            }));
+                            add(saved);
+                        }
                         cap(Lang.T("Paket tema"));
                         var packs = new List<string> { Lang.T("Tanpa") };
                         packs.AddRange(ThemePacks());
@@ -501,6 +703,7 @@ namespace Tepi
                             string dir = System.IO.Path.Combine(Settings.Dir, "themes");
                             try { System.IO.Directory.CreateDirectory(dir); Process.Start("explorer.exe", "\"" + dir + "\""); } catch (Exception) { }
                         })));
+                        add(Row(Lang.T("Pembuat paket"), Lang.T("Gambar, sapaan, dan suara, di situs Tepi"), Button(Lang.T("Buka"), false, delegate { OpenUrl("https://odlaver.github.io/tepi/pack/"); })));
                         break;
                     case "island":
                         add(Row(Lang.T("Menempel di tepi atas"), null, Switch("dock", true, null)));
@@ -520,14 +723,64 @@ namespace Tepi
                         mon.Enabled = screens.Length > 1;
                         add(Row(Lang.T("Layar"), null, mon));
                         string mode = settings.Get("mini", "auto");
-                        add(Row(Lang.T("Mode"), Lang.T("Otomatis: mini saat tepi atas tertutup atau 1 menit diam"),
+                        add(Row(Lang.T("Mode"), Lang.T("Otomatis: mini saat tertutup atau diam"),
                             Seg(new[] { Lang.T("Normal"), Lang.T("Mini"), Lang.T("Otomatis") }, mode == "normal" ? 0 : mode == "mini" ? 1 : 2, i => island.SetMiniMode(i == 0 ? "normal" : i == 1 ? "mini" : "auto"))));
                         add(Row(Lang.T("Notifikasi saat mini"), null, Switch("mini.notif", true, null)));
-                        add(Row(Lang.T("Mata"), null, Switch("island.eyes", true, null)));
-                        add(Row(Lang.T("Ikuti kursor"), null, Switch("island.follow", true, null)));
-                        cap(Lang.T("Tab panel"));
+                        add(Row(Lang.T("Mata"), null, Switch("island.eyes", true, on => { island.SetFlag("island.eyes", on); BeginInvoke(new Action(Relayout)); })));
+                        // Only means something while eyes show
+                        var follow = Switch("island.follow", true, null);
+                        follow.Enabled = settings.GetBool("island.eyes", true);
+                        add(Row(Lang.T("Ikuti kursor"), follow.Enabled ? Lang.T("Mata melirik ke arah kursor") : Lang.T("Nyalakan Mata dulu"), follow));
+                        bool byClick = settings.Get("panel.open", "hover") == "click";
+                        var delay = Slider(150, 800, 50, settings.GetInt("panel.delay", 330), v => v + " ms", v => { settings.Set("panel.delay", v); settings.Save(); });
+                        delay.Enabled = !byClick;
+                        add(Row(Lang.T("Buka panel"), null, Seg(new[] { Lang.T("Arahkan kursor"), Lang.T("Klik") }, byClick ? 1 : 0, i =>
+                        {
+                            island.SetChoice("panel.open", i == 1 ? "click" : "hover");
+                            delay.Enabled = i == 0;
+                        })));
+                        add(Row(Lang.T("Jeda buka"), Lang.T("Sebelum panel terbuka"), delay));
+                        cap(Lang.T("Pengecualian aplikasi"));
+                        var rules = island.ExceptRules();
+                        foreach (var rule in rules)
+                        {
+                            var r = rule;
+                            var modes = new[] { Lang.T("Sembunyikan island"), Lang.T("Tanpa notifikasi"), Lang.T("Hapus dari daftar") };
+                            var appRow = Row(r.Name, r.Exe, Popup(modes, r.Mode == ExceptQuiet ? 1 : 0, i =>
+                            {
+                                if (i == 2) rules.Remove(r);
+                                else r.Mode = i == 1 ? ExceptQuiet : ExceptHide;
+                                island.SaveExceptRules(rules);
+                                if (i == 2) BeginInvoke(new Action(Relayout));
+                            }));
+                            appRow.Glyph = '\uE71D';
+                            add(appRow);
+                        }
+                        KitButton pick = null;
+                        pick = Button(Lang.T("Pilih aplikasi"), false, delegate
+                        {
+                            var m = new ContextMenuStrip();
+                            foreach (var app in island.OpenApps())
+                            {
+                                var a = app;
+                                bool listed = rules.Exists(x => x.Exe == a.Exe);
+                                m.Items.Add(new ToolStripMenuItem(a.Name, null, delegate
+                                {
+                                    rules.Add(a);
+                                    island.SaveExceptRules(rules);
+                                    BeginInvoke(new Action(Relayout));
+                                }) { Enabled = !listed, ToolTipText = a.Exe });
+                            }
+                            if (m.Items.Count == 0) m.Items.Add(new ToolStripMenuItem(Lang.T("Tidak ada jendela aplikasi yang terbuka")) { Enabled = false });
+                            MenuLook.Apply(m);
+                            m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
+                            m.Show(pick, new Point(0, pick.Height));
+                        });
+                        add(Row(Lang.T("Tambah aplikasi"), Lang.T("Island menyingkir atau diam saat aplikasinya di depan"), pick));
+                        break;
+                    case "tabs":
                         string style = settings.Get("tabs.style", "auto");
-                        add(Row(Lang.T("Gaya tab"), Lang.T("Otomatis: titik bila lebih dari tujuh tab"),
+                        add(Row(Lang.T("Gaya tab"), Lang.T("Otomatis: titik bila tab banyak"),
                             Seg(new[] { Lang.T("Otomatis"), Lang.T("Ikon"), Lang.T("Titik") }, style == "icons" ? 1 : style == "dots" ? 2 : 0, i => island.SetChoice("tabs.style", i == 1 ? "icons" : i == 2 ? "dots" : "auto"))));
                         var openNames = new List<string> { Lang.T("Tab pertama") };
                         foreach (var n in PageNames) openNames.Add(Lang.T(n));
@@ -540,31 +793,44 @@ namespace Tepi
                         tabFocus.Clear();
                         foreach (int pg in order) add(TabRow(pg));
                         break;
-                    case "activity":
+                    case "music":
                         add(Row(Lang.T("Lirik di island"), null, Switch("lyrics", true, null)));
                         add(Row(Lang.T("Cari lirik online"), Lang.T("Judul, artis, dan durasi ke LRCLIB, cadangannya NetEase"), Switch("lyrics.online", true, null)));
                         add(Row(Lang.T("Visualizer"), null, Switch("visualizer", true, null)));
-                        cap(Lang.T("Pesan"));
+                        break;
+                    case "messages":
                         add(Row(Lang.T("Notifikasi pesan"), null, Switch("notif", true, on => { island.SetFlag("notif", on); Relayout(); })));
                         var body = Switch("notif.content", true, null);
                         body.Enabled = settings.GetBool("notif", true);
                         add(Row(Lang.T("Tampilkan isi pesan"), body.Enabled ? null : Lang.T("Ikut notifikasi pesan"), body));
+                        add(ListRow(Lang.T("Aplikasi chat tambahan"), Lang.T("Nama aplikasi dipisah koma, Enter menyimpan"), "notif.apps", "Element, Zalo"));
+                        add(ListRow(Lang.T("Pengirim prioritas"), Lang.T("Tetap muncul saat Senyap, Enter menyimpan"), "notif.vip", Lang.T("Ibu, dosen")));
+                        break;
+                    case "system":
                         cap(Lang.T("Keyboard"));
                         add(Row("Caps Lock", Lang.T("HUD saat ditekan, penanda selama nyala"), Switch("keys.caps", true, null)));
                         add(Row("Num Lock, Scroll Lock", Lang.T("HUD saat ditekan"), Switch("keys.num", false, null)));
                         add(Row(Lang.T("Bahasa input"), Lang.T("HUD saat layout keyboard berganti"), Switch("keys.lang", true, null)));
+                        cap(Lang.T("Perangkat"));
+                        int[] unplugAt = { 0, 80, 85, 90 };
+                        add(Row(Lang.T("Ingatkan cabut charger"), Lang.T("Menjaga umur baterai"), Popup(new[] { Lang.T("Mati"), "80%", "85%", "90%" }, Math.Max(0, Array.IndexOf(unplugAt, settings.GetInt("battery.unplug", 0))), i => { settings.Set("battery.unplug", unplugAt[i]); settings.Save(); })));
+                        add(Row(Lang.T("Flashdisk"), Lang.T("Saat dicolok, dengan tombol Buka dan Keluarkan"), Switch("drives", true, null)));
                         cap(Lang.T("Lainnya"));
                         add(Row(Lang.T("Kelas yang berlangsung"), null, Switch("class.island", true, null)));
                         add(Row(Lang.T("Progres unduhan"), null, Switch("downloads", true, null)));
-                        add(Row(Lang.T("Riwayat clipboard"), Lang.T("Hanya di memori"), Switch("clipboard", false, null)));
-                        int[] unplugAt = { 0, 80, 85, 90 };
-                        add(Row(Lang.T("Ingatkan cabut charger"), Lang.T("Menjaga umur baterai"), Popup(new[] { Lang.T("Mati"), "80%", "85%", "90%" }, Math.Max(0, Array.IndexOf(unplugAt, settings.GetInt("battery.unplug", 0))), i => { settings.Set("battery.unplug", unplugAt[i]); settings.Save(); })));
                         add(Row(Lang.T("Mode rapat"), Lang.T("Mikrofon dipakai lebih dari 20 detik: durasi tampil, notifikasi biasa ditahan"), Switch("meeting", true, null)));
-                        add(Row(Lang.T("Flashdisk"), Lang.T("Saat dicolok, dengan tombol Buka dan Keluarkan"), Switch("drives", true, null)));
-                        add(Row(Lang.T("Preview screenshot"), Lang.T("Gambar yang disalin tampil di island; salinan sementara dihapus saat Tepi ditutup"), Switch("shots", true, null)));
+                        break;
+                    case "files":
+                        cap(Lang.T("Rak"));
                         add(Row(Lang.T("Rak berkas"), Lang.T("Jalur berkas saja, hanya di memori"), Switch("shelf", true, null)));
+                        add(Row(Lang.T("Simpan isi rak"), Lang.T("Jalur berkas tetap ada setelah Tepi dibuka lagi"), Switch("shelf.keep", false, on => { settings.Set("shelf.keep", on); settings.Save(); island.SaveShelf(); })));
+                        int[] expireAt = { 0, 24, 72 };
+                        add(Row(Lang.T("Kosongkan rak otomatis"), null, Popup(new[] { Lang.T("Tidak"), Lang.T("Setelah 1 hari"), Lang.T("Setelah 3 hari") },
+                            Math.Max(0, Array.IndexOf(expireAt, settings.GetInt("shelf.expire", 0))), i => { settings.Set("shelf.expire", expireAt[i]); settings.Save(); })));
+                        cap(Lang.T("Berkas dan gambar"));
                         add(Row(Lang.T("Ubah format"), Lang.T("Kotak di samping Rak saat berkas diseret ke island"), Switch("convert", true, null)));
-                        add(Row(Lang.T("Istirahat fokus"), null, Slider(1, 30, 1, settings.GetInt("focus.break", 5), v => v + Lang.T(" menit"), v => { settings.Set("focus.break", v); settings.Save(); })));
+                        add(Row(Lang.T("Riwayat clipboard"), Lang.T("Hanya di memori"), Switch("clipboard", false, null)));
+                        add(Row(Lang.T("Preview screenshot"), Lang.T("Gambar yang disalin tampil di island"), Switch("shots", true, null)));
                         break;
                     case "agents":
                         island.HooksInstalled();
@@ -580,9 +846,13 @@ namespace Tepi
                             string aid = agentId;
                             bool present = AgentSetup.Present(aid), on = false;
                             try { on = present && AgentSetup.Installed(aid); } catch (Exception) { }
-                            add(Row(AgentSetup.Label(aid), !present ? Lang.T("tidak ditemukan") : on ? Lang.T("terhubung") : Lang.T("belum terhubung"),
-                                AgentButton(present, on, delegate { island.ToggleAgent(aid); Relayout(); })));
+                            var agentRow = Row(AgentSetup.Label(aid), !present ? Lang.T("tidak ditemukan") : on ? Lang.T("terhubung") : Lang.T("belum terhubung"),
+                                AgentButton(present, on, delegate { island.ToggleAgent(aid); Relayout(); }));
+                            agentRow.Glyph = '\uE756';
+                            add(agentRow);
                         }
+                        cap(Lang.T("Pemberitahuan"));
+                        add(Row(Lang.T("Suara"), Lang.T("Saat agen minta izin atau selesai, dan saat --run selesai"), Switch("sound.agent", false, null)));
                         cap(Lang.T("Server hook"));
                         int port = island.hub != null ? island.hub.Port : settings.GetInt("agent.port", 47821);
                         add(Row(Lang.F("Port {0}", port), port == 47821 ? Lang.T("Port bawaan lama; port acak lebih sulit ditebak") : Lang.T("Hanya bisa dijangkau dari laptop ini"),
@@ -603,10 +873,26 @@ namespace Tepi
                             add(Row(pair != null ? pair : island.phone.IsPaired ? Lang.F("Tersambung ke {0}", island.phone.Device) : Lang.T("Belum ada HP"),
                                 pair != null ? Lang.F("Alamat {0} · berlaku 5 menit", pc) : Lang.F("Alamat {0}", pc),
                                 Button(island.phone.IsPaired ? Lang.T("Ganti HP") : Lang.T("Buat kode"), false, delegate { island.phone.Forget(); island.phone.NewCode(); Relayout(); })));
+                            if (pair != null)
+                            {
+                                var link = island.phone;
+                                var qr = new KitQr(PhoneLink.PairLink(link.Port, pair)) { Size = new Size((int)(168 * Ui), (int)(168 * Ui)), AccessibleName = Lang.T("Kode QR pasangan") };
+                                // Paired, expired, or replaced: rebuild
+                                qr.StillValid = () => link.Code == pair;
+                                qr.Expired += () => BeginInvoke(new Action(Relayout));
+                                var qrRow = Row(Lang.T("Pindai dari HP"), Lang.T("Di HP: Integrasi › Laptop › Pindai QR"), qr);
+                                qrRow.Height = (int)(188 * Ui);
+                                add(qrRow);
+                            }
                         }
                         cap(Lang.T("Dari HP"));
-                        add(Row(Lang.T("Notifikasi HP"), Lang.T("Pesan dari HP ikut masuk ke Pesan"), Switch("phone.notifs", true, null)));
-                        add(Row(Lang.T("Kode OTP"), Lang.T("Kode verifikasi tampil di island, terhapus dari clipboard setelah 1 menit"), Switch("phone.otp", true, null)));
+                        // Meaningless until a phone is linked
+                        bool linked = island.phone != null;
+                        var fromNotifs = Switch("phone.notifs", true, null);
+                        var fromOtp = Switch("phone.otp", true, null);
+                        fromNotifs.Enabled = fromOtp.Enabled = linked;
+                        add(Row(Lang.T("Notifikasi HP"), linked ? Lang.T("Pesan dari HP ikut masuk ke Pesan") : Lang.T("Nyalakan Hubungkan HP dulu"), fromNotifs));
+                        add(Row(Lang.T("Kode OTP"), linked ? Lang.T("Di island; hilang dari clipboard 1 menit kemudian") : Lang.T("Nyalakan Hubungkan HP dulu"), fromOtp));
                         break;
                     case "kulia":
                     case "integrasi":
@@ -637,19 +923,37 @@ namespace Tepi
                         add(Row(Lang.T("Istirahat mata 20-20-20"), Lang.T("Tiap 20 menit di layar, pandang jauh 20 detik"), Switch("eyes", false, null)));
                         add(Row(Lang.T("Peregangan"), null, Switch("stretch", false, null)));
                         add(Row(Lang.T("Selang peregangan"), null, Slider(30, 120, 15, settings.GetInt("stretch.every", 60), v => v + Lang.T(" menit"), v => { settings.Set("stretch.every", v); settings.Save(); })));
+                        cap(Lang.T("Timer"));
+                        add(Row(Lang.T("Istirahat fokus"), null, Slider(1, 30, 1, settings.GetInt("focus.break", 5), v => v + Lang.T(" menit"), v => { settings.Set("focus.break", v); settings.Save(); })));
                         break;
                     case "access":
                         add(Row(Lang.T("Tampil di rekaman layar"), Lang.T("Ikut screenshot dan screen share, tanpa efek kaca"), Switch("capture.show", false, null)));
                         add(Row(Lang.T("Umumkan ke pembaca layar"), null, Switch("a11y.announce", true, null)));
                         string motion = settings.Get("motion.reduce", "auto");
                         add(Row(Lang.T("Kurangi gerak"), Lang.T("Tanpa pantulan dan efek terbang"),
-                            Seg(new[] { Lang.T("Ikuti Windows"), Lang.T("Nyala"), Lang.T("Mati") }, motion == "1" ? 1 : motion == "0" ? 2 : 0, i => island.SetChoice("motion.reduce", i == 1 ? "1" : i == 2 ? "0" : "auto"))));
+                            Seg(new[] { Lang.T("Otomatis"), Lang.T("Nyala"), Lang.T("Mati") }, motion == "1" ? 1 : motion == "0" ? 2 : 0, i => island.SetChoice("motion.reduce", i == 1 ? "1" : i == 2 ? "0" : "auto"))));
+                        string feel = settings.Get("motion.feel", "bawaan");
+                        add(Row(Lang.T("Gerak"), Lang.T("Kecepatan dan pantulan island"),
+                            Seg(new[] { Lang.T("Tenang"), Lang.T("Bawaan"), Lang.T("Lincah") }, feel == "tenang" ? 0 : feel == "lincah" ? 2 : 1, i => island.SetChoice("motion.feel", i == 0 ? "tenang" : i == 2 ? "lincah" : "bawaan"))));
                         add(Row(Lang.T("Senyap"), Lang.T("Hanya izin, tenggat, sholat, dan timer yang muncul"), Switch("dnd", false, null)));
+                        add(Row(Lang.T("Senyap ikut Windows"), Lang.T("Ikut menyala saat Jangan ganggu Windows aktif"), Switch("dnd.follow", false, null)));
+                        break;
+                    case "keys":
+                        // How to change, said once up top
+                        cap(Lang.T("Klik pintasan, lalu tekan kombinasi baru. Backspace mengosongkan, Esc batal."));
+                        bool prompterCap = false;
+                        foreach (var d in Hotkeys)
+                        {
+                            if (d.Prompter && !prompterCap) { cap(Lang.T("Teleprompter, hanya selama berjalan")); prompterCap = true; }
+                            add(HotkeyRow(d));
+                        }
+                        flush();
+                        add(Row(Lang.T("Pintasan bawaan"), null, Button(Lang.T("Kembalikan"), false, delegate { island.ResetHotkeys(); Relayout(); })));
                         break;
                     case "about":
                         add(VersionRow(Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); })));
                         add(UpdateRow());
-                        add(Row(Lang.T("Layanan luar"), Lang.T("LRCLIB, NetEase, Kulia, GitHub, Open-Meteo, dan integrasi yang tersambung; semuanya bisa dimatikan"), null));
+                        add(Row(Lang.T("Layanan luar"), Lang.T("Lirik, Kulia, GitHub, cuaca, dan integrasi; semua bisa dimatikan"), null));
                         // QRIS dialog lives on the site
                         add(Row(Lang.T("Traktir Tepi kopi"), Lang.T("QRIS, dari bank atau e-wallet mana pun"), Button(Lang.T("Traktir"), false, delegate { OpenUrl("https://odlaver.github.io/tepi/#kopi"); })));
                         cap(Lang.F("Dibuat oleh {0}", "R. Revaldo Vabiansyah"));
@@ -890,9 +1194,17 @@ namespace Tepi
             public event Action<string> Picked;
             int hover = -1;
 
-            float RowH { get { return 34 * Ui; } }
+            float RowH { get { return 32 * Ui; } }
 
-            RectangleF Cell(int i) { float s = Ui; return new RectangleF(10 * s, 6 * s + i * RowH, Width - 20 * s, RowH - 2 * s); }
+            // Groups sit apart so the eye finds them
+            RectangleF Cell(int i)
+            {
+                float s = Ui;
+                int group = Items[i].Length > 3 ? int.Parse(Items[i][3]) : 0;
+                return new RectangleF(10 * s, 6 * s + i * RowH + group * GroupGap * s, Width - 20 * s, RowH - 2 * s);
+            }
+
+            const float GroupGap = 10;
 
             int IndexOf(string id) { for (int i = 0; i < Items.Count; i++) if (Items[i][0] == id) return i; return -1; }
 

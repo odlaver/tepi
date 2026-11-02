@@ -174,11 +174,58 @@ namespace Tepi
             p.Image(s.Thumb, thumb, 10);
             p.StrokeRound(thumb, 10, Ink.A(p.T.Text, 0.14f), 1f);
             float x = thumb.Right + 14, pw = 52, gap = 6;
-            float right = w - 16 - pw * 2 - gap;
+            int pills = OcrShown ? 3 : 2;
+            float right = w - 16 - pw * pills - gap * (pills - 1);
             p.Text(s.Found != null ? Lang.T("Screenshot") : Lang.T("Gambar disalin"), Ink.Semi(13.5f), p.T.Text, x, cy - 10, right - x - 8, StringAlignment.Near);
-            p.Text(s.W + " × " + s.H, Ink.Text(12.5f), p.T.Sub, x, cy + 11, right - x - 8, StringAlignment.Near);
+            p.Text(ocrBusy ? Lang.T("Membaca teks…") : s.W + " × " + s.H, Ink.Text(12.5f), p.T.Sub, x, cy + 11, right - x - 8, StringAlignment.Near);
+            if (OcrShown) { Pill(new RectangleF(right, cy - 15, pw, 30), "shotText", Lang.T("Teks"), PillKind.Secondary, delegate { CopyText(s.Path); }, ready && !ocrBusy); right += pw + gap; }
             Pill(new RectangleF(right, cy - 15, pw, 30), "shotShelf", Lang.T("Rak"), PillKind.Secondary, delegate { ShelveShot(); }, ready);
             Pill(new RectangleF(right + pw + gap, cy - 15, pw, 30), "shotOpen", Lang.T("Buka"), PillKind.Secondary, delegate { OpenShot(); }, ready);
+        }
+
+        // Checked on first need, not at startup: OCR runtime costs memory
+        bool OcrShown
+        {
+            get
+            {
+                if (!ocrKnown && !ocrProbing)
+                {
+                    ocrProbing = true;
+                    ThreadPool.QueueUserWorkItem(delegate { ocrReady = Ocr.Available; ocrKnown = true; Post(Kick); });
+                }
+                return ocrKnown && ocrReady;
+            }
+        }
+        volatile bool ocrKnown, ocrReady, ocrBusy, ocrProbing;
+
+        // Menus can't wait for the async check
+        bool OcrNow()
+        {
+            if (!ocrKnown) { ocrReady = Ocr.Available; ocrKnown = true; }
+            return ocrReady;
+        }
+
+        // Read, then copy; the toast says how it went
+        void CopyText(string path)
+        {
+            if (path == null || ocrBusy) return;
+            ocrBusy = true;
+            Kick();
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                string text = null;
+                try { text = Ocr.Read(path); }
+                catch (Exception ex) { Log.Write("ocr read: " + ex.Message); }
+                Post(() =>
+                {
+                    ocrBusy = false;
+                    if (string.IsNullOrEmpty(text)) { ShowInfo('\uE8C8', Lang.T("Tidak ada teks terbaca"), "", true); return; }
+                    try { Clipboard.SetText(text); }
+                    catch (Exception ex) { Log.Write("ocr copy: " + ex.Message); return; }
+                    int lines = text.Split('\n').Length;
+                    ShowInfo('\uE8C8', Lang.T("Teks disalin"), Lang.F("{0} baris", lines), true);
+                });
+            });
         }
 
         void ShelveShot()

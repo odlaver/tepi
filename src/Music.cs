@@ -78,6 +78,44 @@ namespace Tepi
             return !hasLyrics;
         }
 
+        // Cover click: the player's window to the front
+        void OpenPlayer()
+        {
+            string id = mediaInfo.AppId;
+            if (id.Length == 0) return;
+            if (id.IndexOf('!') < 0)
+            {
+                string exe = id.Substring(id.LastIndexOf('\\') + 1);
+                if (exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) exe = exe.Substring(0, exe.Length - 4);
+                foreach (var proc in System.Diagnostics.Process.GetProcessesByName(exe))
+                    try { if (proc.MainWindowHandle != IntPtr.Zero && TerminalFinder.Focus(proc.MainWindowHandle)) return; }
+                    finally { proc.Dispose(); }
+            }
+            // Store apps and the rest: shell activation
+            try { System.Diagnostics.Process.Start("explorer.exe", "shell:AppsFolder\\" + id); }
+            catch (Exception ex) { Log.Write("open player: " + ex.Message); }
+        }
+
+        void PlayerMenu()
+        {
+            if (!mediaInfo.Present) return;
+            var m = new System.Windows.Forms.ContextMenuStrip();
+            m.Items.Add(Lang.F("Buka {0}", mediaInfo.App), null, delegate { OpenPlayer(); });
+            if (mediaInfo.Sources.Length > 1)
+            {
+                m.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+                m.Items.Add(new System.Windows.Forms.ToolStripMenuItem(Lang.T("Tampilkan dari")) { Enabled = false });
+                foreach (var src in mediaInfo.Sources)
+                {
+                    string id = src[0];
+                    m.Items.Add(new System.Windows.Forms.ToolStripMenuItem(src[1], null, delegate { media.Prefer(id); }) { Checked = id == mediaInfo.AppId });
+                }
+            }
+            StyleMenu(m);
+            m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
+            m.Show(System.Windows.Forms.Control.MousePosition);
+        }
+
         void ToggleMusicView()
         {
             settings.Set("music.view", AlbumMode() ? "lyrics" : "album");
@@ -253,7 +291,7 @@ namespace Tepi
         {
             if (!mediaInfo.Present || mediaInfo.Title.Length == 0)
             {
-                Empty(w, '', Lang.T("Tidak ada yang diputar"), Lang.T("Spotify, YouTube Music, Apple Music, browser, VLC, dan pemutar lain"));
+                Empty(w, '\uE8D6', Lang.T("Tidak ada yang diputar"), Lang.T("Spotify, YouTube Music, Apple Music, browser, VLC, dan pemutar lain"));
                 return;
             }
             bool album = AlbumMode();
@@ -296,11 +334,34 @@ namespace Tepi
             LiveRect(new RectangleF(x0 - 8, y - 26, x1 - x0 + 16, 54), mediaInfo.Playing && !active ? 4 : 0, () => ProgressSig(x1 - x0), t => PaintProgressRow(x0, x1, y, active, t));
         }
 
+        const char IcoShuffle = '\uE8B1', IcoRepeatAll = '\uE8EE', IcoRepeatOne = '\uE8ED';
+
         int ProgressSig(float width)
         {
             if (mediaInfo.DurationMs <= 0) return 0;
             double pos = mediaInfo.Position(frameNow);
             return (int)(pos / 1000) * 100003 + (int)(pos / mediaInfo.DurationMs * width * scale * 2);
+        }
+
+        // Shuffle under back, repeat under next
+        void DrawModes(float cx, float cy, float gap)
+        {
+            if (mediaInfo.CanShuffle)
+                ModeButton(IcoShuffle, mediaInfo.Shuffle, "shuffle", cx - gap, cy, delegate { media.SetShuffle(!mediaInfo.Shuffle); });
+            if (mediaInfo.CanRepeat)
+                ModeButton(mediaInfo.Repeat == 1 ? IcoRepeatOne : IcoRepeatAll, mediaInfo.Repeat > 0, "repeat", cx + gap, cy,
+                           delegate { media.SetRepeat((mediaInfo.Repeat + 1) % 3); });
+        }
+
+        // On: accent pill; off: plain glyph
+        void ModeButton(char glyph, bool on, string id, float cx, float cy, Action act)
+        {
+            var r = new RectangleF(cx - 16, cy - 14, 32, 28);
+            AddHit(r, id, act);
+            bool hover = Hover(id);
+            if (on) p.FillRound(r, 14, Ink.A(p.T.Accent, 0.22f));
+            else if (hover) p.FillRound(r, 14, p.T.Fill);
+            p.Icon(glyph, 14f, on ? p.T.Accent : hover ? p.T.Text : p.T.Sub, cx, cy);
         }
 
         void PaintProgressRow(float x0, float x1, float y, bool active, DateTime now)
@@ -322,6 +383,7 @@ namespace Tepi
             var cover = new RectangleF(24, 64, 120, 120);
             DrawCoverShadow(cover, 16);
             DrawCover(cover, 16);
+            AddHit(cover, "cover", OpenPlayer, null, PlayerMenu);
             DrawTransport(cover.X + cover.Width / 2, 214, false);
             float tx = 166, tw = w - tx - 24;
             FitText(mediaInfo.Title, 18f, 14f, p.T.Text, tx, 78, tw - 40);
@@ -345,6 +407,7 @@ namespace Tepi
             double pc = Prof.T();
             DrawCoverShadow(cover, 14);
             DrawCover(cover, 14);
+            AddHit(cover, "cover", OpenPlayer, null, PlayerMenu);
             Prof.Add("cover", pc);
             float tx = 252, tw = w - tx - 26;
             double pt = Prof.T();
@@ -382,6 +445,7 @@ namespace Tepi
             float gap = bold ? 58 : 40;
             DrawControl(new RectangleF(cx - gap - 17, cy - 17, 34, 34), "prev", delegate { media.Previous(); }, (r, c) => p.Skip(r.X + 17, r.Y + 17, 12, c, false));
             DrawControl(new RectangleF(cx + gap - 17, cy - 17, 34, 34), "next", delegate { media.Next(); }, (r, c) => p.Skip(r.X + 17, r.Y + 17, 12, c, true));
+            DrawModes(cx, cy + (bold ? 46 : 40), gap);
             if (!bold)
             {
                 DrawControl(new RectangleF(cx - 19, cy - 19, 38, 38), "play", delegate { media.TogglePlay(); },

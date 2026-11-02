@@ -32,8 +32,8 @@ namespace Tepi
     {
         // Motion at 30 fps; times each second
         const float LiveFps = 30, TickFps = 1;
-        // Bars at 30 fps, vsync aligned
-        const float BarsLiveFps = 30;
+        // Bars at 24 fps, one FFT each
+        const float BarsLiveFps = 24;
         readonly List<LiveSlot> slots = new List<LiveSlot>();
         int slotCount, liveInline, framePxW, framePxH;
         // Steady frames record; partial frames replay

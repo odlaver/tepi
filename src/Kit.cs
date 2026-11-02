@@ -308,6 +308,8 @@ namespace Tepi
     {
         public int Minimum, Maximum = 100, Step = 1, Value;
         public Func<int, string> Format = v => v.ToString();
+        // Value text left of the track
+        public bool ShowValue;
         public event Action<int> Changed;
         bool dragging;
 
@@ -322,7 +324,9 @@ namespace Tepi
             if (h != null) h(v);
         }
 
-        RectangleF Track { get { float s = Ui; return new RectangleF(10 * s, Height / 2f - 3 * s, Width - 20 * s, 6 * s); } }
+        float LabelW { get { return ShowValue ? 84 * Ui : 0; } }
+
+        RectangleF Track { get { float s = Ui, l = LabelW; return new RectangleF(l + 10 * s, Height / 2f - 3 * s, Width - l - 20 * s, 6 * s); } }
 
         int At(int x) { var t = Track; return Minimum + (int)Math.Round((Maximum - Minimum) * Ease.Clamp01((x - t.X) / Math.Max(1, t.Width))); }
 
@@ -353,6 +357,10 @@ namespace Tepi
             float r = (dragging || Hovered ? 9 : 8) * s, cx = t.X + t.Width * f, cy = t.Y + t.Height / 2;
             using (var b = new SolidBrush(KitInk.Text)) g.FillEllipse(b, cx - r, cy - r, r * 2, r * 2);
             using (var pen = new Pen(KitInk.Line, 1f)) g.DrawEllipse(pen, cx - r, cy - r, r * 2, r * 2);
+            if (ShowValue)
+                using (var f2 = new Font(Ink.MenuFamily, 12f * s, GraphicsUnit.Pixel))
+                    TextRenderer.DrawText(g, Format(Value), f2, new Rectangle(0, 0, (int)LabelW, Height), Enabled ? KitInk.Sub : KitInk.Faint,
+                        TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
             Ring(g, new RectangleF(1, 1, Width - 3, Height - 3), Height / 2f);
         }
 
@@ -514,7 +522,8 @@ namespace Tepi
         void DrawGlyph(Graphics g, float s)
         {
             KitInk.Smooth(g);
-            var tile = new RectangleF((14 + Lead) * s, (Height - 30 * s) / 2, 30 * s, 30 * s);
+            // Tall rows keep the tile beside the title
+            var tile = new RectangleF((14 + Lead) * s, Height > 80 * s ? 16 * s : (Height - 30 * s) / 2, 30 * s, 30 * s);
             using (var path = Ink.Round(tile, 8 * s))
             using (var b = new SolidBrush(KitInk.Hover)) g.FillPath(b, path);
             // Mark glyph: Tepi's own pill

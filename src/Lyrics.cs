@@ -23,6 +23,8 @@ namespace Tepi
         public List<LyricLine> Lines = new List<LyricLine>();
         public DateTime FailedUtc;
         public int Fails;
+        // User shift already added to AtMs
+        public double Shift;
 
         // Line sung at posMs, or -1
         public int IndexAt(double posMs)

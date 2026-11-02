@@ -72,6 +72,7 @@ namespace Tepi
             }
             droppedCount = added;
             droppedUtc = DateTime.UtcNow;
+            SaveShelf();
             Kick();
         }
 
@@ -80,7 +81,9 @@ namespace Tepi
             int at = shelf.IndexOf(item);
             if (at < 0) return;
             shelf.RemoveAt(at);
+            shelfPicked.Remove(item.Id);
             if (item.Thumb != null) item.Thumb.Dispose();
+            SaveShelf();
             Kick();
         }
 
@@ -88,6 +91,8 @@ namespace Tepi
         {
             foreach (var s in shelf) if (s.Thumb != null) s.Thumb.Dispose();
             shelf.Clear();
+            shelfPicked.Clear();
+            SaveShelf();
             Kick();
         }
 
@@ -169,7 +174,7 @@ namespace Tepi
             pressedId = null;
             try
             {
-                var data = new DataObject(DataFormats.FileDrop, new[] { item.Path });
+                var data = new DataObject(DataFormats.FileDrop, ShelfDragPaths(item));
                 DoDragDrop(data, DragDropEffects.Copy | DragDropEffects.Link);
             }
             catch (Exception ex) { Log.Write("shelf drag: " + ex.Message); }
@@ -196,9 +201,13 @@ namespace Tepi
             m.Items.Add(Lang.T("Buka"), null, delegate { OpenShelfItem(item); });
             m.Items.Add(Lang.T("Tampilkan di folder"), null, delegate { RevealShelfItem(item); });
             m.Items.Add(Lang.T("Salin jalur"), null, delegate { try { Clipboard.SetText(item.Path); } catch (Exception) { } });
+            string ext = Path.GetExtension(item.Path).ToLowerInvariant();
+            if (OcrNow() && (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".gif" || ext == ".tif" || ext == ".tiff"))
+                m.Items.Add(Lang.T("Salin teks"), null, delegate { CopyText(item.Path); });
             if (PhonePaired && File.Exists(item.Path)) m.Items.Add(Lang.T("Kirim ke HP"), null, delegate { SendToPhone(item.Path); });
             m.Items.Add(new ToolStripSeparator());
             m.Items.Add(Lang.T("Keluarkan dari rak"), null, delegate { Vanish(new[] { ShelfCellRect(item) }, false); RemoveFromShelf(item); });
+            if (shelfPicked.Count > 1 && shelfPicked.Contains(item.Id)) m.Items.Add(Lang.F("Keluarkan {0} yang dipilih", shelfPicked.Count), null, delegate { RemovePicked(); });
             StyleMenu(m);
             m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
             m.Show(Control.MousePosition);
@@ -211,8 +220,11 @@ namespace Tepi
         float ShelfContentH()
         {
             int cols = ShelfCols(PanelW);
-            return (shelf.Count + cols) / cols * ShelfCellH;
+            return (shelf.Count + ShelfLead + cols - 1) / cols * ShelfCellH;
         }
+
+        // Add cell, plus Paste while the clipboard has some
+        int ShelfLead { get { return shelfPaste ? 2 : 1; } }
 
         float ShelfHeight()
         {
@@ -240,7 +252,12 @@ namespace Tepi
             if (shelf.Count == 0)
             {
                 float by = Empty(w, '', Lang.T("Rak kosong"), Lang.T("Seret berkas ke island, atau pilih dari folder"));
-                Button(new RectangleF(w / 2 - 74, by, 148, 34), "shelfPick", Lang.T("Pilih berkas"), true, PickShelfFiles);
+                if (shelfPaste)
+                {
+                    Button(new RectangleF(w / 2 - 148, by, 140, 34), "shelfPick", Lang.T("Pilih berkas"), true, PickShelfFiles);
+                    Button(new RectangleF(w / 2 + 8, by, 140, 34), "shelfPasteBtn", Lang.T("Tempel"), false, PasteToShelf);
+                }
+                else Button(new RectangleF(w / 2 - 74, by, 148, 34), "shelfPick", Lang.T("Pilih berkas"), true, PickShelfFiles);
                 return;
             }
             int cols = ShelfCols(w);
@@ -249,7 +266,8 @@ namespace Tepi
             var st = g.Save();
             g.IntersectClip(area);
             shelfCells.Clear();
-            for (int i = 0; i <= shelf.Count; i++)
+            int lead = ShelfLead;
+            for (int i = 0; i < shelf.Count + lead; i++)
             {
                 float dy, a = RowIn(i / cols, now, out dy);
                 var cell = new RectangleF(x0 + (i % cols) * ShelfCellW, area.Y + (i / cols) * ShelfCellH - shelfScroll.Value + dy, ShelfCellW, ShelfCellH);
@@ -257,9 +275,10 @@ namespace Tepi
                 float keep = p.Alpha;
                 p.Alpha = keep * a;
                 if (i == 0) DrawShelfAdd(cell);
+                else if (i < lead) DrawShelfPaste(cell);
                 else
                 {
-                    var item = shelf[i - 1];
+                    var item = shelf[i - lead];
                     shelfCells[item.Id] = new RectangleF(cell.X + originX, cell.Y + originY + hitDy, cell.Width, cell.Height);
                     DrawShelfCell(item, cell);
                 }
@@ -285,6 +304,22 @@ namespace Tepi
             p.Text(Lang.T("Tambah"), Ink.Small(11f), hover ? p.T.Text : p.T.Sub, cell.X + cell.Width / 2, cell.Y + 82, cell.Width - 12, StringAlignment.Center);
         }
 
+        // Second cell while the clipboard has files or a picture
+        void DrawShelfPaste(RectangleF cell)
+        {
+            var hit = RectangleF.Inflate(cell, -4, -4);
+            AddHit(hit, "shelfPaste", PasteToShelf);
+            bool hover = Hover("shelfPaste");
+            if (hover) p.FillRound(hit, 16, Pressed("shelfPaste") ? p.T.FillHover : p.T.Fill);
+            var box = new RectangleF(cell.X + cell.Width / 2 - ShelfThumbPx / 2, cell.Y + 10, ShelfThumbPx, ShelfThumbPx);
+            using (var pen = new Pen(Ink.A(p.T.Text, (hover ? 0.6f : 0.35f) * p.Alpha), 1.4f) { DashPattern = new[] { 4f, 3f } })
+            using (var path = Ink.Round(box, 12)) g.DrawPath(pen, path);
+            p.Icon(IcoPaste, 20f, hover ? p.T.Text : p.T.Sub, box.X + box.Width / 2, box.Y + box.Height / 2);
+            p.Text(Lang.T("Tempel"), Ink.Small(11f), hover ? p.T.Text : p.T.Sub, cell.X + cell.Width / 2, cell.Y + 82, cell.Width - 12, StringAlignment.Center);
+        }
+
+        const char IcoPaste = '\uE77F';
+
         void PickShelfFiles()
         {
             using (var d = new OpenFileDialog { Multiselect = true, Title = Lang.T("Pilih berkas untuk rak"), RestoreDirectory = true })
@@ -301,12 +336,19 @@ namespace Tepi
             string id = "shelf" + item.Id, del = "shelfDel" + item.Id;
             var it = item;
             var hit = RectangleF.Inflate(cell, -4, -4);
-            AddHit(hit, id, delegate { OpenShelfItem(it); });
-            bool hover = Hover(id) || Hover(del);
-            if (hover) p.FillRound(hit, 16, Pressed(id) ? p.T.FillHover : p.T.Fill);
+            AddHit(hit, id, delegate { ShelfClick(it); });
+            bool hover = Hover(id) || Hover(del), picked = shelfPicked.Contains(item.Id);
+            if (hover || picked) p.FillRound(hit, 16, Pressed(id) || picked ? p.T.FillHover : p.T.Fill);
+            if (picked) p.StrokeRound(hit, 16, p.T.Accent, 1.6f);
             if (Pressed(id)) ShelfMouseDown(it);
             var thumb = new RectangleF(cell.X + cell.Width / 2 - ShelfThumbPx / 2, cell.Y + 10, ShelfThumbPx, ShelfThumbPx);
             DrawShelfThumb(item, thumb, 12);
+            // Check badge on the picked
+            if (picked)
+            {
+                p.Circle(thumb.X + 2, thumb.Y + 2, 9, p.T.Accent);
+                p.Icon('\uE73E', 10f, p.T.OnAccent, thumb.X + 2, thumb.Y + 2);
+            }
             p.Text(item.Name, Ink.Small(11f), p.T.Text, cell.X + cell.Width / 2, cell.Y + 82, cell.Width - 12, StringAlignment.Center);
             if (!hover) return;
             // Remove button over the thumbnail corner
@@ -323,7 +365,7 @@ namespace Tepi
             string ext = Path.GetExtension(item.Name).TrimStart('.').ToUpperInvariant();
             if (ext.Length > 4) ext = ext.Substring(0, 4);
             if (ext.Length > 0) p.TextCenter(ext, Ink.Semi(Math.Max(9f, r.Height * 0.22f)), p.T.Sub, r.X + r.Width / 2, r.Y + r.Height / 2);
-            else p.Icon('', r.Height * 0.4f, p.T.Sub, r.X + r.Width / 2, r.Y + r.Height / 2);
+            else p.Icon('\uE8B7', r.Height * 0.4f, p.T.Sub, r.X + r.Width / 2, r.Y + r.Height / 2);
         }
 
         // Compact drop target and its thanks

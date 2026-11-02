@@ -2,7 +2,7 @@
 
 Dynamic island untuk Windows. Tepi duduk di tepi atas layar dan membesar saat ada yang terjadi: lagu yang sedang diputar beserta liriknya, agent coding (Claude Code, Codex, Gemini CLI, Antigravity) yang sedang bekerja atau minta izin, tugas kuliah yang mendekati tenggat, pesan yang masuk, timer, dan pengingat sholat atau minum.
 
-Tampilannya mengikuti bahasa Liquid Glass: kaca jernih yang menyesuaikan terang latar di belakangnya, sudut kontinu seperti iOS, dan gerak pegas. Monokrom secara bawaan; paket tema memberi warna. Native C# tanpa browser engine, exe sekitar 826 KB. Tampilan tersedia dalam bahasa Indonesia dan Inggris.
+Tampilannya mengikuti bahasa Liquid Glass: kaca jernih yang menyesuaikan terang latar di belakangnya, sudut kontinu seperti iOS, dan gerak pegas. Monokrom secara bawaan; paket tema memberi warna. Native C# tanpa browser engine, exe sekitar 904 KB. Tampilan tersedia dalam bahasa Indonesia dan Inggris.
 
 Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian kecil yang hidup (visualizer, lirik, spinner, timer) digambar ulang sendiri, tepat pada refresh layar. Diukur di laptop Intel Core i3-1115G4 pada 1 November 2026, bergantian dengan versi 2.1 memakai lagu dan lirik tiruan yang sama, 45 detik per putaran, median 3 putaran:
 
@@ -12,7 +12,7 @@ Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian k
 | Panel terbuka selagi musik diputar | 0,7% CPU | 0,6% CPU |
 | Memori saat panel terbuka | sekitar 21 MB | sekitar 22 MB |
 
-Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan jumlah thread, jadi angka di sana lebih kecil. Sejak 2.2, visualizer dan lirik digambar 30 kali per detik tepat pada refresh layar, tanpa frame kosong di antaranya, jadi musik sekitar sepertiga lebih ringan. Sambungan HP mati sampai dinyalakan; selama menyala, Tepi hanya menunggu pesan dari HP.
+Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan jumlah thread, jadi angka di sana lebih kecil. Sejak 2.2, bagian yang hidup digambar tepat pada refresh layar, tanpa frame kosong di antaranya, jadi musik sekitar sepertiga lebih ringan. Di 2.5, visualizer turun ke 24 kali per detik dan penangkap suaranya hanya bangun sekali per frame. Diukur 2 November 2026 dengan menghitung siklus CPU, 2.5 dan 2.4 berjalan berdampingan: musik dengan visualizer 7% lebih ringan, island diam dengan musik 10% lebih ringan, panel terbuka sama, memori selisih 1 MB. Sambungan HP mati sampai dinyalakan; selama menyala, Tepi hanya menunggu pesan dari HP.
 
 ## Fitur
 
@@ -20,15 +20,15 @@ Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan juml
 |---|---|
 | Ringkasan | Kartu-kartu yang diurutkan menurut yang paling mendesak: lagu yang diputar beserta kontrolnya, agen yang bekerja, kelas berikutnya atau tenggat terdekat, pesan, timer, dan isi rak. Kalau tidak ada apa-apa, yang tampil jam besar. |
 | Musik dan lirik | Semua pemutar yang muncul di kontrol media Windows: Spotify, YouTube dan YouTube Music di browser, Apple Music, Media Player, VLC, dan lainnya. Yang sedang berbunyi yang ditampilkan. Judul video YouTube seperti "No Doubt - Don't Speak (Official Music Video)" diurai dulu jadi artis dan lagu sebelum liriknya dicari; video tanpa artis, seperti klip lokal, tidak dicarikan lirik. Lirik tersinkron dari LRCLIB (cadangannya NetEase) menyapu kata demi kata di island. Panel musik punya dua tata letak: teleprompter lirik atau kartu album dengan piringan hitam yang berputar. Visualizer membaca suara yang benar-benar diputar. |
-| Mini dan mata | Island bisa menyusut jadi sliver kecil di tepi atas yang tembus klik, jadi tidak menghalangi tab browser. Mode **Otomatis** (bawaan) menyusut saat jendela di depan menutupi tepi atas atau setelah island diam semenit. Sliver punya dua mata yang berkedip, mengikuti kursor, dan berekspresi. Pemberitahuan penting tetap muncul. |
+| Mini dan mata | Island bisa menyusut jadi sliver kecil di tepi atas yang tembus klik, jadi tidak menghalangi tab browser. Mode **Otomatis** (bawaan) menyusut saat jendela di depan menutupi tepi atas atau setelah island diam semenit. Sliver punya dua mata yang berkedip, mengikuti kursor, dan berekspresi: senang saat agent selesai, kaget saat pesan masuk, sedih saat agent atau perintah `--run` gagal, cemas saat kuota Claude 95%. Pemberitahuan penting tetap muncul. |
 | Agent coding | Claude Code, Codex, Gemini CLI, dan Antigravity. Status setiap sesi (sedang bekerja, menunggu izin, selesai beserta ringkasan balasannya). Rencana kerja agen (TodoWrite di Claude Code, `update_plan` di Codex, `write_todos` di Gemini) tampil sebagai bar bersegmen, hitungan seperti `3/7`, dan daftar langkah yang bisa dibuka. Permintaan izin dari Claude Code dan Codex bisa dijawab **Izinkan**, **Selalu**, atau **Tolak** langsung dari island; perubahan berkas tampil sebagai diff berwarna (baris tambah hijau, baris hapus merah) yang bisa digulir sampai habis sebelum diizinkan. Prompt singkat bisa dikirim ke terminal sesi dari tab Agen. Kuota Claude (jendela 5 jam dan 7 hari) tampil sebagai satu baris di tab Agen beserta jam resetnya, dengan peringatan di 80% dan 95%. |
-| Kuliah | Tab berisi dua segmen. **Tugas**: tugas aktif dari [Kulia](https://kulia.live), Notion, dan Todoist dengan tenggatnya, pengingat 60 menit sebelum tenggat, dan tombol tandai selesai. **Jadwal**: kelas dan acara dari Kulia serta kalender iCal (Google, Outlook, iCloud, dan lainnya) tujuh hari ke depan; kartu kelas berikutnya, deretan hari, lalu satu baris per kelas. Kelas batal dicoret, ujian ditandai, kelas daring punya tombol **Buka kelas**. Selama kelas berjalan, island menampilkannya beserta sisa waktunya. |
-| Pesan | WhatsApp, Telegram, Discord, Teams, Slack, email, dan aplikasi chat lain dari pusat notifikasi Windows. Di Ringkasan, pesan dikelompokkan per pengirim. |
-| Preview screenshot | Setelah Win+Shift+S, PrtSc, atau menyalin gambar, thumbnail muncul di island beserta ukurannya. Seret thumbnail ke aplikasi lain, taruh di Rak, atau buka. Kalau Snipping Tool sudah menyimpannya di folder Screenshots, berkas itu yang dipakai; kalau tidak, Tepi menyimpan salinan sementara yang dihapus saat Tepi ditutup. |
-| Rak | Tab berisi dua segmen. **Berkas**: seret berkas ke island (juga ke sliver Mini) lalu lepas di kotak **Taruh di rak**, atau klik kotak **Tambah** untuk memilih dari folder; panel langsung membuka Rak; berkas di rak bisa diseret lagi ke aplikasi lain (disalin, tidak dipindah), dibuka, atau ditampilkan di foldernya. Yang disimpan hanya jalurnya, di memori. **Clipboard**: 25 teks terakhir yang kamu salin, klik untuk menyalinnya lagi; hanya di memori dan mati sampai kamu menyalakannya. |
+| Kuliah | Tab berisi dua segmen. **Tugas**: tugas aktif dari [Kulia](https://kulia.live), Notion, dan Todoist dengan tenggatnya, pengingat 60 menit sebelum tenggat, dan tombol tandai selesai. **Jadwal**: kelas dan acara dari Kulia serta kalender iCal (Google, Outlook, iCloud, dan lainnya) tujuh hari ke depan; kartu kelas berikutnya, deretan hari, lalu satu baris per kelas. Kelas batal dicoret, ujian ditandai, kelas daring punya tombol **Buka kelas**. Selama kelas berjalan, island menampilkannya beserta sisa waktunya. Pengingat 15 menit sebelum kelas atau acara bisa diklik untuk membuka tautan kelas atau rapatnya. |
+| Pesan | WhatsApp, Telegram, Discord, Teams, Slack, email, dan aplikasi chat lain dari pusat notifikasi Windows. Di Ringkasan, pesan dikelompokkan per pengirim. Klik pesan untuk langsung membuka chat pengirimnya, sama seperti mengklik notifikasinya di Windows (WhatsApp dan aplikasi lain yang mendukungnya); kalau aplikasinya tidak mendukung, aplikasinya yang dibuka. |
+| Preview screenshot | Setelah Win+Shift+S, PrtSc, atau menyalin gambar, thumbnail muncul di island beserta ukurannya. Seret thumbnail ke aplikasi lain, taruh di Rak, buka, atau salin teks di dalamnya lewat **Teks** (juga dari klik kanan gambar di Rak). Kalau Snipping Tool sudah menyimpannya di folder Screenshots, berkas itu yang dipakai; kalau tidak, Tepi menyimpan salinan sementara yang dihapus saat Tepi ditutup. |
+| Rak | Tab berisi dua segmen. **Berkas**: seret berkas ke island (juga ke sliver Mini) lalu lepas di kotak **Taruh di rak**, atau klik kotak **Tambah** untuk memilih dari folder; panel langsung membuka Rak; berkas di rak bisa diseret lagi ke aplikasi lain (disalin, tidak dipindah), dibuka, atau ditampilkan di foldernya. Ctrl+klik atau Shift+klik untuk memilih beberapa berkas, lalu seret semuanya sekaligus. Saat clipboard berisi berkas atau gambar, kotak **Tempel** muncul di samping **Tambah**. Yang disimpan hanya jalurnya, di memori, kecuali **Simpan isi rak** dinyalakan; rak juga bisa dikosongkan otomatis setelah 1 atau 3 hari. **Clipboard**: 25 teks terakhir yang kamu salin, klik untuk menyalinnya lagi; hanya di memori dan mati sampai kamu menyalakannya. |
 | Ubah format | Seret berkas ke island lalu lepas di kotak **Ubah format**, atau pilih berkas dari tab Ubah. Island berubah jadi kotak berisi format yang cocok dengan berkasnya: gambar ke JPG, PNG, WEBP, BMP, TIFF, GIF, ICO, atau PDF (beberapa gambar bisa digabung jadi satu PDF); halaman PDF ke PNG atau JPG; video ke MP4, WEBM, GIF, atau MP3; audio ke MP3, M4A, WAV, FLAC, atau OGG; dokumen Office ke PDF, DOCX, ODT, TXT, XLSX, atau CSV; Markdown dan HTML ke DOCX, HTML, atau PDF; berkas apa pun ke ZIP, dan ZIP bisa diekstrak. Hasilnya disimpan di samping berkas asli, masuk ke Rak, dan tercatat di tab Ubah. Gambar, PDF, dan ZIP memakai Windows. Audio, video, dan WEBP butuh [ffmpeg](https://ffmpeg.org), dokumen Office butuh [LibreOffice](https://www.libreoffice.org), Markdown butuh [Pandoc](https://pandoc.org). Tepi memakai yang sudah terpasang dan tidak mengunduh apa pun; format yang alatnya belum ada tampil redup. |
 | HP | Sambungkan Tepi di Android lewat Wi-Fi yang sama. Tab HP menampilkan nama HP, status, dan baterainya. Kode OTP dari SMS, email, aplikasi bank, dan aplikasi lain muncul di island dalam bentuk tersamar; tombol **Salin** menyalin kode utuh, lalu kode itu dihapus dari clipboard semenit kemudian. Notifikasi pesan dari HP masuk ke Pesan. Berkas dari menu bagikan Android (**Kirim ke laptop**) masuk ke `Downloads\Tepi` dan Rak; berkas di laptop dikirim ke HP lewat **Kirim berkas** di tab HP atau klik kanan berkas di Rak. Permintaan izin agen juga bisa dijawab dari HP. |
-| Kontrol | Slider volume dan kecerahan layar, pilihan perangkat output beserta volume tiap aplikasi yang sedang bersuara (Spotify, browser, Zoom, dan lainnya), tombol Wi-Fi, Bluetooth, Mikrofon, Senyap, Mini, dan sembunyikan island, serta timer. Saat headset atau speaker jadi output, island menyebut namanya beserta baterainya kalau perangkat Bluetooth itu melaporkannya ke Windows, dan memberi tahu saat baterainya tinggal 15%; tombol kecerahan di keyboard memunculkan HUD seperti volume. |
+| Kontrol | Slider volume dan kecerahan layar, pilihan perangkat output beserta volume tiap aplikasi yang sedang bersuara (Spotify, browser, Zoom, dan lainnya), tombol Wi-Fi, Bluetooth, Mikrofon, Senyap, Mini, sembunyikan island, Gelap (mode gelap Windows untuk aplikasi dan taskbar), dan Terjaga (laptop dan layar tidak tidur; klik kanan untuk 30 menit, 1 jam, atau 2 jam, dan selama menyala ada cangkir kecil di island), serta timer. Saat headset atau speaker jadi output, island menyebut namanya beserta baterainya kalau perangkat Bluetooth itu melaporkannya ke Windows, dan memberi tahu saat baterainya tinggal 15%; tombol kecerahan di keyboard memunculkan HUD seperti volume. |
 | Cuaca | Suhu dan kondisi cuaca kota pilihanmu di bawah jam Ringkasan, plus peringatan "Hujan sekitar 30 menit lagi" sebelum hujan turun. Data dari Open-Meteo, mati sampai kamu menyalakannya. |
 | Pengingat | Jadwal sholat lima waktu dihitung di laptop ini dari kota yang dipilih (metode Kemenag, tanpa internet), dengan pengingat beberapa menit sebelumnya dan saat waktunya. Pengingat minum dengan target gelas harian, istirahat mata 20-20-20, dan peregangan; semuanya menunggu selama kamu tidak di depan laptop, layar penuh, atau Senyap. |
 | Flashdisk | Saat flashdisk dicolok, island menampilkan nama, huruf drive, dan sisa ruangnya, dengan tombol **Buka** dan **Keluarkan**. Setelah dikeluarkan, island bilang **Aman dicabut**; kalau masih dipakai aplikasi lain, island juga memberi tahu. |
@@ -38,7 +38,7 @@ Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan juml
 | Skrip | Skrip apa pun bisa memunculkan toast atau bilah progres di island lewat `Tepi.exe --notify`, dan perintah panjang tampil di island beserta hasilnya lewat `Tepi.exe --run`. |
 | Mode rapat | Saat sebuah aplikasi memakai mikrofon lebih dari 20 detik (Zoom, Meet di browser, Teams, Discord), island menampilkan nama aplikasinya dan lama panggilan. Klik untuk mematikan atau menyalakan mikrofon. Selama itu notifikasi biasa ditahan seperti saat Senyap. |
 | Aktivitas sistem | Volume, charger dan baterai, Wi-Fi (termasuk **Wi-Fi butuh login** di jaringan kampus atau hotel: klik toast-nya untuk membuka halaman login, lalu **Internet kembali** setelah berhasil), aplikasi yang memakai mikrofon atau kamera, Caps Lock, serta bahasa input saat layout keyboard berganti (misalnya EN ke ID). Selama Caps Lock nyala, penandanya tetap tampil: tombol kecil di island (atau di gelembung samping saat musik diputar) dan panah kecil di sliver Mini. Num Lock ikut ditandai kalau HUD-nya dinyalakan. Status tombol dibaca langsung, tanpa hook keyboard. |
-| Tampilan | Material Liquid Glass, Frost, atau Hitam pekat; tema gelap atau terang; warna aksen; menempel di tepi atas atau mengambang; posisi, lebar panel, serta tab mana yang tampil. Bila tab lebih dari tujuh, ikonnya berganti titik dan nama tab tampil sebagai judul. Otomatis menyingkir saat ada aplikasi layar penuh. |
+| Tampilan | Material Liquid Glass, Frost, atau Hitam pekat; tema gelap atau terang; warna aksen; menempel di tepi atas atau mengambang; posisi, lebar panel, serta tab mana yang tampil. Bila tab lebih dari tujuh, ikonnya berganti titik dan nama tab tampil sebagai judul. Otomatis menyingkir saat ada aplikasi layar penuh, dan bisa diatur menyingkir atau menahan notifikasi saat aplikasi tertentu di depan. |
 | Aksesibilitas | Seluruh island bisa dipakai dengan keyboard (Ctrl+Alt+I). Toast, tab, tombol, dan permintaan izin dibacakan oleh pembaca layar (Narrator, NVDA); kontrol di jendela Pengaturan punya nama, nilai, dan status untuk pembaca layar. Mengikuti setelan Windows "efek animasi": tanpa pantulan dan efek terbang bila dimatikan. Island bisa dipilih ikut terekam atau tidak saat screenshot dan rekam layar. |
 
 ## Pasang
@@ -53,18 +53,19 @@ Tepi memberi tahu sendiri kalau ada versi baru, termasuk build baru dengan nomor
 
 ## Cara pakai
 
-- **Arahkan kursor** ke island untuk membuka panel. Tab di atas panel: Ringkasan, Musik, Agen, Kuliah, Pesan, Rak, Kontrol, Pengingat, dan Ubah, plus HP selama sambungan HP menyala.
+- **Arahkan kursor** ke island untuk membuka panel, atau klik island kalau **Pengaturan › Island › Buka panel** diganti ke Klik. Tab di atas panel: Ringkasan, Musik, Agen, Kuliah, Pesan, Rak, Kontrol, Pengingat, dan Ubah, plus HP selama sambungan HP menyala.
 - **Scroll** saat panel terbuka untuk pindah tab. Daftar yang lebih panjang dari panel tetap tergulir; scroll di atas deretan tab, atau geser ke samping di touchpad, selalu pindah tab. Saat panel tertutup, scroll di atas island mengubah volume.
 - **Seret berkas** ke island, lalu lepas di kotak **Taruh di rak** atau **Ubah format**. Saat island sedang Mini, tahan berkas sebentar di dekat sliver sampai island muncul.
 - **Mini**: klik panah **^** di pojok kiri atas panel, tekan **Ctrl+Alt+K**, atau pakai tile Mini di Kontrol. Untuk memunculkan island dari Mini, diamkan kursor sebentar di tepi atas tepat di atas sliver.
-- **Klik kanan** island atau ikon tray untuk menu: Mini, Sembunyikan island, Navigasi keyboard, Timer, Catatan kilat, Cermin kamera, Teleprompter, Hubungkan agen, Kulia, Pengaturan, Buka folder data. Klik kanan berkas di Rak untuk Buka, Tampilkan di folder, Salin jalur, Kirim ke HP (kalau HP tersambung), atau Keluarkan dari rak.
+- **Klik kanan** island atau ikon tray untuk menu: Mini, Sembunyikan island, Navigasi keyboard, Timer, Catatan kilat, Cermin kamera, Ambil warna, Teleprompter, Hubungkan agen, Kulia, Pengaturan, Buka folder data. Klik kanan berkas di Rak untuk Buka, Tampilkan di folder, Salin jalur, Kirim ke HP (kalau HP tersambung), atau Keluarkan dari rak.
 - **Cermin kamera**: tekan **Ctrl+Alt+C** atau pilih dari menu tray untuk melihat dirimu di island sebelum kelas atau rapat. Klik island untuk menutupnya; kamera dilepas otomatis setelah 2 menit. Cermin ini tidak ikut terekam selama efek kaca aktif.
+- **Ambil warna**: pilih dari menu tray (atau pasang pintasannya di **Pengaturan › Pintasan**), arahkan ke titik mana pun di layar, lalu klik. Kode hex-nya disalin. Esc atau klik kanan untuk batal.
 - **Catatan kilat**: tekan **Ctrl+Alt+N**, tulis satu baris, lalu Enter. Catatan masuk ke `catatan.md` di folder data dan tampil di Rak, atau jadi tugas baru di Todoist atau Notion kalau sudah tersambung.
 - **Mikrofon**: tekan **Ctrl+Alt+M** atau pakai tile Mikrofon di Kontrol untuk mematikan atau menyalakan mikrofon di seluruh sistem. Kalau ada aplikasi yang mendengarkan selagi mikrofon mati, ikon mikrofon di island berubah merah dan dicoret.
 - **Timer** ada di tab Kontrol dan di menu tray: Fokus 25 atau 50 menit lalu istirahat, timer 5, 10, atau 15 menit, dan stopwatch.
 - **Hapus semua** di Pesan, Clipboard, atau Rak menyedot isinya ke tombol tempat sampah; menghapus satu item memecahnya jadi serpihan.
 - **Sembunyikan island** sepenuhnya: tekan **Ctrl+Alt+H** atau pakai tile Sembunyikan di Kontrol. Untuk memunculkannya lagi, klik ikon Tepi di tray atau tekan Ctrl+Alt+H. Kartu izin agent tetap muncul walau island disembunyikan.
-- Di tab **Musik**, tombol di kanan atas mengganti tata letak antara lirik dan kartu album. Klik baris lirik untuk loncat ke bagian lagu itu, atau seret bilah progres.
+- Di tab **Musik**, tombol di kanan atas mengganti tata letak antara lirik dan kartu album. Klik baris lirik untuk loncat ke bagian lagu itu, atau seret bilah progres. Tombol acak dan ulang (semua, lalu satu lagu) ada tepat di bawah tombol mundur dan maju, kalau pemutarnya mendukung, misalnya Spotify. Klik sampul untuk membawa jendela pemutarnya ke depan; klik kanan sampul untuk memilih pemutar yang ditampilkan kalau ada lebih dari satu (pilihan berlaku sampai pemutar itu ditutup). Lirik terlalu cepat atau telat? Klik kanan lirik untuk menggesernya 0,5 detik; geseran disimpan per lagu di `%APPDATA%\Tepi\lyrics\offsets.txt`.
 - Di **Kuliah › Jadwal**, klik hari di deretan tengah untuk melihat kelas tanggal itu. Kelas daring yang punya tautan bisa diklik untuk membukanya.
 - Di **Rak › Clipboard**, klik teks untuk menyalinnya lagi.
 
@@ -72,21 +73,28 @@ Tepi memberi tahu sendiri kalau ada versi baru, termasuk build baru dengan nomor
 
 Klik ikon gear di pojok kanan atas panel, atau klik kanan ikon Tepi lalu **Pengaturan**. Jendelanya punya kolom cari dan bagian di samping; setiap perubahan langsung berlaku tanpa perlu menyimpan.
 
-- **Umum**: bahasa, mulai bersama Windows, cek versi baru, folder data.
-- **Tampilan**: tema, material (Liquid, Frost, Hitam), aksen, paket tema, suara sapaan paket.
-- **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, menempel di tepi atas, posisi, lebar panel, layar, gaya tab (otomatis, ikon, titik), tab yang terbuka pertama, serta tab yang tampil beserta urutannya (seret pegangan di kiri ikon, atau fokuskan lalu tekan panah atas dan bawah). Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
-- **Aktivitas**: lirik, lirik online, visualizer, notifikasi pesan dan isinya, kelas yang berlangsung, progres unduhan, riwayat clipboard, pengingat cabut charger di 80, 85, atau 90%, flashdisk, preview screenshot, rak berkas, ubah format, lama istirahat fokus, HUD Caps Lock, Num Lock dan Scroll Lock, bahasa input, serta mode rapat.
-- **Agen**: hubungkan atau lepas tiap agent, kuota Claude, port server hook (termasuk **Ganti port acak**), dan berapa lama izin ditahan.
+- **Umum**: bahasa, format jam (24 jam, atau 12 jam dengan am/pm; jam besar di island tanpa am/pm), mulai bersama Windows, cek versi baru, folder data, ekspor dan impor pengaturan (token agent, port, pasangan HP, dan sesi Kulia tidak pernah ikut; impor hanya menerima kunci yang dikenal Tepi), serta setel ulang pengaturan dengan integrasi, agen, dan HP tetap tersambung.
+- **Tampilan**: tema (gelap, terang, atau otomatis mengikuti mode aplikasi Windows), material (Liquid, Frost, Hitam), aksen (termasuk dari sampul album: warna paling mencolok di sampul lagu yang diputar, diterangkan atau digelapkan sampai terbaca di island), warna sendiri (pilih latar, teks, dan aksen dari preset, ambil dari layar, atau warna bebas; warna lain diturunkan dari ketiganya seperti di pembuat paket, kontras teks ditampilkan, dan hasilnya bisa disimpan jadi paket tema), paket tema, suara sapaan paket.
+- **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, buka panel dengan arahkan kursor atau klik beserta jedanya, aplikasi yang membuat island menyingkir atau menahan notifikasi saat jendelanya di depan, menempel di tepi atas, posisi, lebar panel, layar. Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
+- **Tab panel**: gaya tab (otomatis, ikon, titik), tab yang terbuka pertama, serta tab yang tampil beserta urutannya (seret pegangan di kiri ikon, atau fokuskan lalu tekan panah atas dan bawah).
+- **Musik**: lirik di island, lirik online, visualizer.
+- **Pesan**: notifikasi pesan dan isinya, aplikasi chat tambahan, pengirim prioritas (nama atau kata yang tetap muncul saat Senyap dan rapat).
+- **Sistem**: HUD Caps Lock, Num Lock dan Scroll Lock, bahasa input; pengingat cabut charger di 80, 85, atau 90%, flashdisk; kelas yang berlangsung, progres unduhan, mode rapat.
+- **Rak dan berkas**: rak berkas, simpan isi rak, kosongkan rak otomatis; ubah format, riwayat clipboard, preview screenshot.
+- **Agen**: hubungkan atau lepas tiap agent, kuota Claude, suara saat agen minta izin atau selesai dan saat `--run` selesai (suara bawaan Windows, diam saat Senyap atau layar penuh), port server hook (termasuk **Ganti port acak**), dan berapa lama izin ditahan.
 - **HP**: hubungkan HP lewat kode pasangan, ganti HP, serta pilih apakah notifikasi pesan dan kode OTP dari HP ditampilkan.
 - **Integrasi**: Kulia, Notion, Todoist, dan kalender iCal untuk tab Tugas dan Jadwal.
-- **Pengingat**: sholat (kota dan menit sebelum), cuaca dan hujan, minum (selang dan target), istirahat mata, peregangan.
-- **Aksesibilitas**: tampil di rekaman layar, umumkan ke pembaca layar, kurangi gerak, dan Senyap.
+- **Pengingat**: sholat (kota dan menit sebelum), cuaca dan hujan, minum (selang dan target), istirahat mata, peregangan, lama istirahat fokus.
+- **Aksesibilitas**: tampil di rekaman layar, umumkan ke pembaca layar, kurangi gerak, gerak (Tenang tanpa pantulan, Bawaan, atau Lincah), Senyap, dan Senyap ikut Jangan ganggu Windows.
+- **Pintasan**: ganti atau kosongkan setiap pintasan, termasuk pintasan teleprompter. Klik pintasannya lalu tekan kombinasi baru (Backspace mengosongkan, Esc batal). Kombinasi yang sudah dipakai aplikasi lain ditolak saat itu juga, dan saat Tepi dibuka island memberi tahu kalau ada pintasan yang direbut aplikasi lain. **Kembalikan** memasang lagi semua pintasan bawaan.
 
 Island yang ikut terekam tidak bisa memakai efek kaca, karena kaca membaca layar di belakangnya dan akan ikut membaca dirinya sendiri. Selama opsi itu menyala, latarnya polos.
 
 ### Paket tema
 
 Warna island, lambang di samping jam, maskot di pojok panel, pegangan bar progres, dan sapaan saat Tepi dibuka bisa diganti dengan paket tema. Buat folder di `%APPDATA%\Tepi\themes\<nama>\`, lalu pilih di **Pengaturan > Tampilan > Paket tema**.
+
+Untuk warna saja, tidak perlu paket: **Pengaturan > Tampilan > Warna sendiri**. Paket lengkap dengan gambar, sapaan, dan suara bisa dibuat di [pembuat paket](https://odlaver.github.io/tepi/pack/).
 
 | Berkas | Isi |
 |---|---|
@@ -162,7 +170,7 @@ Naskah mulai setelah hitung mundur 3 detik. Selama naskah berjalan:
   | Ctrl+Alt+P | Buka jendela teleprompter, naskah tetap di tempatnya |
   | Ctrl+Alt+X | Hentikan |
 
-  Pintasan ini hanya terpakai selama teleprompter terbuka, dan semuanya juga ada di submenu **Teleprompter** di menu tray.
+  Pintasan ini hanya terpakai selama teleprompter terbuka, bisa diganti di **Pengaturan › Pintasan**, dan semuanya juga ada di submenu **Teleprompter** di menu tray.
 - Saat dijeda, island bisa diklik: seret tepi kiri atau kanan untuk mengubah lebar, tepi bawah untuk tinggi, atau sudut bawah untuk keduanya. Posisi baca tidak hilang.
 - Tulis `[jeda]` di naskah untuk berhenti otomatis di titik itu. Baris itu ditandai titik di kiri.
 - Sisa waktu baca tampil di kanan atas.
@@ -256,10 +264,10 @@ Data diperbarui tiap 10 menit, dan saat tab Tugas atau Jadwal dibuka. Token dan 
 
 1. Di HP: pasang APK Tepi Android dari [tepi-android/releases](https://github.com/odlaver/tepi-android/releases).
 2. Di laptop: **Pengaturan > HP**, nyalakan **Hubungkan HP**, lalu klik **Buat kode**.
-3. Di HP: Tepi > **Integrasi** > **Laptop**, ketik alamat dan kode 12 karakter yang muncul di laptop.
+3. Di HP: Tepi > **Integrasi** > **Laptop** > **Pindai QR**, arahkan kamera ke kode QR di laptop, lalu ketuk **Sambungkan**. Bisa juga dipindai dari aplikasi kamera HP. Tanpa kamera, ketik alamat dan kode 12 karakter yang muncul di laptop.
 4. Windows Firewall akan bertanya sekali; izinkan untuk jaringan privat.
 
-Kode berlaku 5 menit dan hangus setelah lima kali salah. Tab HP muncul sendiri setelah sambungan dinyalakan.
+Kode berlaku 5 menit dan hangus setelah lima kali salah. Tab HP muncul sendiri setelah sambungan dinyalakan. Selama kode QR tampil, jendela Pengaturan tidak ikut terekam saat screen share.
 
 ### Kulia
 
@@ -293,7 +301,8 @@ Tepi hanya menghubungi layanan luar berikut, dan masing-masing bisa dimatikan. N
 - Naskah teleprompter hanya disimpan di komputer ini.
 - Riwayat clipboard hanya ada di memori dan hilang saat Tepi ditutup atau fiturnya dimatikan. Teks yang ditandai rahasia oleh pengelola kata sandi tidak dicatat.
 - Progres unduhan hanya membaca nama dan ukuran berkas sementara di folder Downloads.
-- Rak hanya menyimpan jalur berkas, di memori, dan hilang saat Tepi ditutup.
+- Rak hanya menyimpan jalur berkas, di memori, dan hilang saat Tepi ditutup. Kalau **Simpan isi rak** dinyalakan, jalurnya disimpan di `shelf.txt` di folder data.
+- **Teks** di preview screenshot dibaca oleh OCR bawaan Windows di laptop ini; tombolnya hanya muncul kalau Windows punya bahasa OCR yang terpasang.
 - Ubah format berjalan di laptop ini. Berkasmu tidak dikirim ke mana pun; ffmpeg, LibreOffice, dan Pandoc dijalankan dari yang sudah terpasang. Riwayat di tab Ubah hanya ada di memori.
 - Jadwal sholat dihitung di laptop ini. Pengingat minum, mata, dan peregangan hanya membaca kapan terakhir ada input keyboard atau mouse, untuk tahu kamu sedang di depan laptop.
 - Kecerahan, perangkat audio, Wi-Fi, dan Bluetooth diatur lewat API Windows di laptop ini.
@@ -341,24 +350,29 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | Kunci | Bawaan | Fungsi |
 |---|---|---|
 | `material` | `liquid` | `liquid`, `frost`, atau `solid` (hitam pekat). Kunci lama `glass=0` dibaca sebagai `solid` |
-| `theme` | `gelap` | `gelap` atau `terang` |
+| `theme` | `gelap` | `gelap`, `terang`, atau `otomatis` (mengikuti mode aplikasi Windows) |
 | `lyrics` | `1` | Lirik tersinkron di island |
 | `lyrics.online` | `1` | Cari lirik di LRCLIB dan NetEase |
 | `visualizer` | `1` | Visualizer musik |
 | `music.view` | `auto` | `auto`, `lyrics`, atau `album` |
 | `notif` | `1` | Notifikasi pesan |
 | `notif.content` | `1` | Tampilkan isi pesan |
+| `notif.apps` | kosong | Aplikasi chat tambahan, dipisah koma, dicocokkan dengan nama aplikasi |
+| `notif.vip` | kosong | Nama pengirim atau kata, dipisah koma; pesan yang memuatnya tetap muncul saat Senyap |
 | `agent.port` | acak | Port server hook; instalasi lama memakai `47821` |
 | `agent.wait` | `110` | Detik menahan permintaan izin |
+| `sound.agent` | `0` | Suara saat agen minta izin atau selesai, dan saat `--run` selesai |
 | `update.check` | `1` | Cek versi baru sekali sehari |
-| `accent` | kosong | Warna aksen, misalnya `#4C8DFF`; kosong untuk monokrom |
+| `accent` | kosong | Warna aksen, misalnya `#4C8DFF`; kosong untuk monokrom; `album` mengambil warna dari sampul lagu yang diputar |
 | `monitor` | kosong | Monitor tempat island tampil; kosong untuk monitor utama |
 | `focus.break` | `5` | Menit istirahat setelah fokus |
 | `dock` | `1` | Menempel di tepi atas; `0` untuk mengambang |
 | `position` | `0` | Geser island, `-40` (kiri) sampai `40` (kanan), persen dari ruang kosong |
 | `panel.width` | `488` | Lebar panel, `440` sampai `560` |
-| `panel.tabs` | semua | Tab yang tampil dan urutannya: `home`, `music`, `agents`, `class`, `messages`, `shelf`, `control`, `remind`. Kunci lama `tabs` dipindahkan sekali |
+| `panel.tabs` | semua | Tab yang tampil dan urutannya: `home`, `music`, `agents`, `class`, `messages`, `shelf`, `control`, `remind`, `convert`, `phone`. Kunci lama `tabs` dipindahkan sekali |
 | `panel.first` | kosong | Tab yang terbuka pertama, misalnya `music`; kosong untuk tab pertama di urutan |
+| `panel.open`, `panel.delay` | `hover`, `330` | Panel terbuka saat kursor diam di island (`hover`) atau saat diklik (`click`); jeda hover dalam ms, `150` sampai `800` |
+| `island.except` | kosong | Aturan per aplikasi, dipisah koma: `exe:hide:Nama` menyembunyikan island, `exe:quiet:Nama` menahan notifikasi biasa selama jendela aplikasi itu di depan |
 | `tabs.style` | `auto` | `auto` (titik bila lebih dari tujuh tab), `icons`, atau `dots` |
 | `mini` | `auto` | `normal`, `mini`, atau `auto` (Mini saat tepi atas tertutup atau setelah diam semenit) |
 | `mini.notif` | `1` | Notifikasi pesan tetap muncul saat Mini |
@@ -369,19 +383,37 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `prompter.mirror` | `0` | Teleprompter dicerminkan |
 | `prompter.width`, `prompter.height`, `prompter.bg` | `560`, `150`, `55` | Ukuran teleprompter dalam px (diubah dengan menyeret tepinya) dan kepekatan latar dalam persen |
 | `lang` | `id` | `id` atau `en` |
+| `clock.24` | `1` | `1` jam 24 (14.30), `0` jam 12 (2.30 pm) |
 | `capture.show` | `0` | Island ikut terekam saat screenshot dan rekam layar (tanpa efek kaca) |
 | `a11y.announce` | `1` | Bacakan toast ke pembaca layar yang sedang aktif |
 | `clipboard` | `0` | Riwayat clipboard |
 | `downloads` | `1` | Progres unduhan |
 | `class.island` | `1` | Kelas yang sedang berjalan tampil di island |
 | `shelf` | `1` | Rak berkas |
+| `shelf.keep`, `shelf.expire` | `0`, `0` | Simpan jalur rak di `shelf.txt`; kosongkan otomatis setelah `24` atau `72` jam |
+| `convert` | `1` | Kotak **Ubah format** saat berkas diseret ke island |
+| `shots` | `1` | Preview screenshot |
+| `drives` | `1` | Flashdisk dicolok dan dikeluarkan |
+| `meeting` | `1` | Mode rapat |
+| `keys.caps`, `keys.num`, `keys.lang` | `1`, `0`, `1` | HUD Caps Lock, HUD Num Lock dan Scroll Lock, HUD bahasa input |
+| `battery.unplug` | `0` | Ingatkan cabut charger di `80`, `85`, atau `90` persen; `0` mati |
+| `note.to` | `rak` | Tujuan catatan kilat: `rak`, `todoist`, atau `notion` |
 | `dnd` | `0` | Senyap: hanya izin, tenggat, sholat, dan timer yang muncul |
+| `dnd.follow` | `0` | Senyap ikut menyala selama Jangan ganggu Windows aktif |
 | `motion.reduce` | `auto` | `auto` mengikuti efek animasi Windows, `1` selalu tenang, `0` selalu penuh |
+| `motion.feel` | `bawaan` | `tenang` (lebih lambat, tanpa pantulan), `bawaan`, atau `lincah` (lebih cepat, pantulan lebih besar). `motion.reduce` tetap menang |
 | `pray`, `pray.city`, `pray.before` | `0`, kosong, `10` | Pengingat sholat, kota, menit sebelum |
 | `drink`, `drink.every`, `drink.goal` | `0`, `60`, `8` | Pengingat minum, selang menit, target gelas |
 | `eyes` | `0` | Istirahat mata 20-20-20 |
 | `stretch`, `stretch.every` | `0`, `60` | Peregangan dan selangnya |
 | `theme.pack` | kosong | Nama folder paket tema di `%APPDATA%\Tepi\themes` |
+| `theme.voice` | `1` | Suara sapaan paket tema |
+| `look.custom`, `look.bg`, `look.text`, `look.accent` | `0`, kosong | Warna sendiri dalam `#RRGGBB`, ditimpakan di atas paket tema |
+| `weather` | `0` | Cuaca dan peringatan hujan, memakai kota `pray.city` |
+| `phone`, `phone.notifs`, `phone.otp` | `0`, `1`, `1` | Sambungan HP, notifikasi pesan dari HP, kode OTP dari HP |
+| `phone.port` | acak | Port sambungan HP, dipilih saat pertama dinyalakan |
+| `key.hide`, `key.nav`, `key.mini`, `key.mic`, `key.note`, `key.mirror`, `key.picker` | `Ctrl+Alt+H`, `I`, `K`, `M`, `N`, `C`, kosong | Pintasan global, misalnya `Ctrl+Shift+F10` atau `Win+Alt+H`; `none` mematikannya |
+| `key.prompter.pause`, `.restart`, `.back`, `.ahead`, `.faster`, `.slower`, `.setup`, `.stop` | `Ctrl+Alt+Space`, `R`, `Left`, `Right`, `=`, `-`, `P`, `X` | Pintasan teleprompter, hanya terpakai selama naskah berjalan |
 | `kulia.url`, `kulia.key` | server kulia.live | Arahkan ke instance Kulia lain |
 
 Variabel lingkungan untuk pengembangan:

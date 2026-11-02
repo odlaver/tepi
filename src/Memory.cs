@@ -37,9 +37,26 @@ namespace Tepi
             if ((DateTime.UtcNow - leakCheckUtc).TotalSeconds < 60) return;
             leakCheckUtc = DateTime.UtcNow;
             double mb = PrivateMb();
-            if (mb <= LeakMb) return;
-            Log.Write("memory " + mb.ToString("0") + " MB private, collecting");
-            Trim();
+            if (mb > LeakMb)
+            {
+                Log.Write("memory " + mb.ToString("0") + " MB private, collecting");
+                Trim();
+                return;
+            }
+            // Pages crept back while idle: trim again
+            if (!animating && !expanded && current != View.Panel && !PrompterOn && dragId == null &&
+                (DateTime.UtcNow - lastMotionUtc).TotalSeconds > 30 && WorkingSetMb() > trimmedMb + DriftMb) Trim();
+        }
+
+        // Working set grown this much since a trim
+        const double DriftMb = 6;
+        double trimmedMb;
+
+        static double WorkingSetMb()
+        {
+            var c = new MemCounters { cb = (uint)Marshal.SizeOf(typeof(MemCounters)) };
+            if (!GetProcessMemoryInfo(Native.GetCurrentProcess(), ref c, c.cb)) return 0;
+            return c.WorkingSetSize.ToUInt64() / 1048576.0;
         }
 
         // Big view gone: trim once it rests
@@ -73,6 +90,7 @@ namespace Tepi
             GC.WaitForPendingFinalizers();
             GC.Collect();
             Native.SetProcessWorkingSetSize(Native.GetCurrentProcess(), (IntPtr)(-1), (IntPtr)(-1));
+            trimmedMb = WorkingSetMb();
             if (fpsLog) Log.Write("trim " + (clock.Elapsed.TotalMilliseconds - t0).ToString("0.0") + "ms");
         }
     }

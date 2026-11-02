@@ -41,7 +41,7 @@ namespace Tepi
                 case View.Class: return new SizeF(ClassWidth(), 38);
                 case View.Download: return new SizeF(DownloadWidth(), 38);
                 case View.Locks: return new SizeF(LocksWidth(), 42);
-                case View.Shot: return new SizeF(380, 76);
+                case View.Shot: return new SizeF(OcrShown ? 438 : 380, 76);
                 case View.Mic: return new SizeF(MicWidth(), 42);
                 case View.Drive: return new SizeF(DriveWidth(), 64);
                 case View.Run: return new SizeF(RunWidth(), 38);
@@ -184,16 +184,20 @@ namespace Tepi
         bool PrivacyOn { get { return micApps.Length + camApps.Length > 0; } }
 
         // Eyes and their gap before the clock
-        float IdleWidth() { return 112 + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0) + LockMarks * 26 + (LockMarks > 0 ? 2 : 0); }
+        // Keycaps plus the awake cup
+        int IdleMarks { get { return LockMarks + (AwakeOn ? 1 : 0); } }
+
+        float IdleWidth() { return 112 + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0) + IdleMarks * 26 + (IdleMarks > 0 ? 2 : 0); }
 
         void DrawIdle(float w, float h, DateTime now)
         {
-            float cy = h / 2, shift = emblem != null ? 15 : 0, clockX = w / 2 + shift - (LockMarks * 13 + (LockMarks > 0 ? 1 : 0));
+            float cy = h / 2, shift = emblem != null ? 15 : 0, clockX = w / 2 + shift - (IdleMarks * 13 + (IdleMarks > 0 ? 1 : 0));
             if (emblem != null) DrawEmblem(24, cy, 10.5f);
             // Lock keycaps at the right, Caps outermost
             float kx = w - 21 - (unread > 0 ? 28 : 0);
             if (CapsShown) { Keycap(kx, cy, 7f, "A", true); kx -= 26; }
-            if (NumShown) Keycap(kx, cy, 7f, "1", true);
+            if (NumShown) { Keycap(kx, cy, 7f, "1", true); kx -= 26; }
+            if (AwakeOn) p.Icon(IcoAwake, 12f, p.T.Sub, kx, cy);
             clockRoller.Draw(p, Ink.Display(15.5f), p.T.Text, clockX, cy, StringAlignment.Center, now);
             if (PrivacyOn)
             {

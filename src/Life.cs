@@ -81,7 +81,7 @@ namespace Tepi
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "2.4.0";
+        public const string AppVersion = "2.5.0";
         string newVersion, newUrl;
         bool newRebuild, checking, checkFailed;
         DateTime checkedUtc;
@@ -173,6 +173,8 @@ namespace Tepi
             TickConvert();
             if (phone != null) phone.Sweep();
             if (TickMeeting()) { Kick(); redraw = true; }
+            if (AwakeTick(now, minute)) redraw = true;
+            if (minute && ShelfExpireTick()) redraw = true;
             if (mediaInfo.Present) SyncLyrics();
             List<string> stale = null;
             foreach (var s in sessions.Values)
@@ -218,6 +220,7 @@ namespace Tepi
             // Free old artwork now, not at finalization
             if (prev.Cover != null && !ReferenceEquals(prev.Cover, m.Cover)) prev.Cover.Dispose();
             if (m.Cover != null && !ReferenceEquals(prev.Cover, m.Cover)) PrewarmArt();
+            AlbumAccent();
             if (m.Present) mediaSeen = true;
             SyncLyrics();
             if (pendingTrack != null && pendingTrack == m.Key && m.Playing)
@@ -241,12 +244,14 @@ namespace Tepi
             var l = lyricsSvc.Get(mediaInfo);
             if (l == null) return;
             if (lyrics == null || lyrics.Key != l.Key) { lyricIndex = lyricPrev = -1; lyricScroll.Snap(0); }
+            ApplyLyricOffset(l);
             lyrics = l;
         }
 
         void OnLyrics(Lyrics l)
         {
             if (l.Key != mediaInfo.Key) return;
+            ApplyLyricOffset(l);
             lyrics = l;
             lyricIndex = lyricPrev = -1;
             Kick();
@@ -363,11 +368,12 @@ namespace Tepi
                 if (!Native.DoNotDisturb())
                 {
                     bool burst = toast != null && toast.View == View.Notif;
-                    var t = ShowToast(View.Notif, 5.5, 2, true);
+                    var vip = fresh.Find(IsVip);
+                    var t = ShowToast(View.Notif, 5.5, vip != null ? 3 : 2, true);
                     if (t != null)
                     {
                         notifBurst = burst ? notifBurst + fresh.Count : fresh.Count;
-                        t.Data = fresh[0];
+                        t.Data = vip ?? fresh[0];
                     }
                 }
             }
@@ -378,12 +384,20 @@ namespace Tepi
 
         void OpenNotifApp(NotifItem item)
         {
-            // Quoted; a stray quote can't add arguments
             // Phone items: nothing to launch here
             if (item.AppId.Length > 0 && !item.AppId.StartsWith("phone:") && item.AppId.IndexOfAny(new[] { '"', '\r', '\n' }) < 0)
             {
-                try { Process.Start("explorer.exe", "\"shell:AppsFolder\\" + item.AppId + "\""); }
-                catch (Exception ex) { Log.Write("open app: " + ex.Message); }
+                var it = item;
+                // The sender's chat first, the app window after
+                NotifOpen.AllowSetForegroundWindow(-1);
+                ThreadPool.QueueUserWorkItem(delegate
+                {
+                    bool chat = NotifOpen.Open(it);
+                    if (chat) Thread.Sleep(400);
+                    // Quoted; a stray quote can't add arguments
+                    try { Process.Start("explorer.exe", "\"shell:AppsFolder\\" + it.AppId + "\""); }
+                    catch (Exception ex) { Log.Write("open app: " + ex.Message); }
+                });
             }
             notifs.RemoveAll(n => n.Held && n.AppId == item.AppId);
             unread = 0;
@@ -670,6 +684,7 @@ namespace Tepi
                         break;
                     }
                     approvals.Add(a);
+                    SoundCue(CueAsk);
                     s.State = AgentState.Waiting;
                     s.Tool = tool;
                     s.Activity = AgentHub.Describe(tool, input);
@@ -689,6 +704,7 @@ namespace Tepi
                     s.State = AgentState.Done;
                     s.Failed = ev.Name == "StopFailure";
                     s.LastMessage = Fmt.OneLine(Json.Str(ev.Data, "last_assistant_message"), 600);
+                    SoundCue(s.Failed ? CueFail : CueDone);
                     var t = ShowToast(View.Done, 6, 2, false);
                     if (t != null) t.Data = s;
                     break;

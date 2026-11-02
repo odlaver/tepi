@@ -642,9 +642,9 @@ namespace Tepi
 
         public static void Tune(Spring s, float response, float damping)
         {
-            float w = (float)(2 * Math.PI / Math.Max(0.05f, response));
+            float w = (float)(2 * Math.PI / Math.Max(0.05f, Anim.Response(response)));
             s.K = w * w;
-            s.D = 2 * (Anim.Reduced ? Math.Max(1f, damping) : damping) * w;
+            s.D = 2 * Anim.Damping(damping) * w;
         }
 
         public static void Snappy(Spring s) { Tune(s, SnappyResponse, SnappyDamping); }
@@ -656,8 +656,8 @@ namespace Tepi
         public static float Progress(float t, float response, float damping)
         {
             if (t <= 0) return 0;
-            if (Anim.Reduced) damping = Math.Max(1f, damping);
-            double w = 2 * Math.PI / Math.Max(0.05f, response);
+            damping = Anim.Damping(damping);
+            double w = 2 * Math.PI / Math.Max(0.05f, Anim.Response(response));
             if (damping >= 1) return (float)(1 - (1 + w * t) * Math.Exp(-w * t));
             double wd = w * Math.Sqrt(1 - damping * damping), e = Math.Exp(-damping * w * t);
             return (float)(1 - e * (Math.Cos(wd * t) + damping * w / wd * Math.Sin(wd * t)));
