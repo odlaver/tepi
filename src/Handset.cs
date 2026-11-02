@@ -212,7 +212,7 @@ namespace Tepi
             if (expanded && page == PageMessages) unread = 0; else unread++;
             if (Native.DoNotDisturb()) return;
             bool burst = toast != null && toast.View == View.Notif;
-            var t = ShowToast(View.Notif, 5.5, 2, true);
+            var t = ShowToast(View.Notif, 5.5, IsVip(item) ? 3 : 2, true);
             if (t == null) return;
             notifBurst = burst ? notifBurst + 1 : 1;
             t.Data = item;

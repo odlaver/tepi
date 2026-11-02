@@ -367,11 +367,12 @@ namespace Tepi
                 if (!Native.DoNotDisturb())
                 {
                     bool burst = toast != null && toast.View == View.Notif;
-                    var t = ShowToast(View.Notif, 5.5, 2, true);
+                    var vip = fresh.Find(IsVip);
+                    var t = ShowToast(View.Notif, 5.5, vip != null ? 3 : 2, true);
                     if (t != null)
                     {
                         notifBurst = burst ? notifBurst + fresh.Count : fresh.Count;
-                        t.Data = fresh[0];
+                        t.Data = vip ?? fresh[0];
                     }
                 }
             }

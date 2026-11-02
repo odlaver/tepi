@@ -75,7 +75,7 @@ Klik ikon gear di pojok kanan atas panel, atau klik kanan ikon Tepi lalu **Penga
 - **Umum**: bahasa, format jam (24 jam, atau 12 jam dengan am/pm; jam besar di island tanpa am/pm), mulai bersama Windows, cek versi baru, folder data.
 - **Tampilan**: tema (gelap, terang, atau otomatis mengikuti mode aplikasi Windows), material (Liquid, Frost, Hitam), aksen (termasuk dari sampul album: warna paling mencolok di sampul lagu yang diputar, diterangkan atau digelapkan sampai terbaca di island), warna sendiri (pilih latar, teks, dan aksen; warna lain diturunkan dari ketiganya seperti di pembuat paket, kontras teks ditampilkan, dan hasilnya bisa disimpan jadi paket tema), paket tema, suara sapaan paket.
 - **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, buka panel dengan arahkan kursor atau klik beserta jedanya, aplikasi yang membuat island menyingkir atau menahan notifikasi saat jendelanya di depan, menempel di tepi atas, posisi, lebar panel, layar, gaya tab (otomatis, ikon, titik), tab yang terbuka pertama, serta tab yang tampil beserta urutannya (seret pegangan di kiri ikon, atau fokuskan lalu tekan panah atas dan bawah). Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
-- **Aktivitas**: lirik, lirik online, visualizer, notifikasi pesan dan isinya, kelas yang berlangsung, progres unduhan, riwayat clipboard, pengingat cabut charger di 80, 85, atau 90%, flashdisk, preview screenshot, rak berkas, ubah format, lama istirahat fokus, HUD Caps Lock, Num Lock dan Scroll Lock, bahasa input, serta mode rapat.
+- **Aktivitas**: lirik, lirik online, visualizer, notifikasi pesan dan isinya, aplikasi chat tambahan, pengirim prioritas (nama atau kata yang tetap muncul saat Senyap dan rapat), kelas yang berlangsung, progres unduhan, riwayat clipboard, pengingat cabut charger di 80, 85, atau 90%, flashdisk, preview screenshot, rak berkas, ubah format, lama istirahat fokus, HUD Caps Lock, Num Lock dan Scroll Lock, bahasa input, serta mode rapat.
 - **Agen**: hubungkan atau lepas tiap agent, kuota Claude, port server hook (termasuk **Ganti port acak**), dan berapa lama izin ditahan.
 - **HP**: hubungkan HP lewat kode pasangan, ganti HP, serta pilih apakah notifikasi pesan dan kode OTP dari HP ditampilkan.
 - **Integrasi**: Kulia, Notion, Todoist, dan kalender iCal untuk tab Tugas dan Jadwal.
@@ -351,6 +351,8 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `music.view` | `auto` | `auto`, `lyrics`, atau `album` |
 | `notif` | `1` | Notifikasi pesan |
 | `notif.content` | `1` | Tampilkan isi pesan |
+| `notif.apps` | kosong | Aplikasi chat tambahan, dipisah koma, dicocokkan dengan nama aplikasi |
+| `notif.vip` | kosong | Nama pengirim atau kata, dipisah koma; pesan yang memuatnya tetap muncul saat Senyap |
 | `agent.port` | acak | Port server hook; instalasi lama memakai `47821` |
 | `agent.wait` | `110` | Detik menahan permintaan izin |
 | `update.check` | `1` | Cek versi baru sekali sehari |

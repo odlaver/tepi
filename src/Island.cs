@@ -200,6 +200,7 @@ namespace Tepi
             StartHotkeys();
             MiniInit();
             StartGlass();
+            ApplyNotifLists();
             StartFeeds();
             StartLocks();
             StartMic();
