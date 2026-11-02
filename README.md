@@ -57,8 +57,9 @@ Tepi memberi tahu sendiri kalau ada versi baru, termasuk build baru dengan nomor
 - **Scroll** saat panel terbuka untuk pindah tab. Daftar yang lebih panjang dari panel tetap tergulir; scroll di atas deretan tab, atau geser ke samping di touchpad, selalu pindah tab. Saat panel tertutup, scroll di atas island mengubah volume.
 - **Seret berkas** ke island, lalu lepas di kotak **Taruh di rak** atau **Ubah format**. Saat island sedang Mini, tahan berkas sebentar di dekat sliver sampai island muncul.
 - **Mini**: klik panah **^** di pojok kiri atas panel, tekan **Ctrl+Alt+K**, atau pakai tile Mini di Kontrol. Untuk memunculkan island dari Mini, diamkan kursor sebentar di tepi atas tepat di atas sliver.
-- **Klik kanan** island atau ikon tray untuk menu: Mini, Sembunyikan island, Navigasi keyboard, Timer, Catatan kilat, Cermin kamera, Teleprompter, Hubungkan agen, Kulia, Pengaturan, Buka folder data. Klik kanan berkas di Rak untuk Buka, Tampilkan di folder, Salin jalur, Kirim ke HP (kalau HP tersambung), atau Keluarkan dari rak.
+- **Klik kanan** island atau ikon tray untuk menu: Mini, Sembunyikan island, Navigasi keyboard, Timer, Catatan kilat, Cermin kamera, Ambil warna, Teleprompter, Hubungkan agen, Kulia, Pengaturan, Buka folder data. Klik kanan berkas di Rak untuk Buka, Tampilkan di folder, Salin jalur, Kirim ke HP (kalau HP tersambung), atau Keluarkan dari rak.
 - **Cermin kamera**: tekan **Ctrl+Alt+C** atau pilih dari menu tray untuk melihat dirimu di island sebelum kelas atau rapat. Klik island untuk menutupnya; kamera dilepas otomatis setelah 2 menit. Cermin ini tidak ikut terekam selama efek kaca aktif.
+- **Ambil warna**: pilih dari menu tray (atau pasang pintasannya di **Pengaturan › Pintasan**), arahkan ke titik mana pun di layar, lalu klik. Kode hex-nya disalin. Esc atau klik kanan untuk batal.
 - **Catatan kilat**: tekan **Ctrl+Alt+N**, tulis satu baris, lalu Enter. Catatan masuk ke `catatan.md` di folder data dan tampil di Rak, atau jadi tugas baru di Todoist atau Notion kalau sudah tersambung.
 - **Mikrofon**: tekan **Ctrl+Alt+M** atau pakai tile Mikrofon di Kontrol untuk mematikan atau menyalakan mikrofon di seluruh sistem. Kalau ada aplikasi yang mendengarkan selagi mikrofon mati, ikon mikrofon di island berubah merah dan dicoret.
 - **Timer** ada di tab Kontrol dan di menu tray: Fokus 25 atau 50 menit lalu istirahat, timer 5, 10, atau 15 menit, dan stopwatch.
@@ -407,7 +408,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `weather` | `0` | Cuaca dan peringatan hujan, memakai kota `pray.city` |
 | `phone`, `phone.notifs`, `phone.otp` | `0`, `1`, `1` | Sambungan HP, notifikasi pesan dari HP, kode OTP dari HP |
 | `phone.port` | acak | Port sambungan HP, dipilih saat pertama dinyalakan |
-| `key.hide`, `key.nav`, `key.mini`, `key.mic`, `key.note`, `key.mirror` | `Ctrl+Alt+H`, `I`, `K`, `M`, `N`, `C` | Pintasan global, misalnya `Ctrl+Shift+F10` atau `Win+Alt+H`; `none` mematikannya |
+| `key.hide`, `key.nav`, `key.mini`, `key.mic`, `key.note`, `key.mirror`, `key.picker` | `Ctrl+Alt+H`, `I`, `K`, `M`, `N`, `C`, kosong | Pintasan global, misalnya `Ctrl+Shift+F10` atau `Win+Alt+H`; `none` mematikannya |
 | `key.prompter.pause`, `.restart`, `.back`, `.ahead`, `.faster`, `.slower`, `.setup`, `.stop` | `Ctrl+Alt+Space`, `R`, `Left`, `Right`, `=`, `-`, `P`, `X` | Pintasan teleprompter, hanya terpakai selama naskah berjalan |
 | `kulia.url`, `kulia.key` | server kulia.live | Arahkan ke instance Kulia lain |
 

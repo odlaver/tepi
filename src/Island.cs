@@ -289,6 +289,7 @@ namespace Tepi
                     else if (m.WParam.ToInt32() == MicHotkey) ToggleMic();
                     else if (m.WParam.ToInt32() == NoteHotkey) BeginInvoke(new Action(OpenNote));
                     else if (m.WParam.ToInt32() == MirrorHotkey) ToggleMirror();
+                    else if (m.WParam.ToInt32() == PickerHotkey) BeginInvoke(new Action(OpenPicker));
                     return;
                 case 0x020E: // WM_MOUSEHWHEEL: sideways swipe changes tab
                     if (expanded) WheelTab((short)((m.WParam.ToInt64() >> 16) & 0xFFFF));
@@ -1543,9 +1544,10 @@ namespace Tepi
             var focusItem = new ToolStripMenuItem(Lang.T("Timer"));
             var noteItem = new ToolStripMenuItem(Lang.T("Catatan kilat"), null, delegate { OpenNote(); }) { ShortcutKeyDisplayString = HotkeyText(NoteHotkey) };
             var mirrorItem = new ToolStripMenuItem(Lang.T("Cermin kamera"), null, delegate { ToggleMirror(); }) { ShortcutKeyDisplayString = HotkeyText(MirrorHotkey) };
+            var pickerItem = new ToolStripMenuItem(Lang.T("Ambil warna"), null, delegate { BeginInvoke(new Action(OpenPicker)); });
             var exit = new ToolStripMenuItem(Lang.T("Keluar"), null, delegate { Close(); });
             var prefsItem = new ToolStripMenuItem(Lang.T("Pengaturan…"), null, delegate { OpenPrefs(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, mirrorItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, mirrorItem, pickerItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
             menu.Opening += delegate
             {
                 // Style submenus after they're rebuilt
@@ -1556,6 +1558,7 @@ namespace Tepi
                 miniItem.ShortcutKeyDisplayString = HotkeyText(MiniHotkey);
                 noteItem.ShortcutKeyDisplayString = HotkeyText(NoteHotkey);
                 mirrorItem.ShortcutKeyDisplayString = HotkeyText(MirrorHotkey);
+                pickerItem.ShortcutKeyDisplayString = HotkeyText(PickerHotkey);
                 hideItem.Checked = hiddenByUser;
                 miniItem.Checked = MiniWanted();
                 prompterItem.Checked = PrompterOn;
