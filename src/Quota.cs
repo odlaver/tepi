@@ -589,6 +589,7 @@ namespace Tepi
             QuotaActs();
             var t = level >= 95 ? ShowToast(View.Info, 5, 3, false, true) : ShowToast(View.Info, 3.6, 2, false);
             if (t == null) return;
+            if (level >= 95) EyesReact(EyeMood.Worried, 0);
             t.Glyph = IcoGauge;
             quotaToastLevel = w.Pct / 100f;
             t.Title = Lang.F("Kuota {0} {1}", QuotaLabel(i), Ink.Percent((int)w.Pct));
