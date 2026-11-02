@@ -658,6 +658,7 @@ namespace Tepi
             { "Nama atau kata yang tetap muncul saat Senyap", "Names or words that still show in Quiet" },
             { "Ibu, dosen", "Mom, professor" },
             { "Senyap ikut Windows", "Quiet follows Windows" },
+            { "Saat agen minta izin atau selesai, dan saat --run selesai", "When an agent asks or finishes, and when --run ends" },
             { "Ikut menyala saat Jangan ganggu Windows aktif", "Turns on while Windows Do not disturb is on" },
             { "Pindai dari HP", "Scan from your phone" },
             { "Di HP: Integrasi › Laptop › Pindai QR", "On the phone: Connections › Laptop › Scan QR" },
