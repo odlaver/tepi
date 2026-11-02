@@ -183,13 +183,26 @@ namespace Tepi
             Pill(new RectangleF(right + pw + gap, cy - 15, pw, 30), "shotOpen", Lang.T("Buka"), PillKind.Secondary, delegate { OpenShot(); }, ready);
         }
 
-        // Engine checked once, off the UI thread
-        bool OcrShown { get { return ocrKnown && ocrReady; } }
-        volatile bool ocrKnown, ocrReady, ocrBusy;
-
-        void ProbeOcr()
+        // Checked on first need, not at startup: OCR runtime costs memory
+        bool OcrShown
         {
-            ThreadPool.QueueUserWorkItem(delegate { ocrReady = Ocr.Available; ocrKnown = true; });
+            get
+            {
+                if (!ocrKnown && !ocrProbing)
+                {
+                    ocrProbing = true;
+                    ThreadPool.QueueUserWorkItem(delegate { ocrReady = Ocr.Available; ocrKnown = true; Post(Kick); });
+                }
+                return ocrKnown && ocrReady;
+            }
+        }
+        volatile bool ocrKnown, ocrReady, ocrBusy, ocrProbing;
+
+        // Menus can't wait for the async check
+        bool OcrNow()
+        {
+            if (!ocrKnown) { ocrReady = Ocr.Available; ocrKnown = true; }
+            return ocrReady;
         }
 
         // Read, then copy; the toast says how it went
