@@ -147,6 +147,7 @@ namespace Tepi
             if (snap) { tabSnap = true; prevPage = pg; }
             if (pg == PageMessages) unread = 0;
             if (pg == PageClass) RefreshTasksIfStale();
+            if (pg == PageShelf) ShelfClipCheck();
             Kick();
         }
 

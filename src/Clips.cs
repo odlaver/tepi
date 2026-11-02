@@ -37,7 +37,12 @@ namespace Tepi
         void ClipRetryTick(object sender, EventArgs e) { clipRetry.Stop(); if (clipListening) ReadClipboard(false); }
 
         // WM_CLIPBOARDUPDATE
-        void OnClipboardUpdate() { if (clipListening) ReadClipboard(true); }
+        void OnClipboardUpdate()
+        {
+            if (!clipListening) return;
+            ReadClipboard(true);
+            if (expanded && page == PageShelf) ShelfClipCheck();
+        }
 
         void ReadClipboard(bool retry)
         {
