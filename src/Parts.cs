@@ -161,10 +161,10 @@ namespace Tepi
         }
 
         // Round toggle with caption below
-        void CircleToggle(float cx, float cy, float d, char glyph, bool on, bool available, string label, string id, Action act)
+        void CircleToggle(float cx, float cy, float d, char glyph, bool on, bool available, string label, string id, Action act, Action menu = null, float hitW = 80)
         {
-            float r = d / 2;
-            if (available) AddHit(new RectangleF(cx - Math.Max(r + 8, 40), cy - r - 6, Math.Max(d + 16, 80), d + 32), id, act);
+            float r = d / 2, hw = Math.Max(d + 4, hitW);
+            if (available) AddHit(new RectangleF(cx - hw / 2, cy - r - 6, hw, d + 32), id, act, null, menu);
             bool hover = available && Hover(id), down = available && Pressed(id);
             var circle = new RectangleF(cx - r, cy - r, d, d);
             float s = Squish(id, circle, 0.92f);

@@ -94,7 +94,7 @@ namespace Tepi
         static readonly string[] DevIds = { "dev0", "dev1", "dev2", "dev3", "dev4" }, ChipIds = { "chip0", "chip1", "chip2", "chip3", "chip4" };
         static readonly string[] ChipNames = { "Fokus 25", "5 mnt", "10 mnt", "15 mnt", "Stopwatch" };
         // Delegates built once, never per frame
-        Action actMute, actDevices, actWifi, actBt, actQuiet, actHide, actVolStep, actBrightStep, actTmPause, actTmAdd, actTmLap, actTmStop;
+        Action actMute, actDevices, actWifi, actBt, actQuiet, actHide, actAwake, actAwakeMenu, actVolStep, actBrightStep, actTmPause, actTmAdd, actTmLap, actTmStop;
         Action<float> setVol, setBright;
         Action[] chipActs, devActs = new Action[0];
         List<AudioDevice> devActsFor;
@@ -120,6 +120,8 @@ namespace Tepi
             actBt = delegate { if (radios.Denied) OpenSettings("ms-settings:bluetooth"); else radios.Toggle(false); };
             actQuiet = delegate { settings.Toggle("dnd", false); Kick(); };
             actHide = delegate { ToggleHidden(); };
+            actAwake = ToggleAwake;
+            actAwakeMenu = AwakeMenu;
             setVol = delegate (float f)
             {
                 vol = f;
@@ -305,31 +307,36 @@ namespace Tepi
             }
         }
 
-        // Radios, mic, quiet, mini and hide
+        // Radios, mic, quiet, mini, hide, awake
         void DrawToggles(RectangleF r)
         {
             Module(r, Ink.RadiusModule);
-            const int n = 6;
-            float cx, cy;
+            const int n = 7;
+            float cx, cy, d = ToggleD(n), hw = r.Width / 4;
             ToggleSlot(r, 0, n, out cx, out cy);
-            CircleToggle(cx, cy, CtlToggleD, Ink.IcoWifi, radios.WifiOn, radios.HasWifi, Lang.T("Wi-Fi"), "tileWifi", actWifi);
+            CircleToggle(cx, cy, d, Ink.IcoWifi, radios.WifiOn, radios.HasWifi, Lang.T("Wi-Fi"), "tileWifi", actWifi, null, hw);
             ToggleSlot(r, 1, n, out cx, out cy);
-            CircleToggle(cx, cy, CtlToggleD, Ink.IcoBluetooth, radios.BluetoothOn, radios.HasBluetooth, Lang.T("Bluetooth"), "tileBt", actBt);
+            CircleToggle(cx, cy, d, Ink.IcoBluetooth, radios.BluetoothOn, radios.HasBluetooth, Lang.T("Bluetooth"), "tileBt", actBt, null, hw);
             ToggleSlot(r, 2, n, out cx, out cy);
-            CircleToggle(cx, cy, CtlToggleD, micMuted ? IcoMicOff : Ink.IcoMic, micPresent && !micMuted, micPresent, Lang.T("Mikrofon"), "tileMic", actMic);
+            CircleToggle(cx, cy, d, micMuted ? IcoMicOff : Ink.IcoMic, micPresent && !micMuted, micPresent, Lang.T("Mikrofon"), "tileMic", actMic, null, hw);
             ToggleSlot(r, 3, n, out cx, out cy);
-            CircleToggle(cx, cy, CtlToggleD, Ink.IcoQuiet, Quiet, true, Lang.T("Senyap"), "tileQuiet", actQuiet);
+            CircleToggle(cx, cy, d, Ink.IcoQuiet, Quiet, true, Lang.T("Senyap"), "tileQuiet", actQuiet, null, hw);
             ToggleSlot(r, 4, n, out cx, out cy);
-            CircleToggle(cx, cy, CtlToggleD, IcoMini, MiniWanted(), true, Lang.T("Mini"), "tileMini", MiniAct());
+            CircleToggle(cx, cy, d, IcoMini, MiniWanted(), true, Lang.T("Mini"), "tileMini", MiniAct(), null, hw);
             ToggleSlot(r, 5, n, out cx, out cy);
-            CircleToggle(cx, cy, CtlToggleD, Ink.IcoHide, false, true, Lang.T("Sembunyikan"), "tileHide", actHide);
+            CircleToggle(cx, cy, d, Ink.IcoHide, false, true, Lang.T("Sembunyikan"), "tileHide", actHide, null, hw);
+            ToggleSlot(r, 6, n, out cx, out cy);
+            CircleToggle(cx, cy, d, IcoAwake, AwakeOn, true, AwakeLabel(), "tileAwake", actAwake, actAwakeMenu, hw);
         }
 
-        // 2x2 to four, 3x2 to six
+        // Four across past six tiles
+        static float ToggleD(int n) { return n > 6 ? 44 : CtlToggleD; }
+
+        // 2x2 to four, 3x2 to six, 4x2 to eight
         static void ToggleSlot(RectangleF r, int i, int n, out float cx, out float cy)
         {
-            const float d = CtlToggleD, block = CtlToggleD + 17;
-            int cols = n <= 4 ? 2 : 3, rows = (n + cols - 1) / cols, row = i / cols, inRow = Math.Min(cols, n - row * cols);
+            float d = ToggleD(n), block = d + 17;
+            int cols = n <= 4 ? 2 : n <= 6 ? 3 : 4, rows = (n + cols - 1) / cols, row = i / cols, inRow = Math.Min(cols, n - row * cols);
             float gx = (r.Width - cols * d) / (cols + 1), gy = (r.Height - rows * block) / (rows + 1);
             // Short last row stays centred
             float start = r.X + (r.Width - inRow * d - (inRow - 1) * gx) / 2;
