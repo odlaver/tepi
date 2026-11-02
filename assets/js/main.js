@@ -22,7 +22,7 @@
     "droid.title": "Now the island is on your phone too.",
     "droid.body": "The first release of Tepi for Android: a dynamic island around the front camera, for phones without one. Songs and lyrics, messages with quick reply, calls, downloads, Maps navigation, timers, and prayer times.",
     "droid.pair": "Pairs with your laptop by QR",
-    "droid.pair.d": "Scan the code from Settings › Phone on the laptop. OTP codes are ready to copy on the laptop, phone notifications land in Messages, files go both ways, and agent permissions are answered with your fingerprint.",
+    "droid.pair.d": "Scan the code from Settings › Phone on the laptop. OTP codes are ready to copy on the laptop, phone notifications land in Messages, files go both ways (pick them right in the Tepi app or from the Share menu), and agent permissions are answered with your fingerprint.",
     "droid.bank": "Bank mode",
     "droid.bank.d": "Tepi's accessibility service turns itself off while a banking app is open, so the bank still opens.",
     "droid.local": "No server",
