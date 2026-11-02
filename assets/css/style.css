@@ -234,15 +234,20 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 .tabs button[aria-selected="true"] { background: var(--text); border-color: var(--text); color: var(--on-cta); }
 .scene:not(.pinned) .scene-copy { padding-bottom: 12px; }
 
-/* Tepi Android: real captures, stacked like a deck */
-.droid-list { margin-top: 28px; display: grid; gap: 18px; max-width: 56ch; }
-.droid-list b { display: block; font-size: 17px; font-weight: 600; color: var(--text); }
-.droid-list span { display: block; margin-top: 4px; font-size: 16px; color: var(--sub); text-wrap: pretty; }
-.droid-cta { margin-top: 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+/* Tepi Android: the phones carry the section */
+.droid-head { text-align: center; display: flex; flex-direction: column; align-items: center; }
+.droid-head .body { margin-inline: auto; max-width: 46ch; }
+.droid-cta { margin-top: 26px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 18px; }
 .droid-cta .btn .ico { width: 18px; height: 18px; }
-.droid-shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(8px, 1.6vw, 18px); align-items: start; }
-.droid-shots img:nth-child(2) { margin-top: clamp(16px, 3vw, 40px); }
-.droid-shots img { width: 100%; height: auto; border-radius: clamp(14px, 2.2vw, 28px); padding: clamp(3px, 0.4vw, 6px); background: #2a2a2e; box-shadow: 0 0 0 1px var(--line); }
+.droid-shots { margin-top: clamp(36px, 5vw, 64px); display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(10px, 2.4vw, 32px); max-width: 1080px; }
+.droid-shots figure { margin: 0; }
+/* Top of the phone only: island big, wallpaper out */
+.droid-shots .phone { aspect-ratio: 9 / 10; overflow: hidden; border-radius: clamp(18px, 3vw, 40px) clamp(18px, 3vw, 40px) 0 0; padding: clamp(4px, 0.6vw, 8px) clamp(4px, 0.6vw, 8px) 0; background: #2a2a2e;
+  -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent); mask-image: linear-gradient(180deg, #000 70%, transparent); }
+.droid-shots img { display: block; width: 100%; height: auto; border-radius: clamp(14px, 2.4vw, 32px) clamp(14px, 2.4vw, 32px) 0 0; }
+.droid-shots figcaption { margin-top: 10px; text-align: center; font-size: 15px; color: var(--sub); }
+.droid-facts { margin-top: clamp(28px, 4vw, 48px); display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.droid-facts li { padding: 10px 16px; border-radius: 999px; border: 1px solid var(--line); font-size: 15px; color: var(--sub); }
 
 /* Mini, up close */
 .split { display: grid; gap: 40px; align-items: center; }
@@ -447,6 +452,9 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
   .acts-side { gap: 14px; }
 }
 @media (max-width: 599px) {
+  /* Phones swipe sideways, each big enough to read */
+  .droid-shots { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 14px; padding-bottom: 6px; scrollbar-width: none; }
+  .droid-shots figure { flex: 0 0 74%; scroll-snap-align: center; }
   .fab { width: 52px; height: 52px; padding: 0; }
   .fab span { display: none; }
   .fab svg { width: 22px; height: 22px; }
