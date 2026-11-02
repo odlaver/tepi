@@ -108,6 +108,7 @@ namespace Tepi
 
             Ink.Init();
             Anim.Read(settings);
+            Fmt.H24 = settings.GetBool("clock.24", true);
             Ink.Apply(settings.Get("theme", "gelap") == "terang");
             Ink.SetAccent(settings.Get("accent", ""));
             clockTimer.Tick += delegate { ClockTick(); };
@@ -210,7 +211,7 @@ namespace Tepi
             warm.Start();
             ReadPower();
             CheckFullscreen();
-            clockRoller.Set(Fmt.Hm(DateTime.Now));
+            clockRoller.Set(Fmt.Clock(DateTime.Now));
             int hour = DateTime.Now.Hour;
             ShowInfo('\0', Greeting(hour < 11 ? Lang.T("Pagi") : hour < 15 ? Lang.T("Siang") : hour < 18 ? Lang.T("Sore") : Lang.T("Malam")), Fmt.Hm(DateTime.Now), true);
             if (toast != null) toast.Emblem = emblem != null;
@@ -1460,7 +1461,7 @@ namespace Tepi
         void ClockTick()
         {
             var nowUtc = DateTime.UtcNow;
-            string hm = Fmt.Hm(DateTime.Now);
+            string hm = Fmt.Clock(DateTime.Now);
             bool minute = hm != clockRoller.Value;
             clockRoller.Set(hm);
             // The clock rolls only where it shows
