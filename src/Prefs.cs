@@ -420,7 +420,7 @@ namespace Tepi
                 new[] { "Sembunyikan island", "\uED1A" }, new[] { "Navigasi keyboard", "\uE765" }, new[] { "Mini", "\uE898" }, new[] { "Mikrofon", "\uE720" },
                 new[] { "Catatan kilat", "\uE70B" }, new[] { "Cermin kamera", "\uE714" }, new[] { "Jeda dan lanjut", "\uE769" }, new[] { "Ulang dari awal", "\uE72C" },
                 new[] { "Mundur 5 detik", "\uE76B" }, new[] { "Maju 5 detik", "\uE76C" }, new[] { "Lebih cepat", "\uE710" }, new[] { "Lebih lambat", "\uE738" },
-                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" }, new[] { "Pakai warna sendiri", "\uE790" }, new[] { "Simpan jadi paket", "\uE74E" }, new[] { "Pembuat paket", "\uE774" }, new[] { "Pindai dari HP", "\uED14" }, new[] { "Aplikasi chat tambahan", "\uE8BD" }, new[] { "Pengirim prioritas", "\uE77B" }, new[] { "Senyap ikut Windows", "\uE708" }, new[] { "Suara", "\uE767" }, new[] { "Simpan isi rak", "\uE74E" }, new[] { "Kosongkan rak otomatis", "\uE916" }, new[] { "Ambil warna", "\uE790" },
+                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" }, new[] { "Pakai warna sendiri", "\uE790" }, new[] { "Simpan jadi paket", "\uE74E" }, new[] { "Pembuat paket", "\uE774" }, new[] { "Pindai dari HP", "\uED14" }, new[] { "Aplikasi chat tambahan", "\uE8BD" }, new[] { "Pengirim prioritas", "\uE77B" }, new[] { "Senyap ikut Windows", "\uE708" }, new[] { "Suara", "\uE767" }, new[] { "Simpan isi rak", "\uE74E" }, new[] { "Kosongkan rak otomatis", "\uE916" }, new[] { "Ambil warna", "\uE790" }, new[] { "Ekspor pengaturan", "\uEDE1" }, new[] { "Impor pengaturan", "\uE8B5" }, new[] { "Setel ulang pengaturan", "\uE72C" },
             };
 
             static char GlyphFor(string title)
@@ -575,6 +575,45 @@ namespace Tepi
                         add(Row(Lang.T("Cek versi baru"), Lang.T("Sekali sehari ke GitHub; unduhan hanya saat diminta"), Switch("update.check", true, on => { settings.Set("update.check", on); settings.Save(); })));
                         cap(Lang.T("Data"));
                         add(Row(Lang.T("Folder data"), Settings.Dir, Button(Lang.T("Buka"), false, delegate { try { Process.Start("explorer.exe", "\"" + Settings.Dir + "\""); } catch (Exception) { } })));
+                        KitRow io = null;
+                        io = Row(Lang.T("Ekspor pengaturan"), Lang.T("Tanpa token, port, dan pasangan HP"), Button(Lang.T("Simpan…"), false, delegate
+                        {
+                            using (var d = new SaveFileDialog { FileName = "tepi-pengaturan.ini", Filter = "INI|*.ini", RestoreDirectory = true })
+                            {
+                                if (d.ShowDialog(this) != DialogResult.OK) return;
+                                try { io.Detail = Lang.F("{0} pengaturan disimpan", island.ExportSettings(d.FileName)); }
+                                catch (Exception ex) { io.Detail = Lang.T("Gagal menyimpan"); Log.Write("export: " + ex.Message); }
+                                io.Invalidate();
+                            }
+                        }));
+                        add(io);
+                        KitRow inRow = null;
+                        inRow = Row(Lang.T("Impor pengaturan"), Lang.T("Tepi dibuka ulang sesudahnya"), Button(Lang.T("Buka…"), false, delegate
+                        {
+                            using (var d = new OpenFileDialog { Filter = "INI|*.ini|*.*|*.*", RestoreDirectory = true })
+                            {
+                                if (d.ShowDialog(this) != DialogResult.OK) return;
+                                int n = 0;
+                                try { n = island.ImportSettings(d.FileName); }
+                                catch (Exception ex) { Log.Write("import: " + ex.Message); }
+                                if (n == 0) { inRow.Detail = Lang.T("Tidak ada pengaturan Tepi di berkas itu"); inRow.Invalidate(); return; }
+                                island.RestartTepi();
+                            }
+                        }));
+                        add(inRow);
+                        // Second click within 4 s confirms
+                        KitButton resetBtn = null;
+                        var armed = new System.Windows.Forms.Timer { Interval = 4000 };
+                        armed.Tick += delegate { armed.Stop(); resetBtn.Text = Lang.T("Setel ulang"); resetBtn.Invalidate(); };
+                        resetBtn = Button(Lang.T("Setel ulang"), false, delegate
+                        {
+                            if (!armed.Enabled) { armed.Start(); resetBtn.Text = Lang.T("Klik lagi"); resetBtn.Invalidate(); return; }
+                            armed.Stop();
+                            island.ResetSettings();
+                            island.RestartTepi();
+                        });
+                        resetBtn.Disposed += delegate { armed.Dispose(); };
+                        add(Row(Lang.T("Setel ulang pengaturan"), Lang.T("Integrasi, agen, dan HP tetap tersambung"), resetBtn));
                         break;
                     case "look":
                         string themeMode = settings.Get("theme", "gelap");
