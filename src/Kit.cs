@@ -514,7 +514,8 @@ namespace Tepi
         void DrawGlyph(Graphics g, float s)
         {
             KitInk.Smooth(g);
-            var tile = new RectangleF((14 + Lead) * s, (Height - 30 * s) / 2, 30 * s, 30 * s);
+            // Tall rows keep the tile beside the title
+            var tile = new RectangleF((14 + Lead) * s, Height > 80 * s ? 16 * s : (Height - 30 * s) / 2, 30 * s, 30 * s);
             using (var path = Ink.Round(tile, 8 * s))
             using (var b = new SolidBrush(KitInk.Hover)) g.FillPath(b, path);
             // Mark glyph: Tepi's own pill
