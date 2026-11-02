@@ -170,6 +170,7 @@ namespace Tepi
             TickWeather();
             TickBluetooth(false);
             TickMirror();
+            TickConvert();
             if (phone != null) phone.Sweep();
             if (TickMeeting()) { Kick(); redraw = true; }
             if (mediaInfo.Present) SyncLyrics();
