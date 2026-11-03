@@ -15,6 +15,7 @@
     "cta.download": "Download for Windows",
     "meta.free": "Free",
     "meta.os": "Windows 10 and 11",
+    "meta.dl": "downloads",
     "note.platform": "Tepi is available for Windows 10 and 11, and Android 10 or later.",
     "cta.android": "Download for Android",
     "hero.source": "Source code on GitHub",
@@ -873,11 +874,25 @@
   var film = $(".film");
   if (window.matchMedia("(orientation: portrait) and (max-width: 860px)").matches) film.poster = "assets/img/poster-v.jpg";
 
+  // Total downloads across all releases
+  function showDownloads(list, sel) {
+    var n = 0;
+    list.forEach(function (rel) { (rel.assets || []).forEach(function (a) { n += a.download_count || 0; }); });
+    if (!n) return;
+    $$(sel).forEach(function (el) { $(".js-n", el).textContent = n; el.hidden = false; });
+  }
+  function newest(list) {
+    return list.filter(function (rel) { return !rel.draft && !rel.prerelease; })[0];
+  }
+
   // Latest release details, static fallback
   if (window.fetch) {
-    fetch("https://api.github.com/repos/odlaver/tepi/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+    fetch("https://api.github.com/repos/odlaver/tepi/releases?per_page=100", { headers: { Accept: "application/vnd.github+json" } })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then(function (rel) {
+      .then(function (list) {
+        showDownloads(list, ".js-dl-win");
+        var rel = newest(list);
+        if (!rel) return;
         var ver = String(rel.tag_name || "").replace(/^v/, "");
         // 2.0 big, build digits small
         var m = /^(\d+\.\d+)((?:\.\d+)*)$/.exec(ver);
@@ -896,9 +911,12 @@
       })
       .catch(function () { });
     // Newest APK, static link as fallback
-    fetch("https://api.github.com/repos/odlaver/tepi-android/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+    fetch("https://api.github.com/repos/odlaver/tepi-android/releases?per_page=100", { headers: { Accept: "application/vnd.github+json" } })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then(function (rel) {
+      .then(function (list) {
+        showDownloads(list, ".js-dl-apk");
+        var rel = newest(list);
+        if (!rel) return;
         var apk = (rel.assets || []).filter(function (a) { return /\.apk$/i.test(a.name); })[0];
         if (!apk) return;
         $$(".js-apk").forEach(function (a) { a.href = apk.browser_download_url; });
