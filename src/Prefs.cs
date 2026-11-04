@@ -408,7 +408,7 @@ namespace Tepi
                 new[] { "Preview screenshot", "\uE91B" }, new[] { "Rak berkas", "\uE7B8" }, new[] { "Istirahat fokus", "\uE916" },
                 new[] { "Claude Code", "\uE756" }, new[] { "Kuota Claude", "\uEC4A" }, new[] { "Menahan izin", "\uE72E" },
                 new[] { "Kulia", "\uE7BE" }, new[] { "Tugas dan jadwal", "\uE787" }, new[] { "Kolom tanggal", "\uE787" }, new[] { "Kolom selesai", "\uE73E" },
-                new[] { "Belum ada database", "\uE8F1" }, new[] { "Pengingat sholat", "\uE708" }, new[] { "Sholat", "\uE708" }, new[] { "Suara adzan", "\uE767" }, new[] { "Suara Subuh", "\uE767" }, new[] { "Suara sebelum waktu", "\uE767" }, new[] { "Suara minum", "\uE767" }, new[] { "Suara istirahat mata", "\uE767" }, new[] { "Suara peregangan", "\uE767" }, new[] { "Tambah ibadah", "\uE710" }, new[] { "Nama", "\uE8AC" }, new[] { "Jam", "\uE823" }, new[] { "Hari", "\uE787" }, new[] { "Kota", "\uE707" }, new[] { "Ingatkan sebelum", "\uEA8F" },
+                new[] { "Belum ada database", "\uE8F1" }, new[] { "Pengingat sholat", "\uE708" }, new[] { "Sholat", "\uE708" }, new[] { "Suara adzan", "\uE767" }, new[] { "Suara sebelum waktu", "\uE767" }, new[] { "Suara minum", "\uE767" }, new[] { "Suara istirahat mata", "\uE767" }, new[] { "Suara peregangan", "\uE767" }, new[] { "Tambah ibadah", "\uE710" }, new[] { "Nama", "\uE8AC" }, new[] { "Jam", "\uE823" }, new[] { "Hari", "\uE787" }, new[] { "Kota", "\uE707" }, new[] { "Ingatkan sebelum", "\uEA8F" },
                 new[] { "Minum air", "\uEB42" }, new[] { "Selang minum", "\uE916" }, new[] { "Target harian", "\uE73E" },
                 new[] { "Istirahat mata 20-20-20", "\uE890" }, new[] { "Peregangan", "\uE805" }, new[] { "Selang peregangan", "\uE916" },
                 new[] { "Tampil di rekaman layar", "\uE7F4" }, new[] { "Umumkan ke pembaca layar", "\uE7F5" }, new[] { "Kurangi gerak", "\uE7AD" }, new[] { "Gerak", "\uE7AD" },
@@ -921,8 +921,7 @@ namespace Tepi
                         // Adzan rows only once Sholat is on
                         if (settings.GetBool("pray", false))
                         {
-                            add(Row(Lang.T("Suara adzan"), Lang.T("Dzuhur sampai Isya"), SoundSetting("sound.pray", Lang.T("Bawaan"))));
-                            add(Row(Lang.T("Suara Subuh"), null, SoundSetting("sound.pray.fajr", Lang.T("Sama dengan adzan"))));
+                            add(Row(Lang.T("Suara adzan"), null, SoundSetting("sound.pray", Lang.T("Bawaan"))));
                             add(Row(Lang.T("Suara sebelum waktu"), null, SoundSetting("sound.pray.before", Lang.T("Bawaan"))));
                         }
                         IbadahRows(add, cap);
