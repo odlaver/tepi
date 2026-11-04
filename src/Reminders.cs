@@ -229,7 +229,7 @@ namespace Tepi
                     if (prayAnnounced < i && now >= times[i] && now < times[i].AddMinutes(10))
                     {
                         prayAnnounced = prayWarned = i;
-                        redraw |= ShowWorship(i, true, i == 0 ? settings.Get("sound.pray.fajr", "").Length > 0 ? settings.Get("sound.pray.fajr", "") : settings.Get("sound.pray", "") : settings.Get("sound.pray", ""));
+                        redraw |= ShowWorship(i, true, settings.Get("sound.pray", ""));
                     }
                 }
             }
