@@ -130,6 +130,64 @@ namespace Tepi
             catch (Exception) { return "PID " + pid; }
         }
 
+        // Ducked sessions and their levels; worker only
+        readonly List<KeyValuePair<ISimpleAudioVolume, float>> ducked = new List<KeyValuePair<ISimpleAudioVolume, float>>();
+        const float DuckTo = 0.25f;
+
+        // Lower other apps while a reminder speaks
+        public void Duck(bool on)
+        {
+            Do(delegate
+            {
+                if (on) DuckAll(); else Unduck();
+            });
+        }
+
+        void DuckAll()
+        {
+            if (ducked.Count > 0) return;
+            IMMDevice dev;
+            if (enumerator == null || enumerator.GetDefaultAudioEndpoint(0, 1, out dev) != 0 || dev == null) return;
+            var iid = typeof(IAudioSessionManager2).GUID;
+            object o;
+            if (dev.Activate(ref iid, 23, IntPtr.Zero, out o) != 0) return;
+            var mgr = (IAudioSessionManager2)o;
+            IAudioSessionEnumerator list;
+            int count;
+            uint self = (uint)Process.GetCurrentProcess().Id;
+            if (mgr.GetSessionEnumerator(out list) == 0 && list.GetCount(out count) == 0)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    IAudioSessionControl2 s;
+                    if (list.GetSession(i, out s) != 0 || s == null) continue;
+                    int state;
+                    uint pid;
+                    // Only sessions playing now, never Tepi
+                    if (s.GetState(out state) != 0 || state != 1 || s.IsSystemSoundsSession() == 0 || s.GetProcessId(out pid) != 0 || pid == self) { Marshal.ReleaseComObject(s); continue; }
+                    var vol = (ISimpleAudioVolume)s;
+                    float level;
+                    if (vol.GetMasterVolume(out level) != 0) { Marshal.ReleaseComObject(s); continue; }
+                    vol.SetMasterVolume(level * DuckTo, ref ctx);
+                    ducked.Add(new KeyValuePair<ISimpleAudioVolume, float>(vol, level));
+                }
+                Marshal.ReleaseComObject(list);
+            }
+            Marshal.ReleaseComObject(mgr);
+        }
+
+        void Unduck()
+        {
+            foreach (var d in ducked)
+            {
+                float now;
+                // User moved it meanwhile: leave theirs
+                if (d.Key.GetMasterVolume(out now) == 0 && Math.Abs(now - d.Value * DuckTo) < 0.02f) d.Key.SetMasterVolume(d.Value, ref ctx);
+                Marshal.ReleaseComObject(d.Key);
+            }
+            ducked.Clear();
+        }
+
         public void SetApp(string name, float level, bool mute)
         {
             Do(delegate

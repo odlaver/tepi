@@ -408,7 +408,7 @@ namespace Tepi
                 new[] { "Preview screenshot", "\uE91B" }, new[] { "Rak berkas", "\uE7B8" }, new[] { "Istirahat fokus", "\uE916" },
                 new[] { "Claude Code", "\uE756" }, new[] { "Kuota Claude", "\uEC4A" }, new[] { "Menahan izin", "\uE72E" },
                 new[] { "Kulia", "\uE7BE" }, new[] { "Tugas dan jadwal", "\uE787" }, new[] { "Kolom tanggal", "\uE787" }, new[] { "Kolom selesai", "\uE73E" },
-                new[] { "Belum ada database", "\uE8F1" }, new[] { "Pengingat sholat", "\uE708" }, new[] { "Kota", "\uE707" }, new[] { "Ingatkan sebelum", "\uEA8F" },
+                new[] { "Belum ada database", "\uE8F1" }, new[] { "Pengingat sholat", "\uE708" }, new[] { "Sholat", "\uE708" }, new[] { "Suara adzan", "\uE767" }, new[] { "Suara Subuh", "\uE767" }, new[] { "Suara sebelum waktu", "\uE767" }, new[] { "Suara minum", "\uE767" }, new[] { "Suara istirahat mata", "\uE767" }, new[] { "Suara peregangan", "\uE767" }, new[] { "Tambah ibadah", "\uE710" }, new[] { "Nama", "\uE8AC" }, new[] { "Jam", "\uE823" }, new[] { "Hari", "\uE787" }, new[] { "Kota", "\uE707" }, new[] { "Ingatkan sebelum", "\uEA8F" },
                 new[] { "Minum air", "\uEB42" }, new[] { "Selang minum", "\uE916" }, new[] { "Target harian", "\uE73E" },
                 new[] { "Istirahat mata 20-20-20", "\uE890" }, new[] { "Peregangan", "\uE805" }, new[] { "Selang peregangan", "\uE916" },
                 new[] { "Tampil di rekaman layar", "\uE7F4" }, new[] { "Umumkan ke pembaca layar", "\uE7F5" }, new[] { "Kurangi gerak", "\uE7AD" }, new[] { "Gerak", "\uE7AD" },
@@ -903,26 +903,39 @@ namespace Tepi
                         int cityAt = 0;
                         string city = settings.Get("pray.city", "");
                         foreach (var c in Cities.List) { if ((string)c[0] == city) cityAt = cities.Count; cities.Add((string)c[0]); }
-                        add(Row(Lang.T("Pengingat sholat"), Lang.T("Dihitung di laptop ini, metode Kemenag"), Switch("pray", false, on =>
+                        cap(Lang.T("Ibadah"));
+                        add(Row(Lang.T("Sholat"), Lang.T("Dihitung di laptop ini, metode Kemenag"), Switch("pray", false, on =>
                         {
                             if (on && city.Length == 0) settings.Set("pray.city", cities[cityAt]);
                             settings.Set("pray", on);
                             settings.Save();
                             island.prayToday = null;
                             island.Kick();
+                            BeginInvoke(new Action(Relayout));
                         })));
                         add(Row(Lang.T("Kota"), null, Popup(cities.ToArray(), cityAt, i => { settings.Set("pray.city", cities[i]); settings.Save(); island.prayToday = null; island.Kick(); })));
-                        add(Row(Lang.T("Ingatkan sebelum"), null, Slider(0, 30, 5, settings.GetInt("pray.before", 10), v => v == 0 ? Lang.T("tidak") : v + Lang.T(" menit"), v => { settings.Set("pray.before", v); settings.Save(); })));
                         var weatherSw = Switch("weather", false, null);
                         weatherSw.Enabled = island.PrayCity() != null;
                         add(Row(Lang.T("Cuaca dan hujan"), weatherSw.Enabled ? Lang.T("Suhu di Ringkasan dan peringatan hujan, dari Open-Meteo") : Lang.T("Pilih kota dulu"), weatherSw));
+                        add(Row(Lang.T("Ingatkan sebelum"), null, Slider(0, 30, 5, settings.GetInt("pray.before", 10), v => v == 0 ? Lang.T("tidak") : v + Lang.T(" menit"), v => { settings.Set("pray.before", v); settings.Save(); })));
+                        // Adzan rows only once Sholat is on
+                        if (settings.GetBool("pray", false))
+                        {
+                            add(Row(Lang.T("Suara adzan"), Lang.T("Dzuhur sampai Isya"), SoundSetting("sound.pray", Lang.T("Bawaan"))));
+                            add(Row(Lang.T("Suara Subuh"), null, SoundSetting("sound.pray.fajr", Lang.T("Sama dengan adzan"))));
+                            add(Row(Lang.T("Suara sebelum waktu"), null, SoundSetting("sound.pray.before", Lang.T("Bawaan"))));
+                        }
+                        IbadahRows(add, cap);
                         cap(Lang.T("Kesehatan"));
                         add(Row(Lang.T("Minum air"), null, Switch("drink", false, null)));
                         add(Row(Lang.T("Selang minum"), null, Slider(30, 120, 15, settings.GetInt("drink.every", 60), v => v + Lang.T(" menit"), v => { settings.Set("drink.every", v); settings.Save(); })));
                         add(Row(Lang.T("Target harian"), null, Slider(4, 12, 1, island.DrinkGoal, v => v + Lang.T(" gelas"), v => { settings.Set("drink.goal", v); settings.Save(); })));
+                        add(Row(Lang.T("Suara minum"), null, SoundSetting("sound.drink", Lang.T("Bawaan"))));
                         add(Row(Lang.T("Istirahat mata 20-20-20"), Lang.T("Tiap 20 menit di layar, pandang jauh 20 detik"), Switch("eyes", false, null)));
+                        add(Row(Lang.T("Suara istirahat mata"), null, SoundSetting("sound.eyes", Lang.T("Bawaan"))));
                         add(Row(Lang.T("Peregangan"), null, Switch("stretch", false, null)));
                         add(Row(Lang.T("Selang peregangan"), null, Slider(30, 120, 15, settings.GetInt("stretch.every", 60), v => v + Lang.T(" menit"), v => { settings.Set("stretch.every", v); settings.Save(); })));
+                        add(Row(Lang.T("Suara peregangan"), null, SoundSetting("sound.stretch", Lang.T("Bawaan"))));
                         cap(Lang.T("Timer"));
                         add(Row(Lang.T("Istirahat fokus"), null, Slider(1, 30, 1, settings.GetInt("focus.break", 5), v => v + Lang.T(" menit"), v => { settings.Set("focus.break", v); settings.Save(); })));
                         break;
