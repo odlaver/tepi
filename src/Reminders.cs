@@ -224,20 +224,16 @@ namespace Tepi
                     if (before > 0 && prayWarned < i && now >= times[i].AddMinutes(-before) && now < times[i])
                     {
                         prayWarned = i;
-                        var t = ShowToast(View.Pray, 6, 3, false, true);
-                        if (t != null) { t.Data = i; t.Flag = false; }
-                        redraw = true;
+                        redraw |= ShowWorship(i, false, settings.Get("sound.pray.before", ""));
                     }
                     if (prayAnnounced < i && now >= times[i] && now < times[i].AddMinutes(10))
                     {
                         prayAnnounced = prayWarned = i;
-                        var t = ShowToast(View.Pray, 8, 3, false, true);
-                        if (t != null) { t.Data = i; t.Flag = true; }
-                        Chime();
-                        redraw = true;
+                        redraw |= ShowWorship(i, true, i == 0 ? settings.Get("sound.pray.fajr", "").Length > 0 ? settings.Get("sound.pray.fajr", "") : settings.Get("sound.pray", "") : settings.Get("sound.pray", ""));
                     }
                 }
             }
+            redraw |= IbadahTick(now);
             // Nudges wait: away, fullscreen, or quiet
             if (idle > 120 || fullscreen || Quiet || PrompterOn || nowUtc < snoozeUntilUtc || toast != null) return redraw;
             int hour = now.Hour;
@@ -255,9 +251,11 @@ namespace Tepi
         {
             last = DateTime.UtcNow;
             remindShown = kind;
-            var t = ShowToast(View.Remind, kind == RemindKind.Eyes ? 20 : 12, 2, true);
+            var t = ShowToast(View.Remind, 20, 2, true);
             if (t == null) return false;
             t.Data = kind;
+            t.Hold = true;
+            PlayRemind(settings.Get("sound." + WellKeys[(int)kind - 1], ""));
             if (kind == RemindKind.Eyes) restUntilUtc = DateTime.UtcNow.AddSeconds(20);
             if (!Anim.Reduced) topGap.Velocity += 80;
             return true;
@@ -334,13 +332,15 @@ namespace Tepi
         float PrayWidth()
         {
             if (toast == null || p.G == null) return 280;
-            return Clamp(p.Measure(PrayTitle(), Ink.Headline) + p.Measure(PrayTail(), Ink.Semi(13f)) + 52 + 44, 240, 420);
+            return Clamp(p.Measure(PrayTitle(), Ink.Headline) + p.Measure(PrayTail(), Ink.Semi(13f)) + 52 + 44 + DoneW + 12, 300, 460);
         }
 
         string PrayTitle()
         {
-            int i = toast != null && toast.Data is int ? (int)toast.Data : 0;
             bool due = toast != null && toast.Flag;
+            var custom = toast != null ? toast.Data as IbadahItem : null;
+            if (custom != null) return due ? custom.Name : Lang.F("{0} sebentar lagi", custom.Name);
+            int i = toast != null && toast.Data is int ? (int)toast.Data : 0;
             int key = i * 4 + (due ? 2 : 0) + (Lang.English ? 1 : 0);
             if (key != prayTitleKey)
             {
@@ -354,6 +354,12 @@ namespace Tepi
         // Time when due, else minutes left
         string PrayTail()
         {
+            var custom = toast != null ? toast.Data as IbadahItem : null;
+            if (custom != null)
+            {
+                if (toast.Flag) return custom.Hm;
+                return Fmt.Left(custom.At(DateTime.Now) - DateTime.Now);
+            }
             var times = Prayers();
             if (times == null || toast == null || !(toast.Data is int)) return "";
             int i = (int)toast.Data;
@@ -366,13 +372,16 @@ namespace Tepi
 
         void DrawPray(float w, float h, DateTime now)
         {
-            if (toast == null || !(toast.Data is int)) return;
+            if (toast == null || !(toast.Data is int || toast.Data is IbadahItem)) return;
+            RemindActs();
             float cy = h / 2;
             LeadTile(cy, IcoPray);
+            var done = new RectangleF(w - 14 - DoneW, cy - RemindPillH / 2, DoneW, RemindPillH);
             string tail = PrayTail();
             float tw = tail.Length > 0 ? p.Measure(tail, Ink.Semi(13f)) + 12 : 0;
-            p.Text(PrayTitle(), Ink.Headline, p.T.Text, 52, cy, w - 52 - 20 - tw, StringAlignment.Near);
-            if (tw > 0) p.TextRight(tail, Ink.Semi(13f), p.T.Sub, w - 20, cy);
+            p.Text(PrayTitle(), Ink.Headline, p.T.Text, 52, cy, done.X - 12 - 52 - tw, StringAlignment.Near);
+            if (tw > 0) p.TextRight(tail, Ink.Semi(13f), p.T.Sub, done.X - 12, cy);
+            Pill(done, "prayDone", Lang.T("Selesai"), PillKind.Primary, actRemindDone);
         }
 
         const float RemindPillH = 30, LaterW = 66, DoneW = 72;

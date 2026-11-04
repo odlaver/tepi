@@ -26,6 +26,9 @@ namespace Tepi
         public bool Emblem;
         public object Data;
         public bool Flag;
+        // Reminder holds the island until closed
+        public bool Hold;
+        public double Seconds;
     }
 
     class Hit
@@ -1389,8 +1392,24 @@ namespace Tepi
 
         // Toasts
 
+        // Waiting behind a reminder, shown after
+        readonly List<Toast> heldToasts = new List<Toast>();
+
+        static bool IsReminder(View v) { return v == View.Remind || v == View.Pray; }
+
+        // Passing feedback is dropped, news waits
+        static bool Fleeting(View v) { return v == View.Volume || v == View.Brightness || v == View.Locks || v == View.Mic || v == View.Track || v == View.AudioDevice || v == View.Network || v == View.Privacy; }
+
         Toast ShowToast(View v, double seconds, int priority, bool interactive, bool force = false)
         {
+            if (toast != null && toast.Hold && !IsReminder(v))
+            {
+                if (Fleeting(v)) return null;
+                var w = new Toast { View = v, Priority = priority, Interactive = interactive, Seconds = seconds };
+                heldToasts.RemoveAll(h => h.View == v);
+                heldToasts.Add(w);
+                return w;
+            }
             if (toast != null && toast.Priority > priority) return null;
             // Senyap: only what can't wait
             // Calls hold the same quiet news
@@ -1407,6 +1426,8 @@ namespace Tepi
             t.View = v;
             t.Priority = priority;
             t.Interactive = interactive;
+            t.Seconds = seconds;
+            if (!same) t.Hold = false;
             if (!same)
             {
                 t.ShownUtc = DateTime.UtcNow;
@@ -1446,8 +1467,25 @@ namespace Tepi
         void DismissToast()
         {
             toastTimer.Stop();
+            bool held = toast != null && toast.Hold;
             toast = null;
+            if (held) StopRemind();
+            ReleaseHeld();
             Kick();
+        }
+
+        // Next waiting toast, in arrival order
+        void ReleaseHeld()
+        {
+            if (heldToasts.Count == 0) return;
+            var t = heldToasts[0];
+            heldToasts.RemoveAt(0);
+            t.ShownUtc = DateTime.UtcNow;
+            toast = t;
+            EyesToast(t.View, t);
+            toastTimer.Interval = Math.Max(1, (int)(t.Seconds * 1000));
+            toastTimer.Start();
+            Post(Kick);
         }
 
         // System
@@ -1474,6 +1512,7 @@ namespace Tepi
             // Running timers tick in their live areas
             TimerTick(nowUtc);
             redraw |= RemindTick(nowUtc);
+            RemindSoundTick();
             ThemeTick(nowUtc);
             MemoryWatch();
             DropSpareGlass();
