@@ -6,7 +6,7 @@ Klik ikon gear di pojok kanan atas panel, atau klik kanan ikon Tepi lalu **Penga
 
 - **Umum**: bahasa, format jam (24 jam, atau 12 jam dengan am/pm; jam besar di island tanpa am/pm), mulai bersama Windows, cek versi baru, folder data, ekspor dan impor pengaturan (token agent, port, pasangan HP, dan sesi Kulia tidak pernah ikut; impor hanya menerima kunci yang dikenal Tepi), serta setel ulang pengaturan dengan integrasi, agen, dan HP tetap tersambung.
 - **Tampilan**: tema (gelap, terang, atau otomatis mengikuti mode aplikasi Windows), material (Liquid, Frost, Hitam), aksen (termasuk dari sampul album: warna paling mencolok di sampul lagu yang diputar, diterangkan atau digelapkan sampai terbaca di island), warna sendiri (pilih latar, teks, dan aksen dari preset, ambil dari layar, atau warna bebas; warna lain diturunkan dari ketiganya seperti di pembuat paket, kontras teks ditampilkan, dan hasilnya bisa disimpan jadi paket tema), paket tema, suara sapaan paket.
-- **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, buka panel dengan arahkan kursor atau klik beserta jedanya, aplikasi yang membuat island menyingkir atau menahan notifikasi saat jendelanya di depan, menempel di tepi atas, posisi, lebar panel, layar. Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
+- **Island**: mode (Normal, Mini, Otomatis), notifikasi saat Mini, mata, mata mengikuti kursor, isi island saat diam (mata atau jam), buka panel dengan arahkan kursor atau klik beserta jedanya, aplikasi yang membuat island menyingkir atau menahan notifikasi saat jendelanya di depan, menempel di tepi atas, posisi, lebar panel, layar. Panel terbuka sebentar selama diatur supaya hasilnya terlihat.
 - **Tab panel**: gaya tab (otomatis, ikon, titik), tab yang terbuka pertama, serta tab yang tampil beserta urutannya (seret pegangan di kiri ikon, atau fokuskan lalu tekan panah atas dan bawah).
 - **Musik**: lirik di island, lirik online, visualizer.
 - **Pesan**: notifikasi pesan dan isinya, aplikasi chat tambahan, pengirim prioritas (nama atau kata yang tetap muncul saat Senyap dan rapat).
@@ -15,7 +15,7 @@ Klik ikon gear di pojok kanan atas panel, atau klik kanan ikon Tepi lalu **Penga
 - **Agen**: hubungkan atau lepas tiap agent, kuota Claude, suara saat agen minta izin atau selesai dan saat `--run` selesai (suara bawaan Windows, diam saat Senyap atau layar penuh), port server hook (termasuk **Ganti port acak**), dan berapa lama izin ditahan.
 - **HP**: hubungkan HP lewat kode pasangan, ganti HP, serta pilih apakah notifikasi pesan dan kode OTP dari HP ditampilkan.
 - **Integrasi**: Kulia, Notion, Todoist, dan kalender iCal untuk tab Tugas dan Jadwal.
-- **Pengingat**: sholat (kota dan menit sebelum), cuaca dan hujan, minum (selang dan target), istirahat mata, peregangan, lama istirahat fokus.
+- **Pengingat**: sholat (kota, menit sebelum, suara adzan, suara sebelum waktu), ibadah sendiri, cuaca dan hujan, minum (selang, target, suara), istirahat mata, peregangan, suaranya masing-masing, lama istirahat fokus.
 - **Aksesibilitas**: tampil di rekaman layar, umumkan ke pembaca layar, kurangi gerak, gerak (Tenang tanpa pantulan, Bawaan, atau Lincah), Senyap, dan Senyap ikut Jangan ganggu Windows.
 - **Pintasan**: ganti atau kosongkan setiap pintasan, termasuk pintasan teleprompter. Klik pintasannya lalu tekan kombinasi baru (Backspace mengosongkan, Esc batal). Kombinasi yang sudah dipakai aplikasi lain ditolak saat itu juga, dan saat Tepi dibuka island memberi tahu kalau ada pintasan yang direbut aplikasi lain. **Kembalikan** memasang lagi semua pintasan bawaan.
 
@@ -54,7 +54,8 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `tabs.style` | `auto` | `auto` (titik bila lebih dari tujuh tab), `icons`, atau `dots` |
 | `mini` | `auto` | `normal`, `mini`, atau `auto` (Mini saat tepi atas tertutup atau setelah diam semenit) |
 | `mini.notif` | `1` | Notifikasi pesan tetap muncul saat Mini |
-| `island.eyes`, `island.follow` | `1`, `1` | Mata di sliver Mini, dan mata mengikuti kursor |
+| `island.eyes`, `island.follow` | `1`, `1` | Mata di island dan sliver Mini, dan mata mengikuti kursor |
+| `idle.face` | `eyes` | Isi island saat diam: `eyes` atau `clock` |
 | `agent.quota` | `1` | Pasang status line Tepi untuk kuota Claude saat Claude Code dihubungkan |
 | `prompter.wpm` | `140` | Kecepatan teleprompter, kata per menit |
 | `prompter.size` | `19` | Ukuran huruf teleprompter, px |
@@ -83,6 +84,8 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `pray`, `pray.city`, `pray.before` | `0`, kosong, `10` | Pengingat sholat, kota, menit sebelum |
 | `drink`, `drink.every`, `drink.goal` | `0`, `60`, `8` | Pengingat minum, selang menit, target gelas |
 | `eyes` | `0` | Istirahat mata 20-20-20 |
+| `sound.drink`, `sound.eyes`, `sound.stretch`, `sound.pray`, `sound.pray.before` | kosong | Suara pengingat: kosong untuk bawaan, `none` tanpa suara, atau jalur berkas |
+| `ibadah.count`, `ibadah.0` dan seterusnya | `0` | Ibadah sendiri, maksimal 12: lima kolom dipisah garis tegak: nama, menit dari tengah malam, hari, menit sebelum, suara; hari berupa jumlah bit Senin (1) sampai Minggu (64) |
 | `stretch`, `stretch.every` | `0`, `60` | Peregangan dan selangnya |
 | `theme.pack` | kosong | Nama folder paket tema di `%APPDATA%\Tepi\themes` |
 | `theme.voice` | `1` | Suara sapaan paket tema |

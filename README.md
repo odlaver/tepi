@@ -14,18 +14,17 @@
 
 # Tepi
 
-Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 905 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
+Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 921 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
 
 Sekarang juga ada [Tepi Android](https://github.com/odlaver/tepi-android): island di sekitar kamera depan HP, yang nyambung ke laptop cukup dengan memindai QR.
 
-## Baru di 2.5
+## Baru di 2.6
 
-- **Rilis perdana Tepi Android**, plus pasangan laptop dan HP lewat QR.
-- **Klik pesan, langsung ke chat-nya.** Notifikasi WhatsApp dan aplikasi lain membuka percakapan pengirimnya.
-- **Warna sendiri**: latar, teks, dan aksen, atau ikuti sampul album yang diputar.
-- **Pintasan bebas** dan **aturan per aplikasi**.
-- **Teks dari screenshot** lewat OCR bawaan Windows.
-- **Pengaturan ditata ulang**, dan musik lebih ringan.
+- **Ibadah sendiri**: tambahkan doa, kebaktian, meditasi, atau waktu ibadah lain dengan jam, hari, dan suaranya sendiri, di samping jadwal sholat.
+- **Suara pengingat**: Minum, Istirahat mata, dan Peregangan kini berbunyi, dan tiap pengingat bisa diberi suara sendiri, misalnya berkas adzan untuk waktu sholat.
+- **Pengingat yang benar-benar terbaca**: selama pengingat tampil, notifikasi lain menunggu dan musik dikecilkan sebentar.
+- **Mata saat diam**: island yang diam menampilkan mata, jam tetap bisa dipilih.
+- **Mini lebih mudah dibuka**: cukup diamkan kursor di dekat tepi atas, tidak harus tepat di piksel teratas.
 
 Catatan lengkapnya ada di [halaman rilis](https://github.com/odlaver/tepi/releases/latest).
 
@@ -40,7 +39,7 @@ Catatan lengkapnya ada di [halaman rilis](https://github.com/odlaver/tepi/releas
 | **HP** | Kode OTP, notifikasi, baterai, dan kirim berkas dua arah dengan Tepi Android. [Selengkapnya](docs/hp.md) |
 | **Rak dan Ubah format** | Seret berkas ke island untuk disimpan sementara, atau ubah ke JPG, PDF, MP3, DOCX, dan lainnya. |
 | **Kontrol** | Volume per aplikasi, kecerahan, Wi-Fi, Bluetooth, mikrofon, mode gelap, laptop tetap terjaga, dan timer. |
-| **Pengingat** | Sholat (dihitung di laptop, tanpa internet), cuaca dan hujan, minum, istirahat mata, peregangan. |
+| **Pengingat** | Sholat (dihitung di laptop, tanpa internet) dan ibadah sendiri, cuaca dan hujan, minum, istirahat mata, peregangan, masing-masing dengan suara pilihan. |
 | **Mini** | Sliver kecil yang tembus klik, dengan dua mata yang berkedip dan berekspresi. |
 | **Lainnya** | [Teleprompter](docs/teleprompter.md), cermin kamera, catatan kilat, preview screenshot, mode rapat, flashdisk, [skrip](docs/skrip.md), dan navigasi keyboard penuh. |
 
