@@ -18,7 +18,7 @@ Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu 
 
 Sekarang juga ada [Tepi Android](https://github.com/odlaver/tepi-android): island di sekitar kamera depan HP, yang nyambung ke laptop cukup dengan memindai QR.
 
-## Baru di 2.6
+## Baru di 2.5.2
 
 - **Ibadah sendiri**: tambahkan doa, kebaktian, meditasi, atau waktu ibadah lain dengan jam, hari, dan suaranya sendiri, di samping jadwal sholat.
 - **Suara pengingat**: Minum, Istirahat mata, dan Peregangan kini berbunyi, dan tiap pengingat bisa diberi suara sendiri, misalnya berkas adzan untuk waktu sholat.
