@@ -16,8 +16,9 @@ namespace Tepi
         // Eyes sliver: height, widths, eye scale, x
         const float MiniEyesH = 14, MiniEyesW = 40, MiniEyesDotW = 52, MiniEyesBusyW = 76, MiniEyeK = 0.6f, MiniEyeX = 18;
         // Dwell, away and poll timings
-        const int MiniDwellMs = 400, MiniAwayMs = 600, MiniPollMs = 100, MiniFastMs = 30;
-        const float MiniMargin = 16;
+        const int MiniEdgeMs = 150, MiniDwellMs = 350, MiniAwayMs = 600, MiniPollMs = 100, MiniFastMs = 30;
+        // Reach beside, band below, still radius
+        const float MiniMargin = 32, MiniBand = 12, MiniStill = 10;
         // Arrow into a bar: tuck away
         const char IcoMini = '\uE898';
         const int ExStyle = -20, ExTransparent = 0x20;
@@ -239,7 +240,9 @@ namespace Tepi
         {
             var s = ShellOnScreen(0);
             int reach = (int)Math.Round(MiniMargin * scale);
-            bool zone = c.Y >= monitorPx.Top && c.Y <= monitorPx.Top + 1 && c.X >= s.Left - reach && c.X < s.Right + reach;
+            int band = Math.Max(s.Bottom - monitorPx.Top, (int)Math.Round(MiniBand * scale));
+            bool edge = c.Y >= monitorPx.Top && c.Y <= monitorPx.Top + 1;
+            bool zone = c.Y >= monitorPx.Top && c.Y <= monitorPx.Top + band && c.X >= s.Left - reach && c.X < s.Right + reach;
             // Dragging onto sliver opens for drop
             if (down && ShelfOn && c.Y <= monitorPx.Top + (int)Math.Ceiling(24 * scale) && c.X >= s.Left - reach && c.X < s.Right + reach)
             {
@@ -255,14 +258,16 @@ namespace Tepi
                 return;
             }
             if (miniBlocked) return;
-            if (miniDwellUtc == DateTime.MinValue || Math.Abs(c.X - miniAnchor.X) > 6 * scale)
+            float still = MiniStill * scale;
+            if (miniDwellUtc == DateTime.MinValue || Math.Abs(c.X - miniAnchor.X) > still || (!edge && Math.Abs(c.Y - miniAnchor.Y) > still))
             {
                 miniDwellUtc = now;
                 miniAnchor = c;
                 miniTimer.Interval = MiniFastMs;
                 return;
             }
-            if ((now - miniDwellUtc).TotalMilliseconds >= MiniDwellMs) RevealMini();
+            // Pushed to edge: quick; band: deliberate
+            if ((now - miniDwellUtc).TotalMilliseconds >= (edge ? MiniEdgeMs : MiniDwellMs)) RevealMini();
         }
 
         void MiniRest()
