@@ -1507,7 +1507,7 @@ namespace Tepi
             bool minute = hm != clockRoller.Value;
             clockRoller.Set(hm);
             // The clock rolls only where it shows
-            bool redraw = minute && current == View.Idle;
+            bool redraw = minute && current == View.Idle && !IdleEyes;
             redraw |= LifeTick(minute);
             // Running timers tick in their live areas
             TimerTick(nowUtc);

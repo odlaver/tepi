@@ -15,7 +15,7 @@ namespace Tepi
         {
             "material", "theme", "lyrics", "lyrics.online", "visualizer", "music.view", "notif", "notif.content", "notif.apps", "notif.vip",
             "agent.wait", "agent.quota", "update.check", "accent", "monitor", "focus.break", "dock", "position", "panel.width", "panel.tabs",
-            "panel.first", "panel.open", "panel.delay", "tabs.style", "mini", "mini.notif", "island.eyes", "island.follow", "island.except",
+            "panel.first", "panel.open", "panel.delay", "tabs.style", "mini", "mini.notif", "island.eyes", "island.follow", "idle.face", "island.except",
             "prompter.wpm", "prompter.size", "prompter.mirror", "prompter.width", "prompter.height", "prompter.bg", "lang", "capture.show",
             "a11y.announce", "clipboard", "downloads", "class.island", "shelf", "shelf.keep", "shelf.expire", "convert", "shots", "drives",
             "meeting", "keys.caps", "keys.num", "keys.lang", "battery.unplug", "note.to", "dnd", "dnd.follow", "motion.reduce", "motion.feel",
