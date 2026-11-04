@@ -28,10 +28,18 @@ namespace Tepi
         static string RemindPath(string pick)
         {
             if (pick == SoundNone) return null;
-            if (!string.IsNullOrEmpty(pick) && File.Exists(pick)) return pick;
+            if (LocalFile(pick)) return pick;
             // Missing file falls back to default
             string def = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Media", CueRemind);
             return File.Exists(def) ? def : null;
+        }
+
+        // Local drive only; network paths would call out
+        static bool LocalFile(string path)
+        {
+            if (string.IsNullOrEmpty(path) || path.Length < 4 || path[1] != ':' || path[2] != '\\' || !char.IsLetter(path[0])) return false;
+            try { return new DriveInfo(path.Substring(0, 1)).DriveType != DriveType.Network && File.Exists(path); }
+            catch (Exception) { return false; }
         }
 
         bool RemindMuted() { return Native.DoNotDisturb() || MeetingOn || PrompterOn; }

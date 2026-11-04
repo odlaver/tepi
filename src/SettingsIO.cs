@@ -21,12 +21,13 @@ namespace Tepi
             "meeting", "keys.caps", "keys.num", "keys.lang", "battery.unplug", "note.to", "dnd", "dnd.follow", "motion.reduce", "motion.feel",
             "pray", "pray.city", "pray.before", "drink", "drink.every", "drink.goal", "eyes", "stretch", "stretch.every", "theme.pack",
             "theme.voice", "weather", "clock.24", "look.custom", "look.bg", "look.text", "look.accent", "sound.agent", "phone.notifs", "phone.otp",
+            "sound.drink", "sound.eyes", "sound.stretch", "sound.pray", "sound.pray.before", "ibadah.count",
         };
 
         // Kept on reset: identity, links, internal state
         static readonly string[] KeepOnReset = { "agent.token", "agent.port", "phone", "phone.port", "kulia.url", "kulia.key", "settings.v", "tabs.convert" };
 
-        static bool IsPortable(string key) { return Portable.Contains(key) || key.StartsWith("key.", StringComparison.OrdinalIgnoreCase); }
+        static bool IsPortable(string key) { return Portable.Contains(key) || key.StartsWith("key.", StringComparison.OrdinalIgnoreCase) || key.StartsWith("ibadah.", StringComparison.OrdinalIgnoreCase); }
 
         public int ExportSettings(string path)
         {
