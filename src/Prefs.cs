@@ -398,7 +398,7 @@ namespace Tepi
                 new[] { "Bahasa", "\uE774" }, new[] { "Mulai bersama Windows", "\uE7E8" }, new[] { "Cek versi baru", "\uE72C" },
                 new[] { "Folder data", "\uE8B7" }, new[] { "Folder paket", "\uE8B7" }, new[] { "Tema", "\uE706" }, new[] { "Material", "\uE81E" },
                 new[] { "Aksen", "\uE790" }, new[] { "Paket", "\uE7B8" }, new[] { "Suara sapaan paket tema", "\uE767" },
-                new[] { "Mode", "\uE8A0" }, new[] { "Notifikasi saat mini", "\uEA8F" }, new[] { "Mata", "\uE890" }, new[] { "Ikuti kursor", "\uE7C9" }, new[] { "Buka panel", "\uE8A7" }, new[] { "Jeda buka", "\uE916" },
+                new[] { "Mode", "\uE8A0" }, new[] { "Notifikasi saat mini", "\uEA8F" }, new[] { "Mata", "\uE890" }, new[] { "Ikuti kursor", "\uE7C9" }, new[] { "Saat diam", "\uE890" }, new[] { "Buka panel", "\uE8A7" }, new[] { "Jeda buka", "\uE916" },
                 new[] { "Menempel di tepi atas", "\uE840" }, new[] { "Posisi", "\uE759" }, new[] { "Lebar panel", "\uE740" }, new[] { "Layar", "\uE7F4" },
                 new[] { "Gaya tab", "\uECA5" }, new[] { "Dibuka di", "\uE8A7" },
                 new[] { "Lirik di island", "\uE8D6" }, new[] { "Cari lirik online", "\uE721" }, new[] { "Visualizer", "\uE9E9" },
@@ -731,6 +731,9 @@ namespace Tepi
                         var follow = Switch("island.follow", true, null);
                         follow.Enabled = settings.GetBool("island.eyes", true);
                         add(Row(Lang.T("Ikuti kursor"), follow.Enabled ? Lang.T("Mata melirik ke arah kursor") : Lang.T("Nyalakan Mata dulu"), follow));
+                        var face = Seg(new[] { Lang.T("Mata"), Lang.T("Jam") }, settings.Get("idle.face", "eyes") == "clock" ? 1 : 0, i => island.SetChoice("idle.face", i == 1 ? "clock" : "eyes"));
+                        face.Enabled = follow.Enabled;
+                        add(Row(Lang.T("Saat diam"), face.Enabled ? Lang.T("Isi island ketika tidak ada aktivitas") : Lang.T("Nyalakan Mata dulu"), face));
                         bool byClick = settings.Get("panel.open", "hover") == "click";
                         var delay = Slider(150, 800, 50, settings.GetInt("panel.delay", 330), v => v + " ms", v => { settings.Set("panel.delay", v); settings.Save(); });
                         delay.Enabled = !byClick;

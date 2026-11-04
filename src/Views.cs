@@ -187,7 +187,12 @@ namespace Tepi
         // Keycaps plus the awake cup
         int IdleMarks { get { return LockMarks + (AwakeOn ? 1 : 0); } }
 
-        float IdleWidth() { return 112 + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0) + IdleMarks * 26 + (IdleMarks > 0 ? 2 : 0); }
+        const float IdleEyeK = 1.2f;
+
+        // Idle face: eyes unless set to clock
+        bool IdleEyes { get { return EyesOn && settings.Get("idle.face", "eyes") != "clock"; } }
+
+        float IdleWidth() { return (IdleEyes ? 96 : 112) + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0) + IdleMarks * 26 + (IdleMarks > 0 ? 2 : 0); }
 
         void DrawIdle(float w, float h, DateTime now)
         {
@@ -198,7 +203,8 @@ namespace Tepi
             if (CapsShown) { Keycap(kx, cy, 7f, "A", true); kx -= 26; }
             if (NumShown) { Keycap(kx, cy, 7f, "1", true); kx -= 26; }
             if (AwakeOn) p.Icon(IcoAwake, 12f, p.T.Sub, kx, cy);
-            clockRoller.Draw(p, Ink.Display(15.5f), p.T.Text, clockX, cy, StringAlignment.Center, now);
+            if (IdleEyes) DrawEyes(clockX, cy, IdleEyeK);
+            else clockRoller.Draw(p, Ink.Display(15.5f), p.T.Text, clockX, cy, StringAlignment.Center, now);
             if (PrivacyOn)
             {
                 bool off = MicSilenced && camApps.Length == 0;

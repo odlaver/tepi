@@ -745,6 +745,8 @@ namespace Tepi
             { "Bisu", "Muted" },
             { "Subuh", "Fajr" },
             { "Sudah", "Done" },
+            { "Saat diam", "When idle" },
+            { "Isi island ketika tidak ada aktivitas", "What the island shows with nothing going on" },
             { "Ibadah", "Worship" },
             { "Sholat", "Prayer" },
             { "Suara adzan", "Adhan sound" },
