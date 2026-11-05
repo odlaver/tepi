@@ -27,6 +27,7 @@ Sekarang juga ada [Tepi Android](https://github.com/odlaver/tepi-android): islan
 - **Salin teks dari layar**, **tur** untuk pengguna baru, dan **Apa yang baru** setiap pembaruan.
 - Menyalin screenshot 4K tidak lagi membuat island tersendat.
 - Antigravity tidak lagi terblokir saat dihubungkan, tiap sesi agent bertanda Claude, Codex, atau Antigravity, dan sesi Codex atau Antigravity yang diam 30 menit hilang sendiri.
+- Kuota Codex, Antigravity, dan Copilot tampil di tab Agen bersama kuota Claude, dan Copilot CLI kini bisa dihubungkan.
 
 Catatan lengkapnya ada di [halaman rilis](https://github.com/odlaver/tepi/releases/latest).
 
@@ -35,7 +36,7 @@ Catatan lengkapnya ada di [halaman rilis](https://github.com/odlaver/tepi/releas
 | | |
 |---|---|
 | **Musik dan lirik** | Spotify, YouTube, Apple Music, dan pemutar lain. Lirik tersinkron menyapu kata demi kata, visualizer membaca suara yang benar-benar diputar. |
-| **Agent coding** | Claude Code, Codex, Gemini CLI, dan Antigravity, tiap sesi bertanda agentnya. Status sesi, rencana kerja, kuota Claude, dan izin yang bisa dijawab dari island. [Selengkapnya](docs/agen.md) |
+| **Agent coding** | Claude Code, Codex, Gemini CLI, Antigravity, dan Copilot CLI, tiap sesi bertanda agentnya. Status sesi, rencana kerja, kuota tiap agent, dan izin yang bisa dijawab dari island. [Selengkapnya](docs/agen.md) |
 | **Kuliah** | Tugas dan jadwal dari [Kulia](https://kulia.live), Notion, Todoist, dan kalender iCal. [Selengkapnya](docs/integrasi.md) |
 | **Pesan** | WhatsApp, Telegram, Discord, Teams, Slack, dan email dari pusat notifikasi Windows. |
 | **Dikte dan rapat** | Tahan Ctrl kanan, bicara, lepas: teksnya ditempel di aplikasi mana pun, dalam bahasa Indonesia yang bercampur istilah Inggris. Kamus istilah, snippet, lewat Groq atau offline. Rekam panggilan tanpa bot jadi transkrip Kamu dan Lawan bicara, plus ringkasan dan to-do. Suruh Tepi memasang pengingat, timer, dan catatan dari kalimat biasa. [Selengkapnya](docs/fitur.md) |
@@ -65,7 +66,7 @@ Untuk HP: pasang APK dari [tepi-android](https://github.com/odlaver/tepi-android
 | [Fitur dan cara pakai](docs/fitur.md) | Semua fitur, gestur, menu, dan navigasi keyboard |
 | [Pengaturan](docs/pengaturan.md) | Isi tiap halaman Pengaturan dan semua kunci `settings.ini` |
 | [Tepi Android dan HP](docs/hp.md) | Apa saja yang lewat sambungan HP, dan cara memasangkan |
-| [Agent coding](docs/agen.md) | Menghubungkan agent, menjawab izin, chat ke sesi, kuota Claude |
+| [Agent coding](docs/agen.md) | Menghubungkan agent, menjawab izin, chat ke sesi, kuota tiap agent |
 | [Integrasi](docs/integrasi.md) | Kulia, Notion, Todoist, kalender iCal, dan notifikasi pesan |
 | [Paket tema](docs/paket-tema.md) | Warna, lambang, maskot, sapaan, dan suara buatan sendiri |
 | [Teleprompter](docs/teleprompter.md) | Naskah di tepi atas layar, dekat kamera |

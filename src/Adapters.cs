@@ -13,6 +13,7 @@ namespace Tepi
                 case "codex": return "Codex";
                 case "gemini": return "Gemini";
                 case "antigravity": return "Antigravity";
+                case "copilot": return "Copilot";
             }
             return "Claude";
         }
@@ -24,8 +25,51 @@ namespace Tepi
                 case "codex": return true; // same schema as Claude Code
                 case "gemini": return Gemini(ev);
                 case "antigravity": return Antigravity(ev);
+                case "copilot": return Copilot(ev);
             }
             return false;
+        }
+
+        // camelCase payload; relay adds event name
+        static bool Copilot(HookEvent ev)
+        {
+            var d = ev.Data;
+            ev.SessionId = Json.Str(d, "sessionId");
+            switch (ev.Name)
+            {
+                case "sessionStart": ev.Name = "SessionStart"; break;
+                case "userPromptSubmitted": ev.Name = "UserPromptSubmit"; break;
+                case "preToolUse": ev.Name = "PreToolUse"; break;
+                case "postToolUse": ev.Name = "PostToolUse"; break;
+                case "agentStop": ev.Name = "Stop"; break;
+                case "sessionEnd": ev.Name = "SessionEnd"; break;
+                default: return false;
+            }
+            var args = Json.Obj(d, "toolArgs");
+            if (args != null)
+            {
+                if (!args.ContainsKey("file_path") && args.ContainsKey("path")) args["file_path"] = args["path"];
+                d["tool_name"] = CopilotTool(Json.Str(d, "toolName"));
+                d["tool_input"] = args;
+            }
+            d["hook_event_name"] = ev.Name;
+            return true;
+        }
+
+        static string CopilotTool(string tool)
+        {
+            switch (tool)
+            {
+                case "powershell":
+                case "bash": return "Bash";
+                case "edit": return "Edit";
+                case "create": return "Write";
+                case "view": return "Read";
+                case "glob": return "Glob";
+                case "grep": return "Grep";
+                case "web_fetch": return "WebFetch";
+            }
+            return tool;
         }
 
         // Monitor only: Gemini hooks can't approve

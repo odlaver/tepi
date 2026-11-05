@@ -45,7 +45,7 @@ namespace Tepi
 
         static string AgentKind(AgentSession s)
         {
-            return s.Profile == "Codex" || s.Profile == "Gemini" || s.Profile == "Antigravity" ? s.Profile : "Claude";
+            return s.Profile == "Codex" || s.Profile == "Gemini" || s.Profile == "Antigravity" || s.Profile == "Copilot" ? s.Profile : "Claude";
         }
 
         // Agent mark, Claude keeps its profile
@@ -55,11 +55,11 @@ namespace Tepi
             return kind == "Claude" && s.Profile.Length > 0 ? kind + " · " + s.Profile : kind;
         }
 
-        // Claude session: its profile's quota
+        // Claude: its profile's quota; others: the agent's
         QuotaInfo QuotaFor(AgentSession s)
         {
-            if (AgentKind(s) != "Claude") return null;
-            foreach (var q in quotas) if (q.Profile == s.Profile && QuotaShown(q)) return q;
+            bool claude = AgentKind(s) == "Claude";
+            foreach (var q in quotas) if ((claude ? q.Agent.Length == 0 : q.Agent.Length > 0) && q.Profile == s.Profile && QuotaShown(q)) return q;
             return null;
         }
 
@@ -638,7 +638,7 @@ namespace Tepi
                 {
                     Isle.QuotaTexts();
                     for (int i = 0; i < 3; i++)
-                        if (q.W[i].Has) parts.Add(QuotaLabel(i) + " " + (q.W[i].Stale ? q.W[i].ResetText : q.W[i].PctText + ", " + q.W[i].ResetText));
+                        if (q.W[i].Has) parts.Add(q.W[i].Label + " " + (q.W[i].Stale ? q.W[i].ResetText : q.W[i].PctText + ", " + q.W[i].ResetText));
                 }
                 return string.Join(". ", parts.ToArray());
             }
@@ -771,7 +771,7 @@ namespace Tepi
                             g.DrawArc(pen, rx - r, cy - r, r * 2, r * 2, -90, Math.Max(2f, 360f * Math.Min(1f, w.Pct / 100f)));
                     bool hot = !w.Stale && w.Pct >= 80;
                     float lx = x + 2 * r + 12 * s;
-                    float ex = Put(g, QuotaLabel(i), lf, hot ? KitInk.Text : KitInk.Sub, lx, top, 120 * s);
+                    float ex = Put(g, w.Label, lf, hot ? KitInk.Text : KitInk.Sub, lx, top, 120 * s);
                     if (!w.Stale) ex = Put(g, w.PctText, pf, KitInk.Text, ex + 6 * s, top, 60 * s);
                     float ex2 = Put(g, w.ResetText, rf, KitInk.Faint, lx, low, 160 * s);
                     x = Math.Max(ex, ex2) + 28 * s;

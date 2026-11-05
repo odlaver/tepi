@@ -81,7 +81,7 @@ namespace Tepi
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "2.6.0.1";
+        public const string AppVersion = "2.6.0.2";
         string newVersion, newUrl;
         bool newRebuild, checking, checkFailed;
         DateTime checkedUtc;
@@ -442,6 +442,8 @@ namespace Tepi
             StartHub();
             AgentSetup.Refresh();
             CheckLinks();
+            LogQuota("codex");
+            LogQuota("copilot");
             if (settings.GetBool("phone", false)) StartPhone();
         }
 
@@ -705,6 +707,7 @@ namespace Tepi
                 case "StopFailure":
                     SettleApprovals(s.Id, null, null);
                     s.State = AgentState.Done;
+                    if (ev.Agent == "codex" || ev.Agent == "copilot") LogQuota(ev.Agent);
                     s.Failed = ev.Name == "StopFailure";
                     s.LastMessage = Fmt.OneLine(Json.Str(ev.Data, "last_assistant_message"), 600);
                     SoundCue(s.Failed ? CueFail : CueDone);

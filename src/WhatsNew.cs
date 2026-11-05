@@ -20,7 +20,7 @@ namespace Tepi
         {
             new Note
             {
-                Version = "2.6.0.1",
+                Version = "2.6.0.2",
                 Items = new[]
                 {
                     new[] { "Dikte", "Tahan Ctrl kanan di aplikasi apa pun, bicara, lalu lepas: teksnya ditempel di tempat kursor. Ada kamus istilah dan snippet, lewat Groq atau offline.", "\uE720" },
@@ -35,6 +35,8 @@ namespace Tepi
                     new[] { "Tur dan Apa yang baru", "Pengguna baru dipandu sembilan langkah di bawah island, dan setiap pembaruan merangkum isinya di sini.", "\uE7C1" },
                     new[] { "Pengaturan lebih lega", "Jendelanya terbuka lebih besar, daftar di samping bisa digulir, dan ada opsi menyisakan ruang di tepi atas untuk jendela.", "\uE713" },
                     new[] { "Perbaikan kecil untuk agent", "Antigravity tidak lagi terblokir saat terhubung ke Tepi, setiap sesi agent kini bertanda Claude, Codex, atau Antigravity, dan sesi Codex atau Antigravity yang sudah diam 30 menit hilang sendiri dari daftar.", "\uE756" },
+                    new[] { "Kuota semua agent", "Tab Agen kini menampilkan kuota Claude, Codex, Antigravity, dan Copilot dalam satu daftar, dengan nama AI di depan tiap baris.", "\uEC4A" },
+                    new[] { "Copilot CLI", "Copilot CLI bisa dihubungkan dari Pengaturan › Agen: sesinya tampil di island, bertanda Copilot, dan ditutup rapi saat selesai.", "\uE756" },
                 },
             },
             new Note

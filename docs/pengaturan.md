@@ -58,6 +58,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `mini.notif` | `1` | Notifikasi pesan tetap muncul saat Mini |
 | `island.eyes`, `island.follow` | `1`, `1` | Mata di sliver Mini, dan mata mengikuti kursor |
 | `agent.quota` | `1` | Pasang status line Tepi untuk kuota Claude saat Claude Code dihubungkan |
+| `agent.quota.agents` | `1` | Kuota Codex, Antigravity, dan Copilot di tab Agen, termasuk status line Tepi di Antigravity CLI |
 | `prompter.wpm` | `140` | Kecepatan teleprompter, kata per menit |
 | `prompter.size` | `19` | Ukuran huruf teleprompter, px |
 | `prompter.mirror` | `0` | Teleprompter dicerminkan |

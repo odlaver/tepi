@@ -415,7 +415,7 @@ namespace Tepi
                 new[] { "Num Lock, Scroll Lock", "\uE765" }, new[] { "Bahasa input", "\uE765" }, new[] { "Kelas yang berlangsung", "\uE7BE" },
                 new[] { "Progres unduhan", "\uE896" }, new[] { "Riwayat clipboard", "\uE77F" }, new[] { "Flashdisk", "\uE88E" },
                 new[] { "Preview screenshot", "\uE91B" }, new[] { "Rak berkas", "\uE7B8" }, new[] { "Istirahat fokus", "\uE916" }, new[] { "Tahan notifikasi saat fokus", "\uE7E7" },
-                new[] { "Claude Code", "\uE756" }, new[] { "Kuota Claude", "\uEC4A" }, new[] { "Menahan izin", "\uE72E" },
+                new[] { "Claude Code", "\uE756" }, new[] { "Kuota Claude", "\uEC4A" }, new[] { "Kuota Codex, Antigravity, Copilot", "\uEC4A" }, new[] { "Menahan izin", "\uE72E" },
                 new[] { "Kulia", "\uE7BE" }, new[] { "Tugas dan jadwal", "\uE787" }, new[] { "Kolom tanggal", "\uE787" }, new[] { "Kolom selesai", "\uE73E" },
                 new[] { "Belum ada database", "\uE8F1" }, new[] { "Pengingat sholat", "\uE708" }, new[] { "Sholat", "\uE708" }, new[] { "Suara adzan", "\uE767" }, new[] { "Suara sebelum waktu", "\uE767" }, new[] { "Suara minum", "\uE767" }, new[] { "Suara istirahat mata", "\uE767" }, new[] { "Suara peregangan", "\uE767" }, new[] { "Tambah ibadah", "\uE710" }, new[] { "Nama", "\uE8AC" }, new[] { "Jam", "\uE823" }, new[] { "Hari", "\uE787" }, new[] { "Kota", "\uE707" }, new[] { "Ingatkan sebelum", "\uEA8F" },
                 new[] { "Minum air", "\uEB42" }, new[] { "Selang minum", "\uE916" }, new[] { "Target harian", "\uE73E" },
@@ -865,6 +865,9 @@ namespace Tepi
                             agentRow.Glyph = '\uE756';
                             add(agentRow);
                         }
+                        var agentQuota = new KitSwitch { Checked = settings.GetBool(StatusSetup.AgentsKey, true), Size = new Size((int)(46 * Ui), (int)(26 * Ui)) };
+                        agentQuota.CheckedChanged += delegate { if (building) return; island.SetAgentQuota(agentQuota.Checked); Relayout(); };
+                        add(Row(Lang.T("Kuota Codex, Antigravity, Copilot"), island.AgentQuotaNote(), agentQuota));
                         cap(Lang.T("Pemberitahuan"));
                         add(Row(Lang.T("Suara"), Lang.T("Saat agen minta izin atau selesai, dan saat --run selesai"), Switch("sound.agent", false, null)));
                         cap(Lang.T("Server hook"));

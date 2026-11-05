@@ -9,7 +9,7 @@ namespace Tepi
     // Relay hooks: Codex, Gemini CLI, Antigravity
     static class AgentSetup
     {
-        public static readonly string[] Ids = { "codex", "gemini", "antigravity" };
+        public static readonly string[] Ids = { "codex", "gemini", "antigravity", "copilot" };
 
         class Hook
         {
@@ -29,6 +29,9 @@ namespace Tepi
                     return new[] { new Hook("SessionStart", false, false), new Hook("BeforeAgent", false, false), new Hook("BeforeTool", true, false),
                                    new Hook("AfterTool", true, false), new Hook("Notification", false, false), new Hook("AfterAgent", false, false),
                                    new Hook("SessionEnd", false, false) };
+                case "copilot":
+                    return new[] { new Hook("sessionStart", false, false), new Hook("userPromptSubmitted", false, false), new Hook("preToolUse", false, false),
+                                   new Hook("postToolUse", false, false), new Hook("agentStop", false, false), new Hook("sessionEnd", false, false) };
                 default:
                     return new[] { new Hook("SessionStart", false, false), new Hook("PreInvocation", false, false), new Hook("PreToolUse", true, false),
                                    new Hook("PostToolUse", true, false), new Hook("Stop", false, false) };
@@ -37,7 +40,7 @@ namespace Tepi
 
         public static string Label(string id)
         {
-            return id == "codex" ? "Codex" : id == "gemini" ? "Gemini CLI" : "Antigravity";
+            return id == "codex" ? "Codex" : id == "gemini" ? "Gemini CLI" : id == "copilot" ? "Copilot CLI" : "Antigravity";
         }
 
         static string Home { get { return Settings.Home; } }
@@ -51,6 +54,12 @@ namespace Tepi
                 return Path.Combine(own ? ch : Path.Combine(Home, ".codex"), "hooks.json");
             }
             if (id == "gemini") return Path.Combine(Home, ".gemini", "settings.json");
+            if (id == "copilot")
+            {
+                string ch = Environment.GetEnvironmentVariable("COPILOT_HOME");
+                bool own = !string.IsNullOrEmpty(ch) && !Settings.FakeHome;
+                return Path.Combine(own ? ch : Path.Combine(Home, ".copilot"), "settings.json");
+            }
             return Path.Combine(Home, ".gemini", "config", "hooks.json");
         }
 
@@ -58,6 +67,7 @@ namespace Tepi
         {
             if (id == "codex") return Directory.Exists(Path.GetDirectoryName(ConfigFile(id)));
             if (id == "gemini") return File.Exists(ConfigFile(id)) || OnPath("gemini");
+            if (id == "copilot") return Directory.Exists(Path.GetDirectoryName(ConfigFile(id))) || OnPath("copilot");
             string g = Path.Combine(Home, ".gemini");
             return Directory.Exists(Path.Combine(g, "config")) || Directory.Exists(Path.Combine(g, "antigravity-cli")) || Directory.Exists(Path.Combine(g, "antigravity-ide"));
         }
@@ -80,7 +90,7 @@ namespace Tepi
         static extern int GetShortPathName(string longPath, StringBuilder shortPath, int size);
 
         // 8.3 path: no quotes for Codex
-        static string Exe()
+        internal static string Exe()
         {
             string path = System.Reflection.Assembly.GetEntryAssembly().Location;
             if (path.IndexOf(' ') < 0) return path;
@@ -95,6 +105,8 @@ namespace Tepi
             string relay = Exe() + " --relay " + id;
             if (id == "codex") return relay + (h.Reply ? " --reply" : "");
             if (id == "gemini") return "cmd /c " + relay + " --json";
+            // Copilot: silence keeps its own permissions
+            if (id == "copilot") return "cmd /c " + relay + " --event " + h.Event;
             // Antigravity adds cmd /c and escapes quotes; {} denies tools
             return relay + " --json --event " + h.Event + (h.Event == "PreToolUse" ? " || exit /b 0" : " || echo {}");
         }
@@ -106,6 +118,7 @@ namespace Tepi
             {
                 var root = HookSetup.Load(ConfigFile("antigravity"));
                 if (root != null && root.ContainsKey("tepi") && !Installed("antigravity")) Install("antigravity");
+                if (Installed("antigravity") && new Settings().GetBool(StatusSetup.AgentsKey, true)) StatusSetup.AgyInstall();
             }
             catch (Exception ex) { Log.Write("agent refresh: " + ex.Message); }
         }
@@ -113,6 +126,15 @@ namespace Tepi
         static Dictionary<string, object> Handler(string id, Hook h)
         {
             var d = new Dictionary<string, object>();
+            if (id == "copilot")
+            {
+                // Copilot picks the shell field itself
+                d["type"] = "command";
+                d["powershell"] = Command(id, h);
+                d["bash"] = Exe().Replace('\\', '/') + " --relay copilot --event " + h.Event;
+                d["timeoutSec"] = 10;
+                return d;
+            }
             if (id == "gemini") d["name"] = "tepi";
             d["type"] = "command";
             d["command"] = Command(id, h);
@@ -123,7 +145,9 @@ namespace Tepi
 
         static bool IsOurs(object handler, string id)
         {
-            return Json.Str(handler, "command").Contains(" --relay " + id);
+            foreach (var key in new[] { "command", "powershell", "bash" })
+                if (Json.Str(handler, key).Contains(" --relay " + id)) return true;
+            return false;
         }
 
         public static bool Installed(string id)
@@ -137,9 +161,10 @@ namespace Tepi
                 bool found = false;
                 foreach (var item in HookSetup.AsList(HookSetup.Get(events, h.Event)))
                 {
-                    var handlers = h.Tool || id != "antigravity" ? HookSetup.AsList(HookSetup.Get(item, "hooks")) : new[] { item };
+                    bool flat = id == "copilot" || (id == "antigravity" && !h.Tool);
+                    var handlers = flat ? new[] { item } : HookSetup.AsList(HookSetup.Get(item, "hooks"));
                     foreach (var x in handlers)
-                        if (Json.Str(x, "command") == Command(id, h)) found = true;
+                        if (Json.Str(x, id == "copilot" ? "powershell" : "command") == Command(id, h)) found = true;
                 }
                 if (!found) return false;
             }
@@ -168,6 +193,8 @@ namespace Tepi
                     group[h.Event] = new List<object> { h.Tool ? new Dictionary<string, object> { { "matcher", "*" }, { "hooks", new List<object> { handler } } } : handler };
                 }
                 root["tepi"] = group;
+                // Quota comes through its status line
+                if (new Settings().GetBool(StatusSetup.AgentsKey, true)) StatusSetup.AgyInstall();
             }
             else
             {
@@ -176,6 +203,8 @@ namespace Tepi
                 foreach (var h in HooksFor(id))
                 {
                     var groups = Strip(hooks, h.Event, id);
+                    // Copilot lists handlers directly
+                    if (id == "copilot") { groups.Add(Handler(id, h)); hooks[h.Event] = groups; continue; }
                     var entry = new Dictionary<string, object>();
                     if (h.Tool) entry["matcher"] = id == "gemini" ? ".*" : "*";
                     entry["hooks"] = new List<object> { Handler(id, h) };
@@ -193,7 +222,7 @@ namespace Tepi
             var root = HookSetup.Load(file);
             if (root == null) return;
             HookSetup.Backup(file);
-            if (id == "antigravity") root.Remove("tepi");
+            if (id == "antigravity") { root.Remove("tepi"); StatusSetup.AgyRemove(); }
             else
             {
                 var hooks = Json.Obj(root, "hooks");
@@ -207,8 +236,8 @@ namespace Tepi
                 }
                 if (hooks.Count == 0) root.Remove("hooks");
             }
-            // Leave Gemini's settings file in place
-            if (root.Count == 0 && id != "gemini") File.Delete(file);
+            // Leave shared settings files in place
+            if (root.Count == 0 && id != "gemini" && id != "copilot") File.Delete(file);
             else HookSetup.Save(file, root);
         }
 
@@ -217,7 +246,7 @@ namespace Tepi
             var kept = new List<object>();
             foreach (var gr in HookSetup.AsList(HookSetup.Get(hooks, ev)))
             {
-                bool ours = false;
+                bool ours = id == "copilot" && IsOurs(gr, id);
                 foreach (var x in HookSetup.AsList(HookSetup.Get(gr, "hooks")))
                     if (IsOurs(x, id)) ours = true;
                 if (!ours) kept.Add(gr);
