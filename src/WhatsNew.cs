@@ -24,12 +24,15 @@ namespace Tepi
                 Items = new[]
                 {
                     new[] { "Dikte", "Tahan Ctrl kanan di aplikasi apa pun, bicara, lalu lepas: teksnya ditempel di tempat kursor. Ada kamus istilah dan snippet, lewat Groq atau offline.", "\uE720" },
-                    new[] { "Suruh Tepi", "Ketik atau ucapkan \"ingetin minum 30 menit lagi\", \"timer 25 menit\", atau \"15% dari 240.000\". Pengingat, timer, catatan, dan hitungan jalan tanpa internet.", "\uE765" },
+                    new[] { "Suruh Tepi", "Ketik atau ucapkan \"ingetin minum 30 menit lagi\", \"timer 5:30\", \"15% dari 240.000\", atau \"5 km ke mil\". Pengingat, timer, catatan, hitungan, dan konversi satuan jalan tanpa internet.", "\uE765" },
                     new[] { "Transkrip rapat", "Rekam panggilan tanpa bot dengan Ctrl+Alt+T. Mic jadi Kamu, suara laptop jadi Lawan bicara, lengkap dengan ringkasan dan to-do.", "\uE7C8" },
                     new[] { "Tab Bicara", "Dikte, rekam rapat, Suruh Tepi, pengingat yang menunggu, dan riwayatnya di satu tab.", "\uE8A9" },
                     new[] { "Ringkasan setelah fokus", "Selama sesi fokus, pesan biasa ditahan. Begitu selesai, island merangkum siapa saja yang mengirim pesan.", "\uE7E7" },
                     new[] { "Garis cahaya", "Progres timer, unduhan, dan cas baterai menyala di tepi island. Saat tugas hari ini habis, island ikut merayakan.", "\uE781" },
-                    new[] { "Tur dan Apa yang baru", "Pengguna baru dipandu enam langkah di bawah island, dan setiap pembaruan merangkum isinya di sini.", "\uE7C1" },
+                    new[] { "Salin teks dari layar", "Pilih area mana pun, teksnya langsung tersalin. Ada di menu klik kanan, dan pintasannya bisa dipasang di Pengaturan.", "\uE8C8" },
+                    new[] { "Samarkan", "Kartu screenshot punya tombol Samarkan: seret di atas data pribadi sebelum gambarnya dibagikan.", "\uE7B3" },
+                    new[] { "Kirim saran", "Ide fitur atau laporan masalah bisa dikirim langsung dari Pengaturan, bagian Tentang.", "\uE939" },
+                    new[] { "Tur dan Apa yang baru", "Pengguna baru dipandu sembilan langkah di bawah island, dan setiap pembaruan merangkum isinya di sini.", "\uE7C1" },
                     new[] { "Pengaturan lebih lega", "Jendelanya terbuka lebih besar, daftar di samping bisa digulir, dan ada opsi menyisakan ruang di tepi atas untuk jendela.", "\uE713" },
                 },
             },

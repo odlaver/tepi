@@ -297,16 +297,14 @@ namespace Tepi
                 return Lang.F("Fokus {0} menit", min);
             }
 
-            m = Regex.Match(low, @"^(set(el)?\s+|pasang\s+|mulai\s+)?(timer|hitung mundur|countdown)\s+(\d{1,3})\s*(menit|mnt|min|minutes?|m|jam|hours?|h|j|detik|dtk|seconds?|s)$");
-            if (!m.Success) m = Regex.Match(low, @"^(\d{1,3})\s*(menit|mnt|min|minutes?|jam|hours?|detik|dtk|seconds?)\s+(timer|hitung mundur)$");
-            if (m.Success)
+            m = Regex.Match(low, @"^(?:(?:set(?:el)?|pasang|mulai)\s+)?(?:timer|hitung mundur|countdown)\s+(.+)$");
+            if (!m.Success) m = Regex.Match(low, @"^(.+?)\s+(?:timer|hitung mundur)$");
+            TimeSpan span;
+            if (m.Success && ParseSpan(m.Groups[1].Value, out span))
             {
-                string n = m.Groups[4].Success && m.Groups[4].Value.Length > 0 ? m.Groups[4].Value : m.Groups[1].Value;
-                string unit = m.Groups[5].Success && m.Groups[5].Value.Length > 0 ? m.Groups[5].Value : m.Groups[2].Value;
-                int v = int.Parse(n), min = Unit(unit) == 'h' ? v * 60 : Unit(unit) == 's' ? Math.Max(1, (v + 59) / 60) : v;
-                if (min < 1 || min > 600) return null;
-                StartTimer(TimerKind.Countdown, min);
-                return Lang.F("Timer {0} menit", min);
+                if (span.TotalSeconds < 5 || span.TotalHours > 10) return null;
+                StartTimer(TimerKind.Countdown, span);
+                return Lang.F("Timer {0}", SpanText(span));
             }
 
             m = Regex.Match(text, @"^(catat|catatan|note|tulis)\s*:?\s+(.+)$", RegexOptions.IgnoreCase);
@@ -325,9 +323,44 @@ namespace Tepi
                 return ReminderSaid(at, what);
             }
 
+            string converted;
+            if (TryConvert(low, out converted)) return converted;
             double result;
             if (TryCalc(low, out result)) return "= " + FormatNumber(result);
             return null;
+        }
+
+        static readonly Regex ClockSpan = new Regex(@"^(\d{1,2}):(\d{2})(?::(\d{2}))?$");
+        static readonly Regex PartSpan = new Regex(@"^(?:\s*(\d{1,4})\s*(jam|j|hours?|hrs?|h|menit|mnt|minutes?|mins?|m|detik|dtk|seconds?|secs?|s)(?![a-z])\s*(?:dan|and|,)?)+$");
+
+        // "5:30", "1 jam 30 menit", "1j30m"
+        static bool ParseSpan(string s, out TimeSpan span)
+        {
+            span = TimeSpan.Zero;
+            s = s.Trim();
+            var c = ClockSpan.Match(s);
+            if (c.Success)
+            {
+                int a = int.Parse(c.Groups[1].Value), b = int.Parse(c.Groups[2].Value);
+                if (b > 59) return false;
+                if (c.Groups[3].Success)
+                {
+                    int sec = int.Parse(c.Groups[3].Value);
+                    if (sec > 59) return false;
+                    span = new TimeSpan(a, b, sec);
+                }
+                else span = new TimeSpan(0, a, b);
+                return true;
+            }
+            var m = PartSpan.Match(s);
+            if (!m.Success) return false;
+            for (int i = 0; i < m.Groups[1].Captures.Count; i++)
+            {
+                int v = int.Parse(m.Groups[1].Captures[i].Value);
+                char u = Unit(m.Groups[2].Captures[i].Value);
+                span += u == 'h' ? TimeSpan.FromHours(v) : u == 's' ? TimeSpan.FromSeconds(v) : TimeSpan.FromMinutes(v);
+            }
+            return span > TimeSpan.Zero;
         }
 
         static char Unit(string u)
@@ -382,6 +415,82 @@ namespace Tepi
             s = Regex.Replace(s, @"\s{2,}", " ").Trim().Trim(',', '.', ':', ';');
             s = Regex.Replace(s, @"^(untuk|buat|to|bahwa)\s+", "", RegexOptions.IgnoreCase);
             return s.Trim();
+        }
+
+        // Unit kind and size in base units
+        struct UnitDef { public char Kind; public double Size; public UnitDef(char k, double s) { Kind = k; Size = s; } }
+
+        static readonly Dictionary<string, UnitDef> Units = BuildUnits();
+
+        static Dictionary<string, UnitDef> BuildUnits()
+        {
+            var d = new Dictionary<string, UnitDef>();
+            Action<char, double, string> add = (k, size, names) => { foreach (var n in names.Split(' ')) d[n] = new UnitDef(k, size); };
+            // Length in metres
+            add('L', 0.001, "mm milimeter millimeter millimeters");
+            add('L', 0.01, "cm sentimeter centimeter centimeters");
+            add('L', 1, "m meter meters metre metres");
+            add('L', 1000, "km kilometer kilometers");
+            add('L', 0.0254, "in inch inches inci");
+            add('L', 0.3048, "ft foot feet kaki");
+            add('L', 0.9144, "yd yard yards");
+            add('L', 1609.344, "mi mil mile miles");
+            // Mass in grams
+            add('M', 0.001, "mg miligram milligram");
+            add('M', 1, "g gr gram grams");
+            add('M', 100, "ons");
+            add('M', 1000, "kg kilo kilogram kilograms");
+            add('M', 28.349523125, "oz ounce ounces");
+            add('M', 453.59237, "lb lbs pound pounds");
+            // Volume in litres
+            add('V', 0.001, "ml mililiter milliliter");
+            add('V', 1, "l liter litre liters litres");
+            add('V', 3.785411784, "gal galon gallon gallons");
+            // Data in bytes, Windows' 1024 steps
+            add('D', 1, "byte bytes");
+            add('D', 1024, "kb");
+            add('D', 1048576, "mb");
+            add('D', 1073741824, "gb");
+            add('D', 1099511627776, "tb");
+            // Time in seconds
+            add('T', 1, "detik dtk sec secs second seconds");
+            add('T', 60, "menit mnt min mins minute minutes");
+            add('T', 3600, "jam hour hours");
+            add('T', 86400, "hari day days");
+            add('T', 604800, "minggu week weeks");
+            // Speed in metres per second
+            add('S', 1, "m/s mps");
+            add('S', 1000.0 / 3600, "km/j km/jam km/h kmh kph");
+            add('S', 1609.344 / 3600, "mph");
+            // Temperature: scaled separately
+            add('C', 0, "c °c celsius");
+            add('C', 1, "f °f fahrenheit");
+            add('C', 2, "k kelvin");
+            return d;
+        }
+
+        static readonly Regex ConvertAsk = new Regex(@"^(?:berapa|konversi|convert|ubah)?\s*(-?[\d.,]+)\s*([a-z°/]+)\s+(?:ke|to|in|into|jadi|dalam)\s+([a-z°/]+)$");
+
+        // "5 km ke mil", "72 f ke c"
+        static bool TryConvert(string low, out string answer)
+        {
+            answer = null;
+            var m = ConvertAsk.Match(low.Trim());
+            if (!m.Success) return false;
+            UnitDef from, to;
+            double v;
+            if (!Units.TryGetValue(m.Groups[2].Value, out from) || !Units.TryGetValue(m.Groups[3].Value, out to) || from.Kind != to.Kind) return false;
+            if (!Num(m.Groups[1].Value.TrimStart('-'), out v)) return false;
+            if (m.Groups[1].Value.StartsWith("-")) v = -v;
+            double r;
+            if (from.Kind == 'C')
+            {
+                double c = from.Size == 0 ? v : from.Size == 1 ? (v - 32) * 5 / 9 : v - 273.15;
+                r = to.Size == 0 ? c : to.Size == 1 ? c * 9 / 5 + 32 : c + 273.15;
+            }
+            else r = v * from.Size / to.Size;
+            answer = "= " + FormatNumber(Math.Round(r, Math.Abs(r) >= 100 ? 2 : 4)) + " " + m.Groups[3].Value;
+            return true;
         }
 
         // Sums: "15% dari 240.000", "12 x 3,5"

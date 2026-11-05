@@ -19,7 +19,7 @@ namespace Tepi
 
         public void Start()
         {
-            var t = new Thread(Run) { IsBackground = true, Name = "volume" };
+            var t = new Thread(Prof.Wrap(Run)) { IsBackground = true, Name = "volume" };
             t.SetApartmentState(ApartmentState.MTA);
             t.Start();
         }
@@ -143,7 +143,7 @@ namespace Tepi
 
         void Spawn()
         {
-            thread = new Thread(Run) { IsBackground = true, Name = "spectrum" };
+            thread = new Thread(Prof.Wrap(Run)) { IsBackground = true, Name = "spectrum" };
             thread.SetApartmentState(ApartmentState.MTA);
             thread.Start();
         }

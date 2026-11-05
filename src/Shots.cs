@@ -38,19 +38,24 @@ namespace Tepi
             {
                 // Own copy: clipboard bitmap breaks off-thread
                 using (var clip = data.GetData(DataFormats.Bitmap, true) as Bitmap)
-                    if (clip != null && clip.Width >= 8 && clip.Height >= 8) full = new Bitmap(clip);
+                    if (clip != null && clip.Width >= 8 && clip.Height >= 8) full = OwnCopy(clip);
             }
             catch (Exception ex) { Log.Write("shot read: " + ex.Message); }
             if (full == null) return;
             // One copy can fire twice
             var prev = shot;
             if (prev != null && prev.W == full.Width && prev.H == full.Height && (DateTime.UtcNow - prev.Utc).TotalSeconds < 1.5) { full.Dispose(); return; }
-            var s = new Shot { W = full.Width, H = full.Height, Utc = DateTime.UtcNow, Thumb = ShotThumb(full) };
+            var s = new Shot { W = full.Width, H = full.Height, Utc = DateTime.UtcNow };
             SetShot(s);
             string dir = ShotsTemp();
+            float k = scale;
+            // Thumb and save off the UI thread
             ThreadPool.QueueUserWorkItem(delegate
             {
+                Bitmap thumb = null;
                 string path = null;
+                try { thumb = ShotThumb(full, k); }
+                catch (Exception ex) { Log.Write("shot thumb: " + ex.Message); }
                 try
                 {
                     Directory.CreateDirectory(dir);
@@ -61,9 +66,13 @@ namespace Tepi
                 finally { full.Dispose(); }
                 Post(() =>
                 {
+                    if (shot != s) { if (thumb != null) thumb.Dispose(); TryDelete(path); return; }
+                    s.Thumb = thumb;
                     // Windows saved it first: drop ours
-                    if (shot != s || s.Found != null) { TryDelete(path); return; }
-                    s.TempPath = path;
+                    if (s.Found != null) TryDelete(path); else s.TempPath = path;
+                    if (thumb == null) return;
+                    var t = ShowToast(View.Shot, 7, 2, true);
+                    if (t != null) t.Data = s;
                 });
             });
             if (shotFind == null)
@@ -73,8 +82,13 @@ namespace Tepi
             }
             shotFind.Stop();
             shotFind.Start();
-            var t = ShowToast(View.Shot, 7, 2, true);
-            if (t != null) t.Data = s;
+        }
+
+        // Memory copy, not a redraw
+        static Bitmap OwnCopy(Bitmap clip)
+        {
+            try { return clip.Clone(new Rectangle(0, 0, clip.Width, clip.Height), clip.PixelFormat); }
+            catch (Exception) { return new Bitmap(clip); }
         }
 
         void SetShot(Shot s)
@@ -145,7 +159,7 @@ namespace Tepi
         }
 
         // Center crop, sized for this screen
-        Bitmap ShotThumb(Bitmap full)
+        static Bitmap ShotThumb(Bitmap full, float scale)
         {
             int tw = (int)Math.Ceiling(ShotThumbW * scale), th = (int)Math.Ceiling(ShotThumbH * scale);
             float want = (float)tw / th, have = (float)full.Width / full.Height;
@@ -173,15 +187,18 @@ namespace Tepi
             if (ready && Pressed("shotThumb")) dragItem = new ShelfItem { Path = s.Path, Name = System.IO.Path.GetFileName(s.Path) };
             p.Image(s.Thumb, thumb, 10);
             p.StrokeRound(thumb, 10, Ink.A(p.T.Text, 0.14f), 1f);
-            float x = thumb.Right + 14, pw = 52, gap = 6;
-            int pills = OcrShown ? 3 : 2;
-            float right = w - 16 - pw * pills - gap * (pills - 1);
+            // The thumbnail opens; pills do the rest
+            float x = thumb.Right + 14, pw = 52, bw = ShotBlurW, gap = 6;
+            int pills = OcrShown ? 2 : 1;
+            float right = w - 16 - bw - pw * pills - gap * pills;
             p.Text(s.Found != null ? Lang.T("Screenshot") : Lang.T("Gambar disalin"), Ink.Semi(13.5f), p.T.Text, x, cy - 10, right - x - 8, StringAlignment.Near);
             p.Text(ocrBusy ? Lang.T("Membaca teks…") : s.W + " × " + s.H, Ink.Text(12.5f), p.T.Sub, x, cy + 11, right - x - 8, StringAlignment.Near);
             if (OcrShown) { Pill(new RectangleF(right, cy - 15, pw, 30), "shotText", Lang.T("Teks"), PillKind.Secondary, delegate { CopyText(s.Path); }, ready && !ocrBusy); right += pw + gap; }
-            Pill(new RectangleF(right, cy - 15, pw, 30), "shotShelf", Lang.T("Rak"), PillKind.Secondary, delegate { ShelveShot(); }, ready);
-            Pill(new RectangleF(right + pw + gap, cy - 15, pw, 30), "shotOpen", Lang.T("Buka"), PillKind.Secondary, delegate { OpenShot(); }, ready);
+            Pill(new RectangleF(right, cy - 15, bw, 30), "shotBlur", Lang.T("Samarkan"), PillKind.Secondary, delegate { OpenRedact(s.Path); }, ready);
+            Pill(new RectangleF(right + bw + gap, cy - 15, pw, 30), "shotShelf", Lang.T("Rak"), PillKind.Secondary, delegate { ShelveShot(); }, ready);
         }
+
+        const float ShotBlurW = 74;
 
         // Checked on first need, not at startup: OCR runtime costs memory
         bool OcrShown
@@ -216,16 +233,18 @@ namespace Tepi
                 string text = null;
                 try { text = Ocr.Read(path); }
                 catch (Exception ex) { Log.Write("ocr read: " + ex.Message); }
-                Post(() =>
-                {
-                    ocrBusy = false;
-                    if (string.IsNullOrEmpty(text)) { ShowInfo('\uE8C8', Lang.T("Tidak ada teks terbaca"), "", true); return; }
-                    try { Clipboard.SetText(text); }
-                    catch (Exception ex) { Log.Write("ocr copy: " + ex.Message); return; }
-                    int lines = text.Split('\n').Length;
-                    ShowInfo('\uE8C8', Lang.T("Teks disalin"), Lang.F("{0} baris", lines), true);
-                });
+                Post(() => { ocrBusy = false; CopyRead(text); });
             });
+        }
+
+        // The toast says how it went
+        void CopyRead(string text)
+        {
+            if (string.IsNullOrEmpty(text)) { ShowInfo('\uE8C8', Lang.T("Tidak ada teks terbaca"), "", true); return; }
+            try { Clipboard.SetText(text); }
+            catch (Exception ex) { Log.Write("ocr copy: " + ex.Message); return; }
+            int lines = text.Split('\n').Length;
+            ShowInfo('\uE8C8', Lang.T("Teks disalin"), Lang.F("{0} baris", lines), true);
         }
 
         void ShelveShot()

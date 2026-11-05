@@ -145,7 +145,7 @@ namespace Tepi
             if (on && frostThread == null)
             {
                 frostRun = true;
-                frostThread = new Thread(FrostLoop) { IsBackground = true, Name = "frost", Priority = ThreadPriority.BelowNormal };
+                frostThread = new Thread(Prof.Wrap(FrostLoop)) { IsBackground = true, Name = "frost", Priority = ThreadPriority.BelowNormal };
                 frostThread.Start();
             }
             else if (!on && frostThread != null)

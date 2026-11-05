@@ -135,7 +135,7 @@ namespace Tepi
 
         public void Start()
         {
-            var t = new Thread(Run) { IsBackground = true, Name = "privacy" };
+            var t = new Thread(Prof.Wrap(Run)) { IsBackground = true, Name = "privacy" };
             t.Start();
         }
 

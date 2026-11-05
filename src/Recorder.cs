@@ -39,7 +39,7 @@ namespace Tepi
         // Blocks until the device opens
         public bool Start()
         {
-            thread = new Thread(Run) { IsBackground = true, Name = loopback ? "rekam-sistem" : "rekam-mic" };
+            thread = new Thread(Prof.Wrap(Run)) { IsBackground = true, Name = loopback ? "rekam-sistem" : "rekam-mic" };
             thread.SetApartmentState(ApartmentState.MTA);
             thread.Start();
             opened.WaitOne(3000);

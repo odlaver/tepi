@@ -23,16 +23,29 @@ namespace Tepi
         bool TimerOn { get { return timerKind != TimerKind.Off; } }
         bool Counting { get { return timerKind == TimerKind.Focus || timerKind == TimerKind.Break || timerKind == TimerKind.Countdown; } }
 
-        void StartTimer(TimerKind kind, int minutes)
+        void StartTimer(TimerKind kind, int minutes) { StartTimer(kind, TimeSpan.FromMinutes(minutes)); }
+
+        void StartTimer(TimerKind kind, TimeSpan span)
         {
             timerKind = kind;
             timerPaused = false;
             laps.Clear();
             timerStartUtc = DateTime.UtcNow;
-            timerEndUtc = kind == TimerKind.Stopwatch ? DateTime.MaxValue : timerStartUtc.AddMinutes(minutes);
-            if (kind == TimerKind.Focus) ShowInfo('\0', Lang.T("Fokus ") + minutes + Lang.T(" menit"), Lang.T("selesai ") + Fmt.Hm(timerEndUtc.ToLocalTime()), true);
-            else if (kind == TimerKind.Countdown) ShowInfo('\0', Lang.F("Timer {0} menit", minutes), Lang.T("selesai ") + Fmt.Hm(timerEndUtc.ToLocalTime()), true);
+            timerEndUtc = kind == TimerKind.Stopwatch ? DateTime.MaxValue : timerStartUtc + span;
+            if (kind == TimerKind.Focus) ShowInfo('\0', Lang.T("Fokus ") + (int)span.TotalMinutes + Lang.T(" menit"), Lang.T("selesai ") + Fmt.Hm(timerEndUtc.ToLocalTime()), true);
+            else if (kind == TimerKind.Countdown) ShowInfo('\0', Lang.F("Timer {0}", SpanText(span)), Lang.T("selesai ") + Fmt.Hm(timerEndUtc.ToLocalTime()), true);
             Kick();
+        }
+
+        // "1 jam 30 menit", "45 detik"
+        static string SpanText(TimeSpan span)
+        {
+            var parts = new System.Collections.Generic.List<string>();
+            int h = (int)span.TotalHours;
+            if (h > 0) parts.Add(Lang.F("{0} jam", h));
+            if (span.Minutes > 0) parts.Add(Lang.F("{0} menit", span.Minutes));
+            if (span.Seconds > 0 || parts.Count == 0) parts.Add(Lang.F("{0} detik", span.Seconds));
+            return string.Join(" ", parts.ToArray());
         }
 
         void StartFocus(int minutes) { StartTimer(TimerKind.Focus, minutes); }

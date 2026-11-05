@@ -25,7 +25,7 @@ namespace Tepi
 
         void ApplyClips()
         {
-            bool want = ClipsOn || ShotsOn;
+            bool want = ClipsOn || ShotsOn || ScreenTextArmed;
             if (!ClipsOn) clips.Clear();
             if (want == clipListening) return;
             if (want) clipListening = AddClipboardFormatListener(Handle);
@@ -61,6 +61,7 @@ namespace Tepi
                 // Picture without text: preview it
                 if (data.GetDataPresent(DataFormats.Bitmap) && !data.GetDataPresent(DataFormats.UnicodeText))
                 {
+                    if (TakeScreenText(data)) return;
                     if (ShotsOn) OnClipImage(data);
                     return;
                 }

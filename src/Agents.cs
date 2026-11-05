@@ -133,7 +133,7 @@ namespace Tepi
                 Log.Write("hook server: " + ex.Message);
                 return;
             }
-            var t = new Thread(Accept) { IsBackground = true, Name = "hooks" };
+            var t = new Thread(Prof.Wrap(Accept)) { IsBackground = true, Name = "hooks" };
             t.Start();
         }
 

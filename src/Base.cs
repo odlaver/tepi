@@ -506,6 +506,17 @@ namespace Tepi
 
         public static double T() { return On ? watch.Elapsed.TotalMilliseconds : 0; }
 
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")] static extern int GetCurrentThreadId();
+
+        // OS thread id to name
+        public static readonly System.Collections.Concurrent.ConcurrentDictionary<int, string> Threads = new System.Collections.Concurrent.ConcurrentDictionary<int, string>();
+
+        public static System.Threading.ThreadStart Wrap(System.Threading.ThreadStart run)
+        {
+            if (!On) return run;
+            return delegate { Threads[GetCurrentThreadId()] = System.Threading.Thread.CurrentThread.Name ?? "?"; run(); };
+        }
+
         static readonly Dictionary<string, double> frame = new Dictionary<string, double>();
 
         public static void Add(string key, double since)

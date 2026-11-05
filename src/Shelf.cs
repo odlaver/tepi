@@ -202,8 +202,9 @@ namespace Tepi
             m.Items.Add(Lang.T("Tampilkan di folder"), null, delegate { RevealShelfItem(item); });
             m.Items.Add(Lang.T("Salin jalur"), null, delegate { try { Clipboard.SetText(item.Path); } catch (Exception) { } });
             string ext = Path.GetExtension(item.Path).ToLowerInvariant();
-            if (OcrNow() && (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".gif" || ext == ".tif" || ext == ".tiff"))
-                m.Items.Add(Lang.T("Salin teks"), null, delegate { CopyText(item.Path); });
+            bool picture = ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".gif" || ext == ".tif" || ext == ".tiff";
+            if (picture && OcrNow()) m.Items.Add(Lang.T("Salin teks"), null, delegate { CopyText(item.Path); });
+            if (picture && File.Exists(item.Path)) m.Items.Add(Lang.T("Samarkan…"), null, delegate { OpenRedact(item.Path); });
             if (PhonePaired && File.Exists(item.Path)) m.Items.Add(Lang.T("Kirim ke HP"), null, delegate { SendToPhone(item.Path); });
             m.Items.Add(new ToolStripSeparator());
             m.Items.Add(Lang.T("Keluarkan dari rak"), null, delegate { Vanish(new[] { ShelfCellRect(item) }, false); RemoveFromShelf(item); });
@@ -424,7 +425,7 @@ namespace Tepi
             lock (thumbQueue) thumbQueue.Enqueue(item);
             if (thumbThread == null)
             {
-                thumbThread = new Thread(ThumbLoop) { IsBackground = true, Name = "thumbs", Priority = ThreadPriority.BelowNormal };
+                thumbThread = new Thread(Prof.Wrap(ThumbLoop)) { IsBackground = true, Name = "thumbs", Priority = ThreadPriority.BelowNormal };
                 thumbThread.SetApartmentState(ApartmentState.STA);
                 thumbThread.Start();
             }

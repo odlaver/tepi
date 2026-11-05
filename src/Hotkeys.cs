@@ -26,6 +26,7 @@ namespace Tepi
             Def(MirrorHotkey, "key.mirror", "Cermin kamera", "Ctrl+Alt+C", false),
             // No default: free combos vary per PC
             Def(PickerHotkey, "key.picker", "Ambil warna", "", false),
+            Def(ScreenTextHotkey, "key.screentext", "Salin teks dari layar", "", false),
             Def(DictPasteHotkey, "key.dictate.paste", "Tempel dikte terakhir", "", false),
             Def(RapatHotkey, "key.rapat", "Rekam rapat", "Ctrl+Alt+T", false),
             Def(SuruhHotkey, "key.suruh", "Suruh Tepi", "", false),

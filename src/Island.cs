@@ -236,6 +236,7 @@ namespace Tepi
 
         // Test builds attach a pilot here
         partial void PilotStart();
+        partial void PilotFrame();
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
@@ -287,6 +288,7 @@ namespace Tepi
                     OnClipboardUpdate();
                     break;
                 case 0x0312: // WM_HOTKEY
+                    if (GiveBackAltGr(m.LParam)) return;
                     if (m.WParam.ToInt32() == HideHotkey) ToggleHidden();
                     else if (m.WParam.ToInt32() == PrompterHotkey) TogglePrompter();
                     else if (m.WParam.ToInt32() == PrompterFaster) NudgeSpeed(1);
@@ -302,6 +304,7 @@ namespace Tepi
                     else if (m.WParam.ToInt32() == NoteHotkey) BeginInvoke(new Action(OpenNote));
                     else if (m.WParam.ToInt32() == MirrorHotkey) ToggleMirror();
                     else if (m.WParam.ToInt32() == PickerHotkey) BeginInvoke(new Action(OpenPicker));
+                    else if (m.WParam.ToInt32() == ScreenTextHotkey) BeginInvoke(new Action(ReadScreenText));
                     else if (m.WParam.ToInt32() == DictPasteHotkey) BeginInvoke(new Action(PasteLastDictation));
                     else if (m.WParam.ToInt32() == RapatHotkey) ToggleRapat();
                     else if (m.WParam.ToInt32() == SuruhHotkey) BeginInvoke(new Action(OpenSuruh));
@@ -686,6 +689,7 @@ namespace Tepi
                 CollectAtRest();
             }
             CountFrame(t, (clock.Elapsed.TotalSeconds - t) * 1000);
+            PilotFrame();
             DumpFrame();
             if (Moving(now)) return Motion;
             // Just settled: record live areas next
@@ -1606,9 +1610,10 @@ namespace Tepi
             var suruhItem = new ToolStripMenuItem(Lang.T("Suruh Tepi…"), null, delegate { BeginInvoke(new Action(OpenSuruh)); });
             var mirrorItem = new ToolStripMenuItem(Lang.T("Cermin kamera"), null, delegate { ToggleMirror(); }) { ShortcutKeyDisplayString = HotkeyText(MirrorHotkey) };
             var pickerItem = new ToolStripMenuItem(Lang.T("Ambil warna"), null, delegate { BeginInvoke(new Action(OpenPicker)); });
+            var screenTextItem = new ToolStripMenuItem(Lang.T("Salin teks dari layar"), null, delegate { BeginInvoke(new Action(ReadScreenText)); });
             var exit = new ToolStripMenuItem(Lang.T("Keluar"), null, delegate { Close(); });
             var prefsItem = new ToolStripMenuItem(Lang.T("Pengaturan…"), null, delegate { OpenPrefs(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, suruhItem, rapatItem, mirrorItem, pickerItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, suruhItem, rapatItem, mirrorItem, pickerItem, screenTextItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
             menu.Opening += delegate
             {
                 // Style submenus after they're rebuilt
@@ -1624,6 +1629,7 @@ namespace Tepi
                 suruhItem.ShortcutKeyDisplayString = HotkeyText(SuruhHotkey);
                 mirrorItem.ShortcutKeyDisplayString = HotkeyText(MirrorHotkey);
                 pickerItem.ShortcutKeyDisplayString = HotkeyText(PickerHotkey);
+                screenTextItem.ShortcutKeyDisplayString = HotkeyText(ScreenTextHotkey);
                 hideItem.Checked = hiddenByUser;
                 miniItem.Checked = MiniWanted();
                 prompterItem.Checked = PrompterOn;
