@@ -14,7 +14,7 @@
 
 # Tepi
 
-Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 905 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
+Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 1.085 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
 
 Sekarang juga ada [Tepi Android](https://github.com/odlaver/tepi-android): island di sekitar kamera depan HP, yang nyambung ke laptop cukup dengan memindai QR.
 
@@ -26,6 +26,7 @@ Sekarang juga ada [Tepi Android](https://github.com/odlaver/tepi-android): islan
 - **Tab Bicara**, **garis cahaya** untuk progres, dan **Samarkan** untuk menutupi data di screenshot.
 - **Salin teks dari layar**, **tur** untuk pengguna baru, dan **Apa yang baru** setiap pembaruan.
 - Menyalin screenshot 4K tidak lagi membuat island tersendat.
+- Antigravity tidak lagi terblokir saat dihubungkan, tiap sesi agent bertanda Claude, Codex, atau Antigravity, dan sesi Codex atau Antigravity yang diam 30 menit hilang sendiri.
 
 Catatan lengkapnya ada di [halaman rilis](https://github.com/odlaver/tepi/releases/latest).
 
@@ -34,7 +35,7 @@ Catatan lengkapnya ada di [halaman rilis](https://github.com/odlaver/tepi/releas
 | | |
 |---|---|
 | **Musik dan lirik** | Spotify, YouTube, Apple Music, dan pemutar lain. Lirik tersinkron menyapu kata demi kata, visualizer membaca suara yang benar-benar diputar. |
-| **Agent coding** | Claude Code, Codex, Gemini CLI, dan Antigravity. Status sesi, rencana kerja, kuota Claude, dan izin yang bisa dijawab dari island. [Selengkapnya](docs/agen.md) |
+| **Agent coding** | Claude Code, Codex, Gemini CLI, dan Antigravity, tiap sesi bertanda agentnya. Status sesi, rencana kerja, kuota Claude, dan izin yang bisa dijawab dari island. [Selengkapnya](docs/agen.md) |
 | **Kuliah** | Tugas dan jadwal dari [Kulia](https://kulia.live), Notion, Todoist, dan kalender iCal. [Selengkapnya](docs/integrasi.md) |
 | **Pesan** | WhatsApp, Telegram, Discord, Teams, Slack, dan email dari pusat notifikasi Windows. |
 | **Dikte dan rapat** | Tahan Ctrl kanan, bicara, lepas: teksnya ditempel di aplikasi mana pun, dalam bahasa Indonesia yang bercampur istilah Inggris. Kamus istilah, snippet, lewat Groq atau offline. Rekam panggilan tanpa bot jadi transkrip Kamu dan Lawan bicara, plus ringkasan dan to-do. Suruh Tepi memasang pengingat, timer, dan catatan dari kalimat biasa. [Selengkapnya](docs/fitur.md) |
