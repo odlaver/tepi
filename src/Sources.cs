@@ -1006,7 +1006,7 @@ namespace Tepi
             Kick();
             sources.Close(task, err =>
             {
-                if (err == null) { ShowInfo('\0', Lang.T("Ditandai selesai"), task.Title, true); return; }
+                if (err == null) { TaskFinished(task); return; }
                 task.Status = old;
                 MergeSources();
                 ShowInfo(Ink.IcoLock, err, task.Title, true);

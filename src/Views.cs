@@ -49,6 +49,8 @@ namespace Tepi
                 case View.Mirror: return new SizeF(MirrorW, MirrorH);
                 case View.Convert: return new SizeF(ConvertW, ConvertHeight());
                 case View.Otp: return new SizeF(OtpWidth(), 64);
+                case View.Dictate: return new SizeF(DictWidth(), DictHeight());
+                case View.Record: return new SizeF(RapatWidth(), 38);
                 case View.Mini: return MiniSize();
                 default: return new SizeF(PanelW, PanelHeight());
             }
@@ -111,6 +113,8 @@ namespace Tepi
                 case View.Mirror: DrawMirror(w, h); break;
                 case View.Convert: DrawConvert(w, h, now); break;
                 case View.Otp: DrawOtp(w, h); break;
+                case View.Dictate: DrawDictate(w, h, now); break;
+                case View.Record: DrawRapat(w, h); break;
                 case View.Mini: DrawMini(w, h, now); break;
                 case View.Panel: DrawPanel(w, h, now); break;
             }

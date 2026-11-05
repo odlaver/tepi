@@ -169,7 +169,7 @@ namespace Tepi
             {
                 new[] { "general", "Umum", "\uE713", "0" }, new[] { "look", "Tampilan", "\uE790", "0" }, new[] { "island", "Island", "\uE737", "0" }, new[] { "tabs", "Tab panel", "\uE8A9", "0" },
                 new[] { "music", "Musik", "\uE8D6", "1" }, new[] { "messages", "Pesan", "\uE8BD", "1" }, new[] { "system", "Sistem", "\uE9D9", "1" }, new[] { "files", "Rak dan berkas", "\uE7B8", "1" },
-                new[] { "agents", "Agen", "\uE756", "2" }, new[] { "phone", "HP", "\uE8EA", "2" }, new[] { "integrasi", "Integrasi", "\uE71B", "2" }, new[] { "remind", "Pengingat", "\uE823", "2" },
+                new[] { "agents", "Agen", "\uE756", "2" }, new[] { "dikte", "Dikte", "\uE720", "2" },new[] { "phone", "HP", "\uE8EA", "2" }, new[] { "integrasi", "Integrasi", "\uE71B", "2" }, new[] { "remind", "Pengingat", "\uE823", "2" },
                 new[] { "access", "Aksesibilitas", "\uE776", "3" }, new[] { "keys", "Pintasan", "\uE765", "3" }, new[] { "about", "Tentang", "\uE946", "3" },
             };
 
@@ -196,20 +196,29 @@ namespace Tepi
                 Controls.Add(content);
             }
 
+            protected override void OnShown(EventArgs e)
+            {
+                base.OnShown(e);
+                BeginInvoke(new Action(delegate { island.OfferWhatsNew(this); }));
+            }
+
             public void Go(string id)
             {
                 section = id;
                 building = true;
                 search.Text = "";
                 building = false;
-                if (IsHandleCreated) { side.Selected = id; side.Invalidate(); Fill(); }
+                if (IsHandleCreated) { side.Selected = id; side.RevealSelected(); side.Invalidate(); Fill(); }
             }
 
             protected override void OnHandleCreated(EventArgs e)
             {
                 base.OnHandleCreated(e);
                 var area = Screen.FromHandle(Handle).WorkingArea;
-                Size = new Size((int)Math.Min(860 * Ui, area.Width - 40), (int)Math.Min(620 * Ui, area.Height - 40));
+                // Tall enough that the whole sidebar shows
+                int chromeW = Width - ClientSize.Width, chromeH = Height - ClientSize.Height;
+                float wantH = Math.Max(700, 58 + SideList.ContentDip(Sections.Length, 3));
+                Size = new Size((int)Math.Min(980 * Ui + chromeW, area.Width - 40), (int)Math.Min(wantH * Ui + chromeH, area.Height - 40));
                 MinimumSize = new Size((int)(640 * Ui), (int)(420 * Ui));
                 Location = new Point(area.X + (area.Width - Width) / 2, area.Y + (area.Height - Height) / 2);
                 Relayout();
@@ -399,13 +408,13 @@ namespace Tepi
                 new[] { "Folder data", "\uE8B7" }, new[] { "Folder paket", "\uE8B7" }, new[] { "Tema", "\uE706" }, new[] { "Material", "\uE81E" },
                 new[] { "Aksen", "\uE790" }, new[] { "Paket", "\uE7B8" }, new[] { "Suara sapaan paket tema", "\uE767" },
                 new[] { "Mode", "\uE8A0" }, new[] { "Notifikasi saat mini", "\uEA8F" }, new[] { "Mata", "\uE890" }, new[] { "Ikuti kursor", "\uE7C9" }, new[] { "Saat diam", "\uE890" }, new[] { "Buka panel", "\uE8A7" }, new[] { "Jeda buka", "\uE916" },
-                new[] { "Menempel di tepi atas", "\uE840" }, new[] { "Posisi", "\uE759" }, new[] { "Lebar panel", "\uE740" }, new[] { "Layar", "\uE7F4" },
+                new[] { "Menempel di tepi atas", "\uE840" }, new[] { "Sisakan ruang di tepi atas", "\uE73F" }, new[] { "Garis cahaya", "\uE781" }, new[] { "Posisi", "\uE759" }, new[] { "Lebar panel", "\uE740" }, new[] { "Layar", "\uE7F4" },
                 new[] { "Gaya tab", "\uECA5" }, new[] { "Dibuka di", "\uE8A7" },
                 new[] { "Lirik di island", "\uE8D6" }, new[] { "Cari lirik online", "\uE721" }, new[] { "Visualizer", "\uE9E9" },
                 new[] { "Notifikasi pesan", "\uE8BD" }, new[] { "Tampilkan isi pesan", "\uE8BD" }, new[] { "Caps Lock", "\uE765" }, new[] { "Ingatkan cabut charger", "\uE83E" }, new[] { "Cuaca dan hujan", "\uE753" }, new[] { "Mode rapat", "\uE720" },
                 new[] { "Num Lock, Scroll Lock", "\uE765" }, new[] { "Bahasa input", "\uE765" }, new[] { "Kelas yang berlangsung", "\uE7BE" },
                 new[] { "Progres unduhan", "\uE896" }, new[] { "Riwayat clipboard", "\uE77F" }, new[] { "Flashdisk", "\uE88E" },
-                new[] { "Preview screenshot", "\uE91B" }, new[] { "Rak berkas", "\uE7B8" }, new[] { "Istirahat fokus", "\uE916" },
+                new[] { "Preview screenshot", "\uE91B" }, new[] { "Rak berkas", "\uE7B8" }, new[] { "Istirahat fokus", "\uE916" }, new[] { "Tahan notifikasi saat fokus", "\uE7E7" },
                 new[] { "Claude Code", "\uE756" }, new[] { "Kuota Claude", "\uEC4A" }, new[] { "Menahan izin", "\uE72E" },
                 new[] { "Kulia", "\uE7BE" }, new[] { "Tugas dan jadwal", "\uE787" }, new[] { "Kolom tanggal", "\uE787" }, new[] { "Kolom selesai", "\uE73E" },
                 new[] { "Belum ada database", "\uE8F1" }, new[] { "Pengingat sholat", "\uE708" }, new[] { "Sholat", "\uE708" }, new[] { "Suara adzan", "\uE767" }, new[] { "Suara sebelum waktu", "\uE767" }, new[] { "Suara minum", "\uE767" }, new[] { "Suara istirahat mata", "\uE767" }, new[] { "Suara peregangan", "\uE767" }, new[] { "Tambah ibadah", "\uE710" }, new[] { "Nama", "\uE8AC" }, new[] { "Jam", "\uE823" }, new[] { "Hari", "\uE787" }, new[] { "Kota", "\uE707" }, new[] { "Ingatkan sebelum", "\uEA8F" },
@@ -421,7 +430,7 @@ namespace Tepi
                 new[] { "Sembunyikan island", "\uED1A" }, new[] { "Navigasi keyboard", "\uE765" }, new[] { "Mini", "\uE898" }, new[] { "Mikrofon", "\uE720" },
                 new[] { "Catatan kilat", "\uE70B" }, new[] { "Cermin kamera", "\uE714" }, new[] { "Jeda dan lanjut", "\uE769" }, new[] { "Ulang dari awal", "\uE72C" },
                 new[] { "Mundur 5 detik", "\uE76B" }, new[] { "Maju 5 detik", "\uE76C" }, new[] { "Lebih cepat", "\uE710" }, new[] { "Lebih lambat", "\uE738" },
-                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" }, new[] { "Pakai warna sendiri", "\uE790" }, new[] { "Simpan jadi paket", "\uE74E" }, new[] { "Pembuat paket", "\uE774" }, new[] { "Pindai dari HP", "\uED14" }, new[] { "Aplikasi chat tambahan", "\uE8BD" }, new[] { "Pengirim prioritas", "\uE77B" }, new[] { "Senyap ikut Windows", "\uE708" }, new[] { "Suara", "\uE767" }, new[] { "Simpan isi rak", "\uE74E" }, new[] { "Kosongkan rak otomatis", "\uE916" }, new[] { "Ambil warna", "\uE790" }, new[] { "Ekspor pengaturan", "\uEDE1" }, new[] { "Impor pengaturan", "\uE8B5" }, new[] { "Setel ulang pengaturan", "\uE72C" },
+                new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" }, new[] { "Pakai warna sendiri", "\uE790" }, new[] { "Simpan jadi paket", "\uE74E" }, new[] { "Pembuat paket", "\uE774" }, new[] { "Pindai dari HP", "\uED14" }, new[] { "Aplikasi chat tambahan", "\uE8BD" }, new[] { "Pengirim prioritas", "\uE77B" }, new[] { "Senyap ikut Windows", "\uE708" }, new[] { "Suara", "\uE767" }, new[] { "Simpan isi rak", "\uE74E" }, new[] { "Kosongkan rak otomatis", "\uE916" }, new[] { "Ambil warna", "\uE790" }, new[] { "Ekspor pengaturan", "\uEDE1" }, new[] { "Dikte", "\uE720" }, new[] { "Tombol dikte", "\uE765" }, new[] { "Bahasa ucapan", "\uE774" }, new[] { "Mesin dikte", "\uE720" }, new[] { "Key Groq", "\uE8D7" }, new[] { "Buat key Groq", "\uE774" }, new[] { "Model offline", "\uE896" }, new[] { "Siap dipakai", "\uE73E" }, new[] { "Mengunduh", "\uE896" }, new[] { "Unduh model", "\uE896" }, new[] { "Kamus dan snippet", "\uE70B" }, new[] { "Buang kata pengisi", "\uE74D" }, new[] { "Perintah baris baru", "\uE751" }, new[] { "Gaya per aplikasi", "\uE71D" }, new[] { "Kecilkan musik", "\uE8D6" }, new[] { "Tempel dikte terakhir", "\uE77F" }, new[] { "Rekam rapat", "\uE7C8" }, new[] { "Ringkasan dan to-do", "\uE8A5" }, new[] { "Folder transkrip", "\uE8B7" }, new[] { "Apa yang baru", "\uE789" }, new[] { "Tur Tepi", "\uE7C1" }, new[] { "GitHub", "\uE943" }, new[] { "Kirim saran", "\uED15" }, new[] { "Bicara", "\uE720" }, new[] { "Suruh Tepi", "\uE765" }, new[] { "Instagram", "\uE722" }, new[] { "LinkedIn", "\uE716" }, new[] { "Impor pengaturan", "\uE8B5" }, new[] { "Setel ulang pengaturan", "\uE72C" },
             };
 
             static char GlyphFor(string title)
@@ -707,6 +716,8 @@ namespace Tepi
                         break;
                     case "island":
                         add(Row(Lang.T("Menempel di tepi atas"), null, Switch("dock", true, null)));
+                        add(Row(Lang.T("Sisakan ruang di tepi atas"), Lang.T("Jendela yang dimaksimalkan mulai di bawah island"), Switch("reserve.top", false, on => { settings.Set("reserve.top", on); settings.Save(); island.ApplyReserve(); })));
+                        add(Row(Lang.T("Garis cahaya"), Lang.T("Progres timer, unduhan, dan cas di tepi island; kilau saat pesan masuk"), Switch("edge.light", true, null)));
                         add(Row(Lang.T("Posisi"), null, Slider(-40, 40, 5, settings.GetInt("position", 0), v => v == 0 ? Lang.T("tengah") : (v < 0 ? Lang.T("kiri") : Lang.T("kanan")) + " " + Math.Abs(v) + "%",
                             v => { island.SetLayout("position", v); Preview(); })));
                         add(Row(Lang.T("Lebar panel"), null, Slider(440, 560, 8, (int)island.PanelW, v => v + " px", v => { island.SetLayout("panel.width", v); Preview(); })));
@@ -862,6 +873,9 @@ namespace Tepi
                             Button(Lang.T("Ganti port acak"), false, delegate { island.MoveToRandomPort(); Relayout(); })));
                         add(Row(Lang.T("Menahan izin"), Lang.T("Lewat batas ini, izin dijawab di terminal"), Slider(30, 300, 10, settings.GetInt("agent.wait", 110), v => v + Lang.T(" dtk"), v => { settings.Set("agent.wait", v); settings.Save(); })));
                         break;
+                    case "dikte":
+                        DictateRows(add, cap);
+                        break;
                     case "phone":
                         add(Row(Lang.T("Hubungkan HP"), Lang.T("Tepi di Android, lewat Wi-Fi yang sama"), Switch("phone", false, on =>
                         {
@@ -939,6 +953,7 @@ namespace Tepi
                         add(Row(Lang.T("Selang peregangan"), null, Slider(30, 120, 15, settings.GetInt("stretch.every", 60), v => v + Lang.T(" menit"), v => { settings.Set("stretch.every", v); settings.Save(); })));
                         add(Row(Lang.T("Suara peregangan"), null, SoundSetting("sound.stretch", Lang.T("Bawaan"))));
                         cap(Lang.T("Timer"));
+                        add(Row(Lang.T("Tahan notifikasi saat fokus"), Lang.T("Dirangkum saat fokus selesai; pengirim prioritas tetap muncul"), Switch("focus.hold", true, null)));
                         add(Row(Lang.T("Istirahat fokus"), null, Slider(1, 30, 1, settings.GetInt("focus.break", 5), v => v + Lang.T(" menit"), v => { settings.Set("focus.break", v); settings.Save(); })));
                         break;
                     case "access":
@@ -968,10 +983,22 @@ namespace Tepi
                     case "about":
                         add(VersionRow(Button("GitHub", false, delegate { OpenUrl("https://github.com/odlaver/tepi"); })));
                         add(UpdateRow());
-                        add(Row(Lang.T("Layanan luar"), Lang.T("Lirik, Kulia, GitHub, cuaca, dan integrasi; semua bisa dimatikan"), null));
+                        var notes = WhatsNew.For(AppVersion);
+                        if (notes != null) add(Row(Lang.T("Apa yang baru"), Lang.F("Ringkasan Tepi {0}", AppVersion), Button(Lang.T("Lihat"), false, delegate { island.ShowWhatsNew(this, new List<WhatsNew.Note> { notes }); })));
+                        add(Row(Lang.T("Tur Tepi"), Lang.T("Kenalan lagi dengan fitur utama Tepi"), Button(Lang.T("Mulai tur"), false, delegate { Close(); island.StartTour(); })));
+                        add(Row(Lang.T("Layanan luar"), Lang.T("Lirik, Kulia, GitHub, cuaca, integrasi, dan Groq; semua bisa dimatikan"), null));
                         // QRIS dialog lives on the site
                         add(Row(Lang.T("Traktir Tepi kopi"), Lang.T("QRIS, dari bank atau e-wallet mana pun"), Button(Lang.T("Traktir"), false, delegate { OpenUrl("https://odlaver.github.io/tepi/#kopi"); })));
-                        cap(Lang.F("Dibuat oleh {0}", "R. Revaldo Vabiansyah"));
+                        // Hidden until the form is wired
+                        if (Feedback.Ready) add(Row(Lang.T("Kirim saran"), Lang.T("Ide fitur atau masalah, langsung ke pembuat Tepi"), Button(Lang.T("Tulis…"), false, delegate { using (var f = new FeedbackWindow()) f.ShowDialog(this); })));
+                        // Links as listed on the Tepi site
+                        cap(Lang.T("Pembuat"));
+                        var maker = Row("R. Revaldo Vabiansyah", Lang.T("Membuat dan merawat Tepi"), null);
+                        maker.Glyph = '';
+                        add(maker);
+                        add(Row("GitHub", "@odlaver · " + Lang.T("kode Tepi dan proyek lainnya"), Button(Lang.T("Buka profil"), false, delegate { OpenUrl("https://github.com/odlaver"); })));
+                        add(Row("Instagram", "@odlavr", Button(Lang.T("Buka profil"), false, delegate { OpenUrl("https://www.instagram.com/odlavr"); })));
+                        add(Row("LinkedIn", "revalaja", Button(Lang.T("Buka profil"), false, delegate { OpenUrl("https://www.linkedin.com/in/revalaja"); })));
                         break;
                 }
                 flush();
@@ -1216,10 +1243,49 @@ namespace Tepi
             {
                 float s = Ui;
                 int group = Items[i].Length > 3 ? int.Parse(Items[i][3]) : 0;
-                return new RectangleF(10 * s, 6 * s + i * RowH + group * GroupGap * s, Width - 20 * s, RowH - 2 * s);
+                return new RectangleF(10 * s, 6 * s + i * RowH + group * GroupGap * s - scroll, Width - 20 * s, RowH - 2 * s);
             }
 
             const float GroupGap = 10;
+
+            // Unscaled height of every row and gap
+            public static float ContentDip(int rows, int lastGroup) { return 6 + rows * 32 + lastGroup * GroupGap + 14; }
+
+            // Short screens: the list scrolls
+            float scroll;
+
+            float MaxScroll()
+            {
+                if (Items.Count == 0) return 0;
+                return Math.Max(0, Cell(Items.Count - 1).Bottom + scroll + 14 * Ui - Height);
+            }
+
+            void ScrollTo(float v)
+            {
+                v = Math.Max(0, Math.Min(MaxScroll(), v));
+                if (v == scroll) return;
+                scroll = v;
+                Invalidate();
+            }
+
+            // Arrow keys keep the pick in view
+            void Reveal(int i)
+            {
+                if (i < 0 || i >= Items.Count) return;
+                var c = Cell(i);
+                if (c.Top < 0) ScrollTo(scroll + c.Top - 6 * Ui);
+                else if (c.Bottom > Height) ScrollTo(scroll + c.Bottom - Height + 6 * Ui);
+            }
+
+            protected override void OnMouseWheel(MouseEventArgs e)
+            {
+                base.OnMouseWheel(e);
+                ScrollTo(scroll - e.Delta / 120f * RowH * 1.5f);
+            }
+
+            protected override void OnResize(EventArgs e) { base.OnResize(e); ScrollTo(scroll); RevealSelected(); }
+
+            public void RevealSelected() { Reveal(IndexOf(Selected)); }
 
             int IndexOf(string id) { for (int i = 0; i < Items.Count; i++) if (Items[i][0] == id) return i; return -1; }
 
@@ -1227,6 +1293,7 @@ namespace Tepi
             {
                 if (i < 0 || i >= Items.Count) return;
                 Selected = Items[i][0];
+                Reveal(i);
                 Invalidate();
                 AccessibilityNotifyClients(AccessibleEvents.Selection, i);
                 var h = Picked;

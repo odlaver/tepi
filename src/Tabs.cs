@@ -11,10 +11,10 @@ namespace Tepi
     {
         const int PageHome = 0, PageMusic = 1, PageAgents = 2, PageClass = 3, PageMessages = 4, PageShelf = 5, PageControl = 6, PageRemind = 7, PagePhone = 8;
         // Ids for settings; names for labels
-        static readonly string[] PageIds = { "home", "music", "agents", "class", "messages", "shelf", "control", "remind", "phone", "convert" };
-        static readonly string[] PageNames = { "Ringkasan", "Musik", "Agen", "Kuliah", "Pesan", "Rak", "Kontrol", "Pengingat", "HP", "Ubah" };
+        static readonly string[] PageIds = { "home", "music", "agents", "class", "messages", "shelf", "control", "remind", "phone", "convert", "suara" };
+        static readonly string[] PageNames = { "Ringkasan", "Musik", "Agen", "Kuliah", "Pesan", "Rak", "Kontrol", "Pengingat", "HP", "Ubah", "Bicara" };
         // HP joins once a phone is linked
-        const string DefaultTabs = "home,music,agents,class,messages,shelf,control,remind,convert";
+        const string DefaultTabs = "home,music,agents,class,messages,shelf,control,remind,convert,suara";
         const float PanelTop = 54, SegTop = 36;
         float panelW = 488;
         float PanelW { get { return panelW; } }
@@ -31,6 +31,7 @@ namespace Tepi
             shiftPct = Math.Max(-40, Math.Min(40, settings.GetInt("position", 0)));
             MigrateTabs();
             AddConvertTab();
+            AddVoiceTab();
             var list = new List<int>();
             foreach (var part in settings.Get("panel.tabs", DefaultTabs).Split(','))
             {
@@ -100,6 +101,7 @@ namespace Tepi
                 case PageRemind: return RemindHeight();
                 case PagePhone: return PhoneHeight();
                 case PageConvert: return ConvertPageHeight();
+                case PageVoice: return VoicePageHeight();
                 default: return MessagesHeight();
             }
         }
@@ -232,6 +234,7 @@ namespace Tepi
             else if (page == PageMessages) { s = notifScroll; content = notifs.Count * 50; step = 75; }
             else if (page == PageShelf && shelfSeg == 1) { s = clipScroll; content = clips.Count * ClipRowH; step = ClipRowH * 1.5f; }
             else if (page == PageShelf) { s = shelfScroll; content = ShelfContentH(); step = 60; }
+            else if (page == PageVoice) { s = voiceScroll; content = VoiceItems().Count * VoiceRowH; view = VoiceListView(PanelHeight()); step = VoiceRowH * 1.5f; }
             else if (page == PageConvert && ConvertSetting) { s = convScroll; content = convHistory.Count * ConvRowH; view = ConvListView(PanelHeight()); step = ConvRowH * 1.5f; }
             else if (page == PageMusic && lyrics != null && lyrics.State == LyricState.Plain && lyrics.Key == mediaInfo.Key)
             {
@@ -330,6 +333,7 @@ namespace Tepi
                 case PageRemind: DrawRemindPage(w, h, now); break;
                 case PagePhone: DrawPhonePage(w, h, now); break;
                 case PageConvert: DrawConvertPage(w, h, now); break;
+                case PageVoice: DrawVoicePage(w, h, now); break;
             }
         }
 
@@ -638,6 +642,9 @@ namespace Tepi
                     using (var tray = Ink.Round(new RectangleF(cx - 8, cy - 5.5f, 16, 12), 3.5f)) g.DrawPath(pen, tray);
                     g.DrawLines(pen, new[] { new PointF(cx - 8, cy + 0.5f), new PointF(cx - 3.2f, cy + 0.5f), new PointF(cx - 2, cy + 2.6f), new PointF(cx + 2, cy + 2.6f), new PointF(cx + 3.2f, cy + 0.5f), new PointF(cx + 8, cy + 0.5f) });
                     break;
+                case PageVoice:
+                    p.Icon(Ink.IcoMic, 15f, c, cx, cy);
+                    break;
                 case PageRemind:
                     p.Icon('\uE823', 15f, c, cx, cy);
                     break;
@@ -767,6 +774,8 @@ namespace Tepi
                 TabButton("clearClips", '', delegate { Vanish(RowRects("clip", null), true); clipScroll.Snap(0); clips.Clear(); Kick(); }, true);
             else if (page == PageShelf && shelfSeg == 0 && shelf.Count > 0)
                 TabButton("clearShelf", '', delegate { Vanish(new List<RectangleF>(shelfCells.Values), true); shelfScroll.Snap(0); ClearShelf(); }, true);
+            else if (page == PageVoice && voiceLog.Count > 0)
+                TabButton("clearVoice", '', ClearVoiceLog, true);
             else if (page == PageConvert && ConvertSetting && convHistory.Count > 0)
                 TabButton("clearConv", '', ClearConvertHistory, true);
         }

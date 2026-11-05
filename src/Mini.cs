@@ -107,6 +107,7 @@ namespace Tepi
                 case View.Done:
                 case View.Deadline:
                 case View.Pray:
+                case View.Dictate:
                 case View.ShelfDrop: return true;
             }
             return false;
@@ -328,13 +329,13 @@ namespace Tepi
         void DrawMini(float w, float h, DateTime now)
         {
             View v = ActivityView();
-            bool dot = PrivacyOn;
+            bool dot = PrivacyOn || RapatOn;
             if (EyesOn) { MiniFace(w, h, now, v, dot); return; }
             bool caps = LockShown;
             if (v == View.Idle && !dot && !caps) return;
             float cy = h / 2, right = dot ? w - 15 : w - 12, left = caps ? 15 : 12;
             // Recording: accent dot at the end
-            if (dot) p.Circle(w - 9, cy, 1.7f, MicSilenced ? p.T.Negative : p.T.Accent);
+            if (dot) p.Circle(w - 9, cy, 1.7f, MicSilenced || RapatOn ? p.T.Negative : p.T.Accent);
             // Lock keys: a caps arrow at the start
             if (caps) p.Symbol(Sym.ChevronUp, 10, cy, 6.5f, p.T.Text);
             if (v == View.Idle) return;
@@ -359,7 +360,7 @@ namespace Tepi
             float cy = h / 2;
             DrawEyes(w / 2, cy, MiniEyeK);
             // Same dots as the plain sliver
-            if (dot) p.Circle(w - 9, cy, 1.7f, MicSilenced ? p.T.Negative : p.T.Accent);
+            if (dot) p.Circle(w - 9, cy, 1.7f, MicSilenced || RapatOn ? p.T.Negative : p.T.Accent);
             if (LockShown) p.Symbol(Sym.ChevronUp, 10, cy, 6.5f, p.T.Text);
         }
 

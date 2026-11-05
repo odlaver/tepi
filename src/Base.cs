@@ -83,7 +83,10 @@ namespace Tepi
         readonly Dictionary<string, string> values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public readonly string FilePath = Path.Combine(Dir, "settings.ini");
 
-        public Settings() { Load(); }
+        // No settings file yet: a first run
+        public readonly bool Fresh;
+
+        public Settings() { Fresh = !File.Exists(FilePath); Load(); }
 
         public void Load()
         {

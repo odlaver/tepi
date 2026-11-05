@@ -203,6 +203,8 @@ namespace Tepi
                 foreach (string sub in root.GetSubKeyNames())
                 {
                     if (sub == "NonPackaged") continue;
+                    // Dictation is Tepi itself: not a call
+                    if (!packaged && string.Equals(sub.Replace('#', '\\'), SelfPath, StringComparison.OrdinalIgnoreCase)) continue;
                     using (var k = root.OpenSubKey(sub))
                     {
                         if (k == null) continue;
@@ -224,6 +226,8 @@ namespace Tepi
                 }
             }
         }
+
+        static readonly string SelfPath = System.Reflection.Assembly.GetEntryAssembly().Location;
 
         static string Friendly(string key)
         {

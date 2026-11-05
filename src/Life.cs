@@ -1004,7 +1004,7 @@ namespace Tepi
                 catch (Exception ex) { Log.Write("kulia status: " + ex.Message); ok = false; }
                 Post(() =>
                 {
-                    if (ok) ShowInfo('\0', Lang.T("Ditandai selesai"), task.Title, true);
+                    if (ok) TaskFinished(task);
                     else
                     {
                         task.Status = old;
@@ -1040,7 +1040,7 @@ namespace Tepi
         }
 
         // Web links only; a path would run
-        static void OpenUrl(string url)
+        internal static void OpenUrl(string url)
         {
             Uri u;
             if (!Uri.TryCreate(url, UriKind.Absolute, out u) || (u.Scheme != Uri.UriSchemeHttps && u.Scheme != Uri.UriSchemeHttp)) return;
