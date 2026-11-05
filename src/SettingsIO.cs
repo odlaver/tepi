@@ -25,7 +25,7 @@ namespace Tepi
         };
 
         // Kept on reset: identity, links, internal state
-        static readonly string[] KeepOnReset = { "agent.token", "agent.port", "phone", "phone.port", "kulia.url", "kulia.key", "settings.v", "tabs.convert" };
+        static readonly string[] KeepOnReset = { "agent.token", "agent.port", "phone", "phone.port", "kulia.url", "kulia.key", "settings.v", "tabs.convert", "whatsnew.seen", "tour.done" };
 
         static bool IsPortable(string key) { return Portable.Contains(key) || key.StartsWith("key.", StringComparison.OrdinalIgnoreCase) || key.StartsWith("ibadah.", StringComparison.OrdinalIgnoreCase); }
 

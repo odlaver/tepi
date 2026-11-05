@@ -189,7 +189,7 @@ namespace Tepi
 
         public void Start()
         {
-            var t = new Thread(Run) { IsBackground = true, Name = "brightness", Priority = ThreadPriority.BelowNormal };
+            var t = new Thread(Prof.Wrap(Run)) { IsBackground = true, Name = "brightness", Priority = ThreadPriority.BelowNormal };
             t.SetApartmentState(ApartmentState.MTA);
             t.Start();
         }
@@ -257,7 +257,7 @@ namespace Tepi
 
         public void Start()
         {
-            var t = new Thread(Run) { IsBackground = true, Name = "radios", Priority = ThreadPriority.BelowNormal };
+            var t = new Thread(Prof.Wrap(Run)) { IsBackground = true, Name = "radios", Priority = ThreadPriority.BelowNormal };
             t.SetApartmentState(ApartmentState.MTA);
             t.Start();
         }

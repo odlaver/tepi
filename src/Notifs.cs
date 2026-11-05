@@ -210,7 +210,7 @@ namespace Tepi
                 }
                 catch (Exception ex) { Log.Write("notif watch: " + ex.Message); }
             }
-            var t = new Thread(Run) { IsBackground = true, Name = "notif" };
+            var t = new Thread(Prof.Wrap(Run)) { IsBackground = true, Name = "notif" };
             t.SetApartmentState(ApartmentState.MTA);
             t.Start();
         }

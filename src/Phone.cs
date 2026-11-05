@@ -81,7 +81,7 @@ namespace Tepi
                 Log.Write("phone listen: " + ex.Message);
                 return;
             }
-            new Thread(Accept) { IsBackground = true, Name = "phone" }.Start();
+            new Thread(Prof.Wrap(Accept)) { IsBackground = true, Name = "phone" }.Start();
         }
 
         public void Stop()

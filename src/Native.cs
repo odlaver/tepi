@@ -136,6 +136,14 @@ namespace Tepi
             try { DwmSetWindowAttribute(hwnd, 33, ref round, 4); } catch (Exception) { }
         }
 
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode, EntryPoint = "SetWindowTheme")] static extern int UxTheme(IntPtr hwnd, string app, string idList);
+
+        // Scrollbars follow the theme
+        public static void ThemeScroll(System.Windows.Forms.Control c)
+        {
+            try { UxTheme(c.Handle, Ink.Light ? "Explorer" : "DarkMode_Explorer", null); } catch (Exception) { }
+        }
+
         public static void DarkFrame(IntPtr hwnd, bool dark)
         {
             int on = dark ? 1 : 0;

@@ -14,17 +14,18 @@
 
 # Tepi
 
-Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 921 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
+Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 905 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
 
 Sekarang juga ada [Tepi Android](https://github.com/odlaver/tepi-android): island di sekitar kamera depan HP, yang nyambung ke laptop cukup dengan memindai QR.
 
-## Baru di 2.5.2
+## Baru di 2.6
 
-- **Ibadah sendiri**: tambahkan doa, kebaktian, meditasi, atau waktu ibadah lain dengan jam, hari, dan suaranya sendiri, di samping jadwal sholat.
-- **Suara pengingat**: Minum, Istirahat mata, dan Peregangan kini berbunyi, dan tiap pengingat bisa diberi suara sendiri, misalnya berkas adzan untuk waktu sholat.
-- **Pengingat yang benar-benar terbaca**: selama pengingat tampil, notifikasi lain menunggu dan musik dikecilkan sebentar.
-- **Mata saat diam**: island yang diam menampilkan mata, jam tetap bisa dipilih.
-- **Mini lebih mudah dibuka**: cukup diamkan kursor di dekat tepi atas, tidak harus tepat di piksel teratas.
+- **Dikte**: tahan Ctrl kanan, bicara, lalu lepas. Teksnya ditempel di aplikasi apa pun, lewat Groq atau offline.
+- **Suruh Tepi**: "ingetin minum 30 menit lagi", "timer 5:30", atau "5 km ke mil", tanpa internet.
+- **Transkrip rapat** tanpa bot: suaramu dan lawan bicara dipisah, lengkap dengan ringkasan.
+- **Tab Bicara**, **garis cahaya** untuk progres, dan **Samarkan** untuk menutupi data di screenshot.
+- **Salin teks dari layar**, **tur** untuk pengguna baru, dan **Apa yang baru** setiap pembaruan.
+- Menyalin screenshot 4K tidak lagi membuat island tersendat.
 
 Catatan lengkapnya ada di [halaman rilis](https://github.com/odlaver/tepi/releases/latest).
 
@@ -36,10 +37,11 @@ Catatan lengkapnya ada di [halaman rilis](https://github.com/odlaver/tepi/releas
 | **Agent coding** | Claude Code, Codex, Gemini CLI, dan Antigravity. Status sesi, rencana kerja, kuota Claude, dan izin yang bisa dijawab dari island. [Selengkapnya](docs/agen.md) |
 | **Kuliah** | Tugas dan jadwal dari [Kulia](https://kulia.live), Notion, Todoist, dan kalender iCal. [Selengkapnya](docs/integrasi.md) |
 | **Pesan** | WhatsApp, Telegram, Discord, Teams, Slack, dan email dari pusat notifikasi Windows. |
+| **Dikte dan rapat** | Tahan Ctrl kanan, bicara, lepas: teksnya ditempel di aplikasi mana pun, dalam bahasa Indonesia yang bercampur istilah Inggris. Kamus istilah, snippet, lewat Groq atau offline. Rekam panggilan tanpa bot jadi transkrip Kamu dan Lawan bicara, plus ringkasan dan to-do. Suruh Tepi memasang pengingat, timer, dan catatan dari kalimat biasa. [Selengkapnya](docs/fitur.md) |
 | **HP** | Kode OTP, notifikasi, baterai, dan kirim berkas dua arah dengan Tepi Android. [Selengkapnya](docs/hp.md) |
 | **Rak dan Ubah format** | Seret berkas ke island untuk disimpan sementara, atau ubah ke JPG, PDF, MP3, DOCX, dan lainnya. |
 | **Kontrol** | Volume per aplikasi, kecerahan, Wi-Fi, Bluetooth, mikrofon, mode gelap, laptop tetap terjaga, dan timer. |
-| **Pengingat** | Sholat (dihitung di laptop, tanpa internet) dan ibadah sendiri, cuaca dan hujan, minum, istirahat mata, peregangan, masing-masing dengan suara pilihan. |
+| **Pengingat** | Sholat (dihitung di laptop, tanpa internet), cuaca dan hujan, minum, istirahat mata, peregangan. |
 | **Mini** | Sliver kecil yang tembus klik, dengan dua mata yang berkedip dan berekspresi. |
 | **Lainnya** | [Teleprompter](docs/teleprompter.md), cermin kamera, catatan kilat, preview screenshot, mode rapat, flashdisk, [skrip](docs/skrip.md), dan navigasi keyboard penuh. |
 

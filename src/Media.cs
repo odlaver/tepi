@@ -51,7 +51,7 @@ namespace Tepi
 
         public void Start()
         {
-            var t = new Thread(Run) { IsBackground = true, Name = "media" };
+            var t = new Thread(Prof.Wrap(Run)) { IsBackground = true, Name = "media" };
             t.SetApartmentState(ApartmentState.MTA);
             t.Start();
         }

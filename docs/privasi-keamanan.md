@@ -15,6 +15,10 @@ Tepi hanya menghubungi layanan luar berikut, dan masing-masing bisa dimatikan. N
 | [Todoist](https://todoist.com) | Token API dan permintaan daftar tugas aktif | Hanya kalau kamu menghubungkan Todoist | **Pengaturan > Integrasi > Lepas** |
 | Kalender iCal | Permintaan isi kalender ke alamat yang kamu tempel | Hanya kalau kamu menambah kalender | **Pengaturan > Integrasi**, hapus kalendernya |
 | [Open-Meteo](https://open-meteo.com) | Koordinat kota yang kamu pilih di Pengingat | Tiap 30 menit, hanya kalau **Cuaca dan hujan** dinyalakan | **Pengaturan > Pengingat > Cuaca dan hujan** |
+| [Groq](https://groq.com) | Rekaman suara dikte atau rapat, bahasa ucapan, dan istilah di Kamus (sebagai petunjuk ejaan). Untuk ringkasan rapat: teks transkripnya. | Hanya kalau mesin dikte Groq dipilih dan key Groq diisi; saat kamu selesai dikte atau menghentikan rekaman rapat | **Pengaturan > Dikte > Mesin dikte > Offline**, atau **Lepas** key Groq |
+| Groq, untuk Suruh Tepi | Kalimat perintahmu, waktu sekarang, judul lagu yang diputar, judul tenggat terdekat, dan pengingat yang menunggu | Hanya untuk perintah yang tidak bisa dikerjakan offline, dan hanya kalau key Groq diisi | Lepas key Groq; timer, pengingat, catatan, dan hitungan tetap jalan offline |
+| Google Forms, untuk kotak saran | Jenis saran, isi pesanmu, kontak kalau kamu mengisinya, dan versi Tepi serta Windows kalau opsinya menyala | Hanya saat kamu menekan **Kirim** di **Pengaturan › Tentang › Kirim saran** | Tidak mengirim saran |
+| [Hugging Face](https://huggingface.co/ggerganov/whisper.cpp) dan GitHub ([whisper.cpp](https://github.com/ggml-org/whisper.cpp)) | Permintaan unduh model dan program whisper.cpp | Hanya saat kamu klik **Unduh** di **Pengaturan > Dikte** | Tidak mengunduh |
 | GitHub | Permintaan rilis terbaru beserta SHA-256 `Tepi.exe`. Exe baru hanya diunduh saat kamu klik **Perbarui**. | Sekali sehari, dan saat **Cek pembaruan** diklik | `update.check=0` di `settings.ini` |
 
 - Isi pesan, data agent, dan isi layar tidak pernah dikirim ke layanan luar. Server hook hanya bisa dijangkau dari komputer ini.
@@ -29,6 +33,11 @@ Tepi hanya menghubungi layanan luar berikut, dan masing-masing bisa dimatikan. N
 - Ubah format berjalan di laptop ini. Berkasmu tidak dikirim ke mana pun; ffmpeg, LibreOffice, dan Pandoc dijalankan dari yang sudah terpasang. Riwayat di tab Ubah hanya ada di memori.
 - Jadwal sholat dihitung di laptop ini. Pengingat minum, mata, dan peregangan hanya membaca kapan terakhir ada input keyboard atau mouse, untuk tahu kamu sedang di depan laptop.
 - Kecerahan, perangkat audio, Wi-Fi, dan Bluetooth diatur lewat API Windows di laptop ini.
+- Dikte merekam mikrofon hanya selama tombol dikte ditahan, atau sampai kamu menyelesaikan dikte tanpa tangan. Rekamannya ada di memori dan dibuang setelah teksnya jadi. Dengan mesin offline, rekaman tidak keluar dari laptop ini; whisper.cpp membacanya dari berkas sementara yang langsung dihapus. Teks yang ditempel otomatis ditandai supaya tidak masuk riwayat clipboard Windows maupun riwayat clipboard Tepi. Kamus, pengganti, dan snippet ada di `dikte.txt` di folder data, dan hitungan kata hanya di `settings.ini`.
+- Selama Dikte menyala, Tepi memasang hook keyboard untuk tahu kapan tombol dikte ditahan. Hook itu hanya memperhatikan tombol dikte, Esc, dan apakah tombol lain ikut ditekan (supaya Ctrl+C tidak dianggap dikte); tidak ada ketikan yang dicatat atau disimpan. Mematikan Dikte melepas hook-nya.
+- Rekaman rapat ditulis ke `%APPDATA%\Tepi\rapat\sementara` selama berjalan dan dihapus setelah transkrip jadi, juga saat rekaman dibatalkan. Transkripnya disimpan sebagai Markdown di `%APPDATA%\Tepi\rapat`.
+- Pengingat dari Suruh Tepi disimpan di `pengingat-sekali.txt` di folder data dan dihapus begitu muncul. Riwayat dikte dan perintah di tab Bicara hanya ada di memori.
+- Groq di Suruh Tepi hanya bisa memanggil aksi yang sudah ditentukan (pengingat, timer, catatan, tugas, jawaban singkat). Tidak ada perintah sistem, berkas, atau aplikasi yang bisa dijalankan dari jawabannya.
 - Semua pengaturan dan cache ada di `%APPDATA%\Tepi`.
 
 ## Keamanan
@@ -38,6 +47,8 @@ Tepi hanya menghubungi layanan luar berikut, dan masing-masing bisa dimatikan. N
 - Kartu izin menampilkan perintah atau isi perubahan berkas secara utuh. **Izinkan** terkunci sampai isi yang lebih dari 10 baris digulir habis, terkunci permanen bila teksnya terlalu panjang untuk island, dan juga selama 0,8 detik pertama setelah kartu muncul supaya klik yang kebetulan mendarat di sana tidak ikut mengizinkan.
 - Kalau Tepi tidak jalan atau tidak menjawab, agent kembali ke prompt izinnya sendiri. Tepi tidak pernah mengizinkan apa pun tanpa klikmu.
 - Tautan tugas Kulia hanya dibuka kalau alamatnya `http` atau `https`.
+- Key Groq disimpan terenkripsi dengan DPAPI untuk akun Windows-mu, sama seperti token integrasi, dan tidak ikut ekspor pengaturan.
+- whisper.cpp (rilis `b5454`) dan model offline dicek SHA-256-nya terhadap nilai yang tertanam di Tepi sebelum dipakai. Berkas yang tidak cocok dihapus dan tidak pernah dijalankan.
 - Tidak ada pembaruan diam-diam. Exe hanya berubah saat kamu klik **Perbarui**. Tepi hanya menerima `Tepi.exe` dari alamat rilis repo ini, mengunduhnya lewat HTTPS, lalu mencocokkan SHA-256-nya dengan digest yang dicatat GitHub untuk berkas itu. Kalau tidak cocok, exe lama tidak disentuh dan halaman rilis dibuka. Exe lama disimpan sebagai `Tepi.old.exe` sampai Tepi baru jalan, lalu dihapus. Kalau folder exe tidak bisa ditulis (misalnya di Program Files), Tepi membuka halaman rilis. Begitu rilis Tepi ditandatangani (Authenticode), exe baru juga wajib bertanda tangan sah dari penerbit yang sama dengan exe yang sedang jalan.
 - `Tepi.exe --notify` dan `/notify` dijaga token yang sama dengan hook agent. Teks dari skrip dibersihkan dari karakter kontrol, dipotong panjangnya, dan dibatasi satu toast per setengah detik.
 - **Chat** di tab Agen hanya mengetik setelah Windows memastikan terminal sesi itu sudah di depan, dan memeriksanya lagi tepat sebelum mengetik.

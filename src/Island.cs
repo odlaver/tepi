@@ -13,7 +13,7 @@ using WinTimer = System.Windows.Forms.Timer;
 
 namespace Tepi
 {
-    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Drive, Run, Meet, Mirror, Convert, Otp, Mini, Panel }
+    enum View { Idle, Media, Lyric, Track, Agent, Approve, Done, Notif, Volume, Power, Network, Privacy, Info, Task, Deadline, Timer, Prompter, Class, Download, Brightness, AudioDevice, ShelfDrop, Pray, Remind, Locks, Shot, Mic, Drive, Run, Meet, Mirror, Convert, Otp, Dictate, Record, Mini, Panel }
 
     class Toast
     {
@@ -208,6 +208,12 @@ namespace Tepi
             StartLocks();
             StartMic();
             StartControls();
+            StartDictate();
+            LoadOneShots();
+            ApplyReserve();
+            // New installs: tour, not notes
+            if (settings.Fresh) settings.Set("whatsnew.seen", AppVersion);
+            TourOnFirstRun();
             InitShelfDrop();
             LoadShelf();
             EnsureDisc(64);
@@ -230,6 +236,7 @@ namespace Tepi
 
         // Test builds attach a pilot here
         partial void PilotStart();
+        partial void PilotFrame();
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
@@ -246,6 +253,8 @@ namespace Tepi
             CleanShots(true);
             CloseMirror();
             CloseConvert();
+            StopDictate();
+            if (RapatOn) AbortRapat();
             if (tray != null) { tray.Visible = false; tray.Dispose(); }
             base.OnFormClosed(e);
         }
@@ -269,6 +278,8 @@ namespace Tepi
                     return;
                 case AppBarMsg:
                     if (m.WParam.ToInt64() == 2) { fsTimer.Stop(); fsTimer.Start(); }
+                    // ABN_POSCHANGED: claim the strip again
+                    else if (m.WParam.ToInt64() == 1 && reservedPx > 0) { reservedPx = -1; ApplyReserve(); }
                     return;
                 case 0x0219: // WM_DEVICECHANGE
                     OnDeviceChange(m.WParam, m.LParam);
@@ -277,6 +288,7 @@ namespace Tepi
                     OnClipboardUpdate();
                     break;
                 case 0x0312: // WM_HOTKEY
+                    if (GiveBackAltGr(m.LParam)) return;
                     if (m.WParam.ToInt32() == HideHotkey) ToggleHidden();
                     else if (m.WParam.ToInt32() == PrompterHotkey) TogglePrompter();
                     else if (m.WParam.ToInt32() == PrompterFaster) NudgeSpeed(1);
@@ -292,6 +304,10 @@ namespace Tepi
                     else if (m.WParam.ToInt32() == NoteHotkey) BeginInvoke(new Action(OpenNote));
                     else if (m.WParam.ToInt32() == MirrorHotkey) ToggleMirror();
                     else if (m.WParam.ToInt32() == PickerHotkey) BeginInvoke(new Action(OpenPicker));
+                    else if (m.WParam.ToInt32() == ScreenTextHotkey) BeginInvoke(new Action(ReadScreenText));
+                    else if (m.WParam.ToInt32() == DictPasteHotkey) BeginInvoke(new Action(PasteLastDictation));
+                    else if (m.WParam.ToInt32() == RapatHotkey) ToggleRapat();
+                    else if (m.WParam.ToInt32() == SuruhHotkey) BeginInvoke(new Action(OpenSuruh));
                     return;
                 case 0x020E: // WM_MOUSEHWHEEL: sideways swipe changes tab
                     if (expanded) WheelTab((short)((m.WParam.ToInt64() >> 16) & 0xFFFF));
@@ -344,6 +360,7 @@ namespace Tepi
         void OnDisplayChanged()
         {
             UpdateMonitor();
+            if (reservedPx > 0) { reservedPx = -1; ApplyReserve(); }
             Kick();
         }
 
@@ -421,6 +438,8 @@ namespace Tepi
         View DesiredView()
         {
             if (approvals.Count > 0) return View.Approve;
+            // Speaking: nothing else matters
+            if (dictState != DictState.Off) return View.Dictate;
             // Files hovering: the island becomes a target
             if (dropActive) return View.ShelfDrop;
             if (PrompterOn) return View.Prompter;
@@ -436,6 +455,7 @@ namespace Tepi
         // What runs underneath toasts and panel
         View ActivityView()
         {
+            if (RapatOn || rapatWriting) return View.Record;
             if (MeetingOn) return View.Meet;
             if (TimerOn && !MediaVisible()) return View.Timer;
             if (MediaVisible()) return LyricOnIsland() ? View.Lyric : View.Media;
@@ -499,7 +519,7 @@ namespace Tepi
             sr.Target = ViewRadius(current, size);
             topGap.Target = current == View.Mini && !Docked ? 0 : Gap;
             bubble.Target = BubbleKind() != View.Idle ? 1 : 0;
-            opacity.Target = (fullscreen || hiddenByUser) && current != View.Approve ? 0 : 1;
+            opacity.Target = (fullscreen || hiddenByUser) && current != View.Approve && current != View.Dictate ? 0 : 1;
             spectrum.SetActive(VisualizerVisible() && !spectrum.Failed);
             if (!animating)
             {
@@ -669,6 +689,7 @@ namespace Tepi
                 CollectAtRest();
             }
             CountFrame(t, (clock.Elapsed.TotalSeconds - t) * 1000);
+            PilotFrame();
             DumpFrame();
             if (Moving(now)) return Motion;
             // Just settled: record live areas next
@@ -685,7 +706,7 @@ namespace Tepi
                    (flipLinear != 0 && flipLinear != 1) || (now - switchedUtc).TotalSeconds < 0.5 || snapshot != null ||
                    (toast != null && (now - toast.ShownUtc).TotalSeconds < 1.2) || PanelMoving() || ViewsMoving(now) || (current == View.Idle && clockRoller.Moving(now)) || ApproveArming(now) ||
                    ThemeMoving(now) ||
-                   FlyersMoving(now) || SwitchesMoving() || prompterSizeMoved || !collapse.Settled || !tabNudge.Settled || brightRoller.Moving(now) || !brightBar.Settled;
+                   FlyersMoving(now) || SwitchesMoving() || prompterSizeMoved || !collapse.Settled || !tabNudge.Settled || brightRoller.Moving(now) || !brightBar.Settled || EdgeMoving(now);
         }
 
         // Rendering
@@ -760,6 +781,7 @@ namespace Tepi
                     g.SetClip(path, CombineMode.Intersect);
                     liveInShell = true;
                     DrawContent(now, Ink.Base, flip < 0.5f);
+                    DrawEdgeLight(now, path, shell);
                     liveInShell = false;
                     DrawWater(now);
                     g.Restore(st);
@@ -1413,7 +1435,7 @@ namespace Tepi
             if (toast != null && toast.Priority > priority) return null;
             // Senyap: only what can't wait
             // Calls hold the same quiet news
-            if ((Quiet || MeetingOn || ExceptQuieted()) && priority < 3 && (v == View.Notif || v == View.Track || v == View.Network || v == View.Privacy || v == View.Remind || v == View.Download || v == View.Info || v == View.Done)) return null;
+            if ((Quiet || MeetingOn || ExceptQuieted() || FocusHold) && priority < 3 && (v == View.Notif || v == View.Track || v == View.Network || v == View.Privacy || v == View.Remind || v == View.Download || v == View.Info || v == View.Done)) return null;
             // Retracted: quiet news stays in the sliver
             if (MiniOn() && !MiniLets(v, priority)) return null;
             if (expanded && !force)
@@ -1511,6 +1533,9 @@ namespace Tepi
             redraw |= LifeTick(minute);
             // Running timers tick in their live areas
             TimerTick(nowUtc);
+            TickRapat();
+            TickOneShots();
+            redraw |= EdgeTick();
             redraw |= RemindTick(nowUtc);
             RemindSoundTick();
             ThemeTick(nowUtc);
@@ -1581,11 +1606,14 @@ namespace Tepi
             var prompterItem = new ToolStripMenuItem(Lang.T("Teleprompter"), null, delegate { if (!PrompterOn) OpenPrompter(); });
             var focusItem = new ToolStripMenuItem(Lang.T("Timer"));
             var noteItem = new ToolStripMenuItem(Lang.T("Catatan kilat"), null, delegate { OpenNote(); }) { ShortcutKeyDisplayString = HotkeyText(NoteHotkey) };
+            var rapatItem = new ToolStripMenuItem(Lang.T("Rekam rapat"), null, delegate { ToggleRapat(); });
+            var suruhItem = new ToolStripMenuItem(Lang.T("Suruh Tepi…"), null, delegate { BeginInvoke(new Action(OpenSuruh)); });
             var mirrorItem = new ToolStripMenuItem(Lang.T("Cermin kamera"), null, delegate { ToggleMirror(); }) { ShortcutKeyDisplayString = HotkeyText(MirrorHotkey) };
             var pickerItem = new ToolStripMenuItem(Lang.T("Ambil warna"), null, delegate { BeginInvoke(new Action(OpenPicker)); });
+            var screenTextItem = new ToolStripMenuItem(Lang.T("Salin teks dari layar"), null, delegate { BeginInvoke(new Action(ReadScreenText)); });
             var exit = new ToolStripMenuItem(Lang.T("Keluar"), null, delegate { Close(); });
             var prefsItem = new ToolStripMenuItem(Lang.T("Pengaturan…"), null, delegate { OpenPrefs(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, mirrorItem, pickerItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, suruhItem, rapatItem, mirrorItem, pickerItem, screenTextItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
             menu.Opening += delegate
             {
                 // Style submenus after they're rebuilt
@@ -1595,8 +1623,13 @@ namespace Tepi
                 keysItem.ShortcutKeyDisplayString = HotkeyText(KeysHotkey);
                 miniItem.ShortcutKeyDisplayString = HotkeyText(MiniHotkey);
                 noteItem.ShortcutKeyDisplayString = HotkeyText(NoteHotkey);
+                rapatItem.Text = RapatOn ? Lang.T("Hentikan rekaman rapat") : Lang.T("Rekam rapat");
+                rapatItem.Enabled = !rapatWriting;
+                rapatItem.ShortcutKeyDisplayString = HotkeyText(RapatHotkey);
+                suruhItem.ShortcutKeyDisplayString = HotkeyText(SuruhHotkey);
                 mirrorItem.ShortcutKeyDisplayString = HotkeyText(MirrorHotkey);
                 pickerItem.ShortcutKeyDisplayString = HotkeyText(PickerHotkey);
+                screenTextItem.ShortcutKeyDisplayString = HotkeyText(ScreenTextHotkey);
                 hideItem.Checked = hiddenByUser;
                 miniItem.Checked = MiniWanted();
                 prompterItem.Checked = PrompterOn;

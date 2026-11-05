@@ -23,22 +23,57 @@ namespace Tepi
         bool TimerOn { get { return timerKind != TimerKind.Off; } }
         bool Counting { get { return timerKind == TimerKind.Focus || timerKind == TimerKind.Break || timerKind == TimerKind.Countdown; } }
 
-        void StartTimer(TimerKind kind, int minutes)
+        void StartTimer(TimerKind kind, int minutes) { StartTimer(kind, TimeSpan.FromMinutes(minutes)); }
+
+        void StartTimer(TimerKind kind, TimeSpan span)
         {
             timerKind = kind;
             timerPaused = false;
             laps.Clear();
             timerStartUtc = DateTime.UtcNow;
-            timerEndUtc = kind == TimerKind.Stopwatch ? DateTime.MaxValue : timerStartUtc.AddMinutes(minutes);
-            if (kind == TimerKind.Focus) ShowInfo('\0', Lang.T("Fokus ") + minutes + Lang.T(" menit"), Lang.T("selesai ") + Fmt.Hm(timerEndUtc.ToLocalTime()), true);
-            else if (kind == TimerKind.Countdown) ShowInfo('\0', Lang.F("Timer {0} menit", minutes), Lang.T("selesai ") + Fmt.Hm(timerEndUtc.ToLocalTime()), true);
+            timerEndUtc = kind == TimerKind.Stopwatch ? DateTime.MaxValue : timerStartUtc + span;
+            if (kind == TimerKind.Focus) ShowInfo('\0', Lang.T("Fokus ") + (int)span.TotalMinutes + Lang.T(" menit"), Lang.T("selesai ") + Fmt.Hm(timerEndUtc.ToLocalTime()), true);
+            else if (kind == TimerKind.Countdown) ShowInfo('\0', Lang.F("Timer {0}", SpanText(span)), Lang.T("selesai ") + Fmt.Hm(timerEndUtc.ToLocalTime()), true);
             Kick();
+        }
+
+        // "1 jam 30 menit", "45 detik"
+        static string SpanText(TimeSpan span)
+        {
+            var parts = new System.Collections.Generic.List<string>();
+            int h = (int)span.TotalHours;
+            if (h > 0) parts.Add(Lang.F("{0} jam", h));
+            if (span.Minutes > 0) parts.Add(Lang.F("{0} menit", span.Minutes));
+            if (span.Seconds > 0 || parts.Count == 0) parts.Add(Lang.F("{0} detik", span.Seconds));
+            return string.Join(" ", parts.ToArray());
         }
 
         void StartFocus(int minutes) { StartTimer(TimerKind.Focus, minutes); }
 
+        // Focus holds plain news like Senyap
+        bool FocusHold { get { return timerKind == TimerKind.Focus && !timerPaused && settings.GetBool("focus.hold", true); } }
+
+        // What came in while focused
+        void FocusSummary(string title, string detail)
+        {
+            int count = 0;
+            var from = new HashSet<string>();
+            if (settings.GetBool("focus.hold", true))
+                foreach (var n in notifs)
+                    if (n.Time >= timerStartUtc) { count++; from.Add(n.Title.Length > 0 ? n.Title : n.AppName); }
+            string held = count == 0 ? "" : from.Count > 1 ? Lang.F("{0} pesan dari {1} orang masuk", count, from.Count) : Lang.F("{0} pesan masuk", count);
+            var t = ShowToast(View.Info, count > 0 ? 8 : 3.2, 3, count > 0, true);
+            if (t == null) return;
+            EyesReact(EyeMood.Happy, 0);
+            t.Glyph = '\0';
+            t.Title = title;
+            t.Detail = held.Length == 0 ? detail : detail.Length == 0 ? held : detail + " · " + held;
+            if (count > 0) t.Data = new Action(delegate { Show(PageMessages); });
+        }
+
         void StopTimer()
         {
+            if (timerKind == TimerKind.Focus) FocusSummary(Lang.T("Fokus dihentikan"), "");
             timerKind = TimerKind.Off;
             timerPaused = false;
             Kick();
@@ -102,7 +137,7 @@ namespace Tepi
                 timerKind = TimerKind.Break;
                 timerStartUtc = now;
                 timerEndUtc = now.AddMinutes(rest);
-                ShowNotice('\0', Lang.T("Fokus selesai"), Lang.T("istirahat ") + rest + Lang.T(" menit"));
+                FocusSummary(Lang.T("Fokus selesai"), Lang.T("istirahat ") + rest + Lang.T(" menit"));
             }
             else if (timerKind == TimerKind.Break)
             {

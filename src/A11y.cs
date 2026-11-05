@@ -67,6 +67,10 @@ namespace Tepi
                     return MicTitle();
                 case View.Convert:
                     return DescribeConvert();
+                case View.Dictate:
+                    return DescribeDictate();
+                case View.Record:
+                    return rapatWriting ? Lang.T("Menulis transkrip…") : RapatTitle();
                 case View.Otp:
                     return Lang.F("Kode dari {0}", otpApp) + ". " + Lang.F("Berakhiran {0}", otpCode.Length > 2 ? otpCode.Substring(otpCode.Length - 2) : "");
                 case View.Shot:
