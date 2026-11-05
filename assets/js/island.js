@@ -36,12 +36,12 @@
     ubah: { img: "ubah", iw: 447, ox: 13.5, oy: 0, w: 420, h: 166, r: 26.5, s: 1, tone: "pill" },
     approve: { img: "approve", iw: 547.5, ox: 13.5, oy: 0, w: 520, h: 237.5, r: 32, s: 0, tone: "light" }
   };
-  var PANELS = [["ringkasan", 352], ["musik", 340], ["agen", 254], ["kuliah", 266], ["pesan", 268], ["rak", 302], ["kontrol", 366], ["pengingat", 262], ["hp", 282], ["ubah", 380]];
+  var PANELS = [["ringkasan", 352], ["musik", 340], ["agen", 254], ["kuliah", 266], ["pesan", 268], ["rak", 302], ["kontrol", 366], ["pengingat", 262], ["hp", 282], ["ubah", 380], ["bicara", 380]];
   PANELS.forEach(function (p) {
     STATES["p-" + p[0]] = { img: "p-" + p[0], iw: 587.5, ox: 13.5, oy: 0, w: 560, h: p[1], r: 32, s: 0, tone: "panel", split: true };
   });
 
-  function src(name) { return "assets/img/" + name + ".webp"; }
+  function src(name) { return "assets/img/" + name + ".webp?v=26"; }
   function wait(ms) { return new Promise(function (r) { setTimeout(r, still.matches ? 0 : ms); }); }
   function px(n) { return n + "px"; }
 
@@ -152,9 +152,9 @@
     s.setProperty("--ib", t[1]);
   };
 
-  // Position a view over the body box
+  // Body centred in the clip, which follows the shell
   Island.prototype.place = function (v, st) {
-    v.style.left = px(-(st.w / 2 + st.ox));
+    v.style.left = "calc(50% - " + px(st.w / 2 + st.ox) + ")";
     v.style.top = px(-st.oy);
     v.style.width = px(st.iw);
     var imgs = v.querySelectorAll("img"), s = src(st.img);
@@ -190,6 +190,10 @@
     var old = this.views[this.front], nxt = this.views[1 - this.front];
     var shown = STATES[this.shown] || STATES.mini;
     var tab = !!(dir && shown.split && st.split && old.getAttribute("data-shows") === this.shown);
+    // Panels clip to the shell; pills keep their bubble art
+    root.classList.add("clip");
+    if (!st.split && !shown.split) root.classList.remove("clip");
+    else if (!st.split) wait(560).then(function () { if (t === self.token) root.classList.remove("clip"); });
     old.style.setProperty("--dir", dir || 1);
     nxt.style.setProperty("--dir", dir || 1);
     old.className = "v" + (shown.split ? " tabbed" : "") + (tab ? " tab-out" : " out");
@@ -203,7 +207,7 @@
     this.place(nxt, st);
     nxt.setAttribute("data-shows", name);
     nxt.className = "v" + (st.split ? " tabbed" : "") + (tab ? " tab-pre" : " pre");
-    return Promise.all([load(st.img), wait(tab ? 40 : 160)]).then(function () {
+    return Promise.all([load(st.img), wait(tab ? 50 : 30)]).then(function () {
       if (t !== self.token) return;
       void nxt.offsetWidth;
       nxt.className = "v" + (st.split ? " tabbed" : "") + (tab ? " tab-in" : " in");

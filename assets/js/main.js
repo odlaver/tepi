@@ -19,7 +19,7 @@
     "note.platform": "Tepi is available for Windows 10 and 11, and Android 10 or later.",
     "cta.android": "Download for Android",
     "hero.source": "Source code on GitHub",
-    "hero.update": "New in 2.5.2: reminders now make a sound, and each one can have its own, including the adhan. Any worship time can sit next to the prayer schedule, and an idle island shows its eyes.",
+    "hero.update": "New in 2.6: dictation in any app, call transcripts without a bot, Ask Tepi, and Blur for screenshots.",
     "droid.title": "The island is on your phone now too.",
     "droid.body": "First release for Android 10 and up. Pairs with your laptop by scanning a QR code.",
     "droid.cta": "Download APK",
@@ -65,7 +65,8 @@
     "pill.rain": "Rain alert",
     "pill.otp": "OTP code",
     "pill.convert": "Convert files",
-    "panels.title": "Ten pages, one gesture.",
+    "panels.title": "Eleven pages, one gesture.",
+    "pg.voice": "Voice",
     "pg.phone": "Phone",
     "pg.convert": "Convert",
     "panels.body": "The panel opens when the cursor rests on the island. Scrolling switches pages.",
@@ -87,6 +88,7 @@
     "pg.rem.d": "Prayer, water, eye breaks",
     "pg.phone.d": "OTP codes, notifications, battery, files",
     "pg.convert.d": "Images, video, audio, documents, PDF, ZIP",
+    "pg.voice.d": "Dictation, call transcripts, Ask Tepi",
     "mini.eyebrow": "Mini mode",
     "mini.title": "Out of the way while you focus.",
     "mini.body": "The island shrinks to a small click-through sliver, so the browser tabs underneath stay clickable. Auto mode shrinks it when a browser is maximized or after a minute of quiet. Important alerts still come through.",
@@ -120,25 +122,21 @@
     "perf.eyebrow": "Performance",
     "perf.title": "Light as cotton.",
     "perf.body": "The island draws nothing while nothing moves. The glass reads the screen only when the backdrop changes.",
-    "perf.idle.n": "0.22%",
+    "perf.idle.n": "0.2%",
     "perf.idle": "CPU at idle",
-    "perf.idle.a": "1.7.0: 1.9%. 2.0: 0.22%.",
+    "perf.idle.a": "1.7.0: 1.9%. Now: 0.2%.",
     "perf.idle.o": "1.9%",
-    "perf.music.n": "2.1%",
-    "perf.music": "CPU while music plays",
-    "perf.music.a": "1.7.0: 7.0%. 2.0: 2.1%.",
-    "perf.music.o": "7.0%",
-    "perf.panel.n": "0.47%",
-    "perf.panel": "CPU with the panel open",
-    "perf.panel.a": "1.7.0: 7.3%. 2.0: 0.47%.",
+    "perf.timer.n": "1.8%",
+    "perf.timer": "CPU with a timer running on the island",
+    "perf.panel.n": "0.4%",
+    "perf.panel": "CPU with the panel open, averaged over every tab",
+    "perf.panel.a": "1.7.0: 7.3%. Now: 0.4%.",
     "perf.panel.o": "7.3%",
-    "perf.mem.n": "3–5 MB",
-    "perf.mem": "Memory at idle",
-    "perf.mem.a": "1.7.0: 7 to 9 MB. 2.0: 3 to 5 MB.",
-    "perf.mem.o": "7–9 MB",
+    "perf.mem.n": "13 MB",
+    "perf.mem": "Memory in Task Manager",
     "perf.exe": "one exe, no installer.",
-    "perf.frame": "Opening and closing the panel takes about 10 ms per frame at most, under the 16.7 ms a frame has at 60 fps.",
-    "perf.note": "Measured on an Intel Core i3-1115G4 laptop, 60 seconds per condition. CPU percent is relative to one core.",
+    "perf.frame": "Opening the panel and switching tabs take 4 to 7 ms per frame on average, 14 ms at most, under the 16.7 ms a frame has at 60 fps.",
+    "perf.note": "Measured on 5 November 2026 on an Intel Core i3-1115G4 laptop with real data: each condition settles for 4 seconds, then is measured for 8. CPU percent is relative to one core.",
     "style.eyebrow": "Appearance",
     "style.title": "Make it yours.",
     "style.body": "Liquid Glass that reads the backdrop behind it, or the hazier Frost. Dark or light theme, an accent color, and theme packs with their own colors, emblem, mascot, and sounds.",
@@ -162,7 +160,7 @@
     "win.chat": "Agent chat",
     "win.chat.d": "Session status, plan, quota, prompt history, and templates.",
     "alt.tp": "Teleprompter being dragged wider",
-    "video.title": "Tepi 2.5 in half a minute.",
+    "video.title": "Tepi 2.6 in 40 seconds.",
     "video.body": "Captions in the video are in Indonesian.",
     "more.title": "And there's more.",
     "more.shelf": "File shelf",
@@ -210,7 +208,7 @@
     "dl.req": "Requirements",
     "dl.req.d": "Windows 10 version 2004 or later, or Windows 11, 64-bit. .NET Framework 4.8 ships with Windows.",
     "dl.ss.d": "The exe is not signed yet, so Windows SmartScreen may show a warning. Choose More info, then Run anyway.",
-    "dl.again": "Already have Tepi? Right-click the Tepi icon, then Update to Tepi 2.5.2. After that, Settings › About › Check for updates is enough.",
+    "dl.again": "Already have Tepi? Right-click the Tepi icon, then Update to Tepi 2.6. After that, Settings › About › Check for updates is enough.",
     "dl.copy": "Copy",
     "dl.copied": "Copied",
     "dl.releases": "All releases",
@@ -245,6 +243,7 @@
     "pg.rem.d": "Sholat, minum, istirahat mata",
     "pg.phone.d": "Kode OTP, notifikasi, baterai, berkas",
     "pg.convert.d": "Gambar, video, audio, dokumen, PDF, ZIP",
+    "pg.voice.d": "Dikte, transkrip rapat, Suruh Tepi",
     "style.liquid.d": "Kaca jernih yang menyesuaikan terang latar",
     "style.frost.d": "Kaca yang lebih berkabut dan lembut",
     "style.light.d": "Semua halaman ikut terang"
@@ -307,7 +306,7 @@
     '</g></g></svg>';
   var VIEW = '<div class="v"><img class="vs" alt=""><img class="vb" alt=""></div>';
   $$("[data-isle]").forEach(function (el) {
-    el.insertAdjacentHTML("afterbegin", '<div class="isle-bub"></div><div class="isle-shell"></div>' + VIEW + VIEW + EYES);
+    el.insertAdjacentHTML("afterbegin", '<div class="isle-bub"></div><div class="isle-shell"></div><div class="isle-clip">' + VIEW + VIEW + '</div>' + EYES);
   });
 
   var top = new TI.Island($("#isle"));
@@ -393,7 +392,7 @@
   // Panel scene: the page scroll switches tabs
   var sc = { el: $("#panel"), on: false, idx: -1, step: 0 };
   var tabs = $$(".tabs [role=tab]");
-  var DESC = ["pg.home.d", "pg.music.d", "", "pg.class.d", "pg.msg.d", "pg.shelf.d", "pg.ctl.d", "pg.rem.d", "pg.phone.d", "pg.convert.d"];
+  var DESC = ["pg.home.d", "pg.music.d", "", "pg.class.d", "pg.msg.d", "pg.shelf.d", "pg.ctl.d", "pg.rem.d", "pg.phone.d", "pg.convert.d", "pg.voice.d"];
   var NP = PANEL_NAMES.length;
   sc.el.style.setProperty("--n", NP);
   sc.el.classList.add("pinned");
