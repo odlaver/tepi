@@ -211,11 +211,8 @@ namespace Tepi
             DrawStateMark(s, 36, cy);
             var semi = Ink.Semi(13.5f);
             p.Text(s.Project, semi, p.T.Text, 60, cy - 10, 220, StringAlignment.Near);
-            if (s.Profile.Length > 0)
-            {
-                float px = 60 + Math.Min(220, p.Measure(s.Project, semi)) + 8;
-                p.Text(s.Profile, Ink.Small(11f), p.T.Sub, px, cy - 9.5f, 120, StringAlignment.Near);
-            }
+            float px = 60 + Math.Min(220, p.Measure(s.Project, semi)) + 8;
+            p.Text(AgentTag(s), Ink.Small(11f), p.T.Sub, px, cy - 9.5f, 160, StringAlignment.Near);
             // Hover offers prompt box for live sessions
             string sendId = "send" + s.Id;
             if ((Hover(rowId) || Hover(sendId)) && s.State != AgentState.Ended && s.Window != IntPtr.Zero)

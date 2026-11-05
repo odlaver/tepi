@@ -95,8 +95,19 @@ namespace Tepi
             string relay = Exe() + " --relay " + id;
             if (id == "codex") return relay + (h.Reply ? " --reply" : "");
             if (id == "gemini") return "cmd /c " + relay + " --json";
-            // Antigravity blocks tools on failure: fallback
-            return "cmd /c \"" + relay + " --json --event " + h.Event + " || echo {}\"";
+            // Antigravity adds cmd /c and escapes quotes; {} denies tools
+            return relay + " --json --event " + h.Event + (h.Event == "PreToolUse" ? " || exit /b 0" : " || echo {}");
+        }
+
+        // Rewrite stale Antigravity hooks
+        public static void Refresh()
+        {
+            try
+            {
+                var root = HookSetup.Load(ConfigFile("antigravity"));
+                if (root != null && root.ContainsKey("tepi") && !Installed("antigravity")) Install("antigravity");
+            }
+            catch (Exception ex) { Log.Write("agent refresh: " + ex.Message); }
         }
 
         static Dictionary<string, object> Handler(string id, Hook h)
@@ -142,6 +153,7 @@ namespace Tepi
             if (id == "codex" && !Directory.Exists(dir)) return Lang.T("Folder Codex tidak ditemukan");
             // cmd would read these as operators
             if (Exe().IndexOfAny("&|<>^%".ToCharArray()) >= 0) return Lang.T("Pindahkan Tepi.exe ke folder tanpa & | < > ^ %");
+            if (id == "antigravity" && Exe().IndexOf('"') >= 0) return Lang.T("Pindahkan Tepi.exe ke folder tanpa spasi");
             Directory.CreateDirectory(dir);
             var root = File.Exists(file) ? HookSetup.Load(file) : new Dictionary<string, object>();
             if (root == null) return Path.GetFileName(file) + Lang.T(" tidak terbaca");

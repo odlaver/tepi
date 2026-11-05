@@ -81,7 +81,7 @@ namespace Tepi
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "2.6.0";
+        public const string AppVersion = "2.6.0.1";
         string newVersion, newUrl;
         bool newRebuild, checking, checkFailed;
         DateTime checkedUtc;
@@ -180,7 +180,9 @@ namespace Tepi
             foreach (var s in sessions.Values)
             {
                 if (s.State == AgentState.Working && (now - s.LastUtc).TotalMinutes > 15) { s.State = AgentState.Ready; redraw = true; }
-                if ((s.State == AgentState.Ended && (now - s.LastUtc).TotalMinutes > 3) || (now - s.LastUtc).TotalHours > 6)
+                // Codex and Antigravity never send SessionEnd
+                bool idle = AgentKind(s) != "Claude" && (s.State == AgentState.Ready || s.State == AgentState.Done) && (now - s.LastUtc).TotalMinutes > 30;
+                if (idle || (s.State == AgentState.Ended && (now - s.LastUtc).TotalMinutes > 3) || (now - s.LastUtc).TotalHours > 6)
                 {
                     if (stale == null) stale = new List<string>();
                     stale.Add(s.Id);
@@ -438,6 +440,7 @@ namespace Tepi
                 settings.Save();
             }
             StartHub();
+            AgentSetup.Refresh();
             CheckLinks();
             if (settings.GetBool("phone", false)) StartPhone();
         }

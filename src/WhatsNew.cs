@@ -20,7 +20,7 @@ namespace Tepi
         {
             new Note
             {
-                Version = "2.6.0",
+                Version = "2.6.0.1",
                 Items = new[]
                 {
                     new[] { "Dikte", "Tahan Ctrl kanan di aplikasi apa pun, bicara, lalu lepas: teksnya ditempel di tempat kursor. Ada kamus istilah dan snippet, lewat Groq atau offline.", "\uE720" },
@@ -34,6 +34,7 @@ namespace Tepi
                     new[] { "Kirim saran", "Ide fitur atau laporan masalah bisa dikirim langsung dari Pengaturan, bagian Tentang.", "\uE939" },
                     new[] { "Tur dan Apa yang baru", "Pengguna baru dipandu sembilan langkah di bawah island, dan setiap pembaruan merangkum isinya di sini.", "\uE7C1" },
                     new[] { "Pengaturan lebih lega", "Jendelanya terbuka lebih besar, daftar di samping bisa digulir, dan ada opsi menyisakan ruang di tepi atas untuk jendela.", "\uE713" },
+                    new[] { "Perbaikan kecil untuk agent", "Antigravity tidak lagi terblokir saat terhubung ke Tepi, setiap sesi agent kini bertanda Claude, Codex, atau Antigravity, dan sesi Codex atau Antigravity yang sudah diam 30 menit hilang sendiri dari daftar.", "\uE756" },
                 },
             },
             new Note

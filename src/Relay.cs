@@ -41,7 +41,9 @@ namespace Tepi
                 answer = Post("/hook/" + Uri.EscapeDataString(agent), body, reply ? 125000 : 2000);
             }
             if (!reply) answer = "";
-            if (json && answer.Trim().Length == 0) answer = "{}";
+            // Antigravity reads {} as deny; silence keeps its own rules
+            bool quiet = agent == "antigravity" && ev == "PreToolUse";
+            if (json && !quiet && answer.Trim().Length == 0) answer = "{}";
             if (answer.Length > 0)
             {
                 try

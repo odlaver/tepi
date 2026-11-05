@@ -48,6 +48,13 @@ namespace Tepi
             return s.Profile == "Codex" || s.Profile == "Gemini" || s.Profile == "Antigravity" ? s.Profile : "Claude";
         }
 
+        // Agent mark, Claude keeps its profile
+        static string AgentTag(AgentSession s)
+        {
+            string kind = AgentKind(s);
+            return kind == "Claude" && s.Profile.Length > 0 ? kind + " · " + s.Profile : kind;
+        }
+
         // Claude session: its profile's quota
         QuotaInfo QuotaFor(AgentSession s)
         {
@@ -611,12 +618,6 @@ namespace Tepi
                 return "";
             }
 
-            static string AgentLabel(AgentSession s)
-            {
-                string kind = AgentKind(s);
-                return kind == "Claude" && s.Profile.Length > 0 ? kind + " · " + s.Profile : kind;
-            }
-
             static string Stats(AgentSession s)
             {
                 var parts = new List<string> { Lang.F("Sesi {0}", Duration(DateTime.UtcNow - s.StartedUtc)) };
@@ -628,7 +629,7 @@ namespace Tepi
             // Whole header as one sentence for readers
             string Spoken()
             {
-                var parts = new List<string> { AgentLabel(S), StateName(S) + (StateTime(S).Length > 0 ? " " + StateTime(S) : ""), Stats(S) };
+                var parts = new List<string> { AgentTag(S), StateName(S) + (StateTime(S).Length > 0 ? " " + StateTime(S) : ""), Stats(S) };
                 if (HasPlan) parts.Add(Lang.F("Rencana {0}", PlanCount(S)));
                 string now = NowLine(S);
                 if (now.Length > 0) parts.Add(now);
@@ -682,7 +683,7 @@ namespace Tepi
                 Put(g, S.Project, Ink.Text(24f * s), KitInk.Text, tx, titleCy, right - statsW - 16 * s - tx);
 
                 // Agent, live dot, state, time
-                float x = Put(g, AgentLabel(S), small, KitInk.Sub, tx, lineCy, 200 * s) + 12 * s;
+                float x = Put(g, AgentTag(S), small, KitInk.Sub, tx, lineCy, 200 * s) + 12 * s;
                 Dot(g, x + 4 * s, lineCy, s);
                 x += 14 * s;
                 x = Put(g, StateName(S), Ink.Semi(12.5f * s), KitInk.Text, x, lineCy, right - x);

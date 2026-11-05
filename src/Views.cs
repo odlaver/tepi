@@ -440,7 +440,8 @@ namespace Tepi
             string step = PlanNow(s), count = PlanCount(s);
             float a = p.Measure(s.Project, Ink.Semi(13f)), b = Math.Min(230, step.Length > 0 ? p.Measure(step, Ink.Text(12f)) : p.Measure(AgentLine(s), Ink.Mono(12f)));
             float c = count.Length > 0 ? p.Measure(count, Ink.Semi(11.5f)) + 10 : 0;
-            return Clamp(40 + a + 10 + b + c + 18 + (BusyCount() > 1 ? 26 : 0), 180, 480);
+            float k = p.Measure(AgentKind(s), Ink.Small(11f)) + 8;
+            return Clamp(40 + a + 10 + k + b + c + 18 + (BusyCount() > 1 ? 26 : 0), 180, 520);
         }
 
         static string AgentLine(AgentSession s)
@@ -461,7 +462,11 @@ namespace Tepi
             var semi = Ink.Semi(13f);
             float x = 40, right = w - 18;
             p.Text(s.Project, semi, p.T.Text, x, cy, 160, StringAlignment.Near);
-            x += Math.Min(160, p.Measure(s.Project, semi)) + 10;
+            x += Math.Min(160, p.Measure(s.Project, semi)) + 8;
+            // Which agent is busy
+            string kind = AgentKind(s);
+            p.Text(kind, Ink.Small(11f), p.T.Sub, x, cy, 90, StringAlignment.Near);
+            x += Math.Min(90, p.Measure(kind, Ink.Small(11f))) + 10;
             int n = BusyCount();
             if (n > 1) { p.TextRight("+" + (n - 1), Ink.Small(11.5f), p.T.Sub, right, cy); right -= 26; }
             // Plan: step, count, thin bottom bar
@@ -643,8 +648,10 @@ namespace Tepi
             if (s.Failed) p.Cross(34, cy, 13, p.T.Bg);
             else p.Check(34, cy, 14, p.T.Bg, Ease.OutCubic(k - 0.15f));
             string title = (s.Failed ? Lang.T("Berhenti, ada galat · ") : Lang.T("Selesai · ")) + s.Project;
-            p.Text(title, Ink.Semi(13.5f), p.T.Text, 60, cy - 10, w - 60 - 70, StringAlignment.Near);
-            if (s.TurnStartedUtc > DateTime.MinValue) p.TextRight(Duration(s.LastUtc - s.TurnStartedUtc), Ink.Small(11.5f), p.T.Sub, w - 22, cy - 10);
+            string tail = AgentKind(s) + (s.TurnStartedUtc > DateTime.MinValue ? " · " + Duration(s.LastUtc - s.TurnStartedUtc) : "");
+            float tw = p.Measure(tail, Ink.Small(11.5f));
+            p.Text(title, Ink.Semi(13.5f), p.T.Text, 60, cy - 10, w - 60 - 22 - tw - 10, StringAlignment.Near);
+            p.TextRight(tail, Ink.Small(11.5f), p.T.Sub, w - 22, cy - 10);
             p.Text(s.LastMessage.Length > 0 ? s.LastMessage : Lang.T("Menunggu balasanmu"), Ink.Text(12f), p.T.Sub, 60, cy + 10, w - 60 - 22, StringAlignment.Near);
             AddHit(new RectangleF(0, 0, w, h), "done", delegate { if (!FocusTerminal(s)) Expand(PageAgents); });
         }
