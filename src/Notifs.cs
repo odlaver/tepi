@@ -90,6 +90,14 @@ namespace Tepi
         // notif.apps, lowercased
         public static volatile string[] ExtraApps = new string[0];
 
+        // Chat app by id alone; browsers carry more than chat
+        public static bool ChatAppId(string appId)
+        {
+            string low = appId.ToLowerInvariant();
+            foreach (var b in Browsers) if (low.Contains(b)) return false;
+            return IsChat(appId, "");
+        }
+
         static bool IsChat(string app, string text)
         {
             app = app.ToLowerInvariant();

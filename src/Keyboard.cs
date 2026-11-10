@@ -134,6 +134,8 @@ namespace Tepi
                 case "term": return Lang.T("Terminal");
                 case "toMini": return Lang.T("Mini");
                 case "prefsOpen": return Lang.T("Pengaturan");
+                case "voiceFolder": return Lang.T("Folder rekaman");
+                case "clearVoice": return Lang.T("Kosongkan");
                 case "prayCity": return Lang.T("Pilih kota");
                 case "praySwitch": return Lang.T("Pengingat sholat");
                 case "drinkPlus": return Lang.T("Minum air");

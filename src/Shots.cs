@@ -71,7 +71,7 @@ namespace Tepi
                     // Windows saved it first: drop ours
                     if (s.Found != null) TryDelete(path); else s.TempPath = path;
                     if (thumb == null) return;
-                    var t = ShowToast(View.Shot, 7, 2, true);
+                    var t = ShowToast(View.Shot, 4, 2, true);
                     if (t != null) t.Data = s;
                 });
             });
@@ -194,7 +194,7 @@ namespace Tepi
             p.Text(s.Found != null ? Lang.T("Screenshot") : Lang.T("Gambar disalin"), Ink.Semi(13.5f), p.T.Text, x, cy - 10, right - x - 8, StringAlignment.Near);
             p.Text(ocrBusy ? Lang.T("Membaca teks…") : s.W + " × " + s.H, Ink.Text(12.5f), p.T.Sub, x, cy + 11, right - x - 8, StringAlignment.Near);
             if (OcrShown) { Pill(new RectangleF(right, cy - 15, pw, 30), "shotText", Lang.T("Teks"), PillKind.Secondary, delegate { CopyText(s.Path); }, ready && !ocrBusy); right += pw + gap; }
-            Pill(new RectangleF(right, cy - 15, bw, 30), "shotBlur", Lang.T("Samarkan"), PillKind.Secondary, delegate { OpenRedact(s.Path); }, ready);
+            Pill(new RectangleF(right, cy - 15, bw, 30), "shotBlur", Lang.T("Edit"), PillKind.Secondary, delegate { OpenRedact(s.Path); }, ready);
             Pill(new RectangleF(right + bw + gap, cy - 15, pw, 30), "shotShelf", Lang.T("Rak"), PillKind.Secondary, delegate { ShelveShot(); }, ready);
         }
 

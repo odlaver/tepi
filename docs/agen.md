@@ -2,7 +2,7 @@
 
 [← Kembali ke README](../README.md)
 
-Tepi memantau Claude Code, Codex, Gemini CLI, Antigravity, dan Copilot CLI: status sesi, rencana kerja, ringkasan saat selesai, dan kuota Claude, Codex, Antigravity, serta Copilot. Permintaan izin dari Claude Code dan Codex bisa dijawab langsung dari island.
+Tepi memantau Claude Code, Codex, Antigravity, dan Copilot CLI: status sesi, rencana kerja, ringkasan saat selesai, dan kuota Claude, Codex, Antigravity, serta Copilot. Permintaan izin dari Claude Code dan Codex bisa dijawab langsung dari island.
 
 ## Menghubungkan agent
 
@@ -15,7 +15,6 @@ Klik nama yang sama sekali lagi untuk melepasnya. Sebelum mengubah berkas, Tepi 
 |---|---|---|---|
 | Claude Code | Pantau, izinkan, tolak | `settings.json` di setiap profil (`%USERPROFILE%\.claude` dan `%USERPROFILE%\.claude-*`) | |
 | Codex | Pantau, izinkan, tolak | `%USERPROFILE%\.codex\hooks.json` (atau `%CODEX_HOME%`) | Codex menjalankan hook baru setelah dipercayai: buka `/hooks` di Codex sekali. |
-| Gemini CLI | Pantau | `%USERPROFILE%\.gemini\settings.json` | Hook Gemini tidak bisa menyetujui izin, jadi izin tetap dijawab di terminal. Hook hanya jalan di folder yang dipercayai. |
 | Antigravity | Pantau | `%USERPROFILE%\.gemini\config\hooks.json` | Berlaku untuk app, CLI, dan IDE. Izin tetap dijawab di Antigravity dan mengikuti aturannya sendiri. Hook dari versi lama ditulis ulang otomatis saat Tepi dibuka; setelah itu tutup Antigravity sampai benar-benar keluar lalu buka lagi, karena hook baru terbaca saat Antigravity dibuka. |
 | Copilot CLI | Pantau | `%USERPROFILE%\.copilot\settings.json` (atau `%COPILOT_HOME%`) | Izin tetap dijawab di Copilot. Hook lain di berkas itu tidak disentuh. |
 
@@ -41,11 +40,11 @@ Tepi membaca kuota Claude Code dari status line resminya, tanpa menyentuh token 
 - Tab **Agen** menampilkan pemakaian jendela 5 jam dan 7 hari beserta jam resetnya. Ringkasan ikut menampilkannya saat pemakaian 70% ke atas.
 - Peringatan muncul sekali per jendela di 80% dan 95%. Yang 95% tetap muncul walau Senyap atau Mini.
 - Data baru ada untuk langganan Pro atau Max, setelah balasan pertama di sesi baru.
-- Kalau Claude Code sudah dihubungkan sebelum versi 2.0, nyalakan **Pengaturan > Agen > Kuota Claude**.
+- Kalau Claude Code sudah dihubungkan sebelum versi 2.0, nyalakan **Pengaturan > Agen > Kuota agent**.
 
 ### Codex, Antigravity, Copilot
 
-Diatur lewat **Pengaturan > Agen > Kuota Codex, Antigravity, Copilot**, terpisah dari Kuota Claude dan menyala sejak awal. Agentnya perlu dihubungkan dulu.
+Diatur bersama kuota Claude lewat satu sakelar, **Pengaturan > Agen > Kuota agent**, yang menyala sejak awal. Agentnya perlu dihubungkan dulu.
 
 | Agent | Sumber | Yang tampil |
 |---|---|---|

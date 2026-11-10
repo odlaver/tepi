@@ -63,7 +63,7 @@ namespace Tepi
                     Body = Lang.F("Selagi panel terbuka, scroll di atasnya untuk pindah tab: {0}. Tab yang tampil bisa diatur di Pengaturan › Tab panel.", string.Join(", ", tabNames.ToArray())),
                     Done = () => { if (!expanded) return false; if (startPage < 0) startPage = page; return page != startPage; },
                 },
-                new TourStep { Title = Lang.T("Agent coding"), Body = Lang.T("Claude Code, Codex, Gemini CLI, dan Antigravity tampil di tab Agen beserta rencana kerjanya. Saat agent minta izin, pilih Izinkan atau Tolak langsung di island. Sambungkan lewat klik kanan › Hubungkan agen.") },
+                new TourStep { Title = Lang.T("Agent coding"), Body = Lang.T("Claude Code, Codex, Antigravity, dan Copilot CLI tampil di tab Agen beserta rencana kerjanya. Saat agent minta izin, pilih Izinkan atau Tolak langsung di island. Sambungkan lewat klik kanan › Hubungkan agen.") },
                 new TourStep { Title = Lang.T("Tugas dan pesan"), Body = Lang.T("Tugas dan jadwal dari Kulia, Notion, Todoist, atau kalender iCal masuk ke tab Kuliah, dengan pengingat sebelum tenggat. Pesan WhatsApp, Telegram, Discord, dan lainnya dikelompokkan per pengirim. Sambungkan di Pengaturan › Integrasi.") },
                 new TourStep { Title = Lang.T("Rak dan ubah format"), Body = Lang.T("Seret berkas ke island, lalu lepas di Taruh di rak untuk menyimpannya sementara, atau di Ubah format untuk mengonversinya, misalnya gambar ke PDF. Screenshot juga muncul di island dan bisa langsung diseret.") },
                 new TourStep { Title = Lang.T("Dikte dan rapat"), Body = voice },
@@ -87,7 +87,7 @@ namespace Tepi
         {
             if (tour == null || tour.IsDisposed || tour.Pinned) return;
             int cx = lastShellPx.Width > 0 ? lastLeft + lastShellPx.X + lastShellPx.Width / 2 : monitorPx.Left + monitorPx.Width / 2;
-            int y = monitorPx.Top + (int)((shell.Y + Math.Max(sh.Target, 30) + 14) * scale);
+            int y = lastTop + (int)((shell.Y + Math.Max(sh.Target, 30) + 14) * scale);
             y = Math.Min(y, monitorPx.Bottom - tour.Height - 60);
             int x = Math.Max(monitorPx.Left + 12, Math.Min(monitorPx.Right - tour.Width - 12, cx - tour.Width / 2));
             tour.Glide(new Point(x, y));

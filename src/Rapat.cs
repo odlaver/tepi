@@ -37,7 +37,7 @@ namespace Tepi
         {
             if (RapatOn || rapatWriting) { if (rapatWriting) DictSay(Lang.T("Transkrip sebelumnya masih ditulis"), "", true); return; }
             string missing = DictMissing();
-            if (missing != null) { DictSay(missing, Lang.T("Atur di Pengaturan › Dikte"), true); return; }
+            if (missing != null) { DictSay(missing, Lang.T("Atur di Pengaturan › AI"), true); return; }
             if (!micPresent) { DictSay(Lang.T("Tidak ada mikrofon"), "", true); return; }
             try
             {
@@ -64,7 +64,7 @@ namespace Tepi
                     if (!b) Log.Write("rapat: audio sistem tidak terbuka");
                 });
             });
-            var t = ShowToast(View.Info, 5, 3, false, true);
+            var t = ShowToast(View.Info, 4, 3, false, true);
             if (t != null)
             {
                 t.Glyph = Ink.IcoMic;
@@ -144,7 +144,7 @@ namespace Tepi
             Kick();
             if (path == null) { DictSay(error ?? Lang.T("Transkrip gagal ditulis"), "", true); return; }
             if (settings.GetBool("shelf", true)) AddToShelf(new[] { path });
-            var t = ShowToast(View.Info, 8, 3, true, true);
+            var t = ShowToast(View.Info, 4, 3, true, true);
             if (t == null) return;
             t.Glyph = '\uE8A5';
             t.Title = Lang.T("Transkrip rapat siap");
@@ -169,7 +169,6 @@ namespace Tepi
             if (seconds < 3) { note = Lang.T("Rekaman terlalu pendek"); return null; }
             int chunkBytes = (int)(ChunkSec * Recorder.Rate * 2);
             rapatTotal = (int)Math.Ceiling(micBytes / (double)chunkBytes) + (int)Math.Ceiling(sysBytes / (double)chunkBytes);
-            string key = engine == "lokal" ? null : Speech.GroqKey();
             var lines = new List<Line>();
             string fail = null;
             foreach (var track in new[] { new { Path = micPath, Mine = true }, new { Path = sysPath, Mine = false } })
@@ -187,7 +186,7 @@ namespace Tepi
                         // Quiet stretches cost nothing
                         if (Loudness(buf, n) < 0.004) continue;
                         var wav = Wav.FromPcm(buf, 0, n);
-                        var res = engine == "lokal" ? Speech.Local(model, wav, lang, vocab.Prompt()) : Speech.Groq(key, wav, lang, vocab.Prompt(), true);
+                        var res = engine == "lokal" ? Speech.Local(model, wav, lang, vocab.Prompt()) : Ai.Transcribe(wav, lang, vocab.Prompt(), true);
                         if (!res.Ok && res.NoNet && Speech.LocalReady(model)) res = Speech.Local(model, wav, lang, vocab.Prompt());
                         if (!res.Ok) { fail = res.Error; continue; }
                         double at = i * ChunkSec;
@@ -217,14 +216,9 @@ namespace Tepi
             string summary = null;
             if (wantSummary)
             {
-                string k = Speech.GroqKey();
-                if (string.IsNullOrEmpty(k)) note = Lang.T("Tanpa ringkasan: key Groq belum diisi");
-                else
-                {
-                    string err;
-                    summary = Summarize(k, transcript.ToString(), out err);
-                    if (summary == null) note = Lang.F("Tanpa ringkasan: {0}", err);
-                }
+                string err;
+                summary = Summarize(transcript.ToString(), out err);
+                if (summary == null) note = Lang.F("Tanpa ringkasan: {0}", err);
             }
             if (fail != null && note == null) note = Lang.F("Sebagian tidak tertulis: {0}", fail);
 
@@ -292,7 +286,7 @@ namespace Tepi
                 if (w.Length > 1) yield return w;
         }
 
-        static string Summarize(string key, string transcript, out string error)
+        static string Summarize(string transcript, out string error)
         {
             // Long calls: keep head and tail
             const int Max = 60000;
@@ -300,7 +294,7 @@ namespace Tepi
             string system = Lang.English
                 ? "You turn call transcripts into notes. Write in the transcript's language. Use exactly these Markdown sections: \"## Summary\" (3 to 5 sentences), \"## Key points\" (bullets), \"## To-do\" (bullets as \"- [ ] who: what\", or \"- none\"). \"Kamu\" is the note taker, \"Lawan bicara\" is everyone else. Only state what the transcript says."
                 : "Kamu mengubah transkrip rapat menjadi catatan. Tulis dalam bahasa transkrip. Pakai persis bagian Markdown ini: \"## Ringkasan\" (3 sampai 5 kalimat), \"## Poin penting\" (butir), \"## To-do\" (butir \"- [ ] siapa: apa\", atau \"- tidak ada\"). \"Kamu\" adalah pencatat, \"Lawan bicara\" adalah peserta lain. Hanya tulis yang ada di transkrip.";
-            return Speech.GroqChat(key, Speech.ChatModel(key), system, transcript, out error);
+            return Ai.Chat(system, transcript, out error);
         }
 
         // Island: recording, then writing

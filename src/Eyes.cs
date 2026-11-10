@@ -46,7 +46,7 @@ namespace Tepi
             eyeK = k;
             eyeAt[0] = new PointF(cx, cy);
             g.TransformPoints(CoordinateSpace.Device, CoordinateSpace.World, eyeAt);
-            eyeScreen = new PointF(WindowLeft(snapPxW) + eyeAt[0].X, monitorPx.Top + eyeAt[0].Y);
+            eyeScreen = new PointF(frameLeft + eyeAt[0].X, frameTop + eyeAt[0].Y);
             float rx = (EyeGap / 2 + EyeW * 1.3f + EyeReachX) * k + 1.5f, ry = (EyeH * 0.6f + EyeReachY) * k + 1.5f;
             var r = new RectangleF(cx - rx, cy - ry, rx * 2, ry * 2);
             // Pointer sensor; Mini polls in MiniTick
@@ -128,7 +128,7 @@ namespace Tepi
             // Moods and the bubble steer gaze
             if (k > 0 && moodSide != 0) { tx = moodSide * EyeReachX; ty = 0.3f; Gaze(0); }
             if (k > 0 && (mood == EyeMood.Sad || mood == EyeMood.Worried)) { tx = 0; ty = mood == EyeMood.Sad ? 0.9f : -0.5f; Gaze(0); }
-            if (!reduced && !bubbleRect.IsEmpty) tx = EyeReachX;
+            if (!reduced && !bubbleRect.IsEmpty) tx = RightHanded ? -EyeReachX : EyeReachX;
             lookX.Target = tx;
             lookY.Target = ty;
             lookX.Step(dt);

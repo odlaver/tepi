@@ -27,54 +27,25 @@ namespace Tepi
         public bool Ok { get { return Error == null; } }
     }
 
-    // Speech to text: Groq or whisper.cpp
+    // Speech to text: any provider or whisper.cpp
     static class Speech
     {
-        public const string GroqModel = "whisper-large-v3-turbo";
-        const string GroqBase = "https://api.groq.com/openai/v1/";
-
-        static string KeyPath { get { return Path.Combine(Settings.Dir, "groq.key"); } }
-
-        public static string GroqKey() { return Vault.Load(KeyPath); }
-        public static void SaveGroqKey(string key) { Vault.Save(KeyPath, key); }
-        public static void DropGroqKey() { Vault.Delete(KeyPath); }
-
-        static Dictionary<string, string> Auth(string key) { return new Dictionary<string, string> { { "Authorization", "Bearer " + key } }; }
-
-        // Null when the key works
-        public static string CheckGroq(string key)
-        {
-            var r = Web.Send("GET", GroqBase + "models", Auth(key), null, 15000);
-            if (r.Ok) return null;
-            return GroqError(r);
-        }
-
-        static string GroqError(WebResult r)
-        {
-            if (r.Status == 0) return Lang.T("Tidak tersambung ke Groq");
-            if (r.Status == 401 || r.Status == 403) return Lang.T("Key Groq ditolak");
-            if (r.Status == 429) return Lang.T("Batas Groq tercapai, coba lagi sebentar");
-            if (r.Status == 413) return Lang.T("Rekaman terlalu panjang untuk Groq");
-            Log.Write("groq " + r.Status + ": " + (r.Body.Length > 300 ? r.Body.Substring(0, 300) : r.Body));
-            return Lang.F("Groq menjawab {0}", r.Status);
-        }
-
-        public static SpeechResult Groq(string key, byte[] wav, string lang, string prompt, bool segments)
+        public static SpeechResult Remote(AiProvider p, string key, string baseUrl, string model, byte[] wav, string lang, string prompt, bool segments)
         {
             var parts = new List<KeyValuePair<string, string>>
             {
-                new KeyValuePair<string, string>("model", GroqModel),
+                new KeyValuePair<string, string>("model", model),
                 new KeyValuePair<string, string>("temperature", "0"),
                 new KeyValuePair<string, string>("response_format", segments ? "verbose_json" : "json"),
             };
             if (!string.IsNullOrEmpty(lang)) parts.Add(new KeyValuePair<string, string>("language", lang));
             if (!string.IsNullOrEmpty(prompt)) parts.Add(new KeyValuePair<string, string>("prompt", prompt));
-            var r = Multipart(GroqBase + "audio/transcriptions", key, parts, wav, Math.Max(30000, wav.Length / 40));
+            var r = Multipart(baseUrl + "audio/transcriptions", Ai.Headers(p, key), parts, wav, Math.Max(30000, wav.Length / 40));
             var res = new SpeechResult();
-            if (!r.Ok) { res.Error = GroqError(r); res.NoNet = r.Status == 0; return res; }
+            if (!r.Ok) { res.Error = Ai.Error(p, r); res.NoNet = r.Status == 0; return res; }
             var d = Json.Parse(r.Body) as Dictionary<string, object>;
             object text;
-            if (d == null || !d.TryGetValue("text", out text)) { res.Error = Lang.T("Jawaban Groq tidak terbaca"); return res; }
+            if (d == null || !d.TryGetValue("text", out text)) { res.Error = Lang.F("Jawaban {0} tidak terbaca", Ai.Label(p)); return res; }
             res.Text = (text as string ?? "").Trim();
             object segs;
             if (segments && d.TryGetValue("segments", out segs) && segs is IEnumerable)
@@ -84,6 +55,8 @@ namespace Tepi
                     if (s == null) continue;
                     res.Segments.Add(new SpeechSegment { Start = Num(s, "start"), End = Num(s, "end"), Text = (s.ContainsKey("text") ? s["text"] as string ?? "" : "").Trim() });
                 }
+            // No segments back: one span per chunk
+            if (segments && res.Segments.Count == 0 && res.Text.Length > 0) res.Segments.Add(new SpeechSegment { Start = 0, End = 0, Text = res.Text });
             return res;
         }
 
@@ -93,7 +66,7 @@ namespace Tepi
             return d.TryGetValue(k, out v) && v != null ? Convert.ToDouble(v, CultureInfo.InvariantCulture) : 0;
         }
 
-        static WebResult Multipart(string url, string key, List<KeyValuePair<string, string>> fields, byte[] wav, int timeoutMs)
+        static WebResult Multipart(string url, Dictionary<string, string> headers, List<KeyValuePair<string, string>> fields, byte[] wav, int timeoutMs)
         {
             string boundary = "tepi" + Guid.NewGuid().ToString("N");
             var body = new MemoryStream();
@@ -107,7 +80,7 @@ namespace Tepi
             req.Method = "POST";
             req.Timeout = req.ReadWriteTimeout = timeoutMs;
             req.UserAgent = "Tepi/" + Island.AppVersion + " (+https://github.com/odlaver/tepi)";
-            req.Headers["Authorization"] = "Bearer " + key;
+            foreach (var h in headers) req.Headers[h.Key] = h.Value;
             req.ContentType = "multipart/form-data; boundary=" + boundary;
             try
             {
@@ -129,61 +102,6 @@ namespace Tepi
             }
             catch (Exception ex) { result.Body = ex.Message; }
             return result;
-        }
-
-        // Chat: summaries, lyrics, commands
-        public static string GroqChat(string key, string model, string system, string user, out string error, bool json = false)
-        {
-            var payload = new Dictionary<string, object>
-            {
-                { "model", model },
-                { "temperature", 0.2 },
-                { "messages", new object[] { new Dictionary<string, object> { { "role", "system" }, { "content", system } }, new Dictionary<string, object> { { "role", "user" }, { "content", user } } } },
-            };
-            if (json) payload["response_format"] = new Dictionary<string, object> { { "type", "json_object" } };
-            var msg = GroqMessage(key, payload, out error);
-            return msg == null ? null : msg.ContainsKey("content") ? msg["content"] as string : null;
-        }
-
-        // Raw reply message, tool calls included
-        public static Dictionary<string, object> GroqMessage(string key, Dictionary<string, object> payload, out string error)
-        {
-            error = null;
-            var r = Web.Send("POST", GroqBase + "chat/completions", Auth(key), Json.Encode(payload), 90000);
-            if (!r.Ok) { error = GroqError(r); return null; }
-            try
-            {
-                var d = (Dictionary<string, object>)Json.Parse(r.Body);
-                var first = (Dictionary<string, object>)((object[])d["choices"])[0];
-                return (Dictionary<string, object>)first["message"];
-            }
-            catch (Exception) { error = Lang.T("Jawaban Groq tidak terbaca"); return null; }
-        }
-
-        static string chatModel;
-        static readonly string[] ChatModels = { "openai/gpt-oss-120b", "llama-3.3-70b-versatile", "openai/gpt-oss-20b", "llama-3.1-8b-instant" };
-
-        // First chat model this key can use
-        public static string ChatModel(string key)
-        {
-            if (chatModel != null) return chatModel;
-            var r = Web.Send("GET", GroqBase + "models", Auth(key), null, 15000);
-            var have = new List<string>();
-            try
-            {
-                var d = Json.Parse(r.Body) as Dictionary<string, object>;
-                foreach (var o in (object[])d["data"])
-                {
-                    var m = o as Dictionary<string, object>;
-                    if (m != null && m.ContainsKey("id")) have.Add(m["id"] as string ?? "");
-                }
-            }
-            catch (Exception) { }
-            foreach (var m in ChatModels) if (have.Contains(m)) return chatModel = m;
-            foreach (var m in have)
-                if (m.IndexOf("whisper", StringComparison.OrdinalIgnoreCase) < 0 && m.IndexOf("guard", StringComparison.OrdinalIgnoreCase) < 0 && m.IndexOf("tts", StringComparison.OrdinalIgnoreCase) < 0)
-                    return chatModel = m;
-            return ChatModels[1];
         }
 
         // Offline: whisper.cpp, fetched on request

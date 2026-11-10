@@ -135,7 +135,7 @@ namespace Tepi
 
         void ApplyGlass()
         {
-            bool on = GlassOn, hide = on || PrompterOn;
+            bool on = GlassOn, hide = on || PrompterOn || Sharing;
             // Glass and scripts stay out of captures
             if (hide != excluded)
             {
@@ -179,16 +179,30 @@ namespace Tepi
             // Panel surface is baked at full height, so frost must reach it
             if (panel) targetH = Math.Max(targetH, MaxH + 30);
             float wide = DateTime.UtcNow < prefetchUntilUtc ? PanelW : 0;
-            float half = Math.Max(Math.Max(sw.Value, sw.Target), wide) / 2 + (bubble.Target > 0 || bubble.Value > 0.01f ? BubbleGap + BubbleR * 2 : 0);
-            // Glass covers the shell, not its shadow
-            int w = Math.Max(64, Math.Min(canvasW, 2 * (int)Math.Ceiling((Math.Min(half, canvasHalf) + FrostPad) * scale))) & ~1;
-            int h = Math.Max(40, Math.Min(TallPx(), (int)Math.Ceiling((Gap + Math.Max(Math.Max(targetH, sh.Value), BubbleR * 2) + FrostPad) * scale)));
-            var job = new FrostJob { W = w, H = h, Left = WindowLeft(w), Top = monitorPx.Top, Bg = Ink.Base.Bg, Light = Ink.Light, Liquid = LiquidOn, BackdropGen = backdropGen };
+            float bubbleW = bubble.Target > 0 || bubble.Value > 0.01f ? BubbleGap + BubbleR * 2 : 0;
+            FrostJob job;
+            int w, h;
+            if (PlaceNow == PlaceTop && placeGlide.Settled)
+            {
+                float half = Math.Max(Math.Max(sw.Value, sw.Target), wide) / 2 + bubbleW;
+                // Glass covers the shell, not its shadow
+                w = Math.Max(64, Math.Min(canvasW, 2 * (int)Math.Ceiling((Math.Min(half, canvasHalf) + FrostPad) * scale))) & ~1;
+                h = Math.Max(40, Math.Min(TallPx(), (int)Math.Ceiling((Gap + Math.Max(Math.Max(targetH, sh.Value), BubbleR * 2) + FrostPad) * scale)));
+                job = new FrostJob { W = w, H = h, Left = WindowLeft(w), Top = monitorPx.Top };
+            }
+            else job = AnchoredFrost(targetH, wide, bubbleW, out w, out h);
+            job.Bg = Ink.Base.Bg;
+            job.Light = Ink.Light;
+            job.Liquid = LiquidOn;
+            job.BackdropGen = backdropGen;
             if (panel)
             {
                 int bw = (int)Math.Ceiling(PanelW * scale), bh = Math.Min(h, (int)Math.Ceiling((MaxH + 30) * scale));
                 job.Panel = true;
-                job.Bake = new Rectangle(w / 2 - bw / 2, (int)Math.Round((Docked ? 0 : Gap) * scale), bw, bh);
+                // Panel spot inside the capture
+                int bx = PlaceNow == PlaceTop && placeGlide.Settled ? w / 2 - bw / 2 : (int)Math.Round(MidX(PanelW) - PanelW * scale / 2) - job.Left;
+                int by = (int)Math.Round(ShellTop * scale) + TopY(sh.Target) - job.Top;
+                job.Bake = new Rectangle(bx, by, bw, bh);
                 job.Extra = PanelExtra;
                 job.Sheen = (int)Math.Ceiling((PanelTop - 8) * scale);
                 job.Cover = current == View.Panel && page == PageMusic;
@@ -533,22 +547,22 @@ namespace Tepi
             }
             var st = g.Save();
             g.SetClip(path, CombineMode.Intersect);
-            int left = WindowLeft(pxW);
             var pl = plate;
-            int fx = pl != null ? pl.Job.Left - left : 0;
+            // Frost offset from this frame's canvas
+            int fx = pl != null ? pl.Job.Left - frameLeft : 0, fy = pl != null ? pl.Job.Top - frameTop : 0;
             bool covered = pl != null && fx <= Math.Floor(bounds.X * scale) && fx + pl.Job.W >= Math.Ceiling(bounds.Right * scale) &&
-                           pl.Job.H >= Math.Ceiling(bounds.Bottom * scale);
+                           fy <= Math.Floor(bounds.Y * scale) && fy + pl.Job.H >= Math.Ceiling(bounds.Bottom * scale);
             bool baseTone = tone.Bg.R < 128 == Ink.Base.Bg.R < 128;
             // Frost has base tint; add the rest
             float extra = baseTone ? 1 - (1 - tint) / (1 - BaseTint) : tint;
-            if (covered && baseTone && current == View.Panel && SurfaceSteady() && PlateFits(pl, fx, bounds, extra)) DrawPlate(pl, fx);
+            if (covered && baseTone && current == View.Panel && SurfaceSteady() && PlateFits(pl, fx, fy, bounds, extra)) DrawPlate(pl, fx, fy);
             else
             {
                 // Translucent base outside the frost
                 if (!covered) g.FillPath(p.B(Ink.A(tone.Bg, 0.62f)), path);
                 if (pl != null)
                 {
-                    BlitPart(pl.Base, fx, bounds);
+                    BlitPart(pl.Base, fx, fy, bounds);
                     if (extra > 0.01f) g.FillPath(p.B(Ink.A(tone.Bg, extra)), path);
                 }
                 InnerLight(bounds, light);
@@ -630,33 +644,33 @@ namespace Tepi
         Color Rim(int alpha) { return Color.FromArgb(Math.Max(0, Math.Min(255, (int)(alpha * p.Alpha))), 255, 255, 255); }
 
         // Plate matches this panel, tone, backdrop
-        bool PlateFits(Plate pl, int fx, RectangleF bounds, float extra)
+        bool PlateFits(Plate pl, int fx, int fy, RectangleF bounds, float extra)
         {
             if (pl.Plain == null || !pl.Job.Panel || pl.Job.Bg != Ink.Base.Bg || pl.Job.Light != Ink.Light || Math.Abs(pl.Job.Extra - extra) > 0.005f) return false;
-            int bx = fx + pl.Job.Bake.X;
+            int bx = fx + pl.Job.Bake.X, by = fy + pl.Job.Bake.Y;
             return Math.Abs(bx - bounds.X * scale) <= 1.01f && Math.Abs(pl.Job.Bake.Width - bounds.Width * scale) <= 1.01f &&
-                   Math.Abs(pl.Job.Bake.Y - bounds.Y * scale) <= 1.01f;
+                   Math.Abs(by - bounds.Y * scale) <= 1.01f;
         }
 
-        void DrawPlate(Plate pl, int fx)
+        void DrawPlate(Plate pl, int fx, int fy)
         {
             bool cover = mediaInfo.Present && BackdropShown(DateTime.UtcNow) && pl.Cover != null && pl.Job.BackdropGen == backdropGen;
-            Blit(cover ? pl.Cover : pl.Plain, fx + pl.Job.Bake.X, pl.Job.Bake.Y, true);
+            Blit(cover ? pl.Cover : pl.Plain, fx + pl.Job.Bake.X, fy + pl.Job.Bake.Y, true);
             backdropInSurface = cover;
         }
 
         // Only the island's box of the frost; the rest is clipped anyway
-        void BlitPart(Bitmap img, int x, RectangleF bounds)
+        void BlitPart(Bitmap img, int x, int y, RectangleF bounds)
         {
-            int x0 = Math.Max(x, (int)Math.Floor(bounds.X * scale) - 2), y0 = Math.Max(0, (int)Math.Floor(bounds.Y * scale) - 2);
-            int x1 = Math.Min(x + img.Width, (int)Math.Ceiling(bounds.Right * scale) + 2), y1 = Math.Min(img.Height, (int)Math.Ceiling(bounds.Bottom * scale) + 2);
+            int x0 = Math.Max(x, (int)Math.Floor(bounds.X * scale) - 2), y0 = Math.Max(y, (int)Math.Floor(bounds.Y * scale) - 2);
+            int x1 = Math.Min(x + img.Width, (int)Math.Ceiling(bounds.Right * scale) + 2), y1 = Math.Min(y + img.Height, (int)Math.Ceiling(bounds.Bottom * scale) + 2);
             if (x1 <= x0 || y1 <= y0) return;
             var inner = g.Save();
             g.ResetTransform();
             g.InterpolationMode = InterpolationMode.NearestNeighbor;
             g.PixelOffsetMode = PixelOffsetMode.Half;
             g.CompositingMode = CompositingMode.SourceCopy;
-            g.DrawImage(img, new Rectangle(x0, y0, x1 - x0, y1 - y0), x0 - x, y0, x1 - x0, y1 - y0, GraphicsUnit.Pixel);
+            g.DrawImage(img, new Rectangle(x0, y0, x1 - x0, y1 - y0), x0 - x, y0 - y, x1 - x0, y1 - y0, GraphicsUnit.Pixel);
             g.Restore(inner);
         }
 

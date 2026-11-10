@@ -124,7 +124,7 @@ namespace Tepi
             Kick();
         }
 
-        // Done leaves after a while untouched
+        // Picking waits; a result goes after ~4 s, sooner once the pointer leaves
         void TickConvert()
         {
             if (convItems == null) return;
@@ -132,7 +132,8 @@ namespace Tepi
             if (pointerInside) { convSeenUtc = now; return; }
             if (ConvRunning) return;
             bool done = convJob != null && convJob.Finished;
-            if ((now - convSeenUtc).TotalSeconds > (done ? 12 : 90)) CloseConvert();
+            if (done) { if ((now - convDoneUtc).TotalSeconds > 4 && (now - convSeenUtc).TotalSeconds > 1.5) CloseConvert(); return; }
+            if ((now - convSeenUtc).TotalSeconds > 90) CloseConvert();
         }
 
         // Size
@@ -156,9 +157,13 @@ namespace Tepi
             return string.Join(", ", names);
         }
 
+        // Compress that saved nothing: the original stays
+        static bool ConvSmall(ConvJob job) { return job.Outputs.Count == 0 && job.Errors.Count == 0 && job.Small > 0; }
+
         string ConvTitle(ConvJob job)
         {
             int ok = job.Outputs.Count, bad = job.Errors.Count;
+            if (ConvSmall(job)) return Lang.T("Sudah sekecil mungkin");
             if (ok == 0) return Lang.T("Gagal mengubah");
             if (bad > 0) return Lang.F("{0} dari {1} berhasil", ok, ok + bad);
             if (ok == 1) return Path.GetFileName(job.Outputs[0]);
@@ -292,7 +297,7 @@ namespace Tepi
                 p.Circle(r.Right - 2, r.Bottom - 2, 8, p.T.Text);
                 p.Check(r.Right - 2, r.Bottom - 2, 8, p.T.Bg, 1f);
             }
-            else if (ok)
+            else if (ok || ConvSmall(job))
             {
                 p.Circle(cx, cy, 16, p.T.Text);
                 p.Check(cx, cy, 14, p.T.Bg, 1f);
@@ -302,7 +307,10 @@ namespace Tepi
                 p.Circle(cx, cy, 18, p.T.Fill);
                 p.Icon(IcoAlert, 15f, p.T.Negative, cx, cy);
             }
-            string detail = job.Errors.Count > 0 ? ConvError(job) : ShelfOn ? Lang.T("Di samping berkas asli, juga di Rak") : Lang.T("Di samping berkas asli");
+            string detail = job.Errors.Count > 0 ? ConvError(job)
+                : ConvSmall(job) ? Lang.T("Berkas asli tetap dipakai")
+                : job.BytesIn > 0 ? Lang.F("{0} jadi {1}", Fmt.Bytes(job.BytesIn), Fmt.Bytes(job.BytesOut))
+                : ShelfOn ? Lang.T("Di samping berkas asli, juga di Rak") : Lang.T("Di samping berkas asli");
             ConvHeader(w, ConvTitle(job), detail);
             ConvClose(w);
             float y = ConvHead, bw = 104;
@@ -312,7 +320,7 @@ namespace Tepi
                 Pill(new RectangleF(ConvPad, y, bw, ConvChipH), "convOpen", Lang.T("Buka"), PillKind.Primary, delegate { OpenPath(first); });
                 Pill(new RectangleF(ConvPad + bw + ConvGap, y, bw + 22, ConvChipH), "convReveal", Lang.T("Tampilkan di folder"), PillKind.Secondary, delegate { RevealPath(first); });
             }
-            else Pill(new RectangleF(ConvPad, y, bw, ConvChipH), "convRetry", Lang.T("Coba lagi"), PillKind.Primary, delegate { var t = job.Target; convJob = null; StartConvert(t); });
+            else if (!ConvSmall(job)) Pill(new RectangleF(ConvPad, y, bw, ConvChipH), "convRetry", Lang.T("Coba lagi"), PillKind.Primary, delegate { var t = job.Target; convJob = null; StartConvert(t); });
             Pill(new RectangleF(w - ConvPad - bw - 10, y, bw + 10, ConvChipH), "convAgain", Lang.T("Format lain"), PillKind.Tertiary, delegate { convJob = null; Kick(); });
         }
 

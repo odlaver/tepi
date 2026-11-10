@@ -66,7 +66,7 @@ namespace Tepi
                     fg.DrawImage(canvas, new Rectangle(0, 0, px.Width, px.Height), px, GraphicsUnit.Pixel);
                 }
                 flyerImages.Add(img);
-                var screen = new RectangleF(lastLeft + px.X, px.Y, px.Width, px.Height);
+                var screen = new RectangleF(lastLeft + px.X, lastTop + px.Y, px.Width, px.Height);
                 if (toTrash) flyers.Add(new Flyer { Img = img, Src = new Rectangle(0, 0, px.Width, px.Height), From = screen, Suck = true, Delay = Math.Min(i, 8) * 0.045f });
                 else Shatter(img, screen);
                 i++;
@@ -107,8 +107,9 @@ namespace Tepi
         {
             if (flyers.Count == 0) return;
             double t0 = (now - flyUtc).TotalSeconds;
-            int left = WindowLeft(pxW);
-            var trash = new PointF(lastLeft + trashPt.X * scale, trashPt.Y * scale);
+            // Flyers live in screen px; canvas origin this frame
+            int left = frameLeft, top = frameTop;
+            var trash = new PointF(lastLeft + trashPt.X * scale, lastTop + trashPt.Y * scale);
             bool alive = false, gulp = false;
             var st = g.Save();
             g.ResetTransform();
@@ -134,13 +135,13 @@ namespace Tepi
                         float ccx = fx, ccy = Math.Min(fy, trash.Y) - 30 * scale;
                         float u = 1 - e;
                         float x = u * u * fx + 2 * u * e * ccx + e * e * trash.X, y = u * u * fy + 2 * u * e * ccy + e * e * trash.Y;
-                        dst = new RectangleF(x - f.From.Width * sx / 2 - left, y - f.From.Height * sy / 2, f.From.Width * sx, f.From.Height * sy);
+                        dst = new RectangleF(x - f.From.Width * sx / 2 - left, y - f.From.Height * sy / 2 - top, f.From.Width * sx, f.From.Height * sy);
                         alpha = 1 - Ease.Clamp01((t - 0.7f) / 0.3f);
                         if (t > 0.82f) gulp = true;
                     }
                     else
                     {
-                        float x = f.From.X - left + f.Vx * t * (float)ScatterSeconds, y = f.From.Y + (f.Vy * t + 520 * scale * t * t) * (float)ScatterSeconds;
+                        float x = f.From.X - left + f.Vx * t * (float)ScatterSeconds, y = f.From.Y - top + (f.Vy * t + 520 * scale * t * t) * (float)ScatterSeconds;
                         dst = new RectangleF(x, y, f.From.Width, f.From.Height);
                         alpha = (1 - t) * (1 - t);
                     }

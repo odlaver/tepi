@@ -145,9 +145,8 @@ namespace Tepi
             else if (files != null && files.Length > 0)
             {
                 AddToShelf(files);
-                // Straight to Rak, Berkas segment
-                SetSegment(PageShelf, 0, true);
-                Show(PageShelf);
+                // A short "in the shelf"; a click opens it
+                ShowToast(View.ShelfDrop, 3.5, 2, false, true);
             }
             Kick();
         }

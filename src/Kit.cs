@@ -487,6 +487,8 @@ namespace Tepi
         public const char MarkGlyph = '\u0001';
         // Room left of the icon, e.g. a grip
         public float Lead;
+        // Room kept right of the text, e.g. a chevron
+        public float Trail;
         public bool Divider;
 
         public KitRow()
@@ -501,7 +503,7 @@ namespace Tepi
             var w = FindForm() as KitWindow;
             float s = w != null ? w.Ui : 1;
             g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-            float right = Field != null ? Field.Left - 12 * s : Width - 16 * s;
+            float right = Field != null ? Field.Left - 12 * s : Width - (16 + Trail) * s;
             float x = (Glyph != '\0' ? 56 : 16) * s + Lead * s;
             if (Glyph != '\0') DrawGlyph(g, s);
             // Hairline between grip and icon

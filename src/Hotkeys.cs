@@ -30,6 +30,8 @@ namespace Tepi
             Def(DictPasteHotkey, "key.dictate.paste", "Tempel dikte terakhir", "", false),
             Def(RapatHotkey, "key.rapat", "Rekam rapat", "Ctrl+Alt+T", false),
             Def(SuruhHotkey, "key.suruh", "Suruh Tepi", "", false),
+            Def(FixHotkey, "key.fix", "Perbaiki teks terpilih", "", false),
+            Def(TranslateHotkey, "key.translate", "Terjemahkan teks terpilih", "", false),
             Def(PrompterHotkey, "key.prompter.pause", "Jeda dan lanjut", "Ctrl+Alt+Space", true),
             Def(PrompterRestart, "key.prompter.restart", "Ulang dari awal", "Ctrl+Alt+R", true),
             Def(PrompterBack, "key.prompter.back", "Mundur 5 detik", "Ctrl+Alt+Left", true),

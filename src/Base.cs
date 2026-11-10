@@ -90,6 +90,11 @@ namespace Tepi
 
         public void Load()
         {
+            lock (values) LoadLocked();
+        }
+
+        void LoadLocked()
+        {
             values.Clear();
             try
             {
@@ -116,21 +121,24 @@ namespace Tepi
             try
             {
                 Directory.CreateDirectory(Dir);
-                var keys = new List<string>(values.Keys);
-                keys.Sort(StringComparer.OrdinalIgnoreCase);
                 var sb = new StringBuilder();
-                foreach (var k in keys) sb.Append(k).Append('=').Append(values[k]).Append("\r\n");
+                lock (values)
+                {
+                    var keys = new List<string>(values.Keys);
+                    keys.Sort(StringComparer.OrdinalIgnoreCase);
+                    foreach (var k in keys) sb.Append(k).Append('=').Append(values[k]).Append("\r\n");
+                }
                 AtomicFile.Write(FilePath, new UTF8Encoding(false).GetBytes(sb.ToString()));
             }
             catch (Exception ex) { Log.Write("settings save: " + ex.Message); }
         }
 
-        public bool Has(string key) { return values.ContainsKey(key) && values[key].Length > 0; }
+        public bool Has(string key) { string v; lock (values) return values.TryGetValue(key, out v) && v.Length > 0; }
 
         public string Get(string key, string fallback)
         {
             string v;
-            return values.TryGetValue(key, out v) ? v : fallback;
+            lock (values) return values.TryGetValue(key, out v) ? v : fallback;
         }
 
         public int GetInt(string key, int fallback)
@@ -150,12 +158,13 @@ namespace Tepi
         public void Set(string key, object value)
         {
             if (value is bool) value = (bool)value ? "1" : "0";
-            values[key] = Convert.ToString(value, CultureInfo.InvariantCulture);
+            string s = Convert.ToString(value, CultureInfo.InvariantCulture);
+            lock (values) values[key] = s;
         }
 
-        public void Remove(string key) { values.Remove(key); }
+        public void Remove(string key) { lock (values) values.Remove(key); }
 
-        public List<string> Keys() { return new List<string>(values.Keys); }
+        public List<string> Keys() { lock (values) return new List<string>(values.Keys); }
 
         public void Toggle(string key, bool fallback)
         {

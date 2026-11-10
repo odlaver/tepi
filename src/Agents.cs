@@ -24,6 +24,9 @@ namespace Tepi
         // Requests the user chose to always allow, this session only
         public readonly HashSet<string> Trusted = new HashSet<string>();
         public int Commands;
+        // This turn only, for the finish recap
+        public readonly HashSet<string> TurnFiles = new HashSet<string>();
+        public int TurnCommands, TurnFailed;
         public DateTime StartedUtc, LastUtc, TurnStartedUtc;
     }
 
@@ -36,6 +39,8 @@ namespace Tepi
         public int Lines, Scroll;
         // Truncated: never allowed from the island
         public bool ReadAll, Truncated;
+        // Risky: never "Always", never auto-allowed
+        public string Risk;
         public readonly List<string> Flags = new List<string>();
         // Coloured change for edit requests
         public List<DiffLine> Diff;
@@ -142,12 +147,22 @@ namespace Tepi
 
         void Accept()
         {
+            // Own listener; a restart makes another
+            var own = listener;
             while (true)
             {
                 TcpClient c;
-                try { c = listener.AcceptTcpClient(); }
-                catch (ObjectDisposedException) { return; }
-                catch (Exception ex) { Log.Write("hook accept: " + ex.Message); Thread.Sleep(500); continue; }
+                try { c = own.AcceptTcpClient(); }
+                // Stopped: end here, no retry spin
+                catch (InvalidOperationException) { return; }
+                catch (Exception ex)
+                {
+                    var se = ex as SocketException;
+                    if (se != null && se.SocketErrorCode == SocketError.Interrupted) return;
+                    Log.Write("hook accept: " + ex.Message);
+                    Thread.Sleep(500);
+                    continue;
+                }
                 if (!slots.WaitOne(0)) { c.Close(); continue; }
                 // Own thread: approvals wait up to agent.wait
                 var t = new Thread(delegate () { try { Serve(c); } finally { slots.Release(); } }) { IsBackground = true, Name = "hook" };

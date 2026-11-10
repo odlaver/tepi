@@ -28,6 +28,8 @@ namespace Tepi
         Timer debounce;
         NetState last;
 
+        public NetState Current { get { return last ?? new NetState(); } }
+
         public void Start()
         {
             last = Read();

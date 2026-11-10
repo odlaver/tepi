@@ -976,7 +976,7 @@ namespace Tepi
                 if (!QuotaShown(q) || QuotaPeak(q) < 70 || shown >= 2) continue;
                 var r = new RectangleF(x, y + shown * QuotaGlanceRowH, full, QuotaGlanceRowH - 2);
                 string id = shown == 0 ? "homeQuota" : "homeQuota2";
-                AddHit(r, id, actQuotaOpen);
+                AddHit(r, id, actQuotaOpen, null, HomeMenuAct(HomeCard.Quota));
                 if (Hover(id)) p.FillRound(r, Ink.RadiusControl, Pressed(id) ? p.T.FillPressed : p.T.FillHover);
                 QuotaLine(q, x + 16, r.Right - 12, r.Y + r.Height / 2, q.Tail, ref slot);
                 shown++;
@@ -1050,46 +1050,43 @@ namespace Tepi
             Ring(cx, cy, 6.5f, 1, p.T.Accent, 2f);
         }
 
-        // Settings row: what Tepi last saw
-        string QuotaNote(bool installed)
+        // Any agent's quota watched: one switch for all
+        bool QuotaOn { get { return settings.GetBool("agent.quota", true) || settings.GetBool(StatusSetup.AgentsKey, true); } }
+
+        // Settings row: each agent's first window
+        string QuotaNote()
         {
-            if (!hooksOn) return Lang.T("Butuh Claude Code terhubung");
-            if (!installed) return Lang.T("Lewat status line Claude Code");
+            if (!QuotaOn) return Lang.T("Claude, Codex, Antigravity, dan Copilot, dari status line dan lognya");
             QuotaTexts();
+            var parts = new List<string>();
             foreach (var q in quotas)
             {
-                if (!QuotaShown(q) || q.Agent.Length > 0) continue;
-                var parts = new List<string>();
-                for (int i = 0; i < 3; i++)
-                    if (q.W[i].Has) parts.Add(QuotaLabel(i) + " " + (q.W[i].Stale ? Lang.T("sudah reset") : q.W[i].PctText));
-                parts.Add(q.Tail);
-                return string.Join(" · ", parts.ToArray());
+                if (!QuotaShown(q)) continue;
+                foreach (var w in q.W)
+                {
+                    if (!w.Has) continue;
+                    parts.Add(q.Who + " " + w.Label + " " + (w.Stale ? Lang.T("sudah reset") : w.PctText));
+                    break;
+                }
             }
-            return Lang.T("Muncul setelah balasan pertama di sesi baru");
+            return parts.Count > 0 ? string.Join(" · ", parts.ToArray()) : Lang.T("Muncul setelah sesi agent berikutnya");
         }
 
-        // Settings switch: status line on or off
+        // Claude and Antigravity by status line, Codex and Copilot by log
         void SetQuota(bool on)
         {
             settings.Set("agent.quota", on);
+            settings.Set(StatusSetup.AgentsKey, on);
             settings.Save();
-            try
-            {
-                if (HooksInstalled())
-                {
-                    string err = null;
-                    if (on) err = StatusSetup.Install();
-                    else StatusSetup.Remove();
-                    if (err != null) ShowInfo(IcoGauge, Lang.T("Kuota belum dipantau"), err, true);
-                    else ShowInfo(IcoGauge, on ? Lang.T("Kuota Claude dipantau") : Lang.T("Kuota Claude dilepas"), on ? Lang.T("lewat status line") : Lang.T("status line dikembalikan"), true);
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Write("statusline setup: " + ex.Message);
-                ShowInfo(IcoGauge, Lang.T("Kuota belum dipantau"), Fmt.OneLine(ex.Message, 60), true);
-            }
-            if (!on) { quotas.RemoveAll(x => x.Agent.Length == 0); quotaVersion++; }
+            string err = null;
+            try { if (HooksInstalled()) { if (on) err = StatusSetup.Install(); else StatusSetup.Remove(); } }
+            catch (Exception ex) { Log.Write("statusline setup: " + ex.Message); err = Fmt.OneLine(ex.Message, 60); }
+            try { if (AgentSetup.Installed("antigravity")) { if (on) StatusSetup.AgyInstall(); else StatusSetup.AgyRemove(); } }
+            catch (Exception ex) { Log.Write("agy statusline: " + ex.Message); }
+            if (on) { LogQuota("codex"); LogQuota("copilot"); }
+            else { quotas.Clear(); quotaVersion++; }
+            if (err != null) ShowInfo(IcoGauge, Lang.T("Kuota belum dipantau"), err, true);
+            else ShowInfo(IcoGauge, on ? Lang.T("Kuota agent dipantau") : Lang.T("Kuota agent dilepas"), "", true);
             Kick();
         }
 
@@ -1112,37 +1109,6 @@ namespace Tepi
                     if (usage != null) OnUsage(new HookEvent { Agent = "usage", Name = "Usage", Data = usage });
                 });
             }) { IsBackground = true, Name = agent + " quota" }.Start();
-        }
-
-        // Codex and Antigravity: own switch
-        void SetAgentQuota(bool on)
-        {
-            settings.Set(StatusSetup.AgentsKey, on);
-            settings.Save();
-            try { if (AgentSetup.Installed("antigravity")) { if (on) StatusSetup.AgyInstall(); else StatusSetup.AgyRemove(); } }
-            catch (Exception ex) { Log.Write("agy statusline: " + ex.Message); }
-            if (on) { LogQuota("codex"); LogQuota("copilot"); }
-            else { quotas.RemoveAll(x => x.Agent.Length > 0); quotaVersion++; }
-            Kick();
-        }
-
-        // Settings row: first window per agent
-        string AgentQuotaNote()
-        {
-            if (!settings.GetBool(StatusSetup.AgentsKey, true)) return Lang.T("Dari log Codex dan Copilot, dan status line Antigravity");
-            QuotaTexts();
-            var parts = new List<string>();
-            foreach (var q in quotas)
-            {
-                if (q.Agent.Length == 0 || !QuotaShown(q)) continue;
-                foreach (var w in q.W)
-                {
-                    if (!w.Has) continue;
-                    parts.Add(q.Who + " " + w.Label + " " + (w.Stale ? Lang.T("sudah reset") : w.PctText));
-                    break;
-                }
-            }
-            return parts.Count > 0 ? string.Join(" · ", parts.ToArray()) : Lang.T("Muncul setelah sesi Codex, Antigravity, atau Copilot berikutnya");
         }
 
         // Follows the Claude Code connection

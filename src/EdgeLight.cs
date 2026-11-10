@@ -52,7 +52,8 @@ namespace Tepi
         // Outline flattened once per shape
         void EdgeShape(GraphicsPath path, RectangleF r)
         {
-            string key = r.Width.ToString("0") + "x" + r.Height.ToString("0") + (Docked ? "d" : "f");
+            int at = PlaceNow;
+            string key = r.Width.ToString("0") + "x" + r.Height.ToString("0") + (Docked ? "d" : "f") + at;
             if (key == edgeKey) return;
             edgeKey = key;
             using (var flat = (GraphicsPath)path.Clone())
@@ -61,19 +62,25 @@ namespace Tepi
                 edgePts = flat.PathPoints;
             }
             if (edgePts.Length < 3) { edgePts = null; return; }
-            // Bottom edge is one long segment: split it at the middle
-            float cx = r.X + r.Width / 2, low = float.MinValue;
+            // Far edge is one long segment: split it at the middle
+            bool side = at == PlaceLeft || at == PlaceRight;
+            // Top: lowest crossing; sides: the one farthest from the edge
+            float sign = at == PlaceRight ? -1 : 1;
+            float mid = side ? r.Y + r.Height / 2 : r.X + r.Width / 2, far = float.MinValue;
             int seg = -1;
             for (int i = 0; i < edgePts.Length; i++)
             {
                 PointF a = edgePts[i], b = edgePts[(i + 1) % edgePts.Length];
-                if ((a.X - cx) * (b.X - cx) > 0 || a.X == b.X) continue;
-                float y = a.Y + (b.Y - a.Y) * (cx - a.X) / (b.X - a.X);
-                if (y > low) { low = y; seg = i; }
+                float au = side ? a.Y : a.X, bu = side ? b.Y : b.X;
+                if ((au - mid) * (bu - mid) > 0 || au == bu) continue;
+                float av = side ? a.X : a.Y, bv = side ? b.X : b.Y;
+                float v = (av + (bv - av) * (mid - au) / (bu - au)) * (side ? sign : 1);
+                if (v > far) { far = v; seg = i; }
             }
             if (seg < 0) { edgePts = null; return; }
             var list = new List<PointF>(edgePts);
-            list.Insert(seg + 1, new PointF(cx, low));
+            float farV = side ? far * sign : far;
+            list.Insert(seg + 1, side ? new PointF(farV, mid) : new PointF(mid, farV));
             edgePts = list.ToArray();
             edgeStart = seg + 1;
             edgeLen = new float[edgePts.Length + 1];
@@ -168,7 +175,8 @@ namespace Tepi
         public void ApplyReserve()
         {
             if (!IsHandleCreated) return;
-            int want = settings.GetBool("reserve.top", false) && !hiddenByUser ? (int)Math.Ceiling((Gap + 38 + 6) * scale) : 0;
+            // Only a top island takes a strip
+            int want = settings.GetBool("reserve.top", false) && !hiddenByUser && !OnSide ? (int)Math.Ceiling((Gap + 38 + 6) * scale) : 0;
             if (want == reservedPx && want == 0) return;
             var abd = new Native.APPBARDATA { cbSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(Native.APPBARDATA)), hWnd = Handle, uEdge = 1 };
             abd.rc = new Native.RECT { Left = monitorPx.Left, Top = monitorPx.Top, Right = monitorPx.Right, Bottom = monitorPx.Top + want };

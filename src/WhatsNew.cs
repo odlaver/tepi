@@ -20,10 +20,27 @@ namespace Tepi
         {
             new Note
             {
+                Version = "2.6.1",
+                Items = new[]
+                {
+                    new[] { "Island di mana saja", "Atas tengah, pojok atas, atau sisi kiri dan kanan layar dengan island berdiri tegak. Saat diam, island bisa menampilkan jam, tanggal, baterai, atau suhu di sampingnya.", "\uE759" },
+                    new[] { "Dock", "Bar kaca di tepi bawah berisi aplikasi, pratinjau jendela, dan widget, yang bisa menggantikan taskbar Windows sepenuhnya. Nyalakan di Pengaturan › Dock.", "" },
+                    new[] { "Ringkasan pilihanmu", "Pilih dan urutkan kartunya, termasuk cuaca, baterai, clipboard, dan sholat. Panel yang lebar memakai tiga kolom.", "\uE80F" },
+                    new[] { "Ngobrol dengan Tepi", "Suruh Tepi punya jendela obrolan yang ingat percakapannya, dan bisa memakai Groq, OpenAI, Claude, Gemini, OpenRouter, DeepSeek, Mistral, AI lokal di laptop sendiri, atau server sendiri.", "\uE8F2" },
+                    new[] { "Perbaiki dan terjemahkan teks", "Blok teks di aplikasi apa pun, tekan pintasannya, dan teks itu diganti versi yang sudah diperbaiki atau diterjemahkan.", "\uE8AC" },
+                    new[] { "Ubah format lebih lengkap", "PDF ke Word dan teks, OCR untuk foto dan hasil scan, kompres PDF, gambar, video, dan audio, gabung PDF dan gambar jadi satu, serta slide ke gambar.", "\uE8AB" },
+                    new[] { "Notifikasi lebih rapi", "Tepi bisa jadi penerima utama banner chat, panggilan, dan screenshot. Pesan dari HP dan laptop tampil sekali, dan isinya disamarkan saat berbagi layar.", "\uE8BD" },
+                    new[] { "Screenshot dan Downloads", "Screenshot bisa disamarkan, dipotong, diputar, dan dibalik. Berkas lepas di Downloads bisa dirapikan per jenis dan diurungkan selama satu jam.", "\uE7B3" },
+                    new[] { "Agent lebih hati-hati", "Perintah berisiko selalu ditanya ulang, island merangkum hasil kerja agent, klik notifikasinya membuka sesinya di tab Agen, dan kuota semua agent kini satu sakelar.", "\uE756" },
+                    new[] { "Pengaturan baru", "Dikelompokkan per kategori: pilih satu untuk melihat daftar halamannya. Aksesibilitas, Pintasan, dan Tentang langsung ada di samping.", "\uE713" },
+                },
+            },
+            new Note
+            {
                 Version = "2.6.0.2",
                 Items = new[]
                 {
-                    new[] { "Dikte", "Tahan Ctrl kanan di aplikasi apa pun, bicara, lalu lepas: teksnya ditempel di tempat kursor. Ada kamus istilah dan snippet, lewat Groq atau offline.", "\uE720" },
+                    new[] { "Dikte", "Tahan Ctrl kanan di aplikasi apa pun, bicara, lalu lepas: teksnya ditempel di tempat kursor. Ada kamus istilah dan snippet, lewat layanan AI pilihanmu atau offline.", "\uE720" },
                     new[] { "Suruh Tepi", "Ketik atau ucapkan \"ingetin minum 30 menit lagi\", \"timer 5:30\", \"15% dari 240.000\", atau \"5 km ke mil\". Pengingat, timer, catatan, hitungan, dan konversi satuan jalan tanpa internet.", "\uE765" },
                     new[] { "Transkrip rapat", "Rekam panggilan tanpa bot dengan Ctrl+Alt+T. Mic jadi Kamu, suara laptop jadi Lawan bicara, lengkap dengan ringkasan dan to-do.", "\uE7C8" },
                     new[] { "Tab Bicara", "Dikte, rekam rapat, Suruh Tepi, pengingat yang menunggu, dan riwayatnya di satu tab.", "\uE8A9" },

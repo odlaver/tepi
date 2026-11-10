@@ -291,7 +291,7 @@ namespace Tepi
         // Whole surface; dirty-rect updates stop showing
         void PresentLive()
         {
-            var dst = new Native.POINT(lastLeft, monitorPx.Top);
+            var dst = new Native.POINT(lastLeft, lastTop);
             var size = new Native.SIZE(framePxW, framePxH);
             var src = new Native.POINT(0, 0);
             var blend = new Native.BLENDFUNCTION { SourceConstantAlpha = (byte)(255 * Ease.Clamp01(opacity.Value)), AlphaFormat = 1 };

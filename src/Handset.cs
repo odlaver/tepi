@@ -206,11 +206,18 @@ namespace Tepi
                 Id = id, AppId = "phone:" + pkg, AppName = Fmt.OneLine(Json.Str(n, "app"), 40), Title = Fmt.OneLine(Json.Str(n, "title"), 120),
                 Body = Fmt.OneLine(Json.Str(n, "text"), 400), Time = DateTime.Now, Chat = true, Held = true, Logo = logo
             };
+            // Laptop already showed it: stay quiet
+            // Same key and text: an update
+            bool known = notifs.Exists(x => x.Id == id && Norm(x.Body) == Norm(item.Body));
+            bool dup = !known && SeenElsewhere(item);
+            if (!known) Remember(item, dup);
+            if (dup) return;
             notifs.RemoveAll(x => x.Id == id || NotifKey(x) == NotifKey(item));
             notifs.Insert(0, item);
             if (notifs.Count > 40) notifs.RemoveRange(40, notifs.Count - 40);
+            if (known) return;
             if (expanded && page == PageMessages) unread = 0; else unread++;
-            if (Native.DoNotDisturb()) return;
+            if (Native.DoNotDisturb() || !ShouldPop(item)) return;
             bool burst = toast != null && toast.View == View.Notif;
             var t = ShowToast(View.Notif, 5.5, IsVip(item) ? 3 : 2, true);
             if (t == null) return;

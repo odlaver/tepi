@@ -71,17 +71,7 @@ namespace Tepi
             readonly Dictionary<string, KitRow> statusRows = new Dictionary<string, KitRow>();
             bool sourcesHooked;
 
-            public void ShowSection(string id)
-            {
-                section = id;
-                if (!IsHandleCreated) return;
-                building = true;
-                search.Text = "";
-                building = false;
-                side.Selected = id;
-                side.Invalidate();
-                Fill();
-            }
+            public void ShowSection(string id) { Go(id); }
 
             // Rebuild after the current event finishes
             void Later(Action a)

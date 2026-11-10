@@ -46,6 +46,8 @@ namespace Tepi
 
         void ReadClipboard(bool retry)
         {
+            // Tepi putting the old clipboard back
+            if (DateTime.UtcNow < clipQuietUtc) return;
             string text;
             try
             {

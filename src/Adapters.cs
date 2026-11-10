@@ -11,7 +11,6 @@ namespace Tepi
             switch (agent)
             {
                 case "codex": return "Codex";
-                case "gemini": return "Gemini";
                 case "antigravity": return "Antigravity";
                 case "copilot": return "Copilot";
             }
@@ -23,7 +22,6 @@ namespace Tepi
             switch (ev.Agent)
             {
                 case "codex": return true; // same schema as Claude Code
-                case "gemini": return Gemini(ev);
                 case "antigravity": return Antigravity(ev);
                 case "copilot": return Copilot(ev);
             }
@@ -68,51 +66,6 @@ namespace Tepi
                 case "glob": return "Glob";
                 case "grep": return "Grep";
                 case "web_fetch": return "WebFetch";
-            }
-            return tool;
-        }
-
-        // Monitor only: Gemini hooks can't approve
-        static bool Gemini(HookEvent ev)
-        {
-            var d = ev.Data;
-            switch (ev.Name)
-            {
-                case "SessionStart":
-                case "SessionEnd":
-                    break;
-                case "BeforeAgent": ev.Name = "UserPromptSubmit"; break;
-                case "BeforeTool": ev.Name = "PreToolUse"; break;
-                case "AfterTool": ev.Name = "PostToolUse"; break;
-                case "AfterAgent":
-                    ev.Name = "Stop";
-                    d["last_assistant_message"] = Json.Str(d, "prompt_response");
-                    break;
-                case "Notification":
-                    if (Json.Str(d, "notification_type") != "ToolPermission") return false;
-                    d["notification_type"] = "permission_prompt";
-                    break;
-                default: return false;
-            }
-            string tool = Json.Str(d, "tool_name");
-            if (tool.Length > 0) d["tool_name"] = GeminiTool(tool, Json.Obj(d, "tool_input"));
-            return true;
-        }
-
-        static string GeminiTool(string tool, Dictionary<string, object> input)
-        {
-            if (input != null && !input.ContainsKey("file_path") && input.ContainsKey("absolute_path")) input["file_path"] = input["absolute_path"];
-            switch (tool)
-            {
-                case "run_shell_command": return "Bash";
-                case "write_file": return "Write";
-                case "replace": return "Edit";
-                case "read_file":
-                case "read_many_files": return "Read";
-                case "glob": return "Glob";
-                case "search_file_content": return "Grep";
-                case "web_fetch": return "WebFetch";
-                case "google_web_search": return "WebSearch";
             }
             return tool;
         }

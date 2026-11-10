@@ -491,7 +491,8 @@ namespace Tepi
             Bitmap frame = FrameAt(corner, (now - panelOpenedUtc).TotalSeconds, animSeconds);
             float fit = CornerSize / Math.Max(frame.Width, frame.Height);
             float w = frame.Width * fit, h = frame.Height * fit;
-            float x = shell.Right - w * 0.4f, y = shell.Bottom - h * 0.42f + (1 - Ease.OutBack(k)) * 14;
+            // Right edge near: mascot sits on the left corner
+            float x = RightHanded ? shell.Left - w * 0.6f : shell.Right - w * 0.4f, y = shell.Bottom - h * 0.42f + (1 - Ease.OutBack(k)) * 14;
             var st = g.Save();
             g.ResetTransform();
             g.InterpolationMode = InterpolationMode.HighQualityBilinear;

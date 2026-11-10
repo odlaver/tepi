@@ -83,6 +83,8 @@ namespace Tepi
 
         SizeF MiniSize()
         {
+            // Side edge: the sliver stands upright; eyes peek out
+            if (OnSide) return EyesOn ? new SizeF(22, 30) : MiniBusy() ? new SizeF(MiniBusyH, MiniBusyW) : new SizeF(MiniH, MiniW);
             if (!EyesOn) return MiniBusy() ? new SizeF(MiniBusyW, MiniBusyH) : new SizeF(MiniW, MiniH);
             // Eyes only, whatever is running
             return new SizeF(MiniEyesW, MiniEyesH);
@@ -210,9 +212,29 @@ namespace Tepi
         Rectangle ShellOnScreen(int margin)
         {
             var r = lastShellPx;
-            r.Offset(lastLeft, monitorPx.Top);
+            r.Offset(lastLeft, lastTop);
             r.Inflate(margin, margin);
             return r;
+        }
+
+        // Pointer against the island's edge: depth in, offset along
+        void EdgeAxes(Native.POINT c, out int depth, out int along)
+        {
+            var mon = monitorPx;
+            int at = PlaceNow;
+            if (at == PlaceLeft) { depth = c.X - mon.Left; along = c.Y; }
+            else if (at == PlaceRight) { depth = mon.Right - 1 - c.X; along = c.Y; }
+            else { depth = c.Y - mon.Top; along = c.X; }
+        }
+
+        // Shell's span along the edge and its reach off it
+        void ShellAxes(Rectangle s, out int lo, out int hi, out int reachOut)
+        {
+            var mon = monitorPx;
+            int at = PlaceNow;
+            if (at == PlaceLeft) { lo = s.Top; hi = s.Bottom; reachOut = s.Right - mon.Left; }
+            else if (at == PlaceRight) { lo = s.Top; hi = s.Bottom; reachOut = mon.Right - s.Left; }
+            else { lo = s.Left; hi = s.Right; reachOut = s.Bottom - mon.Top; }
         }
 
         void MiniTick()
@@ -225,7 +247,7 @@ namespace Tepi
             if (!miniPeek) return;
             bool over = ShellOnScreen(0).Contains(c.X, c.Y);
             // Still pointer under reveal: start hover
-            if (over && !pointerInside && !clickThrough) OnMouseMove(new MouseEventArgs(MouseButtons.None, 0, c.X - lastLeft, c.Y - monitorPx.Top, 0));
+            if (over && !pointerInside && !clickThrough) OnMouseMove(new MouseEventArgs(MouseButtons.None, 0, c.X - lastLeft, c.Y - lastTop, 0));
             var near = ShellOnScreen((int)(8 * scale));
             bool close = near.Contains(c.X, c.Y);
             // Left before any real mouse message
@@ -241,11 +263,15 @@ namespace Tepi
         {
             var s = ShellOnScreen(0);
             int reach = (int)Math.Round(MiniMargin * scale);
-            int band = Math.Max(s.Bottom - monitorPx.Top, (int)Math.Round(MiniBand * scale));
-            bool edge = c.Y >= monitorPx.Top && c.Y <= monitorPx.Top + 1;
-            bool zone = c.Y >= monitorPx.Top && c.Y <= monitorPx.Top + band && c.X >= s.Left - reach && c.X < s.Right + reach;
+            int depth, along, lo, hi, outward;
+            EdgeAxes(c, out depth, out along);
+            ShellAxes(s, out lo, out hi, out outward);
+            int band = Math.Max(outward, (int)Math.Round(MiniBand * scale));
+            bool beside = along >= lo - reach && along < hi + reach;
+            bool edge = depth >= 0 && depth <= 1;
+            bool zone = depth >= 0 && depth <= band && beside;
             // Dragging onto sliver opens for drop
-            if (down && ShelfOn && c.Y <= monitorPx.Top + (int)Math.Ceiling(24 * scale) && c.X >= s.Left - reach && c.X < s.Right + reach)
+            if (down && ShelfOn && depth >= 0 && depth <= (int)Math.Ceiling(24 * scale) && beside)
             {
                 if (dropHoldUtc == DateTime.MinValue) dropHoldUtc = now;
                 else if ((now - dropHoldUtc).TotalMilliseconds >= 300) { dropHoldUtc = DateTime.MinValue; RevealMini(); return; }
@@ -260,7 +286,10 @@ namespace Tepi
             }
             if (miniBlocked) return;
             float still = MiniStill * scale;
-            if (miniDwellUtc == DateTime.MinValue || Math.Abs(c.X - miniAnchor.X) > still || (!edge && Math.Abs(c.Y - miniAnchor.Y) > still))
+            // Along the edge must hold still; into it may press
+            int alongMoved = OnSide ? Math.Abs(c.Y - miniAnchor.Y) : Math.Abs(c.X - miniAnchor.X);
+            int depthMoved = OnSide ? Math.Abs(c.X - miniAnchor.X) : Math.Abs(c.Y - miniAnchor.Y);
+            if (miniDwellUtc == DateTime.MinValue || alongMoved > still || (!edge && depthMoved > still))
             {
                 miniDwellUtc = now;
                 miniAnchor = c;
@@ -312,8 +341,21 @@ namespace Tepi
             Native.RECT r;
             if (!Native.GetWindowRect(fg, out r)) return miniCovered;
             var s = ShellOnScreen(0);
-            int cx = s.Left + s.Width / 2, half = (int)(MiniW / 2 * scale);
-            if (r.Top <= monitorPx.Top + 2 && r.Bottom > monitorPx.Top + 48 * scale && r.Left <= cx - half && r.Right >= cx + half) return true;
+            var mon = monitorPx;
+            int half = (int)(MiniW / 2 * scale), deep = (int)(48 * scale);
+            int at = PlaceNow;
+            if (at == PlaceLeft || at == PlaceRight)
+            {
+                // Side: the window spans the island's height at that edge
+                int cy = s.Top + s.Height / 2;
+                bool flush = at == PlaceLeft ? r.Left <= mon.Left + 2 && r.Right > mon.Left + deep : r.Right >= mon.Right - 2 && r.Left < mon.Right - deep;
+                if (flush && r.Top <= cy - half && r.Bottom >= cy + half) return true;
+            }
+            else
+            {
+                int cx = s.Left + s.Width / 2;
+                if (r.Top <= mon.Top + 2 && r.Bottom > mon.Top + deep && r.Left <= cx - half && r.Right >= cx + half) return true;
+            }
             // Start, Alt+Tab, flyouts: no change
             return fgPopup ? miniCovered : false;
         }
@@ -339,6 +381,15 @@ namespace Tepi
             // Lock keys: a caps arrow at the start
             if (caps) p.Symbol(Sym.ChevronUp, 10, cy, 6.5f, p.T.Text);
             if (v == View.Idle) return;
+            if (OnSide)
+            {
+                // Upright sliver: progress fills downward
+                float f = MiniFraction(now), cx = w / 2;
+                var track = new RectangleF(cx - 1, 8, 2, h - 16);
+                p.FillRound(track, 1, p.T.Quaternary);
+                if (f > 0.001f) p.FillRound(new RectangleF(track.X, track.Y, 2, Math.Max(2, track.Height * f)), 1, p.T.Accent);
+                return;
+            }
             MiniLine(new RectangleF(left, cy - 1, right - left, 2), v, now);
         }
 

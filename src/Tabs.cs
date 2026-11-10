@@ -16,7 +16,7 @@ namespace Tepi
         // HP joins once a phone is linked
         const string DefaultTabs = "home,music,agents,class,messages,shelf,control,remind,convert,suara";
         const float PanelTop = 54, SegTop = 36;
-        float panelW = 488;
+        float panelW = 560;
         float PanelW { get { return panelW; } }
         int[] tabs = { 0, 1, 2, 3, 4, 5, 6, 7 };
         // Segments: Kuliah tasks/schedule, Rak files/clipboard
@@ -27,7 +27,7 @@ namespace Tepi
         // Width, shift and tab order from settings
         void LoadLayout()
         {
-            panelW = Clamp(settings.GetInt("panel.width", 488), 440, 560);
+            panelW = Clamp(settings.GetInt("panel.width", 560), 440, 640);
             shiftPct = Math.Max(-40, Math.Min(40, settings.GetInt("position", 0)));
             MigrateTabs();
             AddConvertTab();
@@ -41,6 +41,8 @@ namespace Tepi
             if (list.Count == 0) list.Add(PageHome);
             tabs = list.ToArray();
             tabSnap = true;
+            LoadHome();
+            LoadPlace();
         }
 
         // 1.x: 3 tasks, 5 schedule, 6 clipboard
@@ -177,7 +179,7 @@ namespace Tepi
         {
             tabMorph.Step(dt);
             classSegX.Step(dt); shelfSegX.Step(dt);
-            agentScroll.Step(dt); taskScroll.Step(dt); notifScroll.Step(dt); plainScroll.Step(dt); scheduleScroll.Step(dt); clipScroll.Step(dt); shelfScroll.Step(dt); convScroll.Step(dt);
+            agentScroll.Step(dt); taskScroll.Step(dt); notifScroll.Step(dt); plainScroll.Step(dt); scheduleScroll.Step(dt); clipScroll.Step(dt); shelfScroll.Step(dt); convScroll.Step(dt); homeScroll.Step(dt);
             // Rubber band: let go after a beat
             if (rubber != null && (DateTime.UtcNow - rubberUtc).TotalSeconds > 0.14)
             {
@@ -191,8 +193,9 @@ namespace Tepi
         {
             var now = DateTime.UtcNow;
             return !tabMorph.Settled || !classSegX.Settled || !shelfSegX.Settled ||
-                   !agentScroll.Settled || !taskScroll.Settled || !notifScroll.Settled || !plainScroll.Settled || !scheduleScroll.Settled || !clipScroll.Settled || !shelfScroll.Settled ||
-                   (now - pageSwitchUtc).TotalSeconds < 0.7 || (now - panelOpenedUtc).TotalSeconds < 0.7 || (now - segSwitchUtc).TotalSeconds < 0.6 || MusicMoving(now);
+                   !agentScroll.Settled || !taskScroll.Settled || !notifScroll.Settled || !plainScroll.Settled || !scheduleScroll.Settled || !clipScroll.Settled || !shelfScroll.Settled || !homeScroll.Settled ||
+                   (now - pageSwitchUtc).TotalSeconds < 0.7 || (now - panelOpenedUtc).TotalSeconds < 0.7 || (now - segSwitchUtc).TotalSeconds < 0.6 || MusicMoving(now) ||
+                   (page == PageAgents && (now - agentFocusUtc).TotalSeconds < 1.6);
         }
 
         Spring rubber;
@@ -228,13 +231,14 @@ namespace Tepi
             float view = PanelHeight() - PanelTop - 20 - (SegmentPage(page) ? SegTop : 0);
             Spring s;
             float content, step;
-            if (page == PageAgents) { s = agentScroll; content = AgentsContentH() + QuotaBlockH(); step = 84; }
+            if (page == PageHome && !HomeQuiet) { s = homeScroll; content = homeContentH; view = HomeView(); step = 72; }
+            else if (page == PageAgents) { s = agentScroll; content = AgentsContentH() + QuotaBlockH(); step = 84; }
             else if (page == PageClass && classSeg == 0) { s = taskScroll; content = (tasks != null ? tasks.Count : 0) * 54 + TaskFoot(); step = 81; }
             else if (page == PageClass) { s = scheduleScroll; content = ScheduleContentH() + EventFoot(); step = ClassRowH * 1.5f; }
             else if (page == PageMessages) { s = notifScroll; content = notifs.Count * 50; step = 75; }
             else if (page == PageShelf && shelfSeg == 1) { s = clipScroll; content = clips.Count * ClipRowH; step = ClipRowH * 1.5f; }
             else if (page == PageShelf) { s = shelfScroll; content = ShelfContentH(); step = 60; }
-            else if (page == PageVoice) { s = voiceScroll; content = VoiceItems().Count * VoiceRowH; view = VoiceListView(PanelHeight()); step = VoiceRowH * 1.5f; }
+            else if (page == PageVoice) { s = voiceScroll; content = VoiceContentH(VoiceItems(), PanelW); view = VoiceListView(PanelHeight()); step = VoiceRowH * 1.5f; }
             else if (page == PageConvert && ConvertSetting) { s = convScroll; content = convHistory.Count * ConvRowH; view = ConvListView(PanelHeight()); step = ConvRowH * 1.5f; }
             else if (page == PageMusic && lyrics != null && lyrics.State == LyricState.Plain && lyrics.Key == mediaInfo.Key)
             {
@@ -695,13 +699,50 @@ namespace Tepi
             g.Restore(iconState);
         }
 
+        // Click always switches; hover may too; the wheel always does
+        bool TabsByHover { get { return settings.Get("tabs.trigger", "click") == "hover"; } }
+        readonly System.Windows.Forms.Timer tabHover = new System.Windows.Forms.Timer { Interval = 140 };
+        bool tabHoverWired;
+
+        // Pointer rests on a tab a moment: open it
+        void TabHoverCheck(string id)
+        {
+            bool onTab = id != null && id.Length > 3 && id.StartsWith("tab", StringComparison.Ordinal) && char.IsDigit(id[3]);
+            tabHover.Stop();
+            if (!onTab || !TabsByHover) return;
+            if (!tabHoverWired)
+            {
+                tabHoverWired = true;
+                tabHover.Tick += delegate
+                {
+                    tabHover.Stop();
+                    int pg;
+                    if (hoverId != null && hoverId.StartsWith("tab", StringComparison.Ordinal) && int.TryParse(hoverId.Substring(3), out pg) && pg != page) SetPage(pg, false);
+                };
+            }
+            tabHover.Start();
+        }
+
         // Chevron up: close the panel into Mini
         void DrawHideButton()
         {
             var r = new RectangleF(18, TabY, 34, TabH);
             AddHit(r, "toMini", delegate { GoMini(); });
             if (Hover("toMini")) p.FillRound(r, TabH / 2, Pressed("toMini") ? p.T.FillHover : p.T.Fill);
-            p.Symbol(Sym.ChevronUp, r.X + 17, r.Y + TabH / 2, 14f, Hover("toMini") ? p.T.Text : p.T.Sub);
+            Color c = Hover("toMini") ? p.T.Text : p.T.Sub;
+            float cx = r.X + 17, cy = r.Y + TabH / 2;
+            int at = PlaceNow;
+            // Points toward the edge it tucks into
+            if (at == PlaceRight) p.Symbol(Sym.ChevronRight, cx, cy, 14f, c);
+            else if (at == PlaceLeft)
+            {
+                var st = g.Save();
+                g.TranslateTransform(cx, cy);
+                g.ScaleTransform(-1, 1);
+                p.Symbol(Sym.ChevronRight, 0, 0, 14f, c);
+                g.Restore(st);
+            }
+            else p.Symbol(Sym.ChevronUp, cx, cy, 14f, c);
         }
 
         // Gear, far right: settings without right-click
@@ -774,8 +815,8 @@ namespace Tepi
                 TabButton("clearClips", '', delegate { Vanish(RowRects("clip", null), true); clipScroll.Snap(0); clips.Clear(); Kick(); }, true);
             else if (page == PageShelf && shelfSeg == 0 && shelf.Count > 0)
                 TabButton("clearShelf", '', delegate { Vanish(new List<RectangleF>(shelfCells.Values), true); shelfScroll.Snap(0); ClearShelf(); }, true);
-            else if (page == PageVoice && voiceLog.Count > 0)
-                TabButton("clearVoice", '', ClearVoiceLog, true);
+            else if (page == PageVoice)
+                TabButton("voiceFolder", '\uE8B7', OpenRapatFolder, false);
             else if (page == PageConvert && ConvertSetting && convHistory.Count > 0)
                 TabButton("clearConv", '', ClearConvertHistory, true);
         }

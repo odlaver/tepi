@@ -26,7 +26,7 @@ namespace Tepi
         static readonly string[][] ConvPairs =
         {
             new[] { "PNG", "JPG" }, new[] { "MOV", "MP4" }, new[] { "WAV", "MP3" }, new[] { "DOCX", "PDF" },
-            new[] { "PDF", "PNG" }, new[] { "HEIC", "JPG" }, new[] { "MD", "DOCX" }, new[] { "MKV", "GIF" },
+            new[] { "PDF", "PNG" }, new[] { "HEIC", "JPG" }, new[] { "MD", "DOCX" }, new[] { "PDF", "DOCX" },
         };
         readonly Roller convFrom = new Roller(), convTo = new Roller();
         Func<DateTime, double> convHeroPaint;

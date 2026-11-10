@@ -154,7 +154,7 @@ namespace Tepi
 
         void DownloadDone(Download d)
         {
-            var t = ShowToast(View.Info, 6, 2, false, true);
+            var t = ShowToast(View.Info, 4, 2, false, true);
             if (t == null) return;
             t.Glyph = IcoDownload;
             t.Title = Lang.T("Unduhan selesai");

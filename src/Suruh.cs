@@ -30,7 +30,6 @@ namespace Tepi
         const int VoiceKeep = 30, SuruhHotkey = 18;
         readonly List<VoiceEntry> voiceLog = new List<VoiceEntry>();
         readonly List<OneShot> oneShots = new List<OneShot>();
-        SuruhBox suruhBox;
         bool suruhBusy;
 
         static string OneShotPath { get { return Path.Combine(Settings.Dir, "pengingat-sekali.txt"); } }
@@ -104,73 +103,135 @@ namespace Tepi
                 t.Detail = Fmt.Hm(due.At);
                 t.Hold = true;
                 t.Data = new Action(delegate { });
+                t.Page = PageVoice;
                 PlayRemind("");
             }
             LogVoice("pengingat", due.Text, Lang.T("Diingatkan ") + Fmt.Hm(due.At));
         }
 
-        // Command box under the island
-        void OpenSuruh()
-        {
-            if (suruhBox != null && !suruhBox.IsDisposed) { suruhBox.Activate(); return; }
-            expanded = false;
-            Kick();
-            suruhBox = new SuruhBox(text => RunSuruh(text, false), !string.IsNullOrEmpty(Speech.GroqKey()));
-            var area = Screen.FromHandle(Handle).WorkingArea;
-            suruhBox.StartPosition = FormStartPosition.Manual;
-            suruhBox.Show();
-            suruhBox.Location = new Point(area.X + (area.Width - suruhBox.Width) / 2, area.Y + (int)(70 * scale));
-            Native.SetForegroundWindow(suruhBox.Handle);
-        }
-
-        void RunSuruh(string text, bool spoken)
+        // Typed or spoken: into the chat, then answered
+        void RunSuruh(string text)
         {
             text = (text ?? "").Trim();
             if (text.Length == 0) return;
-            string done = TryOffline(text);
-            if (done != null) { SuruhDone(text, done); return; }
-            string key = Speech.GroqKey();
-            if (string.IsNullOrEmpty(key))
+            if (suruhBusy) { DictSay(Lang.T("Perintah sebelumnya masih jalan"), "", true); return; }
+            LoadChat();
+            var me = new ChatMsg { Who = "me", Text = text };
+            AddChat(me, null);
+            Answer(me);
+        }
+
+        // Offline first; else the AI, with the chat so far
+        void Answer(ChatMsg me)
+        {
+            var done = TryOffline(me.Text);
+            if (done != null) { SuruhDone(me, done); return; }
+            if (!Ai.Ready(Ai.Text))
             {
-                DictSay(Lang.T("Belum paham perintahnya"), Lang.T("Coba: timer 25 menit, ingetin minum 30 menit lagi"), true);
-                LogVoice("suruh", text, Lang.T("Belum paham"));
+                SuruhDone(me, new ChatMsg { Text = Lang.T("Belum paham perintahnya") + ". " + Lang.T("Coba: timer 25 menit, ingetin minum 30 menit lagi"), Fix = "ai" });
                 return;
             }
-            if (suruhBusy) { DictSay(Lang.T("Perintah sebelumnya masih jalan"), "", true); return; }
             suruhBusy = true;
             dictState = DictState.Working;
             Kick();
+            ChatChanged(null);
+            var turns = ChatTurns(me);
             string context = SuruhContext();
             bool tasks = sources != null && (sources.Find("todoist") != null || sources.Find("notion") != null);
             ThreadPool.QueueUserWorkItem(delegate
             {
                 string error;
-                var calls = AskSuruh(key, text, context, tasks, out error);
+                var reply = AskSuruh(turns, context, tasks, out error);
                 Post(delegate
                 {
                     suruhBusy = false;
                     dictState = DictState.Off;
                     Kick();
-                    if (calls == null) { DictSay(error ?? Lang.T("Groq tidak menjawab"), "", true); LogVoice("suruh", text, error ?? ""); return; }
-                    var said = new List<string>();
-                    foreach (var c in calls)
-                    {
-                        string r = DoTool(c.Key, c.Value);
-                        if (r != null) said.Add(r);
-                    }
-                    SuruhDone(text, said.Count > 0 ? string.Join(" · ", said.ToArray()) : Lang.T("Tidak ada yang dikerjakan"));
+                    if (reply == null) SuruhDone(me, new ChatMsg { Text = error ?? Lang.F("{0} tidak menjawab", Ai.Label(Ai.Text)), Fix = "retry" });
+                    else SuruhDone(me, FromReply(reply));
                 });
             });
         }
 
-        void SuruhDone(string asked, string result)
+        // The failed reply goes; its question runs again
+        void RetrySuruh(ChatMsg failed)
         {
-            LogVoice("suruh", asked, result);
-            var t = ShowToast(View.Info, 4, 3, false, true);
+            if (suruhBusy || chat == null) return;
+            int at = chat.IndexOf(failed);
+            ChatMsg me = null;
+            for (int i = at - 1; i >= 0 && me == null; i--) if (chat[i].Mine) me = chat[i];
+            if (me == null) return;
+            chat.RemoveAt(at);
+            SaveChat();
+            ChatChanged(null);
+            Answer(me);
+        }
+
+        void SuruhDone(ChatMsg me, ChatMsg reply)
+        {
+            string said = ChatSummary(reply);
+            LogVoice("suruh", me.Text, Fmt.OneLine(said, 300));
+            AddChat(reply, me);
+            // The open chat shows and announces it
+            if (ChatInFront) return;
+            // Short: the full answer lives in the chat
+            var t = ShowToast(View.Info, Math.Min(6, 3.5 + said.Length / 40.0), 3, false, true);
             if (t == null) return;
-            t.Glyph = '';
-            t.Title = result;
-            t.Detail = "";
+            t.Glyph = reply.Fix != null ? IcoFail : IcoDone;
+            t.Title = Fmt.OneLine(said, 200);
+            // The ask again, unless it says the same
+            string asked = Fmt.OneLine(me.Text, 120);
+            t.Detail = string.Equals(asked, t.Title, StringComparison.OrdinalIgnoreCase) ? "" : asked;
+            t.Page = PageVoice;
+            // A click carries on in the chat
+            t.Data = new Action(OpenSuruh);
+        }
+
+        // Words from reply, chips from the rest
+        ChatMsg FromReply(Ai.Reply reply)
+        {
+            var m = new ChatMsg();
+            var said = new List<string>();
+            foreach (var c in reply.Calls)
+            {
+                if (c.Key == "reply") { string t = Arg(c.Value, "text"); if (t.Length > 0) said.Add(t); continue; }
+                var act = DoTool(c.Key, c.Value);
+                if (act != null) m.Acts.Add(act);
+            }
+            // Text beside the tool calls is the answer too
+            if (said.Count == 0 && reply.Text.Length > 0) said.Add(reply.Text);
+            m.Text = Plain(string.Join("\n\n", said.ToArray()));
+            if (m.Text.Length == 0 && m.Acts.Count == 0) m.Text = Lang.T("Tidak ada yang dikerjakan");
+            return m;
+        }
+
+        static string Arg(Dictionary<string, object> args, string key)
+        {
+            object v;
+            return args != null && args.TryGetValue(key, out v) && v != null ? Convert.ToString(v, CultureInfo.InvariantCulture) : "";
+        }
+
+        // Models slip into Markdown; the chat is plain text
+        static string Plain(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            s = s.Replace("\r\n", "\n");
+            s = Regex.Replace(s, @"\*\*(.+?)\*\*|__(.+?)__", "$1$2");
+            s = Regex.Replace(s, @"(?m)^```[^\n]*\n?", "");
+            s = Regex.Replace(s, @"`([^`\n]+)`", "$1");
+            s = Regex.Replace(s, @"(?m)^#{1,6}\s+", "");
+            s = Regex.Replace(s, @"(?m)^(\s*)[*-]\s+", "$1• ");
+            s = Regex.Replace(s, @"\n{3,}", "\n\n");
+            return s.Trim();
+        }
+
+        static ChatMsg Said(string text) { return new ChatMsg { Text = text }; }
+
+        static ChatMsg Did(char glyph, string text, OneShot reminder = null)
+        {
+            var m = new ChatMsg();
+            m.Acts.Add(new ChatAct { Glyph = glyph, Text = text, Reminder = reminder });
+            return m;
         }
 
         string SuruhContext()
@@ -185,33 +246,32 @@ namespace Tepi
         }
 
         // Whitelisted actions only: no shell, no files
-        string DoTool(string name, Dictionary<string, object> args)
+        ChatAct DoTool(string name, Dictionary<string, object> args)
         {
-            Func<string, string> s = k => { object v; return args != null && args.TryGetValue(k, out v) && v != null ? Convert.ToString(v, CultureInfo.InvariantCulture) : ""; };
+            Func<string, string> s = k => Arg(args, k);
             switch (name)
             {
                 case "set_reminder":
                     DateTime at;
-                    if (!DateTime.TryParseExact(s("at"), new[] { "yyyy-MM-ddTHH:mm", "yyyy-MM-dd HH:mm", "yyyy-MM-ddTHH:mm:ss" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out at) || at <= DateTime.Now) return Lang.T("Waktu pengingat tidak jelas");
+                    if (!DateTime.TryParseExact(s("at"), new[] { "yyyy-MM-ddTHH:mm", "yyyy-MM-dd HH:mm", "yyyy-MM-ddTHH:mm:ss" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out at) || at <= DateTime.Now)
+                        return new ChatAct { Glyph = IcoFail, Text = Lang.T("Waktu pengingat tidak jelas") };
                     string what = s("text").Length > 0 ? s("text") : Lang.T("Pengingat");
-                    AddOneShot(at, what);
-                    return ReminderSaid(at, what);
+                    var o = AddOneShot(at, what);
+                    return new ChatAct { Glyph = Ink.IcoBell, Text = ReminderSaid(at, what), Reminder = o };
                 case "start_timer":
                     int min;
-                    if (!int.TryParse(s("minutes"), out min) || min <= 0 || min > 600) return Lang.T("Lama timer tidak jelas");
+                    if (!int.TryParse(s("minutes"), out min) || min <= 0 || min > 600) return new ChatAct { Glyph = IcoFail, Text = Lang.T("Lama timer tidak jelas") };
                     if (s("focus") == "True" || s("focus") == "true") StartFocus(min); else StartTimer(TimerKind.Countdown, min);
-                    return Lang.F("Timer {0} menit", min);
+                    return new ChatAct { Glyph = Ink.IcoTimer, Text = Lang.F("Timer {0} menit", min) };
                 case "add_note":
                     if (s("text").Length == 0) return null;
                     SaveNote(s("text"), "rak");
-                    return Lang.T("Dicatat");
+                    return new ChatAct { Glyph = IcoNote, Text = Lang.F("Dicatat: {0}", s("text")) };
                 case "add_task":
                     if (s("text").Length == 0 || sources == null) return null;
                     string to = sources.Find("todoist") != null ? "todoist" : "notion";
                     SaveNote(s("text"), to);
-                    return Lang.F("Tugas baru: {0}", s("text"));
-                case "reply":
-                    return s("text").Length > 0 ? s("text") : null;
+                    return new ChatAct { Glyph = Ink.IcoCalendar, Text = Lang.F("Tugas baru: {0}", s("text")) };
             }
             return null;
         }
@@ -227,49 +287,25 @@ namespace Tepi
 
         static Dictionary<string, object> P(string type, string about) { return new Dictionary<string, object> { { "type", type }, { "description", about } }; }
 
-        // Worker: one round of tool calls
-        static List<KeyValuePair<string, Dictionary<string, object>>> AskSuruh(string key, string text, string context, bool tasks, out string error)
+        // Worker: one round, the chat so far as context
+        static Ai.Reply AskSuruh(List<KeyValuePair<string, string>> turns, string context, bool tasks, out string error)
         {
             var tools = new List<object>
             {
                 Fn("set_reminder", "Remind the user once at a local date and time.", new Dictionary<string, object> { { "at", P("string", "Local time, yyyy-MM-ddTHH:mm") }, { "text", P("string", "What to remind, in the user's words") } }, new[] { "at", "text" }),
                 Fn("start_timer", "Start a countdown timer.", new Dictionary<string, object> { { "minutes", P("integer", "Length in minutes") }, { "focus", P("boolean", "True for a focus session with a break after") } }, new[] { "minutes" }),
                 Fn("add_note", "Save a quick note.", new Dictionary<string, object> { { "text", P("string", "Note text") } }, new[] { "text" }),
-                Fn("reply", "Answer a question or explain what you cannot do, one short sentence.", new Dictionary<string, object> { { "text", P("string", "Answer in the user's language") } }, new[] { "text" }),
+                Fn("reply", "Talk to the user: answers, follow-ups, or what the other tools cannot do.", new Dictionary<string, object> { { "text", P("string", "Plain text in the user's language") } }, new[] { "text" }),
             };
             if (tasks) tools.Add(Fn("add_task", "Add a to-do item.", new Dictionary<string, object> { { "text", P("string", "Task text") } }, new[] { "text" }));
             string now = DateTime.Now.ToString("yyyy-MM-dd HH:mm dddd", CultureInfo.InvariantCulture);
-            var payload = new Dictionary<string, object>
-            {
-                { "model", Speech.ChatModel(key) },
-                { "temperature", 0.1 },
-                { "tool_choice", "auto" },
-                { "tools", tools.ToArray() },
-                { "messages", new object[]
-                    {
-                        new Dictionary<string, object> { { "role", "system" }, { "content", "You are Tepi, a small assistant living in the user's Windows dynamic island. Local time now: " + now + ". " + context + "Use the tools to act. Always call at least one tool; use reply for questions or anything the tools cannot do. Reply in the user's language, briefly." } },
-                        new Dictionary<string, object> { { "role", "user" }, { "content", text } },
-                    }
-                },
-            };
-            var msg = Speech.GroqMessage(key, payload, out error);
-            if (msg == null) return null;
-            var calls = new List<KeyValuePair<string, Dictionary<string, object>>>();
-            object tc;
-            if (msg.TryGetValue("tool_calls", out tc) && tc is object[])
-                foreach (var o in (object[])tc)
-                {
-                    var call = o as Dictionary<string, object>;
-                    var fn = call != null && call.ContainsKey("function") ? call["function"] as Dictionary<string, object> : null;
-                    if (fn == null) continue;
-                    Dictionary<string, object> args = null;
-                    try { args = Json.Parse(fn.ContainsKey("arguments") ? fn["arguments"] as string : "{}") as Dictionary<string, object>; } catch (Exception) { }
-                    calls.Add(new KeyValuePair<string, Dictionary<string, object>>(fn["name"] as string ?? "", args));
-                }
-            object content;
-            if (calls.Count == 0 && msg.TryGetValue("content", out content) && content is string && ((string)content).Trim().Length > 0)
-                calls.Add(new KeyValuePair<string, Dictionary<string, object>>("reply", new Dictionary<string, object> { { "text", ((string)content).Trim() } }));
-            return calls;
+            // Who made Tepi; the model vendor did not
+            string maker = "Tepi was made by Reval (R. Revaldo Vabiansyah), an Indonesian developer. If asked who made or created you, answer that Reval made you. " +
+                           "Never say you were made by OpenAI, Anthropic, Google, Meta, or another AI company. If asked which AI model answers, say it is " + Ai.Label(Ai.Text) + ", chosen in Tepi's settings. ";
+            string system = "You are Tepi, a small assistant living in the user's Windows dynamic island, chatting in a small window. " + maker + "Local time now: " + now + ". " + context +
+                            "Act through the tools; use reply for questions, chat, and anything the other tools cannot do. Earlier messages are this chat's history: follow up on them. " +
+                            "Reply in the user's language. Keep it short: a sentence or two for quick asks, a few short paragraphs at most. Plain text, no Markdown.";
+            return Ai.Ask(system, turns, tools.ToArray(), out error);
         }
 
         string ReminderSaid(DateTime at, string what)
@@ -279,14 +315,19 @@ namespace Tepi
         }
 
         // Offline: timers, reminders, notes, sums
-        string TryOffline(string raw)
+        ChatMsg TryOffline(string raw)
         {
             string text = raw.Trim().TrimEnd('.', '!', '?');
             string low = text.ToLowerInvariant();
             Match m;
 
-            if (Regex.IsMatch(low, @"^(stop|hentikan|matikan|batalkan)\s+(timer|stopwatch|fokus)$")) { if (!TimerOn) return Lang.T("Tidak ada timer yang jalan"); StopTimer(); return Lang.T("Timer dihentikan"); }
-            if (Regex.IsMatch(low, @"^(mulai\s+)?stopwatch$")) { StartTimer(TimerKind.Stopwatch, 0); return Lang.T("Stopwatch jalan"); }
+            if (Regex.IsMatch(low, @"^(stop|hentikan|matikan|batalkan)\s+(timer|stopwatch|fokus)$"))
+            {
+                if (!TimerOn) return Said(Lang.T("Tidak ada timer yang jalan"));
+                StopTimer();
+                return Did(Ink.IcoTimer, Lang.T("Timer dihentikan"));
+            }
+            if (Regex.IsMatch(low, @"^(mulai\s+)?stopwatch$")) { StartTimer(TimerKind.Stopwatch, 0); return Did(Ink.IcoTimer, Lang.T("Stopwatch jalan")); }
 
             m = Regex.Match(low, @"^(mulai\s+)?(fokus|focus|pomodoro)(\s+(\d{1,3})\s*(menit|mnt|min|minutes?|m)?)?$");
             if (m.Success)
@@ -294,7 +335,7 @@ namespace Tepi
                 int min = m.Groups[4].Success ? int.Parse(m.Groups[4].Value) : 25;
                 if (min < 1 || min > 300) return null;
                 StartFocus(min);
-                return Lang.F("Fokus {0} menit", min);
+                return Did(Ink.IcoTimer, Lang.F("Fokus {0} menit", min));
             }
 
             m = Regex.Match(low, @"^(?:(?:set(?:el)?|pasang|mulai)\s+)?(?:timer|hitung mundur|countdown)\s+(.+)$");
@@ -304,11 +345,16 @@ namespace Tepi
             {
                 if (span.TotalSeconds < 5 || span.TotalHours > 10) return null;
                 StartTimer(TimerKind.Countdown, span);
-                return Lang.F("Timer {0}", SpanText(span));
+                return Did(Ink.IcoTimer, Lang.F("Timer {0}", SpanText(span)));
             }
 
             m = Regex.Match(text, @"^(catat|catatan|note|tulis)\s*:?\s+(.+)$", RegexOptions.IgnoreCase);
-            if (m.Success) { SaveNote(m.Groups[2].Value.Trim(), "rak"); return Lang.T("Dicatat"); }
+            if (m.Success)
+            {
+                string note = m.Groups[2].Value.Trim();
+                SaveNote(note, "rak");
+                return Did(IcoNote, Lang.F("Dicatat: {0}", note));
+            }
 
             m = Regex.Match(text, @"^(ingetin|ingatin|ingatkan|ingetkan|pengingat|reminder|remind me( to)?)\b\s*(aku|saya|gue|gw|me)?\s*(untuk|buat|to)?\s*(.*)$", RegexOptions.IgnoreCase);
             if (m.Success)
@@ -319,14 +365,14 @@ namespace Tepi
                 if (!ParseWhen(rest, out at, out what)) return null;
                 if (what.Length == 0) what = Lang.T("Pengingat");
                 what = char.ToUpper(what[0]) + what.Substring(1);
-                AddOneShot(at, what);
-                return ReminderSaid(at, what);
+                var o = AddOneShot(at, what);
+                return Did(Ink.IcoBell, ReminderSaid(at, what), o);
             }
 
             string converted;
-            if (TryConvert(low, out converted)) return converted;
+            if (TryConvert(low, out converted)) return Said(converted);
             double result;
-            if (TryCalc(low, out result)) return "= " + FormatNumber(result);
+            if (TryCalc(low, out result)) return Said("= " + FormatNumber(result));
             return null;
         }
 
@@ -576,85 +622,6 @@ namespace Tepi
         {
             var c = Lang.English ? CultureInfo.InvariantCulture : new CultureInfo("id-ID");
             return Math.Abs(v - Math.Round(v)) < 1e-9 ? Math.Round(v).ToString("#,0", c) : v.ToString("#,0.####", c);
-        }
-
-        // Frameless box, like the quick note
-        class SuruhBox : KitWindow
-        {
-            readonly KitText box = new KitText();
-            readonly Label hint = new Label();
-            readonly Action<string> run;
-            readonly bool online;
-
-            public SuruhBox(Action<string> run, bool online)
-            {
-                this.run = run;
-                this.online = online;
-                FormBorderStyle = FormBorderStyle.None;
-                ShowInTaskbar = false;
-                TopMost = true;
-                Text = Lang.T("Suruh Tepi");
-                box.BorderStyle = BorderStyle.None;
-                box.KeyDown += (s, e) =>
-                {
-                    if (e.KeyCode != Keys.Enter) return;
-                    e.SuppressKeyPress = true;
-                    string t = box.Text;
-                    Close();
-                    run(t);
-                };
-                hint.AutoSize = false;
-                hint.UseMnemonic = false;
-                Controls.Add(box);
-                Controls.Add(hint);
-                Deactivate += delegate { if (!IsDisposed) Close(); };
-            }
-
-            protected override CreateParams CreateParams
-            {
-                get { var cp = base.CreateParams; cp.ClassStyle |= 0x20000; return cp; }
-            }
-
-            protected override void OnHandleCreated(EventArgs e)
-            {
-                base.OnHandleCreated(e);
-                Relayout();
-            }
-
-            protected override void OnShown(EventArgs e) { base.OnShown(e); box.Focus(); }
-
-            public override void Relayout()
-            {
-                float s = Ui;
-                BackColor = KitInk.Window;
-                ClientSize = new Size((int)(460 * s), (int)(100 * s));
-                box.Font = UiFont(15f);
-                box.BackColor = KitInk.Group;
-                box.ForeColor = KitInk.Text;
-                box.SetBounds((int)(30 * s), (int)(22 * s), ClientSize.Width - (int)(60 * s), (int)(24 * s));
-                Native.SetCue(box.Handle, Lang.T("Suruh Tepi, misalnya: ingetin minum 30 menit lagi"));
-                hint.Font = UiFont(12f);
-                hint.ForeColor = KitInk.Sub;
-                hint.BackColor = KitInk.Window;
-                hint.Text = online ? Lang.T("Enter menjalankan. Timer, pengingat, catatan, dan hitungan jalan tanpa internet.") : Lang.T("Enter menjalankan. Tanpa key Groq: timer, pengingat, catatan, hitungan.");
-                hint.SetBounds((int)(20 * s), ClientSize.Height - (int)(36 * s), ClientSize.Width - (int)(40 * s), (int)(22 * s));
-                Invalidate();
-            }
-
-            // Text well with a quiet focus ring
-            protected override void OnPaintBackground(PaintEventArgs e)
-            {
-                var g = e.Graphics;
-                g.Clear(KitInk.Window);
-                KitInk.Smooth(g);
-                float s = Ui;
-                var well = new RectangleF(16 * s, 12 * s, ClientSize.Width - 32 * s, 44 * s);
-                using (var path = Ink.Round(well, 12 * s))
-                {
-                    using (var b = new SolidBrush(KitInk.Group)) g.FillPath(b, path);
-                    using (var pen = new Pen(KitInk.Faint, 1.2f)) g.DrawPath(pen, path);
-                }
-            }
         }
     }
 }

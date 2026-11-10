@@ -14,6 +14,7 @@ namespace Tepi
 
         SizeF ViewSize(View v)
         {
+            if (UprightNow(v)) return SideSize(v);
             switch (v)
             {
                 case View.Idle: return new SizeF(IdleWidth(), 34);
@@ -58,6 +59,7 @@ namespace Tepi
 
         float ViewRadius(View v, SizeF s)
         {
+            if (UprightNow(v)) return s.Width / 2;
             switch (v)
             {
                 case View.Panel:
@@ -78,6 +80,7 @@ namespace Tepi
 
         void DrawView(View v, float w, float h, DateTime now)
         {
+            if (UprightNow(v)) { DrawSide(v, w, h, now); return; }
             switch (v)
             {
                 case View.Idle: DrawIdle(w, h, now); break;
@@ -196,9 +199,25 @@ namespace Tepi
         // Idle face: eyes unless set to clock
         bool IdleEyes { get { return EyesOn && settings.Get("idle.face", "eyes") != "clock"; } }
 
-        float IdleWidth() { return (IdleEyes ? 96 : 112) + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0) + IdleMarks * 26 + (IdleMarks > 0 ? 2 : 0); }
+        float IdleWidth() { return IdleCoreWidth() + SlotWidth("idle.left") + SlotWidth("idle.right"); }
 
+        float IdleCoreWidth() { return (IdleEyes ? 96 : 112) + (PrivacyOn || unread > 0 ? 44 : 0) + (emblem != null ? 30 : 0) + IdleMarks * 26 + (IdleMarks > 0 ? 2 : 0); }
+
+        // Slots flank the usual idle face
         void DrawIdle(float w, float h, DateTime now)
+        {
+            float lw = SlotWidth("idle.left"), rw = SlotWidth("idle.right");
+            if (lw + rw <= 0) { DrawIdleCore(w, h, now); return; }
+            string l = SlotText("idle.left"), r = SlotText("idle.right");
+            if (lw > 0) p.TextCenter(l, Ink.Semi(12f), p.T.Sub, 10 + (lw - 10) / 2, h / 2);
+            if (rw > 0) p.TextCenter(r, Ink.Semi(12f), p.T.Sub, w - 10 - (rw - 10) / 2, h / 2);
+            var st = g.Save();
+            g.TranslateTransform(lw, 0);
+            DrawIdleCore(w - lw - rw, h, now);
+            g.Restore(st);
+        }
+
+        void DrawIdleCore(float w, float h, DateTime now)
         {
             float cy = h / 2, shift = emblem != null ? 15 : 0, clockX = w / 2 + shift - (IdleMarks * 13 + (IdleMarks > 0 ? 1 : 0));
             if (emblem != null) DrawEmblem(24, cy, 10.5f);
@@ -475,6 +494,7 @@ namespace Tepi
             if (step.Length > 0) p.Text(step, Ink.Text(12f), p.T.Sub, x, cy, right - x, StringAlignment.Near);
             else p.Text(AgentLine(s), Ink.Mono(12f), p.T.Sub, x, cy, right - x, StringAlignment.Near);
             if (s.Plan != null && s.Plan.Count > 0) DrawPlanBar(s, new RectangleF(h / 2, h - 3.4f, w - h, 2f));
+            AddHit(new RectangleF(0, 0, w, h), "agentView", delegate { ShowAgent(s); });
         }
 
         const int ApproveMaxLines = 10, ApproveScrollMax = 300;
@@ -561,6 +581,13 @@ namespace Tepi
                 p.Text(minus, Ink.Semi(12f), p.T.Negative, lx, 51, 60, StringAlignment.Near);
                 lx += p.Measure(minus, Ink.Semi(12f)) + 10;
             }
+            // Risk leads: it decides the answer
+            if (a.Risk != null)
+            {
+                string risk = Lang.T("berisiko: ") + a.Risk;
+                p.Text(risk, Ink.Semi(12f), p.T.Negative, lx, 51, w - lx - 24, StringAlignment.Near);
+                lx += Math.Min(w - lx - 24, p.Measure(risk, Ink.Semi(12f)) + 10);
+            }
             // Flags first: they change what runs
             if (a.Flags.Count > 0)
             {
@@ -617,15 +644,16 @@ namespace Tepi
             if (Hover("deny")) p.FillRound(deny, 10, p.T.Fill);
             p.StrokeRound(deny, 10, p.T.Sub, 1.2f);
             p.TextCenter(Lang.T("Tolak"), Ink.Semi(13f), p.T.Text, deny.X + deny.Width / 2, deny.Y + 16);
-            if (!locked && Hover("always")) p.FillRound(always, 10, p.T.Fill);
-            p.StrokeRound(always, 10, locked ? p.T.Faint : p.T.Sub, 1.2f);
-            p.TextCenter(Lang.T("Selalu"), Ink.Semi(13f), locked ? p.T.Faint : p.T.Text, always.X + always.Width / 2, always.Y + 16);
+            bool once = locked || a.Risk != null;
+            if (!once && Hover("always")) p.FillRound(always, 10, p.T.Fill);
+            p.StrokeRound(always, 10, once ? p.T.Faint : p.T.Sub, 1.2f);
+            p.TextCenter(Lang.T("Selalu"), Ink.Semi(13f), once ? p.T.Faint : p.T.Text, always.X + always.Width / 2, always.Y + 16);
             var term = new RectangleF(14, y, always.X - 8 - 14, 32);
             if (Hover("term")) p.FillRound(term, 10, p.T.Fill);
             p.Icon(Ink.IcoTerminal, 12f, p.T.Sub, term.X + 18, term.Y + 16);
             p.Text(Lang.T("Terminal"), Ink.Small(12f), Hover("term") || (clipped && !scrollable) || a.Truncated ? p.T.Text : p.T.Sub, term.X + 32, term.Y + 16, term.Width - 36, StringAlignment.Near);
             if (!locked) AddHit(allow, "allow", delegate { Decide(a, "allow"); });
-            if (!locked) AddHit(always, "always", delegate { AllowAlways(a); });
+            if (!once) AddHit(always, "always", delegate { AllowAlways(a); });
             AddHit(deny, "deny", delegate { Decide(a, "deny"); });
             AddHit(term, "term", delegate
             {
@@ -652,8 +680,20 @@ namespace Tepi
             float tw = p.Measure(tail, Ink.Small(11.5f));
             p.Text(title, Ink.Semi(13.5f), p.T.Text, 60, cy - 10, w - 60 - 22 - tw - 10, StringAlignment.Near);
             p.TextRight(tail, Ink.Small(11.5f), p.T.Sub, w - 22, cy - 10);
-            p.Text(s.LastMessage.Length > 0 ? s.LastMessage : Lang.T("Menunggu balasanmu"), Ink.Text(12f), p.T.Sub, 60, cy + 10, w - 60 - 22, StringAlignment.Near);
-            AddHit(new RectangleF(0, 0, w, h), "done", delegate { if (!FocusTerminal(s)) Expand(PageAgents); });
+            string recap = TurnRecap(s);
+            string body = s.LastMessage.Length > 0 ? s.LastMessage : Lang.T("Menunggu balasanmu");
+            p.Text(recap.Length > 0 ? recap + " · " + body : body, Ink.Text(12f), p.T.Sub, 60, cy + 10, w - 60 - 22, StringAlignment.Near);
+            AddHit(new RectangleF(0, 0, w, h), "done", delegate { ShowAgent(s); });
+        }
+
+        // Files, commands, failures this turn
+        static string TurnRecap(AgentSession s)
+        {
+            var parts = new System.Collections.Generic.List<string>();
+            if (s.TurnFiles.Count > 0) parts.Add(Lang.F("{0} berkas berubah", s.TurnFiles.Count));
+            if (s.TurnCommands > 0) parts.Add(Lang.F("{0} perintah", s.TurnCommands));
+            if (s.TurnFailed > 0) parts.Add(Lang.F("{0} gagal", s.TurnFailed));
+            return string.Join(" · ", parts.ToArray());
         }
 
         static string Duration(TimeSpan t)
@@ -681,7 +721,7 @@ namespace Tepi
 
         string NotifBody(NotifItem item)
         {
-            if (!settings.GetBool("notif.content", true)) return Lang.T("Pesan baru");
+            if (!settings.GetBool("notif.content", true) || Sharing) return Lang.T("Pesan baru");
             return item.Body.Length > 0 ? item.Body : item.AppName;
         }
 
@@ -694,7 +734,7 @@ namespace Tepi
             string meta = notifBurst > 1 ? notifBurst + Lang.T(" pesan · ") + item.AppName : item.AppName;
             float mw = Math.Min(130, p.Measure(meta, Ink.Small(11f)));
             p.TextRight(meta, Ink.Small(11f), p.T.Sub, w - 22, cy - 10);
-            p.Text(item.Title.Length > 0 ? item.Title : item.AppName, Ink.Semi(13.5f), p.T.Text, 66, cy - 10, w - 66 - 32 - mw, StringAlignment.Near);
+            p.Text(NotifTitle(item), Ink.Semi(13.5f), p.T.Text, 66, cy - 10, w - 66 - 32 - mw, StringAlignment.Near);
             p.Text(NotifBody(item), Ink.Text(12.5f), p.T.Sub, 66, cy + 10, w - 66 - 22, StringAlignment.Near);
             AddHit(new RectangleF(0, 0, w, h), "notifOpen", delegate { OpenNotifApp(item); });
         }

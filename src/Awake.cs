@@ -44,6 +44,14 @@ namespace Tepi
 
         void AwakeMenu()
         {
+            var m = AwakeItems();
+            StyleMenu(m);
+            m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
+            m.Show(Control.MousePosition);
+        }
+
+        ContextMenuStrip AwakeItems()
+        {
             var m = new ContextMenuStrip();
             foreach (var choice in new[] { new object[] { Lang.T("30 menit"), TimeSpan.FromMinutes(30) }, new object[] { Lang.T("1 jam"), TimeSpan.FromHours(1) },
                                            new object[] { Lang.T("2 jam"), TimeSpan.FromHours(2) }, new object[] { Lang.T("Sampai dimatikan"), TimeSpan.MaxValue } })
@@ -56,9 +64,7 @@ namespace Tepi
                 m.Items.Add(new ToolStripSeparator());
                 m.Items.Add(Lang.T("Matikan"), null, delegate { SetAwake(TimeSpan.Zero); });
             }
-            StyleMenu(m);
-            m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
-            m.Show(Control.MousePosition);
+            return m;
         }
     }
 }

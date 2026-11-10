@@ -7,6 +7,7 @@ using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -38,6 +39,9 @@ namespace Tepi
         public ConvTarget Target;
         public volatile bool Cancelled, Finished;
         public volatile int Index;
+        // Compress: files already as small as they get, and the bytes saved
+        public int Small;
+        public long BytesIn, BytesOut;
         // Current file, 0..1; below 0 unknown
         public volatile float Part = -1;
         public readonly List<string> Outputs = new List<string>();
@@ -51,6 +55,9 @@ namespace Tepi
             get
             {
                 int n = Math.Max(1, Files.Count);
+                // One output from many inputs: Part is the whole job
+                bool single = Target != null && (Target.Id == "zip" || Target.Id == "pdf1");
+                if (single) return Math.Max(0f, Math.Min(1f, Part >= 0 ? Part : (float)Index / n));
                 return Math.Min(1f, (Index + Math.Max(0f, Part)) / n);
             }
         }
@@ -109,24 +116,28 @@ namespace Tepi
                 case ConvKind.Image:
                     l.Add(T("jpg", "JPG")); l.Add(T("png", "PNG")); l.Add(T("webp", "WEBP", "ffmpeg")); l.Add(T("bmp", "BMP"));
                     l.Add(T("tiff", "TIFF")); l.Add(T("gif", "GIF")); l.Add(T("ico", "ICO")); l.Add(T("pdf", "PDF"));
+                    l.Add(T("ocr", Lang.T("Teks (OCR)"), "ocr")); l.Add(T("min", Lang.T("Kompres")));
                     break;
                 case ConvKind.Video:
                     l.Add(T("mp4", "MP4", "ffmpeg")); l.Add(T("webm", "WEBM", "ffmpeg")); l.Add(T("gif", "GIF", "ffmpeg")); l.Add(T("mp3", "MP3", "ffmpeg"));
+                    l.Add(T("min", Lang.T("Kompres"), "ffmpeg"));
                     break;
                 case ConvKind.Audio:
                     l.Add(T("mp3", "MP3", "ffmpeg")); l.Add(T("m4a", "M4A", "ffmpeg")); l.Add(T("wav", "WAV", "ffmpeg")); l.Add(T("flac", "FLAC", "ffmpeg")); l.Add(T("ogg", "OGG", "ffmpeg"));
+                    l.Add(T("min", Lang.T("Kompres"), "ffmpeg"));
                     break;
                 case ConvKind.Doc:
-                    l.Add(T("pdf", "PDF", "soffice")); l.Add(T("docx", "DOCX", "soffice")); l.Add(T("odt", "ODT", "soffice")); l.Add(T("txt", "TXT", "soffice"));
+                    l.Add(T("pdf", "PDF", "soffice")); l.Add(T("docx", "DOCX", "soffice")); l.Add(T("odt", "ODT", "soffice")); l.Add(T("rtf", "RTF", "soffice")); l.Add(T("txt", "TXT", "soffice"));
                     break;
                 case ConvKind.Slides:
-                    l.Add(T("pdf", "PDF", "soffice")); l.Add(T("pptx", "PPTX", "soffice"));
+                    l.Add(T("pdf", "PDF", "soffice")); l.Add(T("pptx", "PPTX", "soffice")); l.Add(T("odp", "ODP", "soffice")); l.Add(T("png", "PNG", "soffice")); l.Add(T("jpg", "JPG", "soffice"));
                     break;
                 case ConvKind.Sheet:
-                    l.Add(T("pdf", "PDF", "soffice")); l.Add(T("xlsx", "XLSX", "soffice")); l.Add(T("csv", "CSV", "soffice"));
+                    l.Add(T("pdf", "PDF", "soffice")); l.Add(T("xlsx", "XLSX", "soffice")); l.Add(T("ods", "ODS", "soffice")); l.Add(T("csv", "CSV", "soffice"));
                     break;
                 case ConvKind.Pdf:
-                    l.Add(T("png", "PNG")); l.Add(T("jpg", "JPG"));
+                    l.Add(T("docx", "DOCX", "pdfword")); l.Add(T("txt", "TXT", "pdfword")); l.Add(T("png", "PNG")); l.Add(T("jpg", "JPG"));
+                    l.Add(T("ocr", Lang.T("Teks (OCR)"), "ocr")); l.Add(T("min", Lang.T("Kompres")));
                     break;
                 case ConvKind.Markdown:
                     l.Add(T("docx", "DOCX", "pandoc")); l.Add(T("html", "HTML", "pandoc")); l.Add(T("pdf", "PDF", "pandoc", "soffice"));
@@ -145,11 +156,14 @@ namespace Tepi
         public static List<ConvTarget> Targets(IList<string> files)
         {
             List<ConvTarget> common = null;
-            bool allImages = files.Count > 0;
+            bool paged = files.Count > 0, still = false;
             foreach (var f in files)
             {
                 var k = KindOf(f);
-                if (k != ConvKind.Image) allImages = false;
+                if (k != ConvKind.Image && k != ConvKind.Pdf) paged = false;
+                // Animations and icons lose frames when squeezed
+                string ext = Norm(Path.GetExtension(f));
+                if (ext == "gif" || ext == "ico") still = true;
                 var mine = For(k);
                 if (common == null) common = mine;
                 else common = common.FindAll(t => mine.Exists(m => m.Id == t.Id));
@@ -157,7 +171,8 @@ namespace Tepi
             if (common == null) common = new List<ConvTarget>();
             // Hidden when all files already match
             common.RemoveAll(t => AllAre(files, t.Id));
-            if (allImages && files.Count > 1) common.Add(T("pdf1", Lang.T("Gabung PDF")));
+            if (still) common.RemoveAll(t => t.Id == "min");
+            if (paged && files.Count > 1) common.Add(T("pdf1", Lang.T("Gabung PDF")));
             bool oneZip = files.Count == 1 && KindOf(files[0]) == ConvKind.Zip;
             if (!oneZip) common.Add(T("zip", "ZIP"));
             return common;
@@ -210,8 +225,32 @@ namespace Tepi
             {
                 case "soffice": return "LibreOffice";
                 case "pandoc": return "Pandoc";
+                case "pdfword": return Lang.T("Word atau LibreOffice");
+                case "ocr": return Lang.T("bahasa OCR Windows");
                 default: return "ffmpeg";
             }
+        }
+
+        // Word's COM server, from its registration
+        static string WordExe()
+        {
+            try
+            {
+                using (var progid = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(@"Word.Application\CLSID"))
+                {
+                    string clsid = progid != null ? progid.GetValue("") as string : null;
+                    if (string.IsNullOrEmpty(clsid)) return null;
+                    using (var server = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(@"CLSID\" + clsid + @"\LocalServer32"))
+                    {
+                        string cmd = server != null ? server.GetValue("") as string : null;
+                        if (string.IsNullOrEmpty(cmd)) return null;
+                        cmd = cmd.Trim();
+                        string exe = cmd.StartsWith("\"") ? cmd.Substring(1, Math.Max(0, cmd.IndexOf('"', 1) - 1)) : cmd.Split(' ')[0];
+                        return File.Exists(exe) ? exe : null;
+                    }
+                }
+            }
+            catch (Exception) { return null; }
         }
 
         public static string Tool(string id)
@@ -227,6 +266,10 @@ namespace Tepi
 
         static string FindTool(string id)
         {
+            // PDF to Word: Word reads PDFs best; LibreOffice will do
+            if (id == "pdfword") return WordExe() ?? FindTool("soffice");
+            // OCR is Windows' own: ready once a language is installed
+            if (id == "ocr") return Ocr.Available ? "windows" : null;
             string exe = id + ".exe";
             var dirs = new List<string>();
             foreach (var d in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';'))
@@ -276,7 +319,8 @@ namespace Tepi
                     Guard(job, outPath, delegate
                     {
                         if (id == "zip") Zip(job, outPath);
-                        else ImagesToPdf(job, job.Files, outPath, true);
+                        else if (job.Files.TrueForAll(f => KindOf(f) == ConvKind.Image)) ImagesToPdf(job, job.Files, outPath, true);
+                        else MergePdfs(job, outPath);
                     });
                 }
                 else
@@ -337,7 +381,10 @@ namespace Tepi
             string dir = Path.GetDirectoryName(src.TrimEnd('\\'));
             string name = Path.GetFileNameWithoutExtension(src.TrimEnd('\\'));
             if (kind == ConvKind.Zip && id == "unzip") { Unzip(job, src, dir, name); return; }
-            if (kind == ConvKind.Pdf) { PdfToImages(job, src, dir, name, id); return; }
+            if (id == "min") { Compress(job, src, kind, dir, name); return; }
+            if (id == "ocr") { OcrText(job, src, kind, dir, name); return; }
+            if (kind == ConvKind.Pdf && (id == "png" || id == "jpg")) { PdfToImages(job, src, dir, name, id); return; }
+            if (kind == ConvKind.Slides && (id == "png" || id == "jpg")) { SlidesToImages(job, src, dir, name, id); return; }
             // Already that format: nothing to do
             if (Norm(Path.GetExtension(src)) == id) return;
             string outPath = UniqueFile(dir, name, "." + id);
@@ -345,6 +392,9 @@ namespace Tepi
             {
                 switch (kind)
                 {
+                    case ConvKind.Pdf:
+                        PdfToWord(job, src, outPath, id);
+                        break;
                     case ConvKind.Image:
                         if (id == "pdf") ImagesToPdf(job, new List<string> { src }, outPath, false);
                         else ImageTo(src, outPath, id);
@@ -603,11 +653,54 @@ namespace Tepi
             }
         }
 
+        // From memory: no file handle left behind
+        static PdfDocument LoadPdf(string path, out InMemoryRandomAccessStream ms)
+        {
+            ms = new InMemoryRandomAccessStream();
+            using (var w = new DataWriter(ms.GetOutputStreamAt(0)))
+            {
+                w.WriteBytes(File.ReadAllBytes(path));
+                W(w.StoreAsync());
+                W(w.FlushAsync());
+                w.DetachStream();
+            }
+            return W(PdfDocument.LoadFromStreamAsync(ms));
+        }
+
+        // Windows' PDF reader counts; optionally draws page one
+        static uint PdfPages(string path, bool render)
+        {
+            InMemoryRandomAccessStream ms;
+            var doc = LoadPdf(path, out ms);
+            using (ms)
+            {
+                if (render && doc.PageCount > 0)
+                    using (var page = doc.GetPage(0))
+                    using (var img = new InMemoryRandomAccessStream())
+                        W(page.RenderToStreamAsync(img, new PdfPageRenderOptions { DestinationWidth = 160 }));
+                return doc.PageCount;
+            }
+        }
+
+        // A rewritten PDF must open, page for page
+        static void Verify(string src, string made)
+        {
+            if (PdfPages(made, true) != PdfPages(src, false)) throw new InvalidDataException(Lang.T("Hasilnya tidak lolos pemeriksaan"));
+        }
+
         // PDF pages: Windows renders them
         static void PdfToImages(ConvJob job, string src, string dir, string name, string id)
         {
-            var file = W(StorageFile.GetFileFromPathAsync(Path.GetFullPath(src)));
-            var doc = W(PdfDocument.LoadFromFileAsync(file));
+            InMemoryRandomAccessStream held;
+            var doc = LoadPdf(src, out held);
+            using (held)
+            {
+                PdfPagesOut(job, doc, dir, name, id);
+            }
+        }
+
+        static void PdfPagesOut(ConvJob job, PdfDocument doc, string dir, string name, string id)
+        {
             if (doc.IsPasswordProtected) throw new InvalidOperationException(Lang.T("PDF dikunci kata sandi"));
             uint count = doc.PageCount;
             string outDir = count > 1 ? UniqueDir(dir, name) : dir;
@@ -807,12 +900,13 @@ namespace Tepi
             {
                 case "txt": return "txt:Text (encoded):UTF8";
                 case "csv": return "csv:Text - txt - csv (StarCalc):44,34,76";
+                case "rtf": return "rtf:Rich Text Format";
                 default: return id;
             }
         }
 
         // LibreOffice: own profile, temp output
-        static void Office(ConvJob job, string src, string outPath, string filter)
+        static void Office(ConvJob job, string src, string outPath, string filter, string infilter = null)
         {
             string exe = Converter.Tool("soffice");
             if (exe == null) throw new FileNotFoundException(Lang.T("LibreOffice tidak ditemukan"));
@@ -822,7 +916,7 @@ namespace Tepi
             try
             {
                 string line = "--headless --norestore --nolockcheck --nodefault --nologo " + Q("-env:UserInstallation=" + profile) +
-                    " --convert-to " + Q(filter) + " --outdir " + Q(tmp) + " " + Q(src);
+                    (infilter != null ? " --infilter=" + Q(infilter) : "") + " --convert-to " + Q(filter) + " --outdir " + Q(tmp) + " " + Q(src);
                 using (var p = Launch(exe, line, true))
                 {
                     job.Proc = p;
@@ -857,13 +951,334 @@ namespace Tepi
 
         static void MarkdownToPdf(ConvJob job, string src, string outPath)
         {
-            string tmp = Path.Combine(Path.GetTempPath(), "tepi-" + Guid.NewGuid().ToString("N") + ".docx");
+            string tmp = TempPath(".docx");
             try
             {
                 Pandoc(job, src, tmp, "markdown", "docx");
                 if (!job.Cancelled) Office(job, tmp, outPath, "pdf");
             }
             finally { TryDelete(tmp); }
+        }
+
+        static string TempPath(string ext) { return Path.Combine(Path.GetTempPath(), "tepi-" + Guid.NewGuid().ToString("N") + ext); }
+
+        // Slides: through PDF, then a picture per slide
+        static void SlidesToImages(ConvJob job, string src, string dir, string name, string id)
+        {
+            string tmp = TempPath(".pdf");
+            try
+            {
+                Office(job, src, tmp, "pdf");
+                if (!job.Cancelled) PdfToImages(job, tmp, dir, name, id);
+            }
+            finally { TryDelete(tmp); }
+        }
+
+        // Images become pages first, then one PDF
+        static void MergePdfs(ConvJob job, string outPath)
+        {
+            var parts = new List<string>();
+            var temps = new List<string>();
+            uint pages = 0;
+            try
+            {
+                for (int i = 0; i < job.Files.Count && !job.Cancelled; i++)
+                {
+                    job.Index = i;
+                    job.Ping();
+                    string part = job.Files[i];
+                    if (KindOf(part) == ConvKind.Image)
+                    {
+                        part = TempPath(".pdf");
+                        temps.Add(part);
+                        ImagesToPdf(job, new List<string> { job.Files[i] }, part, false);
+                    }
+                    parts.Add(part);
+                    pages += PdfPages(part, false);
+                }
+                if (job.Cancelled) return;
+                PdfLite.Merge(parts, outPath, k => { if (job.Cancelled) throw new OperationCanceledException(); job.Part = k; job.Ping(); });
+                if (PdfPages(outPath, true) != pages) throw new InvalidDataException(Lang.T("Hasilnya tidak lolos pemeriksaan"));
+            }
+            finally { foreach (var t in temps) TryDelete(t); }
+        }
+
+        // Compress
+
+        // Smaller copy beside the original
+        static void Compress(ConvJob job, string src, ConvKind kind, string dir, string name)
+        {
+            string stem = name + " (" + Lang.T("kompres") + ")";
+            switch (kind)
+            {
+                case ConvKind.Pdf:
+                    string pdf = UniqueFile(dir, stem, ".pdf");
+                    Shrunk(job, src, pdf, delegate
+                    {
+                        // About 150 dpi on a full page
+                        PdfLite.Compress(src, pdf, 1800, 68, k => { if (job.Cancelled) throw new OperationCanceledException(); job.Part = k; job.Ping(); });
+                        Verify(src, pdf);
+                    });
+                    break;
+                case ConvKind.Image:
+                    using (var bmp = Decode(src))
+                    {
+                        // Transparency stays PNG; photos become JPEG
+                        bool alpha = HasAlpha(bmp);
+                        string img = UniqueFile(dir, stem, alpha ? ".png" : ".jpg");
+                        Shrunk(job, src, img, delegate
+                        {
+                            double k = Math.Min(1.0, 2560.0 / Math.Max(bmp.Width, bmp.Height));
+                            using (var small = Scaled(bmp, Math.Max(1, (int)Math.Round(bmp.Width * k)), Math.Max(1, (int)Math.Round(bmp.Height * k))))
+                            {
+                                if (alpha) small.Save(img, ImageFormat.Png);
+                                else File.WriteAllBytes(img, Jpeg(small, 78));
+                            }
+                        });
+                    }
+                    break;
+                case ConvKind.Video:
+                    string mp4 = UniqueFile(dir, stem, ".mp4");
+                    // Long side at most 1080p's width, even sizes for H.264
+                    Shrunk(job, src, mp4, delegate
+                    {
+                        Ffmpeg(job, src, mp4, "-c:v libx264 -preset medium -crf 28 -vf \"scale='if(gt(iw,ih),trunc(min(1920,iw)/2)*2,-2)':'if(gt(iw,ih),-2,trunc(min(1920,ih)/2)*2)'\" -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart");
+                    });
+                    break;
+                case ConvKind.Audio:
+                    string mp3 = UniqueFile(dir, stem, ".mp3");
+                    Shrunk(job, src, mp3, delegate { Ffmpeg(job, src, mp3, "-vn -c:a libmp3lame -b:a 128k"); });
+                    break;
+                default:
+                    throw new NotSupportedException(Lang.T("Berkas ini tidak bisa dikompres"));
+            }
+        }
+
+        // Kept only when clearly smaller; the original is never touched
+        static void Shrunk(ConvJob job, string src, string outPath, Action work)
+        {
+            try { work(); }
+            catch (Exception) { TryDelete(outPath); throw; }
+            if (job.Cancelled) { TryDelete(outPath); return; }
+            long before = new FileInfo(src).Length, after = File.Exists(outPath) ? new FileInfo(outPath).Length : 0;
+            if (after == 0 || after > before * 0.97) { TryDelete(outPath); job.Small++; return; }
+            job.BytesIn += before;
+            job.BytesOut += after;
+            lock (job.Outputs) job.Outputs.Add(outPath);
+        }
+
+        static bool HasAlpha(Bitmap bmp)
+        {
+            if (!Image.IsAlphaPixelFormat(bmp.PixelFormat)) return false;
+            var bd = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            try
+            {
+                var row = new byte[bmp.Width * 4];
+                for (int y = 0; y < bmp.Height; y++)
+                {
+                    Marshal.Copy(new IntPtr(bd.Scan0.ToInt64() + (long)y * bd.Stride), row, 0, row.Length);
+                    for (int x = 3; x < row.Length; x += 4) if (row[x] != 255) return true;
+                }
+            }
+            finally { bmp.UnlockBits(bd); }
+            return false;
+        }
+
+        static Bitmap Scaled(Bitmap src, int w, int h)
+        {
+            var b = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(b))
+            using (var wrap = new ImageAttributes())
+            {
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.CompositingMode = CompositingMode.SourceCopy;
+                wrap.SetWrapMode(WrapMode.TileFlipXY);
+                g.DrawImage(src, new Rectangle(0, 0, w, h), 0, 0, src.Width, src.Height, GraphicsUnit.Pixel, wrap);
+            }
+            return b;
+        }
+
+        // PDF to Word
+
+        // DOCX: Word if installed, else LibreOffice's PDF import.
+        // TXT comes out of that DOCX: their own text export skips text boxes
+        static void PdfToWord(ConvJob job, string src, string outPath, string id)
+        {
+            string docx = id == "txt" ? TempPath(".docx") : outPath;
+            try
+            {
+                if (WordExe() != null) WordSave(job, src, docx);
+                else Office(job, src, docx, "docx:MS Word 2007 XML", "writer_pdf_import");
+                if (id != "txt" || job.Cancelled) return;
+                string text = DocxText(docx);
+                // A scan has no text layer: read the pages instead
+                if (text.Trim().Length == 0 && Ocr.Available) text = OcrPdf(job, src) ?? "";
+                if (job.Cancelled) return;
+                if (text.Trim().Length == 0) throw new InvalidOperationException(Lang.T("PDF ini tidak berisi teks, mungkin hasil scan"));
+                File.WriteAllText(outPath, Lines(text), new UTF8Encoding(false));
+            }
+            finally { if (id == "txt") TryDelete(docx); }
+        }
+
+        // Paragraphs, tabs, and breaks, text boxes included
+        static string DocxText(string path)
+        {
+            const string Ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var sb = new StringBuilder();
+            using (var z = ZipFile.OpenRead(path))
+            {
+                var entry = z.GetEntry("word/document.xml");
+                if (entry == null) return "";
+                using (var r = System.Xml.XmlReader.Create(entry.Open()))
+                {
+                    bool inText = false, more = r.Read();
+                    for (; more; more = r.Read())
+                    {
+                        // Text boxes come twice: skip the old VML copy
+                        while (more && r.NodeType == System.Xml.XmlNodeType.Element && r.LocalName == "Fallback" && r.NamespaceURI == "http://schemas.openxmlformats.org/markup-compatibility/2006")
+                        {
+                            r.Skip();
+                            more = !r.EOF;
+                        }
+                        if (!more) break;
+                        if (r.NodeType == System.Xml.XmlNodeType.Element && r.NamespaceURI == Ns)
+                        {
+                            if (r.LocalName == "t") inText = !r.IsEmptyElement;
+                            else if (r.LocalName == "tab") sb.Append('\t');
+                            else if (r.LocalName == "br" || r.LocalName == "cr") sb.Append('\n');
+                        }
+                        else if (r.NodeType == System.Xml.XmlNodeType.EndElement && r.NamespaceURI == Ns)
+                        {
+                            if (r.LocalName == "t") inText = false;
+                            else if (r.LocalName == "p") sb.Append('\n');
+                        }
+                        else if (inText && (r.NodeType == System.Xml.XmlNodeType.Text || r.NodeType == System.Xml.XmlNodeType.SignificantWhitespace || r.NodeType == System.Xml.XmlNodeType.Whitespace)) sb.Append(r.Value);
+                    }
+                }
+            }
+            return sb.ToString();
+        }
+
+        // Windows line ends, no runs of blank lines
+        static string Lines(string text)
+        {
+            text = text.Replace("\r\n", "\n").Replace('\r', '\n');
+            while (text.Contains("\n\n\n")) text = text.Replace("\n\n\n", "\n\n");
+            return text.Trim().Replace("\n", "\r\n") + "\r\n";
+        }
+
+        // OCR
+
+        // Words in pictures and scans, read by Windows
+        static void OcrText(ConvJob job, string src, ConvKind kind, string dir, string name)
+        {
+            string outPath = UniqueFile(dir, name, ".txt");
+            Guard(job, outPath, delegate
+            {
+                string text = kind == ConvKind.Pdf ? OcrPdf(job, src) : Ocr.Read(src);
+                if (job.Cancelled) return;
+                if (text == null) throw new InvalidOperationException(Lang.T("Bahasa OCR Windows belum terpasang"));
+                if (text.Trim().Length == 0) throw new InvalidOperationException(Lang.T("Tidak ada teks yang terbaca"));
+                File.WriteAllText(outPath, Lines(text), new UTF8Encoding(false));
+            });
+        }
+
+        // Page by page at about 190 dpi
+        static string OcrPdf(ConvJob job, string src)
+        {
+            InMemoryRandomAccessStream held;
+            var doc = LoadPdf(src, out held);
+            using (held)
+            {
+                var sb = new StringBuilder();
+                for (uint i = 0; i < doc.PageCount && !job.Cancelled; i++)
+                {
+                    job.Part = (float)i / doc.PageCount;
+                    job.Ping();
+                    using (var page = doc.GetPage(i))
+                    using (var ms = new InMemoryRandomAccessStream())
+                    {
+                        W(page.RenderToStreamAsync(ms, new PdfPageRenderOptions { DestinationWidth = (uint)Math.Max(1, page.Size.Width * 2) }));
+                        ms.Seek(0);
+                        string text = Ocr.Read(ms);
+                        if (text == null) return null;
+                        if (text.Trim().Length > 0) sb.Append(text).Append("\n\n");
+                    }
+                }
+                return sb.ToString();
+            }
+        }
+
+        // Word on its own thread; no window, no prompts, no macros
+        static void WordSave(ConvJob job, string src, string outPath)
+        {
+            Exception error = null;
+            Process mine = null;
+            var before = new HashSet<int>();
+            foreach (var p in Process.GetProcessesByName("WINWORD")) { before.Add(p.Id); p.Dispose(); }
+            var t = new Thread(delegate ()
+            {
+                object word = null;
+                try
+                {
+                    word = Activator.CreateInstance(Type.GetTypeFromProgID("Word.Application", true));
+                    foreach (var p in Process.GetProcessesByName("WINWORD")) { if (mine == null && !before.Contains(p.Id)) mine = p; else p.Dispose(); }
+                    Com(word, "Visible", BindingFlags.SetProperty, false);
+                    Com(word, "DisplayAlerts", BindingFlags.SetProperty, 0);
+                    Com(word, "AutomationSecurity", BindingFlags.SetProperty, 3);
+                    var docs = Com(word, "Documents", BindingFlags.GetProperty);
+                    var doc = ComNamed(docs, "Open", new object[] { src, false, true, false }, "FileName", "ConfirmConversions", "ReadOnly", "AddToRecentFiles");
+                    try
+                    {
+                        // 16: DOCX; a background save must land first
+                        ComNamed(doc, "SaveAs2", new object[] { outPath, 16 }, "FileName", "FileFormat");
+                        for (int i = 0; i < 600 && Convert.ToInt32(Com(word, "BackgroundSavingStatus", BindingFlags.GetProperty)) > 0; i++) Thread.Sleep(100);
+                    }
+                    finally
+                    {
+                        ComNamed(doc, "Close", new object[] { false }, "SaveChanges");
+                        Marshal.ReleaseComObject(doc);
+                        Marshal.ReleaseComObject(docs);
+                    }
+                }
+                catch (Exception ex) { error = ex is TargetInvocationException && ex.InnerException != null ? ex.InnerException : ex; }
+                finally
+                {
+                    // Quit only a Word this job started
+                    if (word != null)
+                    {
+                        try { if (mine != null) ComNamed(word, "Quit", new object[] { false }, "SaveChanges"); } catch (Exception) { }
+                        try { Marshal.ReleaseComObject(word); } catch (Exception) { }
+                    }
+                }
+            }) { IsBackground = true, Name = "word" };
+            t.SetApartmentState(ApartmentState.STA);
+            t.Start();
+            var started = DateTime.UtcNow;
+            while (!t.Join(250))
+            {
+                if (!job.Cancelled && (DateTime.UtcNow - started).TotalMinutes < 4) continue;
+                // Stuck or cancelled: end only our Word
+                if (mine != null) try { mine.Kill(); } catch (Exception) { }
+                t.Join(5000);
+                if (mine != null) mine.Dispose();
+                if (job.Cancelled) return;
+                throw new TimeoutException(Lang.T("Word terlalu lama"));
+            }
+            if (mine != null) mine.Dispose();
+            if (error != null) throw error;
+            if (!File.Exists(outPath)) throw new InvalidOperationException(Lang.T("Word tidak menghasilkan berkas"));
+        }
+
+        static object Com(object target, string name, BindingFlags how, params object[] args)
+        {
+            return target.GetType().InvokeMember(name, how, null, target, args);
+        }
+
+        static object ComNamed(object target, string name, object[] args, params string[] names)
+        {
+            return target.GetType().InvokeMember(name, BindingFlags.InvokeMethod, null, target, args, null, null, names);
         }
     }
 }

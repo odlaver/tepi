@@ -32,7 +32,7 @@ namespace Tepi
         double dictLevelT;
 
         bool DictOn { get { return settings.GetBool("dictate", false); } }
-        string DictEngine { get { return settings.Get("dictate.engine", "groq"); } }
+        string DictEngine { get { return Ai.SttId; } }
         Speech.LocalModel DictModel { get { return Speech.Model(settings.Get("dictate.model", "seimbang")); } }
         int HoldVk { get { return settings.Get("dictate.key", "rctrl") == "ralt" ? 0xA5 : 0xA3; } }
 
@@ -40,7 +40,7 @@ namespace Tepi
         string DictMissing()
         {
             if (DictEngine == "lokal") return Speech.LocalReady(DictModel) ? null : Lang.T("Model offline belum diunduh");
-            return string.IsNullOrEmpty(Speech.GroqKey()) ? Lang.T("Key Groq belum diisi") : null;
+            return Ai.SttMissing();
         }
 
         // User-triggered: shows even in calls
@@ -51,6 +51,7 @@ namespace Tepi
             t.Glyph = Ink.IcoMic;
             t.Title = title;
             t.Detail = detail;
+            t.Page = PageVoice;
         }
 
         string DictLang()
@@ -196,7 +197,7 @@ namespace Tepi
         void BeginDictate(bool handsFree)
         {
             string missing = DictMissing();
-            if (missing != null) { DictSay(missing, Lang.T("Atur di Pengaturan › Dikte"), true); return; }
+            if (missing != null) { DictSay(missing, Lang.T("Atur di Pengaturan › AI"), true); return; }
             if (!micPresent) { DictSay(Lang.T("Tidak ada mikrofon"), "", true); return; }
             if (micMuted) { DictSay(Lang.T("Mikrofon mati"), Lang.T("Nyalakan dulu untuk dikte"), true); return; }
             dictTarget = GetAncestor(GetForegroundWindow(), 3);
@@ -275,8 +276,7 @@ namespace Tepi
                     if (engine == "lokal") res = Speech.Local(model, wav, lang, vocab.Prompt());
                     else
                     {
-                        string key = Speech.GroqKey();
-                        res = string.IsNullOrEmpty(key) ? new SpeechResult { Error = Lang.T("Key Groq belum diisi") } : Speech.Groq(key, wav, lang, vocab.Prompt(), false);
+                        res = Ai.Transcribe(wav, lang, vocab.Prompt(), false);
                         // No internet: offline model stands in
                         if (!res.Ok && res.NoNet && Speech.LocalReady(model)) { res = Speech.Local(model, wav, lang, vocab.Prompt()); fallback = res.Ok; }
                     }
@@ -293,14 +293,14 @@ namespace Tepi
             Kick();
             if (error == "") return;
             if (error != null) { DictSay(error, "", true); return; }
-            if (dictCommand && !string.IsNullOrEmpty(text)) { RunSuruh(text, true); return; }
+            if (dictCommand && !string.IsNullOrEmpty(text)) { RunSuruh(text); return; }
             if (string.IsNullOrEmpty(text)) { DictSay(Lang.T("Tidak ada kata yang terdengar"), "", true); return; }
             // Next dictation continues the sentence
             if (!text.EndsWith("\n")) text += " ";
             dictLast = text;
             CountDictated(text);
             LogVoice("dikte", text.Trim(), dictApp);
-            PasteText(text, dictTarget, fallback ? Lang.T("Offline, Groq tidak terjangkau") : null);
+            PasteText(text, dictTarget, fallback ? Lang.T("Offline, server suara tidak terjangkau") : null);
         }
 
         void CountDictated(string text)
@@ -377,7 +377,7 @@ namespace Tepi
             catch (Exception) { return null; }
         }
 
-        void PasteText(string text, IntPtr target, string note)
+        void PasteText(string text, IntPtr target, string note, DataObject restore = null)
         {
             string preview = text.Trim().Replace("\r", "").Replace('\n', ' ');
             bool gone = target == IntPtr.Zero || !IsWindow(target);
@@ -389,25 +389,21 @@ namespace Tepi
                 DictSay(Lang.T("Teks disalin"), blocked ? Lang.T("Jendela admin, tempel sendiri dengan Ctrl+V") : Lang.T("Jendela berganti, tempel dengan Ctrl+V"), true);
                 return;
             }
-            var saved = Snapshot();
+            var saved = restore ?? Snapshot();
             try { Clipboard.SetDataObject(Marked(text), false, 5, 40); }
             catch (Exception ex) { Log.Write("dikte clipboard: " + ex.Message); DictSay(Lang.T("Clipboard sedang dipakai aplikasi lain"), "", true); return; }
             ThreadPool.QueueUserWorkItem(delegate
             {
-                for (int i = 0; i < 40 && AnyHeld(0x10, 0x11, 0x12, 0x5B, 0x5C); i++) Thread.Sleep(15);
+                var keys = Chord(0x56);
                 bool sent = false;
                 if (GetAncestor(GetForegroundWindow(), 3) == target)
-                {
-                    var keys = new[] { Key(0x11, '\0', 0), Key(0x56, '\0', 0), Key(0x56, '\0', 2), Key(0x11, '\0', 2) };
                     sent = SendInput((uint)keys.Length, keys, Marshal.SizeOf(typeof(INPUT))) == keys.Length;
-                }
                 // App reads clipboard after the keys
                 Thread.Sleep(450);
                 Post(delegate
                 {
                     if (!sent) { DictSay(Lang.T("Teks disalin"), Lang.T("Tempel dengan Ctrl+V"), true); return; }
-                    try { if (saved != null) Clipboard.SetDataObject(saved, false, 5, 40); else Clipboard.Clear(); }
-                    catch (Exception ex) { Log.Write("dikte pulihkan clipboard: " + ex.Message); }
+                    Restore(saved);
                     var t = ShowToast(View.Dictate, 2.6, 2, false, true);
                     if (t == null) return;
                     t.Title = preview;

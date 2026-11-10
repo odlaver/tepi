@@ -29,6 +29,8 @@ namespace Tepi
         // Reminder holds the island until closed
         public bool Hold;
         public double Seconds;
+        // Tab its history lives in; -1 picks by view
+        public int Page = -1;
     }
 
     class Hit
@@ -46,7 +48,7 @@ namespace Tepi
 
     partial class Island : Form
     {
-        const float Gap = 9f, Pad = 34f, MaxH = 380f, BubbleR = 17f, BubbleGap = 10f, BaseHalf = 300f;
+        const float Gap = 9f, Pad = 34f, MaxH = 380f, BubbleR = 17f, BubbleGap = 10f, BaseHalf = 330f;
         // Wide teleprompter widens the canvas
         float prompterHalf = BaseHalf, canvasHalf = BaseHalf;
         float WantHalf { get { return PrompterOn ? Math.Max(BaseHalf, prompterHalf) : BaseHalf; } }
@@ -115,11 +117,17 @@ namespace Tepi
             Ink.Apply(ThemeLight());
             Ink.SetAccent(settings.Get("accent", ""));
             clockTimer.Tick += delegate { ClockTick(); };
-            toastTimer.Tick += delegate { toastTimer.Stop(); DismissToast(); };
+            toastTimer.Tick += delegate
+            {
+                toastTimer.Stop();
+                // Buttons under the pointer stay; gone soon after it leaves
+                if (toast != null && toast.Interactive && pointerInside) { toastTimer.Interval = 1500; toastTimer.Start(); return; }
+                DismissToast();
+            };
             hoverTimer.Tick += delegate
             {
                 hoverTimer.Stop();
-                if (pointerInside && !expanded && CanExpand()) Expand(DefaultPage(true));
+                if (pointerInside && !expanded && CanExpand()) Expand(ToastPage(true));
             };
             leaveTimer.Tick += delegate
             {
@@ -130,6 +138,7 @@ namespace Tepi
             ambientTimer.Tick += delegate { AmbientTick(); };
             spriteTimer.Tick += delegate { SpriteTick(); };
             trimTimer.Tick += delegate { trimTimer.Stop(); TrimAtRest(); };
+            dockLeave.Tick += delegate { DockLeaveTick(); };
             Application.Idle += OnIdle;
         }
 
@@ -154,7 +163,7 @@ namespace Tepi
             UpdateMonitor();
             var abd = new Native.APPBARDATA { cbSize = Marshal.SizeOf(typeof(Native.APPBARDATA)), hWnd = Handle, uCallbackMessage = AppBarMsg };
             Native.SHAppBarMessage(0, ref abd);
-            winProc = delegate { fsTimer.Stop(); fsTimer.Start(); NudgeFrost(); };
+            winProc = delegate { fsTimer.Stop(); fsTimer.Start(); NudgeFrost(); NudgeDock(); };
             winHook = Native.SetWinEventHook(3, 3, IntPtr.Zero, winProc, 0, 0, 0);
             // Windows moving behind the glass
             moveHook = Native.SetWinEventHook(0x0B, 0x0B, IntPtr.Zero, winProc, 0, 0, 0);
@@ -193,6 +202,7 @@ namespace Tepi
         {
             base.OnLoad(e);
             CleanUpdate();
+            ShellApp.EnsureStartEntry();
             Lang.English = settings.Get("lang", "id") == "en";
             LoadPack();
             LoadLayout();
@@ -211,6 +221,9 @@ namespace Tepi
             StartDictate();
             LoadOneShots();
             ApplyReserve();
+            ApplyDock();
+            // Left hidden by a crash: the taskbar comes back
+            if (dockWin == null) Taskbar.Restore(settings);
             // New installs: tour, not notes
             if (settings.Fresh) settings.Set("whatsnew.seen", AppVersion);
             TourOnFirstRun();
@@ -250,6 +263,7 @@ namespace Tepi
             foreach (var reg in new[] { powerSrc, powerPct, powerDisplay })
                 if (reg != IntPtr.Zero) Native.UnregisterPowerSettingNotification(reg);
             ReleaseApprovals();
+            if (dockWin != null) { dockWin.Shutdown(); dockWin = null; }
             CleanShots(true);
             CloseMirror();
             CloseConvert();
@@ -308,6 +322,8 @@ namespace Tepi
                     else if (m.WParam.ToInt32() == DictPasteHotkey) BeginInvoke(new Action(PasteLastDictation));
                     else if (m.WParam.ToInt32() == RapatHotkey) ToggleRapat();
                     else if (m.WParam.ToInt32() == SuruhHotkey) BeginInvoke(new Action(OpenSuruh));
+                    else if (m.WParam.ToInt32() == FixHotkey) BeginInvoke(new Action(delegate { RewriteSelection(false); }));
+                    else if (m.WParam.ToInt32() == TranslateHotkey) BeginInvoke(new Action(delegate { RewriteSelection(true); }));
                     return;
                 case 0x020E: // WM_MOUSEHWHEEL: sideways swipe changes tab
                     if (expanded) WheelTab((short)((m.WParam.ToInt64() >> 16) & 0xFFFF));
@@ -353,6 +369,7 @@ namespace Tepi
             settings.Save();
             UpdateMonitor();
             ResetFrost();
+            if (dockWin != null) dockWin.Changed();
             CheckFullscreen();
             Kick();
         }
@@ -361,6 +378,7 @@ namespace Tepi
         {
             UpdateMonitor();
             if (reservedPx > 0) { reservedPx = -1; ApplyReserve(); }
+            if (dockWin != null) dockWin.Changed();
             Kick();
         }
 
@@ -470,7 +488,8 @@ namespace Tepi
         // Side bubble: agent or deadline
         View BubbleKind()
         {
-            if (current != View.Media && current != View.Lyric) return View.Idle;
+            // Upright capsule has no room beside it
+            if ((current != View.Media && current != View.Lyric) || OnSide) return View.Idle;
             // Locks first: easy to miss while typing
             if (LockShown) return View.Locks;
             if (BusySession() != null) return View.Agent;
@@ -632,6 +651,7 @@ namespace Tepi
             float dt = (float)Math.Min(0.05, Math.Max(0.001, t - lastT));
             lastT = t;
             sw.Step(dt); sh.Step(dt); sr.Step(dt); bubble.Step(dt); opacity.Step(dt); topGap.Step(dt);
+            StepPlace(dt);
             StepPanel(dt);
             StepPrompter(dt);
             StepViews(dt, now);
@@ -702,7 +722,7 @@ namespace Tepi
 
         bool Moving(DateTime now)
         {
-            return !sw.Settled || !sh.Settled || !sr.Settled || !bubble.Settled || !opacity.Settled || !topGap.Settled ||
+            return !sw.Settled || !sh.Settled || !sr.Settled || !bubble.Settled || !opacity.Settled || !topGap.Settled || PlaceMoving() ||
                    (flipLinear != 0 && flipLinear != 1) || (now - switchedUtc).TotalSeconds < 0.5 || snapshot != null ||
                    (toast != null && (now - toast.ShownUtc).TotalSeconds < 1.2) || PanelMoving() || ViewsMoving(now) || (current == View.Idle && clockRoller.Moving(now)) || ApproveArming(now) ||
                    ThemeMoving(now) ||
@@ -718,15 +738,21 @@ namespace Tepi
             float H = Math.Max(6, sh.Value - jelly * Clamp(sw.Velocity * 0.005f, -3, 3));
             float R = Math.Max(0, Math.Min(sr.Value, Math.Min(W, H) / 2));
             float pb = Math.Max(0, bubble.Value);
+            bool side = OnSide;
+            // On a side the arrival dip pushes outward instead
+            if (side) W += Math.Max(0, topGap.Value - Gap);
             float half = W / 2 + (pb > 0.001f ? BubbleGap + BubbleR * 2 : 0);
             // Room for corner mascot
             float extra = corner != null && current == View.Panel ? 20 : 0;
             int pxW = Math.Min(canvasW - (canvasW & 1), 2 * (int)Math.Ceiling((Math.Min(half, canvasHalf) + Pad + extra) * scale));
             // Docked: no gap; the arrival dip stretches the island instead
-            float gap = Docked ? 0 : Math.Max(0, topGap.Value);
-            if (Docked) H += Math.Max(0, topGap.Value - Gap);
+            float gap = side ? Gap : Docked ? 0 : Math.Max(0, topGap.Value);
+            if (Docked && !side) H += Math.Max(0, topGap.Value - Gap);
             int pxH = Math.Min(canvasH, (int)Math.Ceiling((gap + Math.Max(H, BubbleR * 2) + Pad + extra) * scale));
             float cx = pxW / scale / 2f;
+            var origin = CanvasAt(pxW, W, H);
+            frameLeft = origin.X;
+            frameTop = origin.Y;
             BeginLive(now, pxW, pxH);
             inRender = true;
 
@@ -760,7 +786,7 @@ namespace Tepi
             Prof.Add("shadow", t0);
 
             ClearHits();
-            using (var path = Docked ? Ink.Notch(shell, R, 10) : Ink.Round(shell, R))
+            using (var path = ShellPath(shell, R))
             {
                 if (liveRecord) KeepShell(path, R);
                 if (!bubbleRect.IsEmpty)
@@ -790,8 +816,9 @@ namespace Tepi
                 if (flip > 0.001f)
                 {
                     // Inversion spreads from where the island hangs
-                    float ox = shell.X + W / 2, oy = shell.Y;
-                    float rad = flip * (float)Math.Sqrt(W * W / 4 + H * H) + 1;
+                    int at = PlaceNow;
+                    float ox = at == PlaceLeft ? shell.X : at == PlaceRight ? shell.Right : shell.X + W / 2, oy = side ? shell.Y + H / 2 : shell.Y;
+                    float rad = flip * (float)(side ? Math.Sqrt(W * W + H * H / 4) : Math.Sqrt(W * W / 4 + H * H)) + 1;
                     var st = g.Save();
                     g.SetClip(path, CombineMode.Intersect);
                     using (var circle = new GraphicsPath())
@@ -812,10 +839,11 @@ namespace Tepi
             t0 = Prof.T();
             FinishLive(now);
             Prof.Add("live", t0);
+            ClearOffMonitor(frameLeft, frameTop, pxW, pxH);
 
             t0 = Prof.T();
             g.Flush(FlushIntention.Sync);
-            var dst = new Native.POINT(WindowLeft(pxW), monitorPx.Top);
+            var dst = new Native.POINT(frameLeft, frameTop);
             var size = new Native.SIZE(pxW, pxH);
             var src = new Native.POINT(0, 0);
             var blend = new Native.BLENDFUNCTION { SourceConstantAlpha = (byte)(255 * Ease.Clamp01(opacity.Value)), AlphaFormat = 1 };
@@ -826,6 +854,7 @@ namespace Tepi
             dumpAt = new Rectangle(dst.X, dst.Y, pxW, pxH);
             lastShellPx = Rectangle.Round(new RectangleF(shell.X * scale, shell.Y * scale, shell.Width * scale, shell.Height * scale));
             lastLeft = dst.X;
+            lastTop = dst.Y;
         }
 
         // Snapshot morph: last shell, half size
@@ -869,7 +898,7 @@ namespace Tepi
             // Plain memory copy, no resampling
             g.Flush(FlushIntention.Sync);
             BitBlt(snapDC, 0, 0, w, h, memDC, r.X, r.Y, 0x00CC0020);
-            snapScreen = new Rectangle(lastLeft + r.X, r.Y, r.Width, r.Height);
+            snapScreen = new Rectangle(lastLeft + r.X, lastTop + r.Y, r.Width, r.Height);
             snapUtc = DateTime.UtcNow;
         }
 
@@ -880,10 +909,9 @@ namespace Tepi
             double secs = (now - snapUtc).TotalSeconds, t = secs / SnapSeconds;
             if (t >= 1) { FreeSnapshot(); return; }
             float k = Ease.OutCubic((float)t), sc = Anim.Reduced ? 1 : 1 - 0.08f * Springs.Progress((float)secs, 0.24f, 1f);
-            int left = WindowLeft(snapPxW);
             float w = snapScreen.Width * sc, h = snapScreen.Height * sc;
-            float cx = snapScreen.X - left + snapScreen.Width / 2f;
-            var dst = new RectangleF(cx - w / 2, snapScreen.Y, w, h);
+            float cx = snapScreen.X - frameLeft + snapScreen.Width / 2f;
+            var dst = new RectangleF(cx - w / 2, snapScreen.Y - frameTop, w, h);
             // GDI AlphaBlend: premultiplied, constant fade
             int sca = (int)(255 * (1 - k) * 0.95f);
             if (sca <= 0) return;
@@ -1056,6 +1084,12 @@ namespace Tepi
 
         float BubbleX(float pb)
         {
+            // Right edge near: the bubble rides on the left
+            if (RightHanded)
+            {
+                float restL = shell.Left - BubbleGap - BubbleR;
+                return Anim.Reduced ? restL : Ease.Lerp(shell.Left + CapR, restL, pb);
+            }
             float rest = shell.Right + BubbleGap + BubbleR;
             return Anim.Reduced ? rest : Ease.Lerp(shell.Right - CapR, rest, pb);
         }
@@ -1065,15 +1099,17 @@ namespace Tepi
         {
             bridge.Reset();
             bridgeOn = false;
-            float capR = CapR, capX = shell.Right - capR, gapNow = bx - br - shell.Right;
+            bool lefty = RightHanded;
+            float capR = CapR, capX = lefty ? shell.Left + capR : shell.Right - capR;
+            float gapNow = lefty ? shell.Left - (bx + br) : bx - br - shell.Right;
             if (!Anim.Reduced && gapNow < BridgeSnap)
             {
                 float v = 0.5f * (float)Math.Pow(Ease.Clamp01(1 - gapNow / BridgeSnap), 0.6);
                 bridgeOn = v > 0.02f && Metaball(bridge, capX, cy, capR, bx, cy, br, v);
             }
             if (!bridgeOn) { bridge.Reset(); bridge.AddEllipse(bx - br, cy - br, br * 2, br * 2); }
-            float left = bridgeOn ? capX : bx - br, half = bridgeOn ? Math.Max(br, capR) : br;
-            var bounds = new RectangleF(left, cy - half, bx + br - left, half * 2);
+            float near = bridgeOn ? capX : lefty ? bx + br : bx - br, outer = lefty ? bx - br : bx + br, half = bridgeOn ? Math.Max(br, capR) : br;
+            var bounds = new RectangleF(Math.Min(near, outer), cy - half, Math.Abs(outer - near), half * 2);
             // Reduced motion: a plain fade in place
             if (Anim.Reduced && bubble.Value < 0.98f)
             {
@@ -1222,12 +1258,39 @@ namespace Tepi
 
         bool CanExpand() { return !hiddenByUser && !PrompterOn && !ConvertOn && approvals.Count == 0 && (toast == null || !toast.Interactive); }
 
+        // A toast opens where its story continues
+        int ToastPage(bool hover)
+        {
+            if (toast == null) return DefaultPage(hover);
+            if (toast.Page >= 0) return toast.Page;
+            switch (toast.View)
+            {
+                case View.Track: return PageMusic;
+                case View.Done: return PageAgents;
+                case View.Notif: return PageMessages;
+                case View.Deadline: return PageClass;
+                case View.Volume:
+                case View.Brightness:
+                case View.AudioDevice:
+                case View.Power:
+                case View.Network:
+                case View.Mic: return PageControl;
+                case View.Pray:
+                case View.Remind: return PageRemind;
+                case View.Shot:
+                case View.ShelfDrop: return PageShelf;
+                case View.Otp: return PagePhone;
+            }
+            return DefaultPage(hover);
+        }
+
         void Expand(int pg)
         {
             if (!CanExpand()) return;
             toast = null;
             toastTimer.Stop();
             expanded = true;
+            homeScroll.Snap(0);
             PickDecor();
             StartBubbles(12);
             SetPage(pg, true);
@@ -1276,7 +1339,7 @@ namespace Tepi
             else if (!inside && pointerInside) { PointerLeave(); return; }
             string id = inside ? HitAt(mouse) : null;
             // Redraw only when the hovered control changes
-            if (id != hoverId) { hoverId = id; Kick(); }
+            if (id != hoverId) { hoverId = id; Kick(); if (expanded) TabHoverCheck(id); }
         }
 
         void PointerLeave()
@@ -1365,7 +1428,7 @@ namespace Tepi
                 bool onBubble = !bubbleRect.IsEmpty && bubbleRect.Contains(pt);
                 if (onBubble && BubbleKind() == View.Task) ShowTasks();
                 else if (onBubble && BubbleKind() == View.Timer) Expand(PageControl);
-                else Expand(onBubble && BubbleKind() == View.Agent ? PageAgents : DefaultPage(false));
+                else Expand(onBubble && BubbleKind() == View.Agent ? PageAgents : ToastPage(false));
             }
             pressedId = null;
             Kick();
@@ -1449,6 +1512,8 @@ namespace Tepi
             t.Priority = priority;
             t.Interactive = interactive;
             t.Seconds = seconds;
+            // Callers set it again after
+            t.Page = -1;
             if (!same) t.Hold = false;
             if (!same)
             {
@@ -1529,7 +1594,7 @@ namespace Tepi
             bool minute = hm != clockRoller.Value;
             clockRoller.Set(hm);
             // The clock rolls only where it shows
-            bool redraw = minute && current == View.Idle && !IdleEyes;
+            bool redraw = minute && current == View.Idle && (!IdleEyes || SlotsTimed());
             redraw |= LifeTick(minute);
             // Running timers tick in their live areas
             TimerTick(nowUtc);
@@ -1678,7 +1743,7 @@ namespace Tepi
                 else kuliaItem.DropDownItems.Add(Lang.T("Masuk ke Kulia…"), null, delegate { OpenLogin(); });
             };
             trayIcon = MakeTrayIcon();
-            KitWindow.AppIcon = trayIcon;
+            KitWindow.AppIcon = AppMark() ?? trayIcon;
             tray = new NotifyIcon { Icon = trayIcon, Text = "Tepi", ContextMenuStrip = menu, Visible = true };
             tray.MouseClick += (s, e) => { if (e.Button != MouseButtons.Left) return; if (hiddenByUser) ToggleHidden(); else Expand(DefaultPage(false)); };
         }
@@ -1708,6 +1773,17 @@ namespace Tepi
         }
 
         // Placeholder mark: the island's own pill shape
+        // Tepi's mark at every size: window icons, taskbar, Alt+Tab
+        static Icon AppMark()
+        {
+            try
+            {
+                using (var s = typeof(Island).Assembly.GetManifestResourceStream("Tepi.ico"))
+                    return s != null ? new Icon(s) : null;
+            }
+            catch (Exception ex) { Log.Write("app icon: " + ex.Message); return null; }
+        }
+
         static Icon MakeTrayIcon()
         {
             using (var bmp = new Bitmap(32, 32, PixelFormat.Format32bppArgb))

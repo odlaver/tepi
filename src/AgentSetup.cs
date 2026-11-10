@@ -6,10 +6,10 @@ using System.Text;
 
 namespace Tepi
 {
-    // Relay hooks: Codex, Gemini CLI, Antigravity
+    // Relay hooks: Codex, Antigravity, Copilot CLI
     static class AgentSetup
     {
-        public static readonly string[] Ids = { "codex", "gemini", "antigravity", "copilot" };
+        public static readonly string[] Ids = { "codex", "antigravity", "copilot" };
 
         class Hook
         {
@@ -116,6 +116,9 @@ namespace Tepi
         {
             try
             {
+                // Gemini CLI dropped: clear its old Tepi hooks
+                string gem = ConfigFile("gemini");
+                if (File.Exists(gem) && File.ReadAllText(gem).Contains("--relay gemini")) Remove("gemini");
                 var root = HookSetup.Load(ConfigFile("antigravity"));
                 if (root != null && root.ContainsKey("tepi") && !Installed("antigravity")) Install("antigravity");
                 if (Installed("antigravity") && new Settings().GetBool(StatusSetup.AgentsKey, true)) StatusSetup.AgyInstall();

@@ -148,6 +148,24 @@ namespace Tepi
 
         // Session open to its checklist
         string planOpen;
+        // Row lit after a jump from a toast
+        string agentFocus;
+        DateTime agentFocusUtc = DateTime.MinValue;
+
+        // Agent tab, scrolled to this session, plan open
+        void ShowAgent(AgentSession s)
+        {
+            Show(PageAgents);
+            if (s == null) return;
+            if (s.Plan != null && s.Plan.Count > 0) planOpen = s.Id;
+            float y = 0;
+            foreach (var x in SortedSessions()) { if (x == s) break; y += AgentRowH(x); }
+            float view = AgentsHeight() - PanelTop - 14 - QuotaBlockH();
+            agentScroll.Snap(Math.Max(0, Math.Min(y, AgentsContentH() - view)));
+            agentFocus = s.Id;
+            agentFocusUtc = DateTime.UtcNow;
+            Kick();
+        }
 
         float AgentRowH(AgentSession s)
         {
@@ -208,6 +226,9 @@ namespace Tepi
             var session = s;
             AddHit(row, rowId, delegate { if (!FocusTerminal(session)) ShowInfo(Ink.IcoTerminal, Lang.T("Terminal tidak ditemukan"), session.Project, true); });
             if (Hover(rowId)) p.FillRound(row, 16, Pressed(rowId) ? p.T.FillHover : p.T.Fill);
+            // Just jumped here: an accent wash that fades
+            float lit = s.Id == agentFocus ? 1 - (float)((DateTime.UtcNow - agentFocusUtc).TotalSeconds / 1.6) : 0;
+            if (lit > 0) p.FillRound(row, 16, Ink.A(p.T.Accent, 0.16f * lit));
             DrawStateMark(s, 36, cy);
             var semi = Ink.Semi(13.5f);
             p.Text(s.Project, semi, p.T.Text, 60, cy - 10, 220, StringAlignment.Near);
@@ -423,7 +444,7 @@ namespace Tepi
                 float cy = row.Y + row.Height / 2;
                 DrawAppBadge(item, new RectangleF(row.X + 8, cy - 16, 32, 32));
                 float tx = row.X + 50;
-                p.Text(item.Title.Length > 0 ? item.Title : item.AppName, Ink.Semi(12.5f), p.T.Text, tx, cy - 9, row.Right - tx - 80, StringAlignment.Near);
+                p.Text(NotifTitle(item), Ink.Semi(12.5f), p.T.Text, tx, cy - 9, row.Right - tx - 80, StringAlignment.Near);
                 p.Text(NotifBody(item), Ink.Text(11.5f), p.T.Sub, tx, cy + 9, row.Right - tx - 44, StringAlignment.Near);
                 var x = new RectangleF(row.Right - 36, cy - 14, 28, 28);
                 if (hover)

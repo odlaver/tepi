@@ -384,12 +384,22 @@ namespace Tepi
 
         void Accept()
         {
+            // Own listener; a restart makes another
+            var own = listener;
             while (true)
             {
                 TcpClient c;
-                try { c = listener.AcceptTcpClient(); }
-                catch (ObjectDisposedException) { return; }
-                catch (Exception ex) { Log.Write("phone accept: " + ex.Message); Thread.Sleep(500); continue; }
+                try { c = own.AcceptTcpClient(); }
+                // Stopped: end here, no retry spin
+                catch (InvalidOperationException) { return; }
+                catch (Exception ex)
+                {
+                    var se = ex as SocketException;
+                    if (se != null && se.SocketErrorCode == SocketError.Interrupted) return;
+                    Log.Write("phone accept: " + ex.Message);
+                    Thread.Sleep(500);
+                    continue;
+                }
                 if (!slots.WaitOne(0)) { c.Close(); continue; }
                 new Thread(delegate () { try { Serve(c); } finally { slots.Release(); } }) { IsBackground = true, Name = "phone req" }.Start();
             }

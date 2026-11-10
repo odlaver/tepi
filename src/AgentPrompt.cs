@@ -45,7 +45,7 @@ namespace Tepi
 
         static string AgentKind(AgentSession s)
         {
-            return s.Profile == "Codex" || s.Profile == "Gemini" || s.Profile == "Antigravity" || s.Profile == "Copilot" ? s.Profile : "Claude";
+            return s.Profile == "Codex" || s.Profile == "Antigravity" || s.Profile == "Copilot" ? s.Profile : "Claude";
         }
 
         // Agent mark, Claude keeps its profile

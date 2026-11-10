@@ -56,6 +56,7 @@ namespace Tepi
 
         void StartFeeds()
         {
+            Ai.Bind(settings);
             media.Changed += m => Post(() => OnMedia(m));
             lyricsSvc.Ready += l => Post(() => OnLyrics(l));
             volume.Changed += (level, mute, first) => Post(() => OnVolume(level, mute, first));
@@ -77,11 +78,12 @@ namespace Tepi
                                     settings.Has("kulia.key") ? settings.Get("kulia.key", "") : KuliaClient.DefaultKey);
             if (kulia.SignedIn) RefreshTasks(false);
             StartSources();
+            ApplyTidy();
             StartUpdateCheck();
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "2.6.0.2";
+        public const string AppVersion = "2.6.1";
         string newVersion, newUrl;
         bool newRebuild, checking, checkFailed;
         DateTime checkedUtc;
@@ -173,6 +175,7 @@ namespace Tepi
             TickConvert();
             if (phone != null) phone.Sweep();
             if (TickMeeting()) { Kick(); redraw = true; }
+            TickShare(now);
             if (AwakeTick(now, minute)) redraw = true;
             if (minute && ShelfExpireTick()) redraw = true;
             if (mediaInfo.Present) SyncLyrics();
@@ -361,22 +364,40 @@ namespace Tepi
             seenNotifs.Clear();
             foreach (var n in list) seenNotifs.Add(n.Id);
             notifPrimed = true;
+            // Phone copy of this message: pop once
+            var pops = new List<NotifItem>();
+            int added = 0;
+            foreach (var n in fresh)
+            {
+                bool dup = SeenElsewhere(n);
+                Remember(n, dup);
+                if (dup)
+                {
+                    int twin = PhoneTwin(visible, n);
+                    if (twin >= 0) visible.RemoveAt(twin);
+                    continue;
+                }
+                added++;
+                if (ShouldPop(n)) pops.Add(n);
+            }
             notifs = visible;
             unread = Math.Min(unread, visible.Count);
-            if (fresh.Count > 0)
+            if (added > 0)
             {
                 if (expanded && page == PageMessages) unread = 0;
-                else unread += fresh.Count;
-                if (!Native.DoNotDisturb())
+                else unread += added;
+            }
+            if (pops.Count > 0 && !Native.DoNotDisturb())
+            {
+                bool burst = toast != null && toast.View == View.Notif;
+                var vip = pops.Find(IsVip);
+                // A call rings longer and passes quiet hours
+                var call = pops.Find(IsCall);
+                var t = ShowToast(View.Notif, call != null ? 25 : 5.5, vip != null || call != null ? 3 : 2, true);
+                if (t != null)
                 {
-                    bool burst = toast != null && toast.View == View.Notif;
-                    var vip = fresh.Find(IsVip);
-                    var t = ShowToast(View.Notif, 5.5, vip != null ? 3 : 2, true);
-                    if (t != null)
-                    {
-                        notifBurst = burst ? notifBurst + fresh.Count : fresh.Count;
-                        t.Data = vip ?? fresh[0];
-                    }
+                    notifBurst = burst ? notifBurst + pops.Count : pops.Count;
+                    t.Data = call ?? vip ?? pops[0];
                 }
             }
             Kick();
@@ -490,7 +511,7 @@ namespace Tepi
                 list.Add(new Dictionary<string, object> {
                     { "id", a.Id }, { "agent", a.Agent }, { "project", a.Project }, { "tool", a.Tool }, { "key", Fmt.OneLine(a.Key, 300) },
                     { "note", a.Note }, { "detail", a.Detail.Length > 1500 ? a.Detail.Substring(0, 1500) + "…" : a.Detail },
-                    { "flags", new List<object>(a.Flags) }, { "truncated", a.Truncated } });
+                    { "flags", new List<object>(a.Flags) }, { "truncated", a.Truncated }, { "risk", a.Risk ?? "" } });
             var ss = new List<object>();
             foreach (var s in sessions.Values)
                 if (s.State != AgentState.Ended)
@@ -654,6 +675,8 @@ namespace Tepi
                     s.Tool = "";
                     s.Activity = Lang.T("Berpikir");
                     s.Failed = false;
+                    s.TurnFiles.Clear();
+                    s.TurnCommands = s.TurnFailed = 0;
                     break;
                 case "PreToolUse":
                     s.State = AgentState.Working;
@@ -665,6 +688,7 @@ namespace Tepi
                 case "PostToolUse":
                 case "PostToolUseFailure":
                     if (ev.Name == "PostToolUse") { Tally(s, tool, input); TakePlan(s, tool, input); }
+                    else if (tool == "Bash" || tool == "PowerShell") s.TurnFailed++;
                     SettleApprovals(s.Id, tool, AgentHub.Describe(tool, input));
                     if (s.State == AgentState.Waiting)
                     {
@@ -680,7 +704,7 @@ namespace Tepi
                     a.Tool = tool;
                     FillApproval(a, tool, input);
                     a.Key = AgentHub.Describe(tool, input);
-                    if (!a.Truncated && s.Trusted.Contains(a.Trust))
+                    if (!a.Truncated && a.Risk == null && s.Trusted.Contains(a.Trust))
                     {
                         a.Answer("allow");
                         s.State = AgentState.Working;
@@ -726,12 +750,12 @@ namespace Tepi
         // Counts behind the session summary
         static void Tally(AgentSession s, string tool, Dictionary<string, object> input)
         {
-            if (tool == "Bash" || tool == "PowerShell") s.Commands++;
+            if (tool == "Bash" || tool == "PowerShell") { s.Commands++; s.TurnCommands++; }
             else if (tool == "Edit" || tool == "Write" || tool == "MultiEdit" || tool == "NotebookEdit")
             {
                 string f = Json.Str(input, "file_path");
                 if (f.Length == 0) f = Json.Str(input, "notebook_path");
-                if (f.Length > 0) s.Files.Add(f.ToLowerInvariant());
+                if (f.Length > 0) { s.Files.Add(f.ToLowerInvariant()); s.TurnFiles.Add(f.ToLowerInvariant()); }
             }
         }
 
@@ -766,6 +790,7 @@ namespace Tepi
             a.Note = Fmt.Visible(Fmt.OneLine(Json.Str(input, "description"), 160));
             if (a.Note.Length == 0) a.Note = ChangeSummary(tool, input);
             a.Trust = Json.Sha256(tool + "\n" + Json.Canonical(input));
+            a.Risk = AgentRisk.Of(tool, input);
             a.Flags.Clear();
             if (input != null && (tool == "Bash" || tool == "PowerShell"))
                 foreach (var kv in input)
@@ -861,7 +886,7 @@ namespace Tepi
         // Allow now and every identical request in this session
         void AllowAlways(Approval a)
         {
-            if (a.Truncated) return;
+            if (a.Truncated || a.Risk != null) return;
             AgentSession s;
             if (sessions.TryGetValue(a.SessionId, out s)) s.Trusted.Add(a.Trust);
             Decide(a, "allow");

@@ -46,7 +46,12 @@ namespace Tepi
                 try { Native.SetProcessDpiAwarenessContext(new IntPtr(-4)); }
                 catch (EntryPointNotFoundException) { }
                 Application.ThreadException += (s, e) => Log.Write("ui: " + e.Exception);
-                AppDomain.CurrentDomain.UnhandledException += (s, e) => Log.Write("fatal: " + e.ExceptionObject);
+                AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+                {
+                    Log.Write("fatal: " + e.ExceptionObject);
+                    // Never leave the user without a taskbar
+                    try { Taskbar.Restore(new Settings()); } catch (Exception) { }
+                };
                 Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
                 // Opt in to .NET 4.8 accessibility, for screen reader notifications
                 AppContext.SetSwitch("Switch.UseLegacyAccessibilityFeatures", false);

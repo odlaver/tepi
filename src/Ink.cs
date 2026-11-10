@@ -24,6 +24,14 @@ namespace Tepi
 
         public bool IsDark { get { return Bg.R + Bg.G + Bg.B < 384; } }
 
+        // Glass can sit on a bright wallpaper: secondary text at 74% keeps 4.5:1
+        public Tone OnGlass()
+        {
+            var t = (Tone)MemberwiseClone();
+            t.Sub = Color.FromArgb(Math.Max((int)Sub.A, 189), Sub);
+            return t;
+        }
+
         public static Tone Dark()
         {
             return Defaults(new Tone
@@ -361,6 +369,15 @@ namespace Tepi
             AddCorner(path, k, left, bottom, 2);
             path.AddBezier(left, top + s, left, top + s * 0.45f, left - fw * 0.4f, top, left - fw, top);
             path.CloseFigure();
+        }
+
+        // Notch on a side edge: the top notch, axes swapped
+        public static GraphicsPath SideNotch(RectangleF r, float radius, float shoulder, bool right)
+        {
+            var path = new GraphicsPath();
+            AddNotch(path, new RectangleF(r.Y, 0, r.Height, r.Width), radius, shoulder);
+            using (var m = right ? new Matrix(0, 1, -1, 0, r.Right, 0) : new Matrix(0, 1, 1, 0, r.Left, 0)) path.Transform(m);
+            return path;
         }
 
         public static GraphicsPath Round(RectangleF r, float radius)
@@ -861,6 +878,14 @@ namespace Tepi
         public void TextCenter(string s, Font f, Color c, float cx, float cy) { Text(s, f, c, cx, cy, 2000, StringAlignment.Center); }
 
         public void TextBox(string s, Font f, Color c, RectangleF r) { TextBox(s, f, c, r, StringAlignment.Near); }
+
+        // Height of s wrapped to width
+        public float WrapHeight(string s, Font f, float width)
+        {
+            if (string.IsNullOrEmpty(s) || G == null) return 0;
+            wrap.Alignment = StringAlignment.Near;
+            return G.MeasureString(s, f, new SizeF(Math.Max(10, width), 100000), wrap).Height;
+        }
 
         public void TextBox(string s, Font f, Color c, RectangleF r, StringAlignment align)
         {

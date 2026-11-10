@@ -58,12 +58,9 @@ namespace Tepi
                 add(Row(Lang.T("Bahasa ucapan"), Lang.T("Istilah Inggris tetap dikenali"),
                     Seg(new[] { "Indonesia", "English", Lang.T("Otomatis") }, lang == "en" ? 1 : lang == "auto" ? 2 : 0, i => { settings.Set("dictate.lang", i == 1 ? "en" : i == 2 ? "auto" : "id"); settings.Save(); })));
 
-                bool groq = settings.Get("dictate.engine", "groq") != "lokal";
-                cap(Lang.T("Mesin"));
-                add(Row(Lang.T("Mesin dikte"), groq ? Lang.T("Groq: rekaman dikirim ke Groq, tidak disimpan Tepi") : Lang.T("Offline: rekaman tidak keluar dari laptop ini"),
-                    Seg(new[] { "Groq", "Offline" }, groq ? 0 : 1, i => { settings.Set("dictate.engine", i == 1 ? "lokal" : "groq"); settings.Save(); Rebuild(); })));
-                if (groq) GroqRow(add);
-                OfflineRows(add, groq);
+                var sp = Ai.Stt;
+                string engine = Ai.SttId == Ai.Offline ? Lang.T("Offline") : sp != null ? Ai.Label(sp) : "?";
+                add(Row(Lang.T("Mesin dikte"), Lang.F("{0} · diatur di halaman AI", engine), Button(Lang.T("Buka AI"), false, delegate { Go("ai"); })));
 
                 cap(Lang.T("Hasil"));
                 add(Row(Lang.T("Kamus dan snippet"), Lang.F("{0} istilah, {1} pengganti, {2} snippet", words.Terms.Count, words.Swaps.Count, words.Snippets.Count),
@@ -77,8 +74,8 @@ namespace Tepi
                 var rec = Button(island.RapatOn ? Lang.T("Hentikan") : Lang.T("Mulai rekam"), !island.RapatOn, delegate { island.ToggleRapat(); Rebuild(); });
                 rec.Enabled = !island.rapatWriting;
                 add(Row(Lang.T("Rekam rapat"), island.rapatWriting ? Lang.T("Transkrip sedang ditulis") : Lang.T("Mic jadi Kamu, suara laptop jadi Lawan bicara"), rec));
-                bool hasKey = !string.IsNullOrEmpty(Speech.GroqKey());
-                add(Row(Lang.T("Ringkasan dan to-do"), hasKey ? Lang.T("Ditulis Groq dengan key yang sama") : Lang.T("Butuh key Groq; tanpa itu hanya transkrip"), Switch("rapat.summary", true, null)));
+                bool hasText = Ai.Ready(Ai.Text);
+                add(Row(Lang.T("Ringkasan dan to-do"), hasText ? Lang.F("Ditulis {0}, layanan teks di halaman AI", Ai.Label(Ai.Text)) : Lang.T("Butuh layanan teks di halaman AI; tanpa itu hanya transkrip"), Switch("rapat.summary", true, null)));
                 add(Row(Lang.T("Folder transkrip"), Lang.T("Audio dihapus setelah transkrip jadi"), Button(Lang.T("Buka"), false, delegate
                 {
                     try { System.IO.Directory.CreateDirectory(RapatDir); System.Diagnostics.Process.Start("explorer.exe", "\"" + RapatDir + "\""); }
@@ -96,45 +93,9 @@ namespace Tepi
                 }
             }
 
-            void GroqRow(Action<KitRow> add)
-            {
-                if (!string.IsNullOrEmpty(Speech.GroqKey()))
-                {
-                    add(Row(Lang.T("Key Groq"), Lang.T("Tersimpan, terenkripsi untuk akun Windows ini"), Button(Lang.T("Lepas"), false, delegate { Speech.DropGroqKey(); Rebuild(); })));
-                    return;
-                }
-                var field = new KitField(Ui, true, "gsk_…", 200);
-                KitRow row = null;
-                KitButton go = null;
-                go = Button(Lang.T("Simpan"), true, delegate
-                {
-                    string key = field.Box.Text.Trim();
-                    if (key.Length == 0) { Say(row, Lang.T("Key kosong")); field.Box.Focus(); return; }
-                    go.Enabled = field.Enabled = false;
-                    Say(row, Lang.T("Memeriksa key…"));
-                    ThreadPool.QueueUserWorkItem(delegate
-                    {
-                        string err;
-                        try { err = Speech.CheckGroq(key); }
-                        catch (Exception ex) { err = Lang.T("Tidak tersambung ke Groq"); Log.Write("groq cek: " + ex.GetType().Name); }
-                        island.Post(delegate
-                        {
-                            if (err == null) { Speech.SaveGroqKey(key); Rebuild(); return; }
-                            if (go.IsDisposed) return;
-                            go.Enabled = field.Enabled = true;
-                            Say(row, err);
-                        });
-                    });
-                });
-                field.Submit = delegate { go.PerformClick(); };
-                row = Row(Lang.T("Key Groq"), Lang.T("Gratis dari console.groq.com"), Pair(field, go));
-                add(row);
-                add(Row(Lang.T("Buat key Groq"), Lang.T("Masuk dengan Google atau GitHub"), Button(Lang.T("Buka console.groq.com"), false, delegate { OpenUrl("https://console.groq.com/keys"); })));
-            }
-
             System.Windows.Forms.Timer fetchTick;
 
-            void OfflineRows(Action<KitRow> add, bool groq)
+            void OfflineRows(Action<KitRow> add, bool remote)
             {
                 var m = Speech.Model(settings.Get("dictate.model", "seimbang"));
                 string[] names = new string[Speech.Models.Length];
@@ -166,12 +127,12 @@ namespace Tepi
                 }
                 if (Speech.LocalReady(m))
                 {
-                    add(Row(Lang.T("Siap dipakai"), groq ? Lang.F("{0} di laptop ini, dipakai saat internet putus", Mb(Speech.LocalBytes())) : Lang.F("{0} di laptop ini", Mb(Speech.LocalBytes())),
+                    add(Row(Lang.T("Siap dipakai"), remote ? Lang.F("{0} di laptop ini, dipakai saat internet putus", Mb(Speech.LocalBytes())) : Lang.F("{0} di laptop ini", Mb(Speech.LocalBytes())),
                         Button(Lang.T("Hapus"), false, delegate { Speech.RemoveLocal(); Rebuild(); })));
                     return;
                 }
                 string note = f != null && f.Error != null && !f.Cancel && f.Model == m.Id ? f.Error : Lang.T("whisper.cpp dan model dari Hugging Face, dicek SHA-256");
-                add(Row(Lang.T("Unduh model"), Mb(Speech.Missing(m)) + " · " + note, Button(Lang.T("Unduh"), groq ? false : true, delegate { island.FetchModel(m); Rebuild(); })));
+                add(Row(Lang.T("Unduh model"), Mb(Speech.Missing(m)) + " · " + note, Button(Lang.T("Unduh"), !remote, delegate { island.FetchModel(m); Rebuild(); })));
             }
 
             KitRow fetchRow;

@@ -25,7 +25,7 @@ namespace Tepi
     {
         const int MaxSteps = 50, MaxText = 200;
 
-        // TodoWrite (Claude), update_plan (Codex), write_todos (Gemini)
+        // TodoWrite (Claude), update_plan (Codex), write_todos
         public static List<PlanStep> Read(string tool, Dictionary<string, object> input)
         {
             if (input == null) return null;

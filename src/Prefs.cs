@@ -61,6 +61,8 @@ namespace Tepi
             Ink.Apply(light);
             ResetFrost();
             if (prefs != null && !prefs.IsDisposed) prefs.Relayout();
+            if (chatWin != null && !chatWin.IsDisposed) chatWin.Relayout();
+            if (dockWin != null) dockWin.Changed();
             Kick();
         }
 
@@ -89,8 +91,10 @@ namespace Tepi
                 if (on && Array.IndexOf(tabs, PageShelf) < 0) SetLayout("panel.tabs", TabIds(tabs) + ",shelf");
             }
             else if (key == "downloads") ApplyDownloads();
+            else if (key == "tidy") ApplyTidy();
             else if (key == "capture.show") ApplyGlass();
             else if (key == "shelf" || key == "convert") InitShelfDrop();
+            else if (key.StartsWith("dockbar.", StringComparison.Ordinal)) ApplyDock();
             Kick();
         }
 
@@ -98,9 +102,10 @@ namespace Tepi
         {
             settings.Set(key, value);
             settings.Save();
-            if (key == "material") { ApplyGlass(); ResetFrost(); }
+            if (key == "material") { ApplyGlass(); ResetFrost(); if (dockWin != null) dockWin.Changed(); }
             else if (key == "motion.reduce" || key == "motion.feel") Anim.Read(settings);
             else if (key == "tabs.style") tabSnap = true;
+            else if (key == "share.mode") ApplyShare();
             Kick();
         }
 
@@ -110,6 +115,7 @@ namespace Tepi
             settings.Save();
             Lang.English = english;
             BuildTray();
+            if (chatWin != null && !chatWin.IsDisposed) chatWin.Relayout();
             Kick();
         }
 
@@ -127,6 +133,22 @@ namespace Tepi
         {
             if (on && !expanded) Expand(DefaultPage(false));
             else if (!on && expanded && !pointerInside) { expanded = false; Kick(); }
+        }
+
+        void PreviewPage(int pg)
+        {
+            if (!expanded) Expand(pg);
+            else SetPage(pg, false);
+        }
+
+        // Corner inset or side height from settings
+        void SetPlaceValue(string key, int v)
+        {
+            settings.Set(key, v);
+            settings.Save();
+            LoadPlace();
+            if (GlassOn) NeedFrost(sh.Target);
+            Kick();
         }
 
         // Random port; Claude's hook URL follows
@@ -159,18 +181,84 @@ namespace Tepi
             readonly Island island;
             readonly Settings settings;
             readonly Timer preview = new Timer { Interval = 2500 };
-            string section = "general";
+            // Opens on General's page list
+            string section = "cat:0", beforeSearch = "cat:0";
             readonly TextBox search = new KitText();
             readonly Panel content = new Panel();
             readonly SideList side = new SideList();
             bool building;
 
+            // Sidebar: categories only; pages are listed inside
+            static readonly string[][] Categories =
+            {
+                new[] { "Umum", "" }, new[] { "Tampilan", "" }, new[] { "Dynamic Island", "" },
+                new[] { "Dock", "" }, new[] { "Fitur", "" }, new[] { "Bantuan", "" },
+            };
+
+            // Under each category title on its page list
+            static readonly string[] CategoryNotes =
+            {
+                "Bahasa, jam, layanan AI, HP, dan integrasi", "Tema, warna, dan paket tema", "Letak, perilaku, isi, dan panel island",
+                "Bar aplikasi dan widget, atau pengganti taskbar", "Musik, pesan, sistem, rak, agen, dikte, dan pengingat", "Aksesibilitas, pintasan, dan tentang Tepi",
+            };
+
+            // Help: a sidebar label over its own pages
+            const int HelpCat = 5;
+
+            // Sidebar row for a page or page list
+            static string SideId(string id)
+            {
+                int cat = CatOf(id);
+                return cat == HelpCat ? "p" + id : "c" + cat;
+            }
+
+            static int PageCount(int cat)
+            {
+                int n = 0;
+                foreach (var s in Sections) if (int.Parse(s[3]) == cat) n++;
+                return n;
+            }
+
+            // "cat:2" is a category's page list
+            static int CatOf(string id) { return id.StartsWith("cat:", StringComparison.Ordinal) ? int.Parse(id.Substring(4)) : CategoryOf(id); }
+
+            static int CategoryOf(string id)
+            {
+                foreach (var s in Sections) if (s[0] == id) return int.Parse(s[3]);
+                return 0;
+            }
+
+            static string FirstIn(int cat)
+            {
+                foreach (var s in Sections) if (int.Parse(s[3]) == cat) return s[0];
+                return "general";
+            }
+
             static readonly string[][] Sections =
             {
-                new[] { "general", "Umum", "\uE713", "0" }, new[] { "look", "Tampilan", "\uE790", "0" }, new[] { "island", "Island", "\uE737", "0" }, new[] { "tabs", "Tab panel", "\uE8A9", "0" },
-                new[] { "music", "Musik", "\uE8D6", "1" }, new[] { "messages", "Pesan", "\uE8BD", "1" }, new[] { "system", "Sistem", "\uE9D9", "1" }, new[] { "files", "Rak dan berkas", "\uE7B8", "1" },
-                new[] { "agents", "Agen", "\uE756", "2" }, new[] { "dikte", "Dikte", "\uE720", "2" },new[] { "phone", "HP", "\uE8EA", "2" }, new[] { "integrasi", "Integrasi", "\uE71B", "2" }, new[] { "remind", "Pengingat", "\uE823", "2" },
-                new[] { "access", "Aksesibilitas", "\uE776", "3" }, new[] { "keys", "Pintasan", "\uE765", "3" }, new[] { "about", "Tentang", "\uE946", "3" },
+                new[] { "general", "Dasar", "", "0" }, new[] { "ai", "AI", "", "0" }, new[] { "phone", "HP", "", "0" }, new[] { "integrasi", "Integrasi", "", "0" },
+                new[] { "look", "Tema dan warna", "", "1" }, new[] { "packs", "Paket tema", "", "1" },
+                new[] { "island", "Letak dan bentuk", "", "2" }, new[] { "behave", "Perilaku", "", "2" }, new[] { "idle", "Saat diam", "", "2" }, new[] { "home", "Ringkasan", "", "2" }, new[] { "tabs", "Tab panel", "", "2" },
+                new[] { "dock", "Dock dan taskbar", "", "3" },
+                new[] { "music", "Musik", "", "4" }, new[] { "messages", "Pesan", "", "4" }, new[] { "system", "Sistem", "", "4" }, new[] { "files", "Rak dan berkas", "", "4" },
+                new[] { "agents", "Agen", "", "4" }, new[] { "dikte", "Dikte", "", "4" }, new[] { "remind", "Pengingat", "", "4" },
+                new[] { "access", "Aksesibilitas", "", "5" }, new[] { "keys", "Pintasan", "", "5" }, new[] { "about", "Tentang", "", "5" },
+            };
+
+            // One line under each page title
+            static readonly Dictionary<string, string> SectionNotes = new Dictionary<string, string>
+            {
+                { "general", "Bahasa, jam, pembaruan, dan data Tepi" }, { "ai", "Layanan AI untuk dikte, ringkasan, dan Suruh Tepi" },
+                { "phone", "Notifikasi, kode OTP, dan berkas dari HP" }, { "integrasi", "Tugas dan jadwal dari Kulia, Notion, Todoist, dan iCal" },
+                { "look", "Tema, material kaca, dan warna aksen" }, { "packs", "Gambar, sapaan, dan suara dari paket tema" },
+                { "island", "Di mana island tinggal dan bagaimana ia menempel" }, { "behave", "Kapan island menyingkir dan bagaimana panel terbuka" },
+                { "idle", "Isi island saat tidak ada aktivitas" }, { "home", "Kartu yang tampil di Ringkasan dan urutannya" },
+                { "tabs", "Tab di panel island dan urutannya" }, { "dock", "Bar aplikasi dan widget, atau pengganti taskbar" },
+                { "music", "Lirik dan visualizer" }, { "messages", "Notifikasi pesan dan siapa yang menampilkannya" },
+                { "system", "HUD keyboard, perangkat, dan aktivitas sistem" }, { "files", "Rak, ubah format, clipboard, dan screenshot" },
+                { "agents", "Claude Code, Codex, dan agent lain" }, { "dikte", "Bicara, lalu teksnya ditempel" },
+                { "remind", "Sholat, cuaca, minum, mata, dan peregangan" }, { "access", "Pembaca layar, gerak, dan Senyap" },
+                { "keys", "Pintasan keyboard Tepi" }, { "about", "Versi, saran, dan pembuat Tepi" },
             };
 
             [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, string l);
@@ -187,10 +275,31 @@ namespace Tepi
                 FormClosed += delegate { preview.Stop(); island.PreviewLayout(false); };
                 content.AutoScroll = true;
                 search.BorderStyle = BorderStyle.None;
-                search.TextChanged += delegate { if (!building) { section = search.Text.Trim().Length > 0 ? "search" : section == "search" ? "general" : section; Fill(); } };
+                search.TextChanged += delegate
+                {
+                    if (building) return;
+                    bool typing = search.Text.Trim().Length > 0;
+                    // Clearing the field returns to where it started
+                    if (typing && section != "search") beforeSearch = section;
+                    section = typing ? "search" : section == "search" ? beforeSearch : section;
+                    Fill();
+                };
                 search.GotFocus += delegate { Invalidate(new Rectangle(0, 0, (int)(220 * Ui), (int)(60 * Ui))); };
                 search.LostFocus += delegate { Invalidate(new Rectangle(0, 0, (int)(220 * Ui), (int)(60 * Ui))); };
-                side.Picked += id => { section = id; building = true; search.Text = ""; building = false; Fill(); };
+                side.Picked += id =>
+                {
+                    // Help rows are pages; categories open their list
+                    if (id[0] == 'p') section = id.Substring(1);
+                    else
+                    {
+                        int cat = int.Parse(id.Substring(1));
+                        section = PageCount(cat) == 1 ? FirstIn(cat) : "cat:" + cat;
+                    }
+                    building = true;
+                    search.Text = "";
+                    building = false;
+                    Fill();
+                };
                 Controls.Add(search);
                 Controls.Add(side);
                 Controls.Add(content);
@@ -208,7 +317,7 @@ namespace Tepi
                 building = true;
                 search.Text = "";
                 building = false;
-                if (IsHandleCreated) { side.Selected = id; side.RevealSelected(); side.Invalidate(); Fill(); }
+                if (IsHandleCreated) { Fill(); side.RevealSelected(); }
             }
 
             protected override void OnHandleCreated(EventArgs e)
@@ -217,7 +326,7 @@ namespace Tepi
                 var area = Screen.FromHandle(Handle).WorkingArea;
                 // Tall enough that the whole sidebar shows
                 int chromeW = Width - ClientSize.Width, chromeH = Height - ClientSize.Height;
-                float wantH = Math.Max(700, 58 + SideList.ContentDip(Sections.Length, 3));
+                float wantH = 700;
                 Size = new Size((int)Math.Min(980 * Ui + chromeW, area.Width - 40), (int)Math.Min(wantH * Ui + chromeH, area.Height - 40));
                 MinimumSize = new Size((int)(640 * Ui), (int)(420 * Ui));
                 Location = new Point(area.X + (area.Width - Width) / 2, area.Y + (area.Height - Height) / 2);
@@ -234,8 +343,13 @@ namespace Tepi
                 try { SetWindowTheme(content.Handle, Ink.Light ? "Explorer" : "DarkMode_Explorer", null); } catch (Exception) { }
                 Text = Lang.T("Pengaturan Tepi");
                 side.Items = new List<string[]>();
-                foreach (var s in Sections) side.Items.Add(new[] { s[0], Lang.T(s[1]), s[2], s[3] });
-                side.Selected = section;
+                for (int i = 0; i < Categories.Length; i++)
+                {
+                    if (i != HelpCat) { side.Items.Add(new[] { "c" + i, Lang.T(Categories[i][0]), Categories[i][1], "0" }); continue; }
+                    foreach (var s in Sections) if (int.Parse(s[3]) == i) side.Items.Add(new[] { "p" + s[0], Lang.T(s[1]), s[2], "1" });
+                }
+                side.Headers = new[] { "", Lang.T(Categories[HelpCat][0]) };
+                side.Selected = SideId(section);
                 search.Font = UiFont(13f);
                 search.BackColor = KitInk.Line;
                 search.ForeColor = KitInk.Text;
@@ -294,7 +408,8 @@ namespace Tepi
                 content.Controls.Clear();
                 foreach (var c in old) c.Dispose();
                 content.AutoScrollPosition = Point.Empty;
-                rowW = content.ClientSize.Width - (int)(56 * Ui) - SystemInformation.VerticalScrollBarWidth;
+                // Outer width: the old page's scrollbar must not narrow rows
+                rowW = content.Width - (int)(56 * Ui) - SystemInformation.VerticalScrollBarWidth;
                 y = 22 * Ui;
                 if (section == "search")
                 {
@@ -316,8 +431,17 @@ namespace Tepi
                 }
                 else
                 {
-                    foreach (var s in Sections) if (s[0] == section) Heading(Lang.T(s[1]));
-                    Build(section, new List<KitRow>(), true);
+                    // Help has no page list
+                    if (section == "cat:" + HelpCat) section = FirstIn(HelpCat);
+                    int cat = CatOf(section);
+                    side.Selected = SideId(section);
+                    side.Invalidate();
+                    if (section.StartsWith("cat:", StringComparison.Ordinal)) { Head(cat, null); PageList(cat); }
+                    else
+                    {
+                        Head(cat, section);
+                        Build(section, new List<KitRow>(), true);
+                    }
                 }
                 // Room under the last group
                 var spacer = new Panel { Location = new Point(0, (int)y), Size = new Size(1, (int)(16 * Ui)), BackColor = KitInk.Window };
@@ -353,6 +477,159 @@ namespace Tepi
                 l.Location = new Point((int)(28 * Ui) - LabelPad(l), (int)y);
                 content.Controls.Add(l);
                 y += 52 * Ui;
+            }
+
+            // Head: the category, or "Category > Page" with a way back
+            void Head(int cat, string page)
+            {
+                string note = null;
+                string[] sec = null;
+                foreach (var s in Sections) if (s[0] == page) sec = s;
+                if (page != null) SectionNotes.TryGetValue(page, out note);
+                bool crumb = sec != null && PageCount(cat) > 1 && cat != HelpCat;
+                var head = new PageHeader
+                {
+                    Glyph = sec != null ? sec[2][0] : Categories[cat][1][0],
+                    Title = sec != null ? Lang.T(sec[1]) : Lang.T(Categories[cat][0]),
+                    Crumb = crumb ? Lang.T(Categories[cat][0]) : null,
+                    Note = note != null ? Lang.T(note) : Lang.T(CategoryNotes[cat]),
+                };
+                head.AccessibleName = crumb ? head.Crumb + ", " + head.Title : head.Title;
+                head.AccessibleDescription = head.Note;
+                head.Back += delegate { GoUp(); };
+                head.SetBounds((int)(28 * Ui), (int)y, rowW, (int)(60 * Ui));
+                content.Controls.Add(head);
+                tabFocus["head"] = head;
+                y += 78 * Ui;
+            }
+
+            // A category's pages: one row each, chevron right
+            void PageList(int cat)
+            {
+                var rows = new List<KitRow>();
+                foreach (var s in Sections)
+                {
+                    if (int.Parse(s[3]) != cat) continue;
+                    string id = s[0], note;
+                    SectionNotes.TryGetValue(id, out note);
+                    var row = new NavRow { Title = Lang.T(s[1]), Detail = note != null ? Lang.T(note) : "", Glyph = s[2][0], Height = (int)(64 * Ui) };
+                    row.AccessibleName = row.Title;
+                    row.AccessibleDescription = row.Detail;
+                    row.AccessibleRole = AccessibleRole.Link;
+                    row.Open += delegate { Open(id); };
+                    rows.Add(row);
+                }
+                Group(rows);
+            }
+
+            // Into a page; keyboard lands on its head
+            void Open(string id)
+            {
+                bool keys = !KitInk.ByMouse;
+                section = id;
+                Fill();
+                Control head;
+                if (keys && tabFocus.TryGetValue("head", out head)) head.Focus();
+            }
+
+            // From a page back to its category's list
+            void GoUp()
+            {
+                if (section.StartsWith("cat:", StringComparison.Ordinal) || section == "search") return;
+                int cat = CatOf(section);
+                if (PageCount(cat) < 2 || cat == HelpCat) return;
+                string from = PageName(section);
+                section = "cat:" + cat;
+                Fill();
+                // Back on the row it came from
+                foreach (Control c in content.Controls)
+                    foreach (Control r in c.Controls)
+                    {
+                        var nav = r as NavRow;
+                        if (nav != null && nav.AccessibleName == from) { nav.Focus(); return; }
+                    }
+            }
+
+            static string PageName(string id)
+            {
+                foreach (var s in Sections) if (s[0] == id) return Lang.T(s[1]);
+                return "";
+            }
+
+            protected override bool ProcessCmdKey(ref Message msg, Keys keys)
+            {
+                if (keys == (Keys.Alt | Keys.Left)) { GoUp(); return true; }
+                return base.ProcessCmdKey(ref msg, keys);
+            }
+
+            // Page head; a breadcrumb's first part leads back
+            class PageHeader : KitControl
+            {
+                public char Glyph;
+                public string Title = "", Note = "", Crumb;
+                public event Action Back;
+                RectangleF parentAt;
+                bool overParent;
+
+                public PageHeader() { TabStop = false; }
+
+                // Focusable only when there is a way back
+                protected override void OnCreateControl() { base.OnCreateControl(); TabStop = Crumb != null; }
+
+                protected override void OnMouseMove(MouseEventArgs e)
+                {
+                    base.OnMouseMove(e);
+                    bool over = Crumb != null && parentAt.Contains(e.Location);
+                    if (over == overParent) return;
+                    overParent = over;
+                    Cursor = over ? Cursors.Hand : Cursors.Default;
+                    Invalidate();
+                }
+
+                protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); overParent = false; Invalidate(); }
+                protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); if (e.Button == MouseButtons.Left && overParent) Fire(); }
+                protected override bool IsInputKey(Keys k) { return k == Keys.Enter || k == Keys.Space || base.IsInputKey(k); }
+
+                protected override void OnKeyDown(KeyEventArgs e)
+                {
+                    base.OnKeyDown(e);
+                    if (Crumb == null || (e.KeyCode != Keys.Enter && e.KeyCode != Keys.Space)) return;
+                    e.Handled = true;
+                    Fire();
+                }
+
+                void Fire() { var h = Back; if (h != null) h(); }
+
+                protected override void OnPaint(PaintEventArgs e)
+                {
+                    var g = e.Graphics;
+                    KitInk.Smooth(g);
+                    g.Clear(KitInk.Under(this));
+                    float s = Ui;
+                    // The page's mark, in the accent
+                    var tile = new RectangleF(0, 4 * s, 52 * s, 52 * s);
+                    Fill(g, tile, 15 * s, KitInk.Group);
+                    using (var icons = new Font(Ink.IconFamily, 22f * s, GraphicsUnit.Pixel)) KitInk.Draw(g, Ink.Str(Glyph), icons, KitInk.Accent, tile, ContentAlignment.MiddleCenter);
+                    using (var tf = new Font(Ink.MenuFamily, 24f * s, GraphicsUnit.Pixel))
+                    {
+                        float x = 68 * s;
+                        var line = new RectangleF(x, 2 * s, Width - x, 32 * s);
+                        if (Crumb != null)
+                        {
+                            // Category in grey, then the page in full ink
+                            int pw = TextRenderer.MeasureText(g, Crumb, tf, Size.Empty, TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine).Width;
+                            parentAt = new RectangleF(x - 6 * s, line.Y, pw + 10 * s, line.Height);
+                            if (overParent) Fill(g, parentAt, 8 * s, KitInk.Hover);
+                            KitInk.Draw(g, Crumb, tf, overParent ? KitInk.Text : KitInk.Sub, new RectangleF(x - 2 * s, line.Y, pw + 4 * s, line.Height), ContentAlignment.MiddleLeft);
+                            x += pw + 6 * s;
+                            using (var icons = new Font(Ink.IconFamily, 14f * s, GraphicsUnit.Pixel)) KitInk.Draw(g, "\uE76C", icons, KitInk.Sub, new RectangleF(x, line.Y, 20 * s, line.Height), ContentAlignment.MiddleCenter);
+                            x += 26 * s;
+                            Ring(g, parentAt, 8 * s);
+                        }
+                        KitInk.Draw(g, Title, tf, KitInk.Text, new RectangleF(x - 2 * s, line.Y, Width - x, line.Height), ContentAlignment.MiddleLeft);
+                    }
+                    using (var nf = new Font(Ink.MenuFamily, 13f * s, GraphicsUnit.Pixel)) KitInk.Draw(g, Note, nf, KitInk.Sub, new RectangleF(68 * s, 34 * s, Width - 68 * s, 22 * s), ContentAlignment.MiddleLeft);
+                }
             }
 
             // Tepi 2.0 big, build digits tiny
@@ -408,14 +685,16 @@ namespace Tepi
                 new[] { "Folder data", "\uE8B7" }, new[] { "Folder paket", "\uE8B7" }, new[] { "Tema", "\uE706" }, new[] { "Material", "\uE81E" },
                 new[] { "Aksen", "\uE790" }, new[] { "Paket", "\uE7B8" }, new[] { "Suara sapaan paket tema", "\uE767" },
                 new[] { "Mode", "\uE8A0" }, new[] { "Notifikasi saat mini", "\uEA8F" }, new[] { "Mata", "\uE890" }, new[] { "Ikuti kursor", "\uE7C9" }, new[] { "Saat diam", "\uE890" }, new[] { "Buka panel", "\uE8A7" }, new[] { "Jeda buka", "\uE916" },
-                new[] { "Menempel di tepi atas", "\uE840" }, new[] { "Sisakan ruang di tepi atas", "\uE73F" }, new[] { "Garis cahaya", "\uE781" }, new[] { "Posisi", "\uE759" }, new[] { "Lebar panel", "\uE740" }, new[] { "Layar", "\uE7F4" },
-                new[] { "Gaya tab", "\uECA5" }, new[] { "Dibuka di", "\uE8A7" },
+                new[] { "Menempel di tepi atas", "\uE840" }, new[] { "Menempel di tepi layar", "\uE840" }, new[] { "Sisakan ruang di tepi atas", "\uE73F" },
+                new[] { "Dock", "\uE90E" }, new[] { "Sisakan ruang untuk dock", "\uE73F" }, new[] { "Perbesar ikon", "\uE71E" }, new[] { "Ganti taskbar Windows", "\uE90E" },
+                new[] { "Letak", "\uE759" }, new[] { "Geser", "\uE759" }, new[] { "Jarak dari pojok", "\uE759" }, new[] { "Tinggi", "\uE759" }, new[] { "Urutan kartu", "\uE8CB" }, new[] { "Garis cahaya", "\uE781" }, new[] { "Posisi", "\uE759" }, new[] { "Lebar panel", "\uE740" }, new[] { "Layar", "\uE7F4" },
+                new[] { "Gaya tab", "\uECA5" }, new[] { "Dibuka di", "\uE8A7" }, new[] { "Pindah tab", "\uE8A9" },
                 new[] { "Lirik di island", "\uE8D6" }, new[] { "Cari lirik online", "\uE721" }, new[] { "Visualizer", "\uE9E9" },
                 new[] { "Notifikasi pesan", "\uE8BD" }, new[] { "Tampilkan isi pesan", "\uE8BD" }, new[] { "Caps Lock", "\uE765" }, new[] { "Ingatkan cabut charger", "\uE83E" }, new[] { "Cuaca dan hujan", "\uE753" }, new[] { "Mode rapat", "\uE720" },
                 new[] { "Num Lock, Scroll Lock", "\uE765" }, new[] { "Bahasa input", "\uE765" }, new[] { "Kelas yang berlangsung", "\uE7BE" },
                 new[] { "Progres unduhan", "\uE896" }, new[] { "Riwayat clipboard", "\uE77F" }, new[] { "Flashdisk", "\uE88E" },
                 new[] { "Preview screenshot", "\uE91B" }, new[] { "Rak berkas", "\uE7B8" }, new[] { "Istirahat fokus", "\uE916" }, new[] { "Tahan notifikasi saat fokus", "\uE7E7" },
-                new[] { "Claude Code", "\uE756" }, new[] { "Kuota Claude", "\uEC4A" }, new[] { "Kuota Codex, Antigravity, Copilot", "\uEC4A" }, new[] { "Menahan izin", "\uE72E" },
+                new[] { "Claude Code", "\uE756" }, new[] { "Kuota agent", "\uEC4A" }, new[] { "Menahan izin", "\uE72E" },
                 new[] { "Kulia", "\uE7BE" }, new[] { "Tugas dan jadwal", "\uE787" }, new[] { "Kolom tanggal", "\uE787" }, new[] { "Kolom selesai", "\uE73E" },
                 new[] { "Belum ada database", "\uE8F1" }, new[] { "Pengingat sholat", "\uE708" }, new[] { "Sholat", "\uE708" }, new[] { "Suara adzan", "\uE767" }, new[] { "Suara sebelum waktu", "\uE767" }, new[] { "Suara minum", "\uE767" }, new[] { "Suara istirahat mata", "\uE767" }, new[] { "Suara peregangan", "\uE767" }, new[] { "Tambah ibadah", "\uE710" }, new[] { "Nama", "\uE8AC" }, new[] { "Jam", "\uE823" }, new[] { "Hari", "\uE787" }, new[] { "Kota", "\uE707" }, new[] { "Ingatkan sebelum", "\uEA8F" },
                 new[] { "Minum air", "\uEB42" }, new[] { "Selang minum", "\uE916" }, new[] { "Target harian", "\uE73E" },
@@ -431,6 +710,9 @@ namespace Tepi
                 new[] { "Catatan kilat", "\uE70B" }, new[] { "Cermin kamera", "\uE714" }, new[] { "Jeda dan lanjut", "\uE769" }, new[] { "Ulang dari awal", "\uE72C" },
                 new[] { "Mundur 5 detik", "\uE76B" }, new[] { "Maju 5 detik", "\uE76C" }, new[] { "Lebih cepat", "\uE710" }, new[] { "Lebih lambat", "\uE738" },
                 new[] { "Buka jendela teleprompter", "\uE8A7" }, new[] { "Hentikan", "\uE71A" }, new[] { "Pintasan bawaan", "\uE765" }, new[] { "Tambah aplikasi", "\uE710" }, new[] { "Format jam", "\uE823" }, new[] { "Pakai warna sendiri", "\uE790" }, new[] { "Simpan jadi paket", "\uE74E" }, new[] { "Pembuat paket", "\uE774" }, new[] { "Pindai dari HP", "\uED14" }, new[] { "Aplikasi chat tambahan", "\uE8BD" }, new[] { "Pengirim prioritas", "\uE77B" }, new[] { "Senyap ikut Windows", "\uE708" }, new[] { "Suara", "\uE767" }, new[] { "Simpan isi rak", "\uE74E" }, new[] { "Kosongkan rak otomatis", "\uE916" }, new[] { "Ambil warna", "\uE790" }, new[] { "Ekspor pengaturan", "\uEDE1" }, new[] { "Dikte", "\uE720" }, new[] { "Tombol dikte", "\uE765" }, new[] { "Bahasa ucapan", "\uE774" }, new[] { "Mesin dikte", "\uE720" }, new[] { "Key Groq", "\uE8D7" }, new[] { "Buat key Groq", "\uE774" }, new[] { "Model offline", "\uE896" }, new[] { "Siap dipakai", "\uE73E" }, new[] { "Mengunduh", "\uE896" }, new[] { "Unduh model", "\uE896" }, new[] { "Kamus dan snippet", "\uE70B" }, new[] { "Buang kata pengisi", "\uE74D" }, new[] { "Perintah baris baru", "\uE751" }, new[] { "Gaya per aplikasi", "\uE71D" }, new[] { "Kecilkan musik", "\uE8D6" }, new[] { "Tempel dikte terakhir", "\uE77F" }, new[] { "Rekam rapat", "\uE7C8" }, new[] { "Ringkasan dan to-do", "\uE8A5" }, new[] { "Folder transkrip", "\uE8B7" }, new[] { "Apa yang baru", "\uE789" }, new[] { "Tur Tepi", "\uE7C1" }, new[] { "GitHub", "\uE943" }, new[] { "Kirim saran", "\uED15" }, new[] { "Bicara", "\uE720" }, new[] { "Suruh Tepi", "\uE765" }, new[] { "Instagram", "\uE722" }, new[] { "LinkedIn", "\uE716" }, new[] { "Impor pengaturan", "\uE8B5" }, new[] { "Setel ulang pengaturan", "\uE72C" },
+                new[] { "Banner pesan", "\uE8BD" }, new[] { "Banner Windows masih nyala", "\uE7BA" }, new[] { "Tepi penerima utama", "\uEA8F" }, new[] { "Mode berbagi layar", "\uE7F4" }, new[] { "Isi kiri", "\uE8A0" }, new[] { "Isi kanan", "\uE8A0" },
+                new[] { "Rapikan Downloads", "\uE8B7" }, new[] { "Susunan folder", "\uE8B7" }, new[] { "Tawarkan saat", "\uEA8F" }, new[] { "Rapikan sekarang", "\uE8B7" }, new[] { "Urungkan rapikan terakhir", "\uE7A7" },
+                new[] { "Layanan teks", "\uE8F2" }, new[] { "Mesin suara", "\uE720" }, new[] { "Yang dikirim", "\uE72E" }, new[] { "Perbaiki teks terpilih", "\uE8AC" }, new[] { "Terjemahkan teks terpilih", "\uE8C1" },
             };
 
             static char GlyphFor(string title)
@@ -586,6 +868,14 @@ namespace Tepi
                 preview.Start();
             }
 
+            // Open on one tab while tuning it
+            void Preview(int page)
+            {
+                island.PreviewPage(page);
+                preview.Stop();
+                preview.Start();
+            }
+
             // Sections; search only fills the list
             void Build(string id, List<KitRow> rows, bool show)
             {
@@ -597,9 +887,10 @@ namespace Tepi
                 {
                     case "general":
                         add(VersionRow(null));
-                        flush();
+                        cap(Lang.T("Bahasa dan jam"));
                         add(Row(Lang.T("Bahasa"), null, Seg(new[] { "Indonesia", "English" }, Lang.English ? 1 : 0, i => { island.SetLanguage(i == 1); Relayout(); })));
                         add(Row(Lang.T("Format jam"), null, Seg(new[] { "14.30", "2.30 pm" }, Fmt.H24 ? 0 : 1, i => island.SetClock24(i == 0))));
+                        cap(Lang.T("Sistem"));
                         add(Row(Lang.T("Mulai bersama Windows"), null, StartupSwitch()));
                         add(Row(Lang.T("Cek versi baru"), Lang.T("Sekali sehari ke GitHub; unduhan hanya saat diminta"), Switch("update.check", true, on => { settings.Set("update.check", on); settings.Save(); })));
                         cap(Lang.T("Data"));
@@ -695,7 +986,8 @@ namespace Tepi
                             }));
                             add(saved);
                         }
-                        cap(Lang.T("Paket tema"));
+                        break;
+                    case "packs":
                         var packs = new List<string> { Lang.T("Tanpa") };
                         packs.AddRange(ThemePacks());
                         int packAt = Math.Max(0, packs.IndexOf(settings.Get("theme.pack", "")));
@@ -715,12 +1007,20 @@ namespace Tepi
                         add(Row(Lang.T("Pembuat paket"), Lang.T("Gambar, sapaan, dan suara, di situs Tepi"), Button(Lang.T("Buka"), false, delegate { OpenUrl("https://odlaver.github.io/tepi/pack/"); })));
                         break;
                     case "island":
-                        add(Row(Lang.T("Menempel di tepi atas"), null, Switch("dock", true, null)));
-                        add(Row(Lang.T("Sisakan ruang di tepi atas"), Lang.T("Jendela yang dimaksimalkan mulai di bawah island"), Switch("reserve.top", false, on => { settings.Set("reserve.top", on); settings.Save(); island.ApplyReserve(); })));
+                        add(PlaceRow());
+                        int place = island.placeMode;
+                        if (place == PlaceTop)
+                            add(Row(Lang.T("Geser"), null, Slider(-40, 40, 5, settings.GetInt("position", 0), v => v == 0 ? Lang.T("tengah") : (v < 0 ? Lang.T("kiri") : Lang.T("kanan")) + " " + Math.Abs(v) + "%",
+                                v => { island.SetLayout("position", v); Preview(); })));
+                        else if (place == PlaceTopLeft || place == PlaceTopRight)
+                            add(Row(Lang.T("Jarak dari pojok"), null, Slider(0, 240, 4, (int)island.placeInset, v => v + " px", v => island.SetPlaceValue("place.inset", v))));
+                        else
+                            add(Row(Lang.T("Tinggi"), Lang.T("Dari tepi atas layar"), Slider(0, 100, 2, (int)Math.Round(island.placeY * 100), v => v + "%", v => island.SetPlaceValue("place.y", v))));
+                        cap(Lang.T("Bentuk"));
+                        add(Row(Lang.T("Menempel di tepi layar"), Lang.T("Bentuk notch yang menyatu dengan tepi"), Switch("dock", true, null)));
                         add(Row(Lang.T("Garis cahaya"), Lang.T("Progres timer, unduhan, dan cas di tepi island; kilau saat pesan masuk"), Switch("edge.light", true, null)));
-                        add(Row(Lang.T("Posisi"), null, Slider(-40, 40, 5, settings.GetInt("position", 0), v => v == 0 ? Lang.T("tengah") : (v < 0 ? Lang.T("kiri") : Lang.T("kanan")) + " " + Math.Abs(v) + "%",
-                            v => { island.SetLayout("position", v); Preview(); })));
-                        add(Row(Lang.T("Lebar panel"), null, Slider(440, 560, 8, (int)island.PanelW, v => v + " px", v => { island.SetLayout("panel.width", v); Preview(); })));
+                        cap(Lang.T("Ukuran dan layar"));
+                        add(Row(Lang.T("Lebar panel"), null, Slider(440, 640, 8, (int)island.PanelW, v => v + " px", v => { island.SetLayout("panel.width", v); Preview(); })));
                         var screens = Screen.AllScreens;
                         var labels = new string[screens.Length];
                         string chosen = settings.Get("monitor", "");
@@ -733,18 +1033,17 @@ namespace Tepi
                         var mon = Popup(labels, screenAt, i => island.UseMonitor(screens[i].Primary ? "" : screens[i].DeviceName));
                         mon.Enabled = screens.Length > 1;
                         add(Row(Lang.T("Layar"), null, mon));
+                        var reserve = Switch("reserve.top", false, on => { settings.Set("reserve.top", on); settings.Save(); island.ApplyReserve(); });
+                        bool sideNow = place == PlaceLeft || place == PlaceRight;
+                        reserve.Enabled = !sideNow;
+                        add(Row(Lang.T("Sisakan ruang di tepi atas"), sideNow ? Lang.T("Hanya untuk letak di atas") : Lang.T("Jendela yang dimaksimalkan mulai di bawah island"), reserve));
+                        break;
+                    case "behave":
                         string mode = settings.Get("mini", "auto");
                         add(Row(Lang.T("Mode"), Lang.T("Otomatis: mini saat tertutup atau diam"),
                             Seg(new[] { Lang.T("Normal"), Lang.T("Mini"), Lang.T("Otomatis") }, mode == "normal" ? 0 : mode == "mini" ? 1 : 2, i => island.SetMiniMode(i == 0 ? "normal" : i == 1 ? "mini" : "auto"))));
                         add(Row(Lang.T("Notifikasi saat mini"), null, Switch("mini.notif", true, null)));
-                        add(Row(Lang.T("Mata"), null, Switch("island.eyes", true, on => { island.SetFlag("island.eyes", on); BeginInvoke(new Action(Relayout)); })));
-                        // Only means something while eyes show
-                        var follow = Switch("island.follow", true, null);
-                        follow.Enabled = settings.GetBool("island.eyes", true);
-                        add(Row(Lang.T("Ikuti kursor"), follow.Enabled ? Lang.T("Mata melirik ke arah kursor") : Lang.T("Nyalakan Mata dulu"), follow));
-                        var face = Seg(new[] { Lang.T("Mata"), Lang.T("Jam") }, settings.Get("idle.face", "eyes") == "clock" ? 1 : 0, i => island.SetChoice("idle.face", i == 1 ? "clock" : "eyes"));
-                        face.Enabled = follow.Enabled;
-                        add(Row(Lang.T("Saat diam"), face.Enabled ? Lang.T("Isi island ketika tidak ada aktivitas") : Lang.T("Nyalakan Mata dulu"), face));
+                        cap(Lang.T("Panel"));
                         bool byClick = settings.Get("panel.open", "hover") == "click";
                         var delay = Slider(150, 800, 50, settings.GetInt("panel.delay", 330), v => v + " ms", v => { settings.Set("panel.delay", v); settings.Save(); });
                         delay.Enabled = !byClick;
@@ -792,10 +1091,30 @@ namespace Tepi
                         });
                         add(Row(Lang.T("Tambah aplikasi"), Lang.T("Island menyingkir atau diam saat aplikasinya di depan"), pick));
                         break;
+                    case "idle":
+                        add(Row(Lang.T("Mata"), null, Switch("island.eyes", true, on => { island.SetFlag("island.eyes", on); BeginInvoke(new Action(Relayout)); })));
+                        // Only means something while eyes show
+                        var follow = Switch("island.follow", true, null);
+                        follow.Enabled = settings.GetBool("island.eyes", true);
+                        add(Row(Lang.T("Ikuti kursor"), follow.Enabled ? Lang.T("Mata melirik ke arah kursor") : Lang.T("Nyalakan Mata dulu"), follow));
+                        var face = Seg(new[] { Lang.T("Mata"), Lang.T("Jam") }, settings.Get("idle.face", "eyes") == "clock" ? 1 : 0, i => island.SetChoice("idle.face", i == 1 ? "clock" : "eyes"));
+                        face.Enabled = follow.Enabled;
+                        add(Row(Lang.T("Saat diam"), face.Enabled ? Lang.T("Isi island ketika tidak ada aktivitas") : Lang.T("Nyalakan Mata dulu"), face));
+                        cap(Lang.T("Isi samping"));
+                        var slotNames = Array.ConvertAll(SlotNames, n => Lang.T(n));
+                        foreach (var side in new[] { new[] { "idle.left", "Isi kiri" }, new[] { "idle.right", "Isi kanan" } })
+                        {
+                            string sk = side[0];
+                            add(Row(Lang.T(side[1]), Lang.T("Di samping mata atau jam saat island diam"), Popup(slotNames, Math.Max(0, Array.IndexOf(SlotIds, settings.Get(sk, ""))), i => island.SetChoice(sk, SlotIds[i]))));
+                        }
+                        break;
                     case "tabs":
                         string style = settings.Get("tabs.style", "auto");
                         add(Row(Lang.T("Gaya tab"), Lang.T("Otomatis: titik bila tab banyak"),
                             Seg(new[] { Lang.T("Otomatis"), Lang.T("Ikon"), Lang.T("Titik") }, style == "icons" ? 1 : style == "dots" ? 2 : 0, i => island.SetChoice("tabs.style", i == 1 ? "icons" : i == 2 ? "dots" : "auto"))));
+                        bool tabHoverOn = settings.Get("tabs.trigger", "click") == "hover";
+                        add(Row(Lang.T("Pindah tab"), Lang.T("Gulir roda mouse selalu bisa"),
+                            Seg(new[] { Lang.T("Klik"), Lang.T("Arahkan kursor") }, tabHoverOn ? 1 : 0, i => island.SetChoice("tabs.trigger", i == 1 ? "hover" : "click"))));
                         var openNames = new List<string> { Lang.T("Tab pertama") };
                         foreach (var n in PageNames) openNames.Add(Lang.T(n));
                         int openAt = Array.IndexOf(PageIds, settings.Get("panel.first", "")) + 1;
@@ -807,6 +1126,19 @@ namespace Tepi
                         tabFocus.Clear();
                         foreach (int pg in order) add(TabRow(pg));
                         break;
+                    case "dock":
+                        DockRows(cap, add);
+                        break;
+                    case "home":
+                        add(Row(Lang.T("Urutan kartu"), Lang.T("Otomatis: yang sedang berjalan naik ke atas"),
+                            Seg(new[] { Lang.T("Otomatis"), Lang.T("Sesuai daftar") }, island.HomeAuto ? 0 : 1, i => { island.SetChoice("home.sort", i == 1 ? "list" : "auto"); Preview(PageHome); })));
+                        cap(Lang.T("Kartu yang tampil"));
+                        // Shown in order, hidden after
+                        var cards = new List<HomeCard>(island.homeCards);
+                        foreach (HomeCard c in Enum.GetValues(typeof(HomeCard))) if (!cards.Contains(c)) cards.Add(c);
+                        tabFocus.Clear();
+                        foreach (var c in cards) add(CardRow(c));
+                        break;
                     case "music":
                         add(Row(Lang.T("Lirik di island"), null, Switch("lyrics", true, null)));
                         add(Row(Lang.T("Cari lirik online"), Lang.T("Judul, artis, dan durasi ke LRCLIB, cadangannya NetEase"), Switch("lyrics.online", true, null)));
@@ -817,7 +1149,29 @@ namespace Tepi
                         var body = Switch("notif.content", true, null);
                         body.Enabled = settings.GetBool("notif", true);
                         add(Row(Lang.T("Tampilkan isi pesan"), body.Enabled ? null : Lang.T("Ikut notifikasi pesan"), body));
+                        bool tepiBanner = settings.Get("notif.banner", "auto") == "tepi";
+                        add(Row(Lang.T("Banner pesan"), tepiBanner ? Lang.T("Tepi selalu muncul; matikan banner Windows supaya tidak dobel") : Lang.T("Tepi muncul hanya untuk aplikasi yang banner Windows-nya mati"),
+                            Seg(new[] { Lang.T("Otomatis"), "Tepi" }, tepiBanner ? 1 : 0, i => { settings.Set("notif.banner", i == 1 ? "tepi" : "auto"); settings.Save(); Relayout(); })));
+                        // Tepi first: one click turns Windows banners off, one click brings them back
+                        int muted = settings.Get("notif.muted", "").Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                        if (muted == 0)
+                            add(Row(Lang.T("Tepi penerima utama"), Lang.T("Matikan banner Windows untuk chat, panggilan, dan screenshot"),
+                                Button(Lang.T("Jadikan utama"), true, delegate
+                                {
+                                    int n = island.MakeTepiPrimary();
+                                    island.ShowInfo('', n > 0 ? Lang.F("Banner Windows dimatikan untuk {0} aplikasi", n) : Lang.T("Banner Windows sudah mati"), Lang.T("Semua notifikasi lewat Tepi"), true);
+                                    Relayout();
+                                })));
+                        else
+                            add(Row(Lang.T("Tepi penerima utama"), Lang.F("Banner Windows dimatikan untuk {0} aplikasi", muted),
+                                Button(Lang.T("Kembalikan banner Windows"), false, delegate { island.RestoreWindowsBanners(); Relayout(); })));
+                        var doubled = island.DoubledApps();
+                        if (tepiBanner && doubled.Count > 0)
+                            add(Row(Lang.T("Banner Windows masih nyala"), string.Join(", ", doubled.ToArray()), Button(Lang.T("Buka pengaturan Windows"), false, delegate { try { Process.Start("ms-settings:notifications"); } catch (Exception ex) { Log.Write("ms-settings: " + ex.Message); } })));
                         add(ListRow(Lang.T("Aplikasi chat tambahan"), Lang.T("Nama aplikasi dipisah koma, Enter menyimpan"), "notif.apps", "Element, Zalo"));
+                        string share = settings.Get("share.mode", "auto");
+                        add(Row(Lang.T("Mode berbagi layar"), Lang.T("Zoom, Meet, Teams: isi pesan disamarkan saat berbagi layar"),
+                            Seg(new[] { Lang.T("Otomatis"), Lang.T("Nyala"), Lang.T("Mati") }, share == "on" ? 1 : share == "off" ? 2 : 0, i => island.SetChoice("share.mode", i == 1 ? "on" : i == 2 ? "off" : "auto"))));
                         add(ListRow(Lang.T("Pengirim prioritas"), Lang.T("Tetap muncul saat Senyap, Enter menyimpan"), "notif.vip", Lang.T("Ibu, dosen")));
                         break;
                     case "system":
@@ -845,16 +1199,20 @@ namespace Tepi
                         add(Row(Lang.T("Ubah format"), Lang.T("Kotak di samping Rak saat berkas diseret ke island"), Switch("convert", true, null)));
                         add(Row(Lang.T("Riwayat clipboard"), Lang.T("Hanya di memori"), Switch("clipboard", false, null)));
                         add(Row(Lang.T("Preview screenshot"), Lang.T("Gambar yang disalin tampil di island"), Switch("shots", true, null)));
+                        cap(Lang.T("Downloads"));
+                        add(Row(Lang.T("Rapikan Downloads"), Lang.T("Berkas lepas dipindah ke folder per jenis; bisa diurungkan 1 jam"), Switch("tidy", false, on => { island.SetFlag("tidy", on); Relayout(); })));
+                        add(Row(Lang.T("Susunan folder"), Lang.T("Folder lama tidak diubah"), Seg(new[] { Lang.T("Per jenis"), Lang.T("Tahun, lalu jenis") }, settings.Get("tidy.layout", "type") == "year" ? 1 : 0, i => { settings.Set("tidy.layout", i == 1 ? "year" : "type"); settings.Save(); })));
+                        int[] nudgeAt = { 0, 5, 15, 30 };
+                        add(Row(Lang.T("Tawarkan saat"), Lang.T("Jumlah berkas lepas sebelum Tepi bertanya"), Popup(new[] { Lang.T("Tidak pernah"), Lang.F("{0} berkas", 5), Lang.F("{0} berkas", 15), Lang.F("{0} berkas", 30) },
+                            Math.Max(0, Array.IndexOf(nudgeAt, settings.GetInt("tidy.nudge", 15))), i => { settings.Set("tidy.nudge", nudgeAt[i]); settings.Save(); })));
+                        add(Row(Lang.T("Rapikan sekarang"), Lang.T("Berkas yang masih diunduh atau dipakai dilewati"), Button(Lang.T("Rapikan"), false, delegate { island.RunTidy(); })));
+                        int undoLeft = island.TidyUndoLeft();
+                        if (undoLeft > 0) add(Row(Lang.T("Urungkan rapikan terakhir"), Lang.F("Masih bisa {0} menit lagi", undoLeft), Button(Lang.T("Urungkan"), false, delegate { island.UndoTidy(); Relayout(); })));
                         break;
                     case "agents":
                         island.HooksInstalled();
                         add(Row("Claude Code", island.hookProfiles == 0 ? Lang.T("tidak ditemukan") : island.hooksOn ? Lang.F("terhubung · {0} profil", island.hookProfiles) : Lang.T("belum terhubung"),
                             AgentButton(island.hookProfiles > 0, island.hooksOn, delegate { island.ToggleHooks(); Relayout(); })));
-                        bool quotaOn = false;
-                        try { quotaOn = island.hooksOn && StatusSetup.Installed(); } catch (Exception) { }
-                        var quota = new KitSwitch { Checked = quotaOn, Enabled = island.hooksOn, Size = new Size((int)(46 * Ui), (int)(26 * Ui)) };
-                        quota.CheckedChanged += delegate { if (building) return; island.SetQuota(quota.Checked); Relayout(); };
-                        add(Row(Lang.T("Kuota Claude"), island.QuotaNote(quotaOn), quota));
                         foreach (var agentId in AgentSetup.Ids)
                         {
                             string aid = agentId;
@@ -865,9 +1223,10 @@ namespace Tepi
                             agentRow.Glyph = '\uE756';
                             add(agentRow);
                         }
-                        var agentQuota = new KitSwitch { Checked = settings.GetBool(StatusSetup.AgentsKey, true), Size = new Size((int)(46 * Ui), (int)(26 * Ui)) };
-                        agentQuota.CheckedChanged += delegate { if (building) return; island.SetAgentQuota(agentQuota.Checked); Relayout(); };
-                        add(Row(Lang.T("Kuota Codex, Antigravity, Copilot"), island.AgentQuotaNote(), agentQuota));
+                        // One switch: every agent's quota
+                        var quota = new KitSwitch { Checked = island.QuotaOn, Size = new Size((int)(46 * Ui), (int)(26 * Ui)) };
+                        quota.CheckedChanged += delegate { if (building) return; island.SetQuota(quota.Checked); Relayout(); };
+                        add(Row(Lang.T("Kuota agent"), island.QuotaNote(), quota));
                         cap(Lang.T("Pemberitahuan"));
                         add(Row(Lang.T("Suara"), Lang.T("Saat agen minta izin atau selesai, dan saat --run selesai"), Switch("sound.agent", false, null)));
                         cap(Lang.T("Server hook"));
@@ -879,12 +1238,20 @@ namespace Tepi
                     case "dikte":
                         DictateRows(add, cap);
                         break;
+                    case "ai":
+                        AiRows(add, cap);
+                        break;
                     case "phone":
-                        add(Row(Lang.T("Hubungkan HP"), Lang.T("Tepi di Android, lewat Wi-Fi yang sama"), Switch("phone", false, on =>
+                        var phoneSw = Switch("phone", false, on =>
                         {
+                            // Saved so it starts with Tepi
+                            settings.Set("phone", on);
+                            settings.Save();
                             if (on) island.StartPhone(); else island.StopPhone();
-                            Relayout();
-                        })));
+                            BeginInvoke(new Action(Relayout));
+                        });
+                        if (island.phone != null) phoneSw.Checked = true;
+                        add(Row(Lang.T("Hubungkan HP"), Lang.T("Tepi di Android, lewat Wi-Fi yang sama"), phoneSw));
                         if (island.phone != null)
                         {
                             if (island.phone.Error != null) add(Row(island.phone.Error, null, null));
@@ -989,7 +1356,7 @@ namespace Tepi
                         var notes = WhatsNew.For(AppVersion);
                         if (notes != null) add(Row(Lang.T("Apa yang baru"), Lang.F("Ringkasan Tepi {0}", AppVersion), Button(Lang.T("Lihat"), false, delegate { island.ShowWhatsNew(this, new List<WhatsNew.Note> { notes }); })));
                         add(Row(Lang.T("Tur Tepi"), Lang.T("Kenalan lagi dengan fitur utama Tepi"), Button(Lang.T("Mulai tur"), false, delegate { Close(); island.StartTour(); })));
-                        add(Row(Lang.T("Layanan luar"), Lang.T("Lirik, Kulia, GitHub, cuaca, integrasi, dan Groq; semua bisa dimatikan"), null));
+                        add(Row(Lang.T("Layanan luar"), Lang.T("Lirik, Kulia, GitHub, cuaca, integrasi, dan layanan AI; semua bisa dimatikan"), null));
                         // QRIS dialog lives on the site
                         add(Row(Lang.T("Traktir Tepi kopi"), Lang.T("QRIS, dari bank atau e-wallet mana pun"), Button(Lang.T("Traktir"), false, delegate { OpenUrl("https://odlaver.github.io/tepi/#kopi"); })));
                         // Hidden until the form is wired
@@ -1068,6 +1435,69 @@ namespace Tepi
                 r.Controls.Add(grip);
                 tabFocus[page + "grip"] = grip;
                 return r;
+            }
+
+            // Screen sketch; the slider below follows the pick
+            KitRow PlaceRow()
+            {
+                var picker = new PlacePicker { Selected = island.placeMode, Size = new Size((int)(212 * Ui), (int)(104 * Ui)) };
+                var row = Row(Lang.T("Letak"), Lang.T(PlaceNames[island.placeMode]), picker);
+                row.Height = (int)(128 * Ui);
+                row.Glyph = '';
+                picker.AccessibleName = Lang.T("Letak");
+                picker.Changed += i =>
+                {
+                    if (building) return;
+                    island.SetPlace(i);
+                    row.Detail = Lang.T(PlaceNames[i]);
+                    row.Invalidate();
+                    RefillTabs("place");
+                };
+                tabFocus["place"] = picker;
+                return row;
+            }
+
+            // Card row: grip | icon, name, note, switch
+            KitRow CardRow(HomeCard card)
+            {
+                int at = Array.IndexOf(island.homeCards, card);
+                string name = Lang.T(HomeNames[(int)card]), key = "h" + (int)card;
+                var sw = new KitSwitch { Checked = at >= 0, Size = new Size((int)(46 * Ui), (int)(26 * Ui)) };
+                sw.CheckedChanged += delegate
+                {
+                    if (building) return;
+                    var list = new List<HomeCard>(island.homeCards);
+                    if (sw.Checked && !list.Contains(card)) list.Add(card);
+                    else if (!sw.Checked) list.Remove(card);
+                    island.SetHomeCards(list);
+                    Preview(PageHome);
+                    RefillTabs(key + "sw");
+                };
+                tabFocus[key + "sw"] = sw;
+                var r = Row(name, Lang.T(HomeNotes[(int)card]), sw);
+                r.Glyph = HomeGlyphs[(int)card];
+                r.Lead = 38;
+                if (at < 0) return r;
+                r.Divider = true;
+                var grip = new TabGrip { Size = new Size((int)(30 * Ui), (int)(30 * Ui)), AccessibleName = Lang.F("Urutan {0}", name), AccessibleDescription = Lang.T("Seret, atau tekan panah atas dan bawah") };
+                grip.Location = new Point((int)(5 * Ui), (r.Height - grip.Height) / 2);
+                grip.Dropped = to => MoveCardTo(card, to);
+                grip.Nudge = step => MoveCardTo(card, at + step);
+                r.Controls.Add(grip);
+                tabFocus[key + "grip"] = grip;
+                return r;
+            }
+
+            void MoveCardTo(HomeCard card, int to)
+            {
+                var list = new List<HomeCard>(island.homeCards);
+                int i = list.IndexOf(card);
+                if (i < 0 || to < 0 || to >= list.Count || to == i) return;
+                list.RemoveAt(i);
+                list.Insert(to, card);
+                island.SetHomeCards(list);
+                Preview(PageHome);
+                RefillTabs("h" + (int)card + "grip");
             }
 
             void MoveTabTo(int page, int to)
@@ -1235,24 +1665,35 @@ namespace Tepi
         class SideList : KitControl
         {
             public List<string[]> Items = new List<string[]>();
+            // One heading per group, above its first row
+            public string[] Headers = new string[0];
             public string Selected = "";
             public event Action<string> Picked;
             int hover = -1;
 
             float RowH { get { return 32 * Ui; } }
 
-            // Groups sit apart so the eye finds them
+            static int GroupOf(string[] item) { return item.Length > 3 ? int.Parse(item[3]) : 0; }
+
+            // Groups sit apart under their heading
             RectangleF Cell(int i)
             {
                 float s = Ui;
-                int group = Items[i].Length > 3 ? int.Parse(Items[i][3]) : 0;
-                return new RectangleF(10 * s, 6 * s + i * RowH + group * GroupGap * s - scroll, Width - 20 * s, RowH - 2 * s);
+                int group = GroupOf(Items[i]);
+                return new RectangleF(10 * s, 6 * s + i * RowH + (group * GroupGap + HeadsThrough(group) * HeaderDip) * s - scroll, Width - 20 * s, RowH - 2 * s);
             }
 
-            const float GroupGap = 10;
+            const float GroupGap = 8, HeaderDip = 26;
 
-            // Unscaled height of every row and gap
-            public static float ContentDip(int rows, int lastGroup) { return 6 + rows * 32 + lastGroup * GroupGap + 14; }
+            string HeaderOf(int group) { return group < Headers.Length ? Headers[group] ?? "" : ""; }
+
+            // Headings above this group, its own included
+            int HeadsThrough(int group)
+            {
+                int n = 0;
+                for (int g = 0; g <= group; g++) if (HeaderOf(g).Length > 0) n++;
+                return n;
+            }
 
             // Short screens: the list scrolls
             float scroll;
@@ -1336,10 +1777,15 @@ namespace Tepi
                 g.Clear(KitInk.Side);
                 float s = Ui;
                 using (var f = new Font(Ink.MenuFamily, 13.5f * s, GraphicsUnit.Pixel))
+                using (var head = new Font(Ink.MenuFamily, 11.5f * s, FontStyle.Bold, GraphicsUnit.Pixel))
                 using (var icons = new Font(Ink.IconFamily, 14f * s, GraphicsUnit.Pixel))
                     for (int i = 0; i < Items.Count; i++)
                     {
                         var c = Cell(i);
+                        int group = GroupOf(Items[i]);
+                        // First row of a group: its heading above
+                        if ((i == 0 || GroupOf(Items[i - 1]) != group) && HeaderOf(group).Length > 0)
+                            KitInk.Draw(g, HeaderOf(group), head, KitInk.Sub, new RectangleF(c.X + 10 * s, c.Y - HeaderDip * s + 4 * s, c.Width - 10 * s, HeaderDip * s - 6 * s), ContentAlignment.MiddleLeft);
                         bool sel = Items[i][0] == Selected;
                         if (sel || i == hover) Fill(g, c, 9 * s, sel ? KitInk.Hover : Ink.Mix(KitInk.Side, KitInk.Hover, 0.5f));
                         KitInk.Draw(g, Items[i][2], icons, sel ? KitInk.Text : KitInk.Sub, new RectangleF(c.X + 8 * s, c.Y, 22 * s, c.Height), ContentAlignment.MiddleCenter);
@@ -1366,6 +1812,8 @@ namespace Tepi
                 readonly int index;
                 public Item(SideList owner, int index) { this.owner = owner; this.index = index; }
                 public override string Name { get { return owner.Items[index][1]; } }
+                // Readers hear the group's heading too
+                public override string Description { get { return owner.HeaderOf(GroupOf(owner.Items[index])); } }
                 public override AccessibleRole Role { get { return AccessibleRole.PageTab; } }
                 public override AccessibleObject Parent { get { return owner.AccessibilityObject; } }
                 public override AccessibleStates State { get { return AccessibleStates.Selectable | (owner.Items[index][0] == owner.Selected ? AccessibleStates.Selected : 0); } }
