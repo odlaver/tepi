@@ -170,24 +170,30 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 .lead { margin: clamp(10px, 2.4svh, 22px) auto 0; max-width: 34ch; font-size: clamp(17px, min(2.1vw, 2.8svh), 25px); line-height: 1.4; color: var(--sub); text-wrap: pretty; }
 .cta { margin-top: clamp(14px, 3svh, 36px); display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1.5svh, 14px); }
 .meta { font-size: 15px; color: var(--faint); font-variant-numeric: tabular-nums; }
-.meta .js-dl-win, .meta .js-dl-apk, .meta [data-i18n="meta.os"] { white-space: nowrap; }
+.meta .js-dl-win, .meta .js-dl-apk, .meta [data-i18n="meta.os"], .meta .link { white-space: nowrap; }
 /* Windows first, Android beside it */
 .cta-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .btn-alt { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); }
 .btn-alt .ico { opacity: 0.9; }
 .ver-tail { font-size: 0.62em; letter-spacing: 0.01em; }
 .platform { max-width: 420px; font-size: 15px; color: var(--sub); }
-.hero-fig { flex: 1 1 0; min-height: 0; max-height: calc(370px + clamp(12px, 3svh, 64px) + 96px); display: flex; flex-direction: column; margin-top: clamp(16px, 3.5svh, 72px); }
+.hero-fig { flex: 1 1 0; min-height: 0; max-height: calc(440px + clamp(12px, 3svh, 64px) * 1.5 + 104px); display: flex; flex-direction: column; margin-top: clamp(16px, 3.5svh, 72px); }
 /* Panel width from the height left over */
 .stage-fit {
   flex: 1 1 0; min-height: 0; container-type: size; --pad: clamp(12px, 3svh, 64px);
   display: flex; flex-direction: column; justify-content: center;
-  --pw: min(92cqw, 584px, calc((100cqh - var(--pad)) * 1.588));
+  /* Panel plus the dock under it: 0.63 + 0.12 of the panel width */
+  --pw: min(92cqw, 584px, calc((100cqh - var(--pad) * 1.5 - 8px) / 0.751));
 }
 .stage-hero { width: min(100%, calc(var(--pw) * 1.85)); margin-inline: auto; padding-bottom: var(--pad); }
 .stage-hero img { width: var(--pw); height: auto; }
-.hero .lead { max-width: 46ch; }
-.hero .cap { flex: none; margin-top: clamp(10px, 2svh, 22px); }
+/* Screen read top to bottom: island panel, then the Dock */
+/* Same scale as the panel, so the pair always fits the height */
+.stage-hero .hero-dock { width: calc(var(--pw) * 1.75); max-width: none; position: relative; left: 50%; transform: translateX(-50%); margin: calc(var(--pad) * 0.5 + 8px) 0 0; }
+.hero .lead { max-width: 58ch; }
+/* Too short for a readable picture: copy and caption only */
+@container (max-height: 150px) { .stage-hero { display: none; } }
+.hero .cap { flex: none; margin-top: clamp(10px, 2svh, 22px); max-width: 80ch; }
 .cap { margin: 22px auto 0; max-width: 62ch; font-size: 16px; color: var(--faint); text-wrap: pretty; }
 
 .sec { padding-top: clamp(104px, 13vw, 168px); }
@@ -252,8 +258,51 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
   -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent); mask-image: linear-gradient(180deg, #000 70%, transparent); }
 .droid-shots img { display: block; width: 100%; height: auto; border-radius: clamp(14px, 2.4vw, 32px) clamp(14px, 2.4vw, 32px) 0 0; }
 .droid-shots figcaption { margin-top: 10px; text-align: center; font-size: 15px; color: var(--sub); }
+/* Dock: the mirror of a stage, lit from below */
+.stage-dock { border-radius: 28px 28px 0 0; padding: clamp(40px, 6vw, 72px) clamp(10px, 2vw, 24px) clamp(10px, 1.2vw, 14px); }
+.stage-dock::before { inset: auto 0 0; }
+.stage-dock::after { background: radial-gradient(60% 85% at 50% 100%, rgba(255, 255, 255, 0.065), transparent 70%); }
+.stage-dock img { display: block; width: min(100%, 1059px); height: auto; }
+/* Narrow screens: the apps stay legible, the ends fade off */
+@media (max-width: 719px) {
+  .stage-dock img { width: 720px; max-width: none; left: 50%; transform: translateX(-50%); margin: 0;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); }
+}
 .droid-facts { margin-top: clamp(28px, 4vw, 48px); display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .droid-facts li { padding: 10px 16px; border-radius: 999px; border: 1px solid var(--line); font-size: 15px; color: var(--sub); }
+
+/* Placement: three small screens */
+.places { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(10px, 2vw, 24px); }
+.places img { width: 100%; height: auto; }
+.places span { display: block; margin-top: 12px; text-align: center; font-size: 15px; color: var(--sub); }
+.mini-row { margin-top: clamp(64px, 8vw, 104px); }
+.mini-row h3 { font-size: clamp(26px, 3vw, 36px); }
+
+/* Dock cards stand on one baseline, as they do above the bar */
+.dock-swap { margin-top: clamp(64px, 8vw, 104px); }
+.dock-swap h3 { font-size: clamp(26px, 3vw, 36px); }
+.cards { margin-top: clamp(32px, 4vw, 48px); display: grid; gap: 40px 24px; align-items: end; }
+.cards figure { margin: 0; }
+.cards img { width: 100%; height: auto; margin-inline: auto; }
+.cards figure:nth-child(n+2) img { max-width: 360px; }
+.cards figcaption { margin-top: 18px; }
+.cards figcaption b { display: block; font-family: var(--display); font-size: 21px; font-weight: 600; }
+.cards figcaption span { display: block; margin-top: 4px; color: var(--faint); }
+kbd { display: inline-block; margin-top: 10px; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--raise); font-family: var(--body); font-size: 13px; font-weight: 600; color: var(--sub); }
+
+/* Voice: the tab, then what each part does */
+.stage-talk { padding-bottom: 28px; }
+.talk-list { margin-top: clamp(36px, 4.5vw, 56px); display: grid; gap: 0 32px; }
+.feat.talk-list li, .feat.talk-list li:first-child { padding-block: 20px 4px; border-top: 1px solid var(--line); }
+.stage-talk img { width: min(94%, 588px); }
+
+/* Feature lists, one column */
+.feat li { padding-block: 16px; border-top: 1px solid var(--line); }
+.feat li:first-child { border-top: 0; padding-top: 0; }
+.feat b { display: block; font-family: var(--display); font-size: 19px; font-weight: 600; }
+.feat li > span { display: block; margin-top: 4px; color: var(--faint); }
+.groups { display: grid; gap: 48px 56px; }
+.group h3 { font-size: clamp(22px, 2.3vw, 27px); padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.22); }
 
 /* Mini, up close */
 .split { display: grid; gap: 40px; align-items: center; }
@@ -349,9 +398,6 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 .stage-tp { margin-top: clamp(48px, 6vw, 72px); padding-bottom: 28px; }
 .stage-tp img { width: min(96%, 772px); }
 
-/* Video */
-.film { width: 100%; aspect-ratio: 16 / 9; border-radius: 24px; background: #000; }
-
 /* Feature lists */
 .more { display: grid; gap: 36px 32px; }
 .more li { padding-top: 20px; border-top: 1px solid var(--line); }
@@ -437,11 +483,15 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 
 @media (min-width: 560px) {
   .stats, .more { grid-template-columns: 1fr 1fr; }
+  .talk-list { grid-template-columns: 1fr 1fr; gap: 28px 32px; }
+  .talk-list li:last-child { grid-column: 1 / -1; }
 }
 @media (min-width: 720px) {
   .priv li { grid-template-columns: 280px 1fr; }
 }
 @media (min-width: 860px) {
+  .groups { grid-template-columns: 1fr 1fr; }
+  .cards { grid-template-columns: 1.6fr 1fr 1fr; }
   .live { grid-template-columns: 1.55fr 1fr; align-items: center; gap: 48px; }
   .split { grid-template-columns: 1fr 1fr; gap: 56px; }
   .agent { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
@@ -453,6 +503,10 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 }
 @media (min-width: 980px) {
   .stats { grid-template-columns: repeat(3, 1fr); }
+  /* Five items: three on top, two below, rows filled */
+  .talk-list { grid-template-columns: repeat(6, 1fr); }
+  .talk-list li { grid-column: span 2; }
+  .talk-list li:nth-child(n+4), .talk-list li:last-child { grid-column: span 3; }
   .more { grid-template-columns: repeat(4, 1fr); }
   .trio { grid-template-columns: 1.35fr 1.25fr 0.9fr; grid-template-rows: auto auto; }
   /* Windows sit on one baseline, titles line up */
@@ -466,6 +520,13 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
   .acts-side { gap: 14px; }
 }
 @media (max-width: 599px) {
+  /* Screens swipe sideways too */
+  .places { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 12px; padding-bottom: 6px; scrollbar-width: none; }
+  .places li { flex: 0 0 78%; scroll-snap-align: center; }
+  .cards figure:first-child img { max-width: 420px; }
+  /* Wider than the phone: its ends fade out */
+  .stage-hero .hero-dock {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); }
   /* Phones swipe sideways, each big enough to read */
   .droid-shots { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 14px; padding-bottom: 6px; scrollbar-width: none; }
   .droid-shots figure { flex: 0 0 74%; scroll-snap-align: center; }
@@ -486,9 +547,6 @@ h3 { font-size: clamp(22px, 2.3vw, 27px); line-height: 1.15; letter-spacing: -0.
 @media (max-height: 760px) {
   .scene.pinned .scene-copy .body { display: none; }
   .scene.pinned h2 { font-size: clamp(32px, 4.6vw, 52px); }
-}
-@media (orientation: portrait) and (max-width: 860px) {
-  .film { aspect-ratio: 9 / 16; width: auto; max-height: 82svh; margin-inline: auto; }
 }
 @media (max-width: 420px) {
   .btn-lg { height: 56px; padding: 0 24px; font-size: 17px; }
