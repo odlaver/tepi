@@ -403,7 +403,7 @@ namespace Tepi
             var bar = new RectangleF(48, cy - 5, w - 48 - 64, 10);
             p.FillRound(bar, 5, p.T.Quaternary);
             float f = Ease.Clamp01(level);
-            if (f > 0.001f) p.FillRound(bar, 5, p.Split(bar.X, bar.Width, bar.X + Math.Max(10, bar.Width * f), p.T.Accent, Color.Transparent));
+            if (f > 0.001f) p.FillRound(new RectangleF(bar.X, bar.Y, Math.Max(10, bar.Width * f), 10), 5, p.T.Accent);
             var font = Ink.Semi(13f);
             float pw = p.Measure("%", font);
             p.Text("%", font, p.T.Sub, w - 18, cy, pw + 2, StringAlignment.Far);

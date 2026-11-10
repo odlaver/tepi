@@ -127,6 +127,8 @@ namespace Tepi
                     else if (hotId == id) p.FillRound(row, 14, pressId == id ? p.T.FillPressed : p.T.Fill);
                     float cy = y + RowH / 2;
                     char bars = n.Signal < 25 ? (char)0xE872 : n.Signal < 50 ? (char)0xE873 : n.Signal < 75 ? (char)0xE874 : (char)0xE701;
+                    // Missing arcs stay faintly there
+                    if (n.Signal < 75) p.Icon((char)0xE701, 16f, Ink.A(p.T.Text, 0.22f), row.X + 24, cy);
                     p.Icon(bars, 16f, p.T.Text, row.X + 24, cy);
                     if (n.Secured && !n.Open) p.Icon((char)0xE72E, 8f, p.T.Sub, row.X + 32, cy + 6);
                     p.Text(n.Ssid, Ink.Semi(13f), p.T.Text, row.X + 46, cy - 8, row.Width - 140, StringAlignment.Near);
@@ -164,7 +166,7 @@ namespace Tepi
                 string shown = password.Length == 0 ? null : new string('•', password.Length);
                 if (shown == null) p.Text(Lang.T("Kata sandi"), Ink.Small(12f), p.T.Sub, box.X + 12, cy, box.Width - 20, StringAlignment.Near);
                 else p.Text(shown, f, p.T.Text, box.X + 12, cy, box.Width - 20, StringAlignment.Near);
-                float caret = box.X + 12 + (shown != null ? Math.Min(box.Width - 24, p.Measure(shown, f)) + 1 : 0);
+                float caret = box.X + 12 + (shown != null ? Math.Min(box.Width - 24, p.Measure(shown, f)) + 1 : -2);
                 g.DrawLine(p.P(p.T.Text, 1.4f), caret, cy - 8, caret, cy + 8);
                 var join = new RectangleF(box.Right + 8, box.Y, 100, box.Height);
                 bool ready = password.Length >= 8;
@@ -233,6 +235,13 @@ namespace Tepi
             void Post(Action a)
             {
                 try { if (!IsDisposed) BeginInvoke(a); } catch (Exception) { }
+            }
+
+            // Password field opens inside the list
+            void ShowRow(int i)
+            {
+                float room = H - Foot - 6 - ListTop - (RowH + 50);
+                first = Math.Max(first, i - Math.Max(0, (int)Math.Floor(room / (RowH + 2))));
             }
 
             static int IndexOf(string id, string tag)
@@ -304,7 +313,7 @@ namespace Tepi
                     if (n.Connected && isle.net.Current.Captive) { Open("http://www.msftconnecttest.com/redirect", null); Done(); return; }
                     if (n.Connected) return;
                     if (n.Known || n.Open) Join(n, null);
-                    else if (n.Personal) { asking = asking == n ? null : n; password = ""; }
+                    else if (n.Personal) { asking = asking == n ? null : n; password = ""; if (asking != null) ShowRow(i); }
                     else { Open("ms-settings:network-wifi", null); Done(); }
                     return;
                 }
@@ -319,6 +328,7 @@ namespace Tepi
 
             protected override bool ProcessCmdKey(ref Message msg, Keys key)
             {
+                if (Leaving) return true;
                 if (wifiView)
                 {
                     if (asking != null)
@@ -343,7 +353,7 @@ namespace Tepi
             protected override void OnKeyPress(KeyPressEventArgs e)
             {
                 base.OnKeyPress(e);
-                if (!wifiView || asking == null || e.KeyChar < ' ' || password.Length >= 63) return;
+                if (Leaving || !wifiView || asking == null || e.KeyChar < ' ' || password.Length >= 63) return;
                 password += e.KeyChar;
                 e.Handled = true;
                 Render();

@@ -522,7 +522,7 @@ namespace Tepi
             MiniSync();
             // Music tab chosen early: bake its backdrop
             if (current == View.Panel && page == PageMusic && mediaInfo.Present) BackdropFor();
-            SizeF size = ViewSize(current);
+            SizeF size = Lifted(ViewSize(current));
             // Jelly: leading axis moves first
             bool growing = size.Width > sw.Value + 1;
             // Into the sliver without a bounce
@@ -546,6 +546,40 @@ namespace Tepi
                 ambientTimer.Stop();
                 animating = true;
             }
+        }
+
+        // Held on the pill itself
+        bool shellDown;
+
+        // Whole pill answers the pointer
+        bool Swells()
+        {
+            if (Anim.Reduced || expanded || !pointerInside || dragId != null) return false;
+            switch (current)
+            {
+                case View.Panel:
+                case View.Approve:
+                case View.Prompter:
+                case View.Mirror:
+                case View.Convert:
+                case View.Mini:
+                case View.Dictate:
+                case View.ShelfDrop:
+                case View.Drive:
+                case View.Otp:
+                case View.Remind:
+                case View.Pray:
+                case View.Shot: return false;
+            }
+            return true;
+        }
+
+        // Pointer over swells; held tucks in
+        SizeF Lifted(SizeF s)
+        {
+            if (!Swells()) return s;
+            float along = shellDown ? -4 : 8, across = shellDown ? -2 : 3;
+            return UprightNow(current) ? new SizeF(s.Width + across, s.Height + along) : new SizeF(s.Width + along, s.Height + across);
         }
 
         // TEPI_FPS=1 logs rendered frames per second
@@ -853,6 +887,7 @@ namespace Tepi
             Prof.Add("present", t0);
             dumpAt = new Rectangle(dst.X, dst.Y, pxW, pxH);
             lastShellPx = Rectangle.Round(new RectangleF(shell.X * scale, shell.Y * scale, shell.Width * scale, shell.Height * scale));
+            lastRadius = R;
             lastLeft = dst.X;
             lastTop = dst.Y;
         }
@@ -860,6 +895,9 @@ namespace Tepi
         // Snapshot morph: last shell, half size
         Bitmap snapshot;
         Rectangle snapScreen, lastShellPx;
+        // Old shell radius; inset hides its rim
+        float lastRadius, snapRadius;
+        const float SnapInset = 3f;
         int lastLeft, snapPxW;
         DateTime snapUtc;
         bool snapWanted;
@@ -899,6 +937,7 @@ namespace Tepi
             g.Flush(FlushIntention.Sync);
             BitBlt(snapDC, 0, 0, w, h, memDC, r.X, r.Y, 0x00CC0020);
             snapScreen = new Rectangle(lastLeft + r.X, lastTop + r.Y, r.Width, r.Height);
+            snapRadius = lastRadius;
             snapUtc = DateTime.UtcNow;
         }
 
@@ -906,22 +945,56 @@ namespace Tepi
         void DrawSnapshot(DateTime now)
         {
             if (snapshot == null) return;
-            double secs = (now - snapUtc).TotalSeconds, t = secs / SnapSeconds;
-            if (t >= 1) { FreeSnapshot(); return; }
-            float k = Ease.OutCubic((float)t), sc = Anim.Reduced ? 1 : 1 - 0.08f * Springs.Progress((float)secs, 0.24f, 1f);
+            bool kin = Kin(previous, current);
+            double secs = (now - snapUtc).TotalSeconds;
+            if (secs >= (kin ? KinSeconds : SnapSeconds)) { FreeSnapshot(); return; }
+            float k = Ease.OutCubic((float)(secs / SnapSeconds)), sc = Anim.Reduced || kin ? 1 : 1 - 0.08f * Springs.Progress((float)secs, 0.24f, 1f);
             float w = snapScreen.Width * sc, h = snapScreen.Height * sc;
             float cx = snapScreen.X - frameLeft + snapScreen.Width / 2f;
             var dst = new RectangleF(cx - w / 2, snapScreen.Y - frameTop, w, h);
             // GDI AlphaBlend: premultiplied, constant fade
             int sca = (int)(255 * (1 - k) * 0.95f);
+            if (kin) { SnapKin((int)Math.Round(dst.Y), sca); return; }
             if (sca <= 0) return;
-            // Same shell clip as the GDI+ content
+            var st = g.Save();
+            // Old rim and edge light stay behind
+            var body = new RectangleF(dst.X / scale + SnapInset, dst.Y / scale + SnapInset, dst.Width / scale - 2 * SnapInset, dst.Height / scale - 2 * SnapInset);
+            if (body.Width > 8 && body.Height > 8)
+                using (var keep = Ink.Round(body, Math.Max(0, snapRadius * sc - SnapInset))) g.SetClip(keep, CombineMode.Intersect);
+            SnapBlit((int)Math.Round(dst.X), (int)Math.Round(dst.Y), Math.Max(1, (int)Math.Round(dst.Width)), Math.Max(1, (int)Math.Round(dst.Height)), 0, snapW, sca);
+            g.Restore(st);
+        }
+
+        // New view is fully in by then
+        const double KinSeconds = 0.27;
+
+        // Cover and bars hold; old words fade
+        void SnapKin(int y, int sca)
+        {
+            int cap = Math.Min(snapW / 2, (int)Math.Round(38 * scale)), mid = snapW - 2 * cap;
+            int l = (int)Math.Round(shell.X * scale), r = (int)Math.Round(shell.Right * scale);
+            var st = g.Save();
+            var body = RectangleF.Inflate(shell, -SnapInset, -SnapInset);
+            using (var keep = Ink.Round(body, body.Height / 2)) g.SetClip(keep, CombineMode.Intersect);
+            SnapBlit(l, y, cap, snapH, 0, cap, 255);
+            SnapBlit(r - cap, y, cap, snapH, snapW - cap, cap, 255);
+            if (sca > 0 && mid > 0 && r - l > 2 * cap)
+            {
+                g.SetClip(new RectangleF((l + cap) / scale, shell.Y, (r - l - 2 * cap) / scale, shell.Height), CombineMode.Intersect);
+                SnapBlit((l + r - mid) / 2, y, mid, snapH, cap, mid, sca);
+            }
+            g.Restore(st);
+        }
+
+        // Snapshot columns through the GDI+ clip
+        void SnapBlit(int dx, int dy, int dw, int dh, int sx, int sw2, int sca)
+        {
             using (var clip = g.Clip)
             {
                 IntPtr rgn = clip.IsInfinite(g) ? IntPtr.Zero : clip.GetHrgn(g);
                 g.Flush(FlushIntention.Sync);
                 SelectClipRgn(memDC, rgn);
-                AlphaBlend(memDC, (int)Math.Round(dst.X), (int)Math.Round(dst.Y), Math.Max(1, (int)Math.Round(dst.Width)), Math.Max(1, (int)Math.Round(dst.Height)), snapDC, 0, 0, snapW, snapH, sca << 16 | 1 << 24);
+                AlphaBlend(memDC, dx, dy, dw, dh, snapDC, sx, 0, sw2, snapH, sca << 16 | 1 << 24);
                 SelectClipRgn(memDC, IntPtr.Zero);
                 if (rgn != IntPtr.Zero) Native.DeleteObject(rgn);
             }
@@ -1057,17 +1130,20 @@ namespace Tepi
             }
         }
 
+        const int GlowLayers = 16;
+
         // Halo while an approval waits
         void DrawGlow(DateTime now, RectangleF r, float radius)
         {
             if (flip < 0.05f) return;
             float breath = 0.55f + 0.45f * (float)Math.Sin(clock.Elapsed.TotalSeconds * Math.PI * 1.3);
             Color c = Ink.Flip.Bg;
-            for (int i = 0; i < 6; i++)
+            // Thin layers: falloff without bands
+            for (int i = 0; i < GlowLayers; i++)
             {
-                float grow = 1.5f + i * 2.6f;
+                float grow = 1f + i * 0.9f, fall = 1 - i / (float)GlowLayers;
                 var rr = new RectangleF(r.X - grow, r.Y - grow, r.Width + grow * 2, r.Height + grow * 2);
-                p.FillRound(rr, radius + grow, Color.FromArgb((int)(flip * breath * (70 - i * 11)), c.R, c.G, c.B));
+                p.FillRound(rr, radius + grow, Color.FromArgb((int)(flip * breath * 36 * fall * (float)Math.Sqrt(fall)), c.R, c.G, c.B));
             }
         }
 
@@ -1168,10 +1244,13 @@ namespace Tepi
             // New view follows 50 ms later
             if (tone == Ink.Base) DrawSnapshot(now);
             float inA = Ease.OutCubic((t - 0.05f) / 0.22f);
-            float grow = Anim.Reduced ? 0 : 1 - Springs.Progress(t - 0.05f, 0.34f, 0.86f);
+            float grow = Anim.Reduced || Kin(previous, current) ? 0 : 1 - Springs.Progress(t - 0.05f, 0.34f, 0.86f);
             DrawViewAt(current, inA, 1 + 0.04f * grow, registerHits && inA > 0.8f && grow < 0.15f, now);
             if (registerHits) DrawFocusRing();
         }
+
+        // Same frame, only the words differ
+        static bool Kin(View a, View b) { return (a == View.Media && b == View.Lyric) || (a == View.Lyric && b == View.Media); }
 
         void DrawViewAt(View v, float alpha, float zoom, bool registerHits, DateTime now)
         {
@@ -1348,10 +1427,12 @@ namespace Tepi
             if (dragId != null || draggingOut) return;
             if (prompterSizing != 0) return;
             pointerInside = false;
+            shellDown = false;
             hoverTimer.Stop();
             leaveTimer.Stop();
             leaveTimer.Start();
-            if (hoverId != null) { hoverId = null; Kick(); }
+            hoverId = null;
+            Kick();
             PrompterHover(mouse, false);
         }
 
@@ -1378,6 +1459,8 @@ namespace Tepi
                 pressedId = HitAt(pt);
                 var h = HitById(pressedId);
                 if (h != null && h.Drag != null) { dragId = pressedId; Capture = true; h.Drag(Fraction(h, pt)); }
+                // Bare pill or a pill-wide hit
+                shellDown = InShape(pt) && (h == null || h.Rect.Width >= shell.Width * 0.9f);
                 Kick();
             }
         }
@@ -1385,6 +1468,7 @@ namespace Tepi
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
+            shellDown = false;
             var pt = new PointF(e.X / scale, e.Y / scale);
             if (prompterSizing != 0)
             {

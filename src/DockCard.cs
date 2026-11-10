@@ -33,7 +33,7 @@ namespace Tepi
             readonly Spring open = new Spring(0, 1, 1, 0.003f);
             DateTime lastStep = DateTime.UtcNow;
             string hot, press;
-            bool over;
+            bool over, leaving;
 
             sealed class Thumb
             {
@@ -129,7 +129,20 @@ namespace Tepi
 
             bool allowClose;
 
+            // Sinks and fades, then closes
             public void Dismiss()
+            {
+                if (leaving) return;
+                closeSoon.Stop();
+                if (!Visible || Anim.Reduced || g == null || open.Value < 0.05f) { Finish(); return; }
+                leaving = true;
+                Tune(open, 2600, 1f);
+                open.Target = 0;
+                lastStep = DateTime.UtcNow;
+                frames.Start();
+            }
+
+            void Finish()
             {
                 allowClose = true;
                 Close();
@@ -193,7 +206,7 @@ namespace Tepi
             // Content changed: titles, windows, icons
             public void Refill()
             {
-                if (IsDisposed) return;
+                if (IsDisposed || leaving) return;
                 if (Kind == TrayKind) icons = dock.TrayOverflow();
                 if (Kind == WindowsKind)
                 {
@@ -285,6 +298,7 @@ namespace Tepi
                 float dt = (float)Math.Min(0.05, (now - lastStep).TotalSeconds);
                 lastStep = now;
                 open.Step(dt);
+                if (leaving && open.Value < 0.03f) { frames.Stop(); Finish(); return; }
                 Location = new Point(Location.X, baseY + Rise());
                 Render();
                 if (open.Settled) frames.Stop();
@@ -465,11 +479,19 @@ namespace Tepi
                 return null;
             }
 
-            protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); over = true; closeSoon.Stop(); dock.HoldOpen(true); }
+            protected override void OnMouseEnter(EventArgs e)
+            {
+                base.OnMouseEnter(e);
+                if (leaving) return;
+                over = true;
+                closeSoon.Stop();
+                dock.HoldOpen(true);
+            }
 
             protected override void OnMouseLeave(EventArgs e)
             {
                 base.OnMouseLeave(e);
+                if (leaving) return;
                 over = false;
                 hot = null;
                 press = null;
@@ -481,6 +503,7 @@ namespace Tepi
             protected override void OnMouseMove(MouseEventArgs e)
             {
                 base.OnMouseMove(e);
+                if (leaving) return;
                 string id = HitAt(e.Location);
                 if (id == hot) return;
                 hot = id;
@@ -490,6 +513,7 @@ namespace Tepi
             protected override void OnMouseDown(MouseEventArgs e)
             {
                 base.OnMouseDown(e);
+                if (leaving) return;
                 press = HitAt(e.Location);
                 var ic = TrayAt(press);
                 if (ic != null) dock.TrayDown(ic, e.Button);
@@ -499,6 +523,7 @@ namespace Tepi
             protected override void OnMouseUp(MouseEventArgs e)
             {
                 base.OnMouseUp(e);
+                if (leaving) return;
                 string id = HitAt(e.Location);
                 string was = press;
                 press = null;

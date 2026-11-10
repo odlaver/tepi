@@ -45,6 +45,7 @@ namespace Tepi
             // Every tile and hover plate shares this size and centre line
             const float GlyphK = 0.62f;
             float PlateH { get { return IconRest * 0.86f; } }
+            float PlateR { get { return PlateH * 0.3f; } }
             float PlateCy(RectangleF pill) { return pill.Y + PadTop + IconRest / 2; }
             float Edge { get { return Full ? 0 : 6; } }
             // Room above the bar: magnified icons, their names, a bounce
@@ -53,6 +54,10 @@ namespace Tepi
 
             readonly List<Slot> slots = new List<Slot>();
             readonly Dictionary<string, Spring> sysGrow = new Dictionary<string, Spring>();
+            // Widget presence: 0 gone, 1 full width
+            readonly Dictionary<string, Spring> widgetShow = new Dictionary<string, Spring>();
+            bool widgetsPrimed;
+            float leftPresence = 1;
             // The capsule, and the widget and tray spans inside it
             RectangleF leftPill, centerPill, rightPill;
             float sepA = float.NaN, sepB = float.NaN;
@@ -191,8 +196,11 @@ namespace Tepi
                     wl = LeftWidth();
                     sides = wl + wr + SegGap * 2;
                 }
-                bool hasL = wl > 0, hasC = slots.Count > 0, hasR = wr > 0;
-                float gapL = hasL && (hasC || hasR) ? SegGap : 0, gapR = hasR && hasC ? SegGap : 0;
+                // Fit by final widths, layout by springs
+                AimWidgets();
+                wl = LeftShown();
+                bool hasL = wl > 0.5f, hasC = slots.Count > 0, hasR = wr > 0;
+                float gapL = hasL && (hasC || hasR) ? SegGap * leftPresence : 0, gapR = hasR && hasC ? SegGap : 0;
                 float leftBlock = hasL ? wl + gapL : 0, rightBlock = hasR ? wr + gapR : 0;
                 float gap = GapX * fit;
                 float originRest = dipW / 2 - (leftBlock + restW + rightBlock) / 2 + leftBlock;
@@ -280,6 +288,7 @@ namespace Tepi
                 hover.Step(dt);
                 moving |= !reveal.Settled || !hover.Settled;
                 foreach (var s in sysGrow.Values) { s.Step(dt); moving |= !s.Settled; }
+                foreach (var s in widgetShow.Values) { s.Step(dt); moving |= !s.Settled; }
                 for (int i = apps.Count - 1; i >= 0; i--)
                 {
                     var a = apps[i];
@@ -322,6 +331,53 @@ namespace Tepi
                 float w = -6;
                 foreach (var id in ids) w += WidgetW(id) + 6;
                 return w;
+            }
+
+            Spring WidgetSpring(string id)
+            {
+                Spring s;
+                if (!widgetShow.TryGetValue(id, out s))
+                {
+                    s = new Spring(0, 1, 1, 0.002f);
+                    Tune(s, 240, 1f);
+                    widgetShow[id] = s;
+                }
+                return s;
+            }
+
+            float WidgetShown(string id) { return Ease.Clamp01(WidgetSpring(id).Value); }
+
+            // First layout snaps; later changes animate
+            void AimWidgets()
+            {
+                var want = LeftWidgets();
+                foreach (var id in DockWidgetIds)
+                {
+                    var s = WidgetSpring(id);
+                    s.Target = want.Contains(id) ? 1 : 0;
+                    if (!widgetsPrimed || Anim.Reduced) s.Snap(s.Target);
+                }
+                widgetsPrimed = true;
+                if (WidgetsMoving()) Animate();
+            }
+
+            bool WidgetsMoving()
+            {
+                foreach (var s in widgetShow.Values) if (!s.Settled) return true;
+                return false;
+            }
+
+            float LeftShown()
+            {
+                float w = 0, sum = 0;
+                foreach (var id in DockWidgetIds)
+                {
+                    float s = WidgetShown(id);
+                    w += (WidgetW(id) + 6) * s;
+                    sum += s;
+                }
+                leftPresence = Math.Min(1, sum);
+                return Math.Max(0, w - 6 * leftPresence);
             }
 
             float RightWidth()

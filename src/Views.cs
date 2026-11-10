@@ -26,8 +26,8 @@ namespace Tepi
                 case View.Done: return new SizeF(414, 70);
                 case View.Notif: return new SizeF(404, 66);
                 case View.Volume: return new SizeF(300, 44);
-                case View.Power:
-                case View.Network: return new SizeF(344, 48);
+                case View.Power: return new SizeF(PowerWidth(), 48);
+                case View.Network: return new SizeF(NetworkWidth(), 48);
                 case View.Privacy: return new SizeF(PrivacyWidth(), 40);
                 case View.Info: return new SizeF(InfoWidth(), 42);
                 case View.Task: return new SizeF(TaskWidth(), 38);
@@ -368,17 +368,20 @@ namespace Tepi
             float x = left + Math.Max(0, (avail - tw - aw) / 2);
             p.Text(title, tf, p.T.Text, x, cy - 0.5f, Math.Min(tw + 2, avail), StringAlignment.Near);
             if (tw < avail - 24) p.Text(tail, af, p.T.Sub, x + tw, cy - 0.5f, left + avail - x - tw, StringAlignment.Near);
-            // Progress hairline, inset along the bottom
-            if (mediaInfo.DurationMs > 0)
+            Hairline(w, h, cap);
+        }
+
+        // Progress hairline, inset along the bottom
+        void Hairline(float w, float h, float cap)
+        {
+            if (mediaInfo.DurationMs <= 0) return;
+            var line = new RectangleF(cap, h - 5, w - 2 * cap, 2);
+            LiveRect(line, ProgressFps(line.Width), t =>
             {
-                var line = new RectangleF(cap, h - 5, w - 2 * cap, 2);
-                LiveRect(line, ProgressFps(line.Width), t =>
-                {
-                    float f = Ease.Clamp01((float)(mediaInfo.Position(t) / mediaInfo.DurationMs));
-                    p.FillRound(line, 1, Ink.A(p.T.Text, 0.1f));
-                    p.FillRound(line, 1, p.Split(line.X, line.Width, line.X + line.Width * f, Ink.A(p.T.Text, 0.3f), Color.Transparent));
-                });
-            }
+                float f = Ease.Clamp01((float)(mediaInfo.Position(t) / mediaInfo.DurationMs));
+                p.FillRound(line, 1, Ink.A(p.T.Text, 0.1f));
+                p.FillRound(line, 1, p.Split(line.X, line.Width, line.X + line.Width * f, Ink.A(p.T.Text, 0.3f), Color.Transparent));
+            });
         }
 
         string LyricText(int i)
@@ -405,11 +408,13 @@ namespace Tepi
         void DrawLyric(float w, float h, DateTime now)
         {
             float cy = h / 2, cap = Math.Min(19, h / 2);
-            DrawCover(new RectangleF(cap - 11, cy - 11, 22, 22), 6);
-            DrawBars(w - cap + 9.2f, cy, 4, 15, 2.8f, 2.4f);
+            // Media's cover and bars, unmoved
+            DrawCover(new RectangleF(cap - 12, cy - 12, 24, 24), 6);
+            DrawBars(w - cap + 12.3f, cy, 5, 16, 3f, 2.4f);
+            Hairline(w, h, cap);
             if (!LyricsReady) return;
-            // Line roll redraws alone
-            LiveRect(new RectangleF(2 * cap, 0, w - 4 * cap - 4, h), t => PaintLyric(w, h, t));
+            // Line roll redraws alone, above the hairline
+            LiveRect(new RectangleF(2 * cap, 0, w - 4 * cap - 4, h - 6), t => PaintLyric(w, h, t));
         }
 
         double PaintLyric(float w, float h, DateTime now)
@@ -493,7 +498,8 @@ namespace Tepi
             if (count.Length > 0) { p.TextRight(count, Ink.Semi(11.5f), p.T.Text, right, cy); right -= p.Measure(count, Ink.Semi(11.5f)) + 10; }
             if (step.Length > 0) p.Text(step, Ink.Text(12f), p.T.Sub, x, cy, right - x, StringAlignment.Near);
             else p.Text(AgentLine(s), Ink.Mono(12f), p.T.Sub, x, cy, right - x, StringAlignment.Near);
-            if (s.Plan != null && s.Plan.Count > 0) DrawPlanBar(s, new RectangleF(h / 2, h - 3.4f, w - h, 2f));
+            // Edge light already traces the plan
+            if (s.Plan != null && s.Plan.Count > 0 && !EdgeOn) DrawPlanBar(s, new RectangleF(h / 2, h - 3.4f, w - h, 2f));
             AddHit(new RectangleF(0, 0, w, h), "agentView", delegate { ShowAgent(s); });
         }
 
@@ -746,11 +752,31 @@ namespace Tepi
             LevelHud(w, h, VolumeGlyph(), muted ? 0 : volBar.Value, volRoller, now);
         }
 
+        string PowerTitle()
+        {
+            string kind = toast != null ? toast.Data as string : "";
+            return kind == "plug" ? Lang.T("Mengisi daya") : kind == "unplug" ? Lang.T("Charger dicabut") : kind == "full" ? Lang.T("Baterai penuh") : kind == "enough" ? Lang.T("Cabut charger") : Lang.T("Baterai lemah");
+        }
+
+        // Battery, title, percent, even margins
+        float PowerWidth()
+        {
+            if (p.G == null) return 300;
+            var semi = Ink.Semi(13.5f);
+            return Clamp(44 + p.Measure(PowerTitle(), semi) + 14 + p.Measure("100%", semi) + 56, 240, 380);
+        }
+
+        float NetworkWidth()
+        {
+            if (toast == null || p.G == null) return 300;
+            float t = 28 + p.Measure(toast.Title, Ink.Semi(13.5f)) + (toast.Detail.Length > 0 ? 14 + Math.Min(160, p.Measure(toast.Detail, Ink.Text(12.5f))) : 0);
+            return Clamp(t + 56, 220, 420);
+        }
+
         void DrawPower(float w, float h)
         {
             float cy = h / 2;
-            string kind = toast != null ? toast.Data as string : "";
-            string title = kind == "plug" ? Lang.T("Mengisi daya") : kind == "unplug" ? Lang.T("Charger dicabut") : kind == "full" ? Lang.T("Baterai penuh") : kind == "enough" ? Lang.T("Cabut charger") : Lang.T("Baterai lemah");
+            string title = PowerTitle();
             var semi = Ink.Semi(13.5f);
             string pct = battery + "%";
             float x = CenterStart(w, 44, title, semi, pct, semi, 60);

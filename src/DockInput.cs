@@ -328,7 +328,7 @@ namespace Tepi
                 // Auto-hidden: the dock comes up under its card
                 Reveal(true);
                 sheet = MakeSheet(kind);
-                sheet.OpenAt(HitScreenRect(SheetAnchor(kind)), mon, BarTopShownScreen(), scale);
+                sheet.OpenAt(HitScreenRect(SheetAnchor(kind)), Full ? Rectangle.Empty : ToScreen(centerPill), mon, BarTopShownScreen(), scale);
             }
 
             GlassSheet MakeSheet(string kind)

@@ -306,7 +306,7 @@ namespace Tepi
                 }
                 Hit(s.Hit, id, act, menu);
                 hot |= keyMode && keySel == id;
-                Tile(s.Icon, hot, pressId == id, 1);
+                Plate(OnBar(s.Icon, 0, pressId == id), hot, pressId == id, 1);
                 if (keyMode && keySel == id) FocusRing(s.Icon);
                 float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, u = r.Width / 42f;
                 Color ink = hot ? p.T.Text : Ink.Mix(p.T.Sub, p.T.Text, 0.55f);
@@ -330,7 +330,7 @@ namespace Tepi
                 Hit(s.Hit, s.Id, delegate { OpenApp(app, false); }, delegate { AppMenu(app); });
                 bool focus = keyMode && keySel == s.Id;
                 bool hot = (hoverId == s.Id && dragApp == null) || focus, down = pressId == s.Id && dragApp == null;
-                Tile(s.Icon, hot, down, s.Show);
+                Plate(OnBar(s.Icon, HopLift(a), down), hot, down, s.Show);
                 if (focus) FocusRing(s.Icon);
                 var r = Glyph(down ? Inset(s.Icon, s.Icon.Width * 0.05f) : s.Icon);
                 DrawIconImage(a, r, s.Show);
@@ -341,10 +341,22 @@ namespace Tepi
             // Apps and system buttons sit on one tile shape
             void Tile(RectangleF slot, bool hot, bool down, float alpha)
             {
-                var plate = Inset(slot, slot.Width * (down ? 0.1f : 0.07f));
+                Plate(Inset(slot, slot.Width * (down ? 0.1f : 0.07f)), hot, down, alpha);
+            }
+
+            void Plate(RectangleF plate, bool hot, bool down, float alpha)
+            {
                 p.Alpha = Ease.Clamp01(alpha);
-                p.FillRound(plate, plate.Width * 0.3f, down ? p.T.FillPressed : hot ? p.T.FillHover : p.T.Fill);
+                p.FillRound(plate, Math.Min(plate.Width, plate.Height) * 0.3f, down ? p.T.FillPressed : hot ? p.T.FillHover : p.T.Fill);
                 p.Alpha = 1;
+            }
+
+            // Icon may rise; plate stays put
+            RectangleF OnBar(RectangleF slot, float lift, bool down)
+            {
+                var plate = Inset(new RectangleF(slot.X, slot.Y + lift, slot.Width, slot.Height), slot.Width * (down ? 0.1f : 0.07f));
+                float top = Math.Max(plate.Y, barTop + 4);
+                return RectangleF.FromLTRB(plate.Left, Math.Min(top, plate.Bottom - 8), plate.Right, plate.Bottom);
             }
 
             // Keyboard focus: a ring the eye finds at once
@@ -464,6 +476,7 @@ namespace Tepi
             }
 
             readonly SideCache leftSide = new SideCache(), rightSide = new SideCache();
+            const int SpanPad = 4;
             // Pixel origin of the surface being drawn; zero for the canvas
             int offX, offY;
 
@@ -471,14 +484,16 @@ namespace Tepi
             // only their position changes (the bar grows under the pointer)
             void DrawSpan(RectangleF span, bool left)
             {
+                if (span.IsEmpty && left) DropGhosts();
                 if (span.IsEmpty) return;
                 var c = left ? leftSide : rightSide;
-                const int pad = 4;
+                const int pad = SpanPad;
                 int w = (int)Math.Ceiling(span.Width * scale) + pad * 2, h = (int)Math.Ceiling(span.Height * scale) + pad * 2;
                 int px = (int)Math.Round(span.X * scale) - pad, py = (int)Math.Round(span.Y * scale) - pad;
                 string sig = SpanSig(left) + "@" + w + "x" + h;
                 if (sig != c.Sig || c.Bmp == null)
                 {
+                    if (left && c.Bmp != null) KeepGhosts(c.Bmp);
                     if (c.Bmp == null || c.Bmp.Width != w || c.Bmp.Height != h)
                     {
                         if (c.Bmp != null) c.Bmp.Dispose();
@@ -549,8 +564,8 @@ namespace Tepi
             // Thin lines between widgets, apps and the tray
             void Dividers()
             {
-                foreach (float x in new[] { sepA, sepB })
-                    if (!float.IsNaN(x)) g.DrawLine(p.P(Ink.A(p.T.Line, 1.6f), 1f), x, barTop + 12, x, barBottom - 12);
+                if (!float.IsNaN(sepA)) g.DrawLine(p.P(Ink.A(p.T.Line, 1.6f * leftPresence), 1f), sepA, barTop + 12, sepA, barBottom - 12);
+                if (!float.IsNaN(sepB)) g.DrawLine(p.P(Ink.A(p.T.Line, 1.6f), 1f), sepB, barTop + 12, sepB, barBottom - 12);
             }
 
             // Everything a span shows, apart from where it sits
@@ -564,6 +579,7 @@ namespace Tepi
                 if (left)
                 {
                     foreach (var id in LeftWidgets()) sb.Append(id).Append(',');
+                    foreach (var id in DockWidgetIds) sb.Append((int)(WidgetShown(id) * 1000)).Append(',');
                     sb.Append(Fmt.Clock(now)).Append(now.Day);
                     var mi = isle.mediaInfo;
                     if (mi.Present) sb.Append(mi.Title).Append(mi.Artist).Append(mi.App).Append(mi.Playing).Append(mi.Cover != null ? mi.Cover.GetHashCode() : 0);
@@ -595,6 +611,7 @@ namespace Tepi
                 foreach (var b in bigIcons.Values) if (b != null) b.Dispose();
                 restIcons.Clear();
                 bigIcons.Clear();
+                DropGhosts();
                 leftSide.Drop();
                 rightSide.Drop();
             }
@@ -707,7 +724,7 @@ namespace Tepi
                     var cr = new RectangleF(x, top, 24, PlateH);
                     bool hot = hoverId == "chev" || (card != null && card.Kind == DockCard.TrayKind);
                     Hit(cr, "chev", ToggleTrayCard, null);
-                    if (hot) p.FillRound(cr, 8, pressId == "chev" ? p.T.FillPressed : p.T.FillHover);
+                    if (hot) p.FillRound(cr, PlateR, pressId == "chev" ? p.T.FillPressed : p.T.FillHover);
                     // Points up while closed, down while the grid is open
                     p.Icon(card != null && card.Kind == DockCard.TrayKind ? '\uE70D' : '\uE70E', 10f, hot ? p.T.Text : p.T.Sub, cr.X + cr.Width / 2, cr.Y + cr.Height / 2);
                     x += 24;
@@ -726,7 +743,7 @@ namespace Tepi
                 string id = "tray:" + ic.Key;
                 Hit(cell, id, null, null);
                 ic.Spot = ToScreen(cell);
-                if (hoverId == id) p.FillRound(cell, 8, pressId == id ? p.T.FillPressed : p.T.FillHover);
+                if (hoverId == id) p.FillRound(cell, PlateR, pressId == id ? p.T.FillPressed : p.T.FillHover);
                 var bmp = tray != null ? tray.Picture(ic) : null;
                 if (bmp == null) return;
                 float s = 16;
@@ -738,7 +755,7 @@ namespace Tepi
             {
                 bool hot = hoverId == "status";
                 Hit(r, "status", delegate { ToggleSheet("quick"); }, null);
-                if (hot) p.FillRound(r, 8, pressId == "status" ? p.T.FillPressed : p.T.FillHover);
+                if (hot) p.FillRound(r, PlateR, pressId == "status" ? p.T.FillPressed : p.T.FillHover);
                 // The icon group, centred: Wi-Fi to the battery's cap
                 float span = isle.hasBattery ? 66 : 36.5f;
                 float cx = r.X + (r.Width - span) / 2 + 7.25f, cy = r.Y + r.Height / 2;
@@ -759,7 +776,7 @@ namespace Tepi
             {
                 bool hot = hoverId == "clock";
                 Hit(r, "clock", delegate { ToggleSheet("cal"); }, ClockMenu);
-                if (hot) p.FillRound(r, 8, pressId == "clock" ? p.T.FillPressed : p.T.FillHover);
+                if (hot) p.FillRound(r, PlateR, pressId == "clock" ? p.T.FillPressed : p.T.FillHover);
                 var now = DateTime.Now;
                 float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2;
                 p.TextCenter(Fmt.Clock(now), Ink.Semi(12.5f), p.T.Text, cx, cy - 7);
@@ -788,10 +805,76 @@ namespace Tepi
             {
                 if (leftPill.IsEmpty) return;
                 float x = leftPill.X;
-                foreach (var id in LeftWidgets())
+                var want = LeftWidgets();
+                foreach (var id in DockWidgetIds)
                 {
-                    DrawWidget(id, new RectangleF(x, leftPill.Y + 6, WidgetW(id), leftPill.Height - 12));
-                    x += WidgetW(id) + 6;
+                    float s = WidgetShown(id);
+                    if (s < 0.01f) { DropGhost(id); continue; }
+                    bool here = want.Contains(id);
+                    var r = new RectangleF(x, leftPill.Y + 6, WidgetW(id), leftPill.Height - 12);
+                    x += (WidgetW(id) + 6) * s;
+                    if (here && s > 0.995f)
+                    {
+                        DrawWidget(id, r);
+                        widgetPx[id] = new Point((int)Math.Floor((r.X - 1 - leftPill.X) * scale) + SpanPad, (int)Math.Ceiling((r.Right + 1 - leftPill.X) * scale) + SpanPad);
+                        continue;
+                    }
+                    // Arriving or leaving: fades while resizing
+                    widgetPx.Remove(id);
+                    var st = g.Save();
+                    g.SetClip(new RectangleF(r.X - 1, leftPill.Y, (r.Width + 2) * s, leftPill.Height), CombineMode.Intersect);
+                    if (here) { p.Alpha = s * s; DrawWidget(id, r); p.Alpha = 1; }
+                    else DrawGhost(id, r, s * s);
+                    g.Restore(st);
+                }
+            }
+
+            // Leavers' last picture and bitmap columns
+            readonly Dictionary<string, Bitmap> ghosts = new Dictionary<string, Bitmap>();
+            readonly Dictionary<string, Point> widgetPx = new Dictionary<string, Point>();
+
+            // Before a redraw, leavers keep their look
+            void KeepGhosts(Bitmap old)
+            {
+                var want = LeftWidgets();
+                foreach (var id in DockWidgetIds)
+                {
+                    Point cols;
+                    if (want.Contains(id)) { DropGhost(id); continue; }
+                    if (ghosts.ContainsKey(id) || !widgetPx.TryGetValue(id, out cols)) continue;
+                    widgetPx.Remove(id);
+                    var at = Rectangle.Intersect(Rectangle.FromLTRB(cols.X, 0, cols.Y, old.Height), new Rectangle(0, 0, old.Width, old.Height));
+                    if (at.Width > 0 && at.Height > 0) ghosts[id] = old.Clone(at, PixelFormat.Format32bppPArgb);
+                }
+            }
+
+            void DropGhost(string id)
+            {
+                Bitmap b;
+                if (!ghosts.TryGetValue(id, out b)) return;
+                b.Dispose();
+                ghosts.Remove(id);
+            }
+
+            void DropGhosts()
+            {
+                foreach (var b in ghosts.Values) b.Dispose();
+                ghosts.Clear();
+                widgetPx.Clear();
+            }
+
+            void DrawGhost(string id, RectangleF r, float alpha)
+            {
+                Bitmap b;
+                if (!ghosts.TryGetValue(id, out b)) return;
+                using (var ia = new ImageAttributes())
+                {
+                    ia.SetColorMatrix(new ColorMatrix { Matrix33 = Ease.Clamp01(alpha) });
+                    var st = g.Save();
+                    g.ResetTransform();
+                    int dx = (int)Math.Floor((r.X - 1 - leftPill.X) * scale) + SpanPad;
+                    g.DrawImage(b, new Rectangle(dx, 0, b.Width, b.Height), 0, 0, b.Width, b.Height, GraphicsUnit.Pixel, ia);
+                    g.Restore(st);
                 }
             }
 
@@ -808,6 +891,7 @@ namespace Tepi
                     case "timer": open = delegate { isle.OpenFromDock(PageControl); }; break;
                     case "weather": open = delegate { ToggleSheet("weather"); }; break;
                     case "battery": open = delegate { isle.OpenFromDock(PageControl); }; break;
+                    case "system": open = delegate { Open("taskmgr.exe"); }; break;
                 }
                 Hit(r, hid, open, null);
                 if (hot && open != null) p.FillRound(r, 12, pressId == hid ? p.T.FillPressed : p.T.Fill);

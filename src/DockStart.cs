@@ -57,7 +57,7 @@ namespace Tepi
             static readonly object iconGate = new object();
             static bool importing;
 
-            float scroll, allTop, contentH;
+            float scroll, scrollTo, allTop, contentH;
             Bitmap avatar;
             string query = "", userName = "";
             int sel, hot = -1;
@@ -412,10 +412,28 @@ namespace Tepi
             protected override void Draw()
             {
                 contentH = Arrange();
-                scroll = Math.Max(0, Math.Min(Math.Max(0, contentH - ViewH), scroll));
+                scrollTo = ClampScroll(scrollTo);
+                scroll = ClampScroll(scroll);
                 DrawSearch();
                 DrawContent();
                 DrawFoot();
+            }
+
+            float ClampScroll(float y) { return Math.Max(0, Math.Min(Math.Max(0, contentH - ViewH), y)); }
+
+            void ScrollTo(float y)
+            {
+                scrollTo = ClampScroll(y);
+                if (Anim.Reduced) scroll = scrollTo;
+                else Animate();
+            }
+
+            protected override bool Animating(float dt)
+            {
+                float d = scrollTo - scroll;
+                if (Math.Abs(d) < 0.5f) { scroll = scrollTo; return false; }
+                scroll += d * (1 - (float)Math.Exp(-dt * 18));
+                return true;
             }
 
             void DrawSearch()
@@ -428,7 +446,7 @@ namespace Tepi
                 var f = Ink.Semi(14f);
                 if (query.Length == 0) p.Text(Lang.T("Cari aplikasi dan pengaturan"), f, p.T.Sub, tx, cy, box.Width - 56, StringAlignment.Near);
                 else p.Text(query, f, p.T.Text, tx, cy, box.Width - 56, StringAlignment.Near);
-                float caret = tx + (query.Length > 0 ? Math.Min(box.Width - 60, p.Measure(query, f)) + 1 : 0);
+                float caret = tx + (query.Length > 0 ? Math.Min(box.Width - 60, p.Measure(query, f)) + 1 : -2);
                 g.DrawLine(p.P(p.T.Text, 1.4f), caret, cy - 9, caret, cy + 9);
             }
 
@@ -567,7 +585,7 @@ namespace Tepi
                 }
                 switch (id)
                 {
-                    case "toall": scroll = allTop; Render(); break;
+                    case "toall": ScrollTo(allTop); break;
                     case "files": Open("search-ms:query=" + Uri.EscapeDataString(query.Trim()), null); Done(); break;
                     case "gear": Open("ms-settings:", null); Done(); break;
                     case "power": PowerMenu(); break;
@@ -577,12 +595,13 @@ namespace Tepi
 
             protected override void Wheel(string id, int delta)
             {
-                scroll -= Math.Sign(delta) * CellH;
+                ScrollTo(scrollTo - Math.Sign(delta) * CellH);
                 hot = -1;
             }
 
             protected override bool ProcessCmdKey(ref Message msg, Keys key)
             {
+                if (Leaving) return true;
                 switch (key)
                 {
                     case Keys.Escape:
@@ -616,7 +635,7 @@ namespace Tepi
             protected override void OnKeyPress(KeyPressEventArgs e)
             {
                 base.OnKeyPress(e);
-                if (e.KeyChar < ' ') return;
+                if (e.KeyChar < ' ' || Leaving) return;
                 SetQuery(query + e.KeyChar);
                 e.Handled = true;
             }
@@ -625,7 +644,7 @@ namespace Tepi
             {
                 query = q.Length > 80 ? q.Substring(0, 80) : q;
                 sel = 0;
-                scroll = 0;
+                scroll = scrollTo = 0;
                 hot = -1;
                 Filter();
                 Render();
@@ -654,8 +673,8 @@ namespace Tepi
                     if (best >= 0) sel = best;
                 }
                 var t = tiles[sel].Rect;
-                if (t.Y - Head < scroll) scroll = Math.Max(0, t.Y - Head);
-                else if (t.Bottom > scroll + ViewH) scroll = t.Bottom - ViewH + 8;
+                if (t.Y - Head < scrollTo) ScrollTo(t.Y - Head);
+                else if (t.Bottom > scrollTo + ViewH) ScrollTo(t.Bottom - ViewH + 8);
                 hot = -1;
                 Render();
             }

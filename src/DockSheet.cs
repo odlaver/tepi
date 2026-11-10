@@ -31,9 +31,12 @@ namespace Tepi
             int cw, ch, baseY;
             DockFrost frost;
             DockPlate plate;
-            bool allowClose;
+            bool allowClose, leaving;
             readonly System.Windows.Forms.Timer frames = new System.Windows.Forms.Timer { Interval = 15 };
             DateTime lastStep;
+
+            // Fading out: no more input
+            protected bool Leaving { get { return leaving; } }
 
             [StructLayout(LayoutKind.Sequential)] struct Margins { public int L, R, T, B; }
             [DllImport("dwmapi.dll")] static extern int DwmExtendFrameIntoClientArea(IntPtr hw, ref Margins m);
@@ -81,7 +84,19 @@ namespace Tepi
                 if (dock.Glass) Native.SetWindowDisplayAffinity(Handle, Native.WDA_EXCLUDEFROMCAPTURE);
             }
 
+            // Sinks and fades, then closes
             public void Dismiss()
+            {
+                if (leaving) return;
+                if (!Visible || Anim.Reduced || g == null || open.Value < 0.05f) { Finish(); return; }
+                leaving = true;
+                Tune(open, 2600, 1f);
+                open.Target = 0;
+                lastStep = DateTime.UtcNow;
+                frames.Start();
+            }
+
+            void Finish()
             {
                 allowClose = true;
                 Close();
@@ -119,16 +134,28 @@ namespace Tepi
             protected virtual bool Drag(string id, PointF at) { return false; }
             protected virtual void Wheel(string id, int delta) { }
             protected virtual void HoverMoved(string id) { }
+            // Own motion; true while running
+            protected virtual bool Animating(float dt) { return false; }
 
-            // Centred over its button, inside monitor
-            public void OpenAt(Rectangle anchor, Rectangle mon, int barTop, float sc)
+            protected void Animate()
+            {
+                if (frames.Enabled) return;
+                lastStep = DateTime.UtcNow;
+                frames.Start();
+            }
+
+            // Over its button, within the dock
+            public void OpenAt(Rectangle anchor, Rectangle span, Rectangle mon, int barTop, float sc)
             {
                 scale = sc;
                 Opening(mon, barTop);
                 H = Math.Min(H, (barTop - mon.Top) / scale - 40);
                 if (!IsHandleCreated) CreateHandle();
                 int pw = (int)Math.Ceiling(W * scale), ph = (int)Math.Ceiling(H * scale);
-                int left = Math.Max(mon.Left + (int)(8 * scale), Math.Min(mon.Right - (int)(8 * scale) - pw, anchor.X + anchor.Width / 2 - pw / 2));
+                int want = anchor.X + anchor.Width / 2 - pw / 2;
+                // Wider than the dock: centred
+                if (!span.IsEmpty) want = pw <= span.Width ? Math.Max(span.Left, Math.Min(span.Right - pw, want)) : span.Left + (span.Width - pw) / 2;
+                int left = Math.Max(mon.Left + (int)(8 * scale), Math.Min(mon.Right - (int)(8 * scale) - pw, want));
                 baseY = Math.Min(barTop, anchor.Top) - (int)(10 * scale) - ph;
                 MakeCanvas(pw, ph);
                 Bounds = new Rectangle(left, baseY + Rise(), pw, ph);
@@ -159,9 +186,11 @@ namespace Tepi
                 float dt = (float)Math.Min(0.05, (now - lastStep).TotalSeconds);
                 lastStep = now;
                 open.Step(dt);
+                if (leaving && open.Value < 0.03f) { frames.Stop(); Finish(); return; }
+                bool more = !leaving && Animating(dt);
                 Location = new Point(Location.X, baseY + Rise());
                 Render();
-                if (open.Settled) frames.Stop();
+                if (open.Settled && !more) frames.Stop();
             }
 
             void TakePlate(DockPlate pl)
@@ -271,6 +300,8 @@ namespace Tepi
             protected void Shelf(RectangleF r, float height)
             {
                 g.FillRectangle(p.B(Ink.A(Ink.Base.Bg, 0.35f)), r.X, H - height, r.Width, height);
+                // Solid: a hairline marks the footer
+                if (!dock.Glass) g.DrawLine(p.P(p.T.Line, 1f), r.X, H - height, r.Right, H - height);
             }
 
             protected void Hit(RectangleF r, string id) { hits.Add(new KeyValuePair<RectangleF, string>(r, id)); }
@@ -287,6 +318,7 @@ namespace Tepi
             protected override void OnMouseMove(MouseEventArgs e)
             {
                 base.OnMouseMove(e);
+                if (leaving) return;
                 if (pressId != null && e.Button == MouseButtons.Left && Drag(pressId, Local(e.Location))) { Render(); return; }
                 string id = HitAt(e.Location);
                 HoverMoved(id);
@@ -298,6 +330,7 @@ namespace Tepi
             protected override void OnMouseLeave(EventArgs e)
             {
                 base.OnMouseLeave(e);
+                if (leaving) return;
                 hotId = null;
                 HoverMoved(null);
                 Render();
@@ -306,6 +339,7 @@ namespace Tepi
             protected override void OnMouseDown(MouseEventArgs e)
             {
                 base.OnMouseDown(e);
+                if (leaving) return;
                 pressId = HitAt(e.Location);
                 if (pressId != null && e.Button == MouseButtons.Left) Drag(pressId, Local(e.Location));
                 Render();
@@ -314,6 +348,7 @@ namespace Tepi
             protected override void OnMouseUp(MouseEventArgs e)
             {
                 base.OnMouseUp(e);
+                if (leaving) return;
                 string id = HitAt(e.Location), was = pressId;
                 pressId = null;
                 if (id == null || id != was) { Render(); return; }
@@ -324,12 +359,14 @@ namespace Tepi
             protected override void OnMouseWheel(MouseEventArgs e)
             {
                 base.OnMouseWheel(e);
+                if (leaving) return;
                 Wheel(HitAt(e.Location), e.Delta);
                 Render();
             }
 
             protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
             {
+                if (leaving) return true;
                 if (keyData == Keys.Escape) { Done(); return true; }
                 return base.ProcessCmdKey(ref msg, keyData);
             }

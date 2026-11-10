@@ -405,7 +405,7 @@ namespace Tepi
 
             bool Moving()
             {
-                if (!reveal.Settled || !hover.Settled) return true;
+                if (!reveal.Settled || !hover.Settled || WidgetsMoving()) return true;
                 foreach (var a in apps) if (!a.Show.Settled || !a.Grow.Settled || !a.Dot.Settled || a.Hop >= 0) return true;
                 return false;
             }
@@ -547,6 +547,8 @@ namespace Tepi
                 {
                     more = Step(dt);
                     Render();
+                    // A widget set off during this render
+                    more |= WidgetsMoving();
                 }
                 finally { pacer.Done(more); }
             }

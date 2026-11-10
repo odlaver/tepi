@@ -199,7 +199,8 @@ namespace Tepi
             float sw = p.Measure(stats, Ink.Semi(12f));
             p.Text(d.Name, Ink.Semi(12.5f), p.T.Text, 38, cy, w - 38 - sw - 30, StringAlignment.Near);
             p.TextRight(stats, Ink.Semi(12f), p.T.Sub, w - 18, cy);
-            if (d.Percent >= 0)
+            // Edge light off: a bar instead
+            if (d.Percent >= 0 && !EdgeOn)
             {
                 p.FillRound(new RectangleF(38, h - 7, w - 56, 2), 1, p.T.Line);
                 p.FillRound(new RectangleF(38, h - 7, Math.Max(2, (w - 56) * d.Percent / 100f), 2), 1, p.T.Accent);
