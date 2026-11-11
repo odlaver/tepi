@@ -204,8 +204,8 @@ namespace Tepi
                 Reserve(Reserving && !Dry);
                 if (Replacing && !Dry && S.GetBool("dockbar.tray", true)) StartTray();
                 else StopTray();
-                // Opt-in: the Win hook would otherwise take Win from other launchers
-                if (Replacing && !Dry && S.GetBool("dockbar.winkey", false)) StartKeys();
+                // Yields bare Win automatically if an external Win-key launcher is active
+                if (Replacing && !Dry && S.GetBool("dockbar.winkey", true)) StartKeys();
                 else StopKeys();
                 if (Glass) frost.Start(); else { frost.Stop(); if (plate != null) { plate.Dispose(); plate = null; } }
                 foreach (var a in apps) TuneApp(a);

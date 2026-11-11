@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -19,7 +21,7 @@ namespace Tepi
         uint hookId, helpId;
         IntPtr hook;
         HookProc proc;
-        volatile bool winDown;
+        volatile bool winDown, externalWin;
         bool used, passed;
         int eaten;
         long winUpTicks, keyTicks;
@@ -37,7 +39,7 @@ namespace Tepi
         const int VkLWin = 0x5B, VkRWin = 0x5C, VkEsc = 0x1B, VkShift = 0x10, VkCtrl = 0x11, VkAlt = 0x12;
         // Unassigned key; hides lone Win
         const ushort Mask = 0xE8;
-        const int KeepMsg = 0x8001, WinUpMsg = 0x8002, RehookMsg = 0x8003, UnkeepTimer = 1, ParkTimer = 2;
+        const int KeepMsg = 0x8001, WinUpMsg = 0x8002, RehookMsg = 0x8003, UnkeepTimer = 1, ParkTimer = 2, CheckTimer = 3;
         // Marks the keys we send ourselves
         static readonly IntPtr Mine = (IntPtr)0x54455049;
 
@@ -146,6 +148,8 @@ namespace Tepi
                 helpId = GetCurrentThreadId();
                 try { keeper = new Keeper { Due = OnTimer, Key = OnKeeperKey }; }
                 catch (Exception ex) { Log.Write("start key: keeper " + ex.Message); }
+                RefreshExternalWin(true);
+                if (keeper != null) keeper.Later(CheckTimer, 5000);
                 // Windows Start appears: Tepi's replaces it
                 watchProc = OnForeground;
                 watch = SetWinEventHook(3, 3, IntPtr.Zero, watchProc, 0, 0, 0);
@@ -224,8 +228,16 @@ namespace Tepi
                 if (!winDown)
                 {
                     winDown = true;
-                    used = passed = false;
-                    PostThreadMessage(helpId, KeepMsg, IntPtr.Zero, IntPtr.Zero);
+                    if (externalWin)
+                    {
+                        used = false;
+                        passed = true;
+                    }
+                    else
+                    {
+                        used = passed = false;
+                        PostThreadMessage(helpId, KeepMsg, IntPtr.Zero, IntPtr.Zero);
+                    }
                 }
             }
             else if (win && up && winDown)
@@ -233,9 +245,12 @@ namespace Tepi
                 winDown = false;
                 // Mask first; release always passes through
                 if (!passed) Tap(Mask);
-                if (!used) Raise("start");
-                Interlocked.Exchange(ref winUpTicks, DateTime.UtcNow.Ticks);
-                PostThreadMessage(helpId, WinUpMsg, IntPtr.Zero, IntPtr.Zero);
+                if (!used && !externalWin) Raise("start");
+                if (!externalWin)
+                {
+                    Interlocked.Exchange(ref winUpTicks, DateTime.UtcNow.Ticks);
+                    PostThreadMessage(helpId, WinUpMsg, IntPtr.Zero, IntPtr.Zero);
+                }
             }
             else if (winDown && down)
             {
@@ -244,6 +259,7 @@ namespace Tepi
                 string what = Held(VkShift) || Held(VkCtrl) || Held(VkAlt) ? null : Letter(k.Vk);
                 if (what != null)
                 {
+                    passed = false;
                     eaten = (int)k.Vk;
                     Raise(what);
                     return (IntPtr)1;
@@ -274,6 +290,11 @@ namespace Tepi
         {
             if (id == UnkeepTimer) Unkeep();
             else if (id == ParkTimer) Park();
+            else if (id == CheckTimer)
+            {
+                RefreshExternalWin(false);
+                if (keeper != null) keeper.Later(CheckTimer, 5000);
+            }
         }
 
         static bool IsDesktop(IntPtr h)
@@ -403,7 +424,7 @@ namespace Tepi
             string exe = ProcessName(hwnd);
             if (string.Equals(exe, "StartMenuExperienceHost", StringComparison.OrdinalIgnoreCase) || string.Equals(exe, "SearchHost", StringComparison.OrdinalIgnoreCase))
             {
-                StartCameUp();
+                if (!externalWin) StartCameUp();
                 return;
             }
             lastFront = hwnd;
@@ -480,6 +501,137 @@ namespace Tepi
         {
             var h = Pressed;
             if (h != null) try { h(what); } catch (Exception ex) { Log.Write("start key: " + ex.Message); }
+        }
+
+        void RefreshExternalWin(bool first)
+        {
+            bool ext = DetectExternalWinKey();
+            if (first || ext != externalWin)
+            {
+                externalWin = ext;
+                Log.Write("start key: external win shortcut " + (ext ? "detected, yielding Win" : "none, using Tepi Start"));
+            }
+        }
+
+        static bool IsRunning(string name)
+        {
+            try
+            {
+                var list = Process.GetProcessesByName(name);
+                for (int i = 0; i < list.Length; i++) list[i].Dispose();
+                return list.Length > 0;
+            }
+            catch { return false; }
+        }
+
+        static bool HasWinToken(string s)
+        {
+            return s.IndexOf("Meta", StringComparison.OrdinalIgnoreCase) >= 0
+                || s.IndexOf("LeftWin", StringComparison.OrdinalIgnoreCase) >= 0
+                || s.IndexOf("RightWin", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        static bool DetectExternalWinKey()
+        {
+            try
+            {
+                if (IsRunning("Raycast") || IsRunning("Raycast.UIAccess"))
+                {
+                    string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                    bool parsed = false, usesWin = false;
+                    string pkgRoot = Path.Combine(local, "Packages");
+                    if (Directory.Exists(pkgRoot))
+                    {
+                        foreach (var dir in Directory.GetDirectories(pkgRoot, "Raycast.Raycast_*"))
+                        {
+                            string dat = Path.Combine(dir, "Settings", "settings.dat");
+                            if (!File.Exists(dat)) continue;
+                            try
+                            {
+                                using (var fs = new FileStream(dat, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                                {
+                                    byte[] bytes = new byte[fs.Length];
+                                    int n = fs.Read(bytes, 0, bytes.Length);
+                                    string u16 = Encoding.Unicode.GetString(bytes, 0, n);
+                                    int idx = u16.LastIndexOf("\"hotkeyJson\"", StringComparison.Ordinal);
+                                    if (idx < 0)
+                                    {
+                                        u16 = Encoding.UTF8.GetString(bytes, 0, n);
+                                        idx = u16.LastIndexOf("\"hotkeyJson\"", StringComparison.Ordinal);
+                                    }
+                                    if (idx >= 0)
+                                    {
+                                        int len = Math.Min(400, u16.Length - idx);
+                                        usesWin = HasWinToken(u16.Substring(idx, len));
+                                        parsed = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                    if (!parsed)
+                    {
+                        string logDir = Path.Combine(local, "Raycast", "Logs");
+                        if (Directory.Exists(logDir))
+                        {
+                            var files = new DirectoryInfo(logDir).GetFiles("Raycast-Production-*.log");
+                            Array.Sort(files, (a, b) => b.LastWriteTimeUtc.CompareTo(a.LastWriteTimeUtc));
+                            for (int i = 0; i < files.Length && !parsed; i++)
+                            {
+                                try
+                                {
+                                    using (var fs = new FileStream(files[i].FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                                    using (var sr = new StreamReader(fs, Encoding.UTF8))
+                                    {
+                                        string line, lastBinding = null;
+                                        while ((line = sr.ReadLine()) != null)
+                                        {
+                                            if (line.IndexOf("[ui-access] Binding 0", StringComparison.Ordinal) >= 0)
+                                                lastBinding = line;
+                                        }
+                                        if (lastBinding != null)
+                                        {
+                                            usesWin = HasWinToken(lastBinding);
+                                            parsed = true;
+                                        }
+                                    }
+                                }
+                                catch { }
+                            }
+                        }
+                    }
+                    if (!parsed || usesWin) return true;
+                }
+
+                string[] shells = { "OpenShellMenu", "StartAllBackCfg", "Start11", "Start11Srv" };
+                for (int i = 0; i < shells.Length; i++)
+                    if (IsRunning(shells[i])) return true;
+
+                if (IsRunning("Flow.Launcher"))
+                {
+                    string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                    string flowCfg = Path.Combine(appData, "FlowLauncher", "Settings", "Settings.json");
+                    if (File.Exists(flowCfg))
+                    {
+                        try
+                        {
+                            string json = File.ReadAllText(flowCfg);
+                            if (json.IndexOf("\"Hotkey\": \"Win\"", StringComparison.OrdinalIgnoreCase) >= 0
+                                || json.IndexOf("\"Hotkey\": \"LWin\"", StringComparison.OrdinalIgnoreCase) >= 0
+                                || json.IndexOf("\"Hotkey\": \"RWin\"", StringComparison.OrdinalIgnoreCase) >= 0
+                                || json.IndexOf("\"Hotkey\":\"Win\"", StringComparison.OrdinalIgnoreCase) >= 0
+                                || json.IndexOf("\"Hotkey\":\"LWin\"", StringComparison.OrdinalIgnoreCase) >= 0
+                                || json.IndexOf("\"Hotkey\":\"RWin\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                                return true;
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
+            return false;
         }
     }
 }
