@@ -1,5 +1,6 @@
 using System;
-using System.Diagnostics;
+using System.Collections.Generic;
+using System.Reflection;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -55,6 +56,18 @@ namespace Tepi
         [StructLayout(LayoutKind.Sequential)]
         struct GuiInfo { public int Size, Flags; public IntPtr Active, Focus, Capture, MenuOwner, MoveSize, Caret; public int L, T, R, B; }
 
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        struct PROCESSENTRY32W
+        {
+            public uint dwSize, cntUsage, th32ProcessID;
+            public IntPtr th32DefaultHeapID;
+            public uint th32ModuleID, cntThreads, th32ParentProcessID;
+            public int pcPriClassBase;
+            public uint dwFlags;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+            public string szExeFile;
+        }
+
         delegate IntPtr HookProc(int code, IntPtr msg, IntPtr info);
 
         [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetWindowsHookEx(int id, HookProc fn, IntPtr mod, uint thread);
@@ -90,6 +103,9 @@ namespace Tepi
         [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
         [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern IntPtr GetModuleHandle(string name);
+        [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint pid);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool Process32FirstW(IntPtr snap, ref PROCESSENTRY32W pe);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool Process32NextW(IntPtr snap, ref PROCESSENTRY32W pe);
 
         // Invisible focus holder. The desktop hides its keys from
         // every app, so Tepi holds the focus while it shows.
@@ -505,23 +521,39 @@ namespace Tepi
 
         void RefreshExternalWin(bool first)
         {
-            bool ext = DetectExternalWinKey();
-            if (first || ext != externalWin)
+            bool? ext = DetectExternalWinKey();
+            if (!ext.HasValue)
             {
-                externalWin = ext;
-                Log.Write("start key: external win shortcut " + (ext ? "detected, yielding Win" : "none, using Tepi Start"));
+                if (first) Log.Write("start key: external win shortcut none, using Tepi Start");
+                return;
+            }
+            if (first || ext.Value != externalWin)
+            {
+                externalWin = ext.Value;
+                Log.Write("start key: external win shortcut " + (ext.Value ? "detected, yielding Win" : "none, using Tepi Start"));
             }
         }
 
-        static bool IsRunning(string name)
+        static HashSet<string> RunningProcesses()
         {
+            IntPtr snap = CreateToolhelp32Snapshot(2, 0);
+            if (snap == IntPtr.Zero || snap == (IntPtr)(-1)) return null;
             try
             {
-                var list = Process.GetProcessesByName(name);
-                for (int i = 0; i < list.Length; i++) list[i].Dispose();
-                return list.Length > 0;
+                var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var pe = new PROCESSENTRY32W { dwSize = (uint)Marshal.SizeOf(typeof(PROCESSENTRY32W)) };
+                if (!Process32FirstW(snap, ref pe)) return null;
+                do
+                {
+                    string exe = pe.szExeFile;
+                    if (string.IsNullOrEmpty(exe)) continue;
+                    if (exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        exe = exe.Substring(0, exe.Length - 4);
+                    set.Add(exe);
+                } while (Process32NextW(snap, ref pe));
+                return set;
             }
-            catch { return false; }
+            finally { CloseHandle(snap); }
         }
 
         static bool HasWinToken(string s)
@@ -531,85 +563,140 @@ namespace Tepi
                 || s.IndexOf("RightWin", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        static bool DetectExternalWinKey()
+        static readonly MethodInfo AppDataForPkg = ResolveAppDataForPkg();
+        static string cachedPkgFamily, cachedLogFile;
+        static DateTime cachedPkgMtime, cachedLogMtime;
+        static bool cachedPkgValid, cachedPkgUsesWin, cachedLogValid, cachedLogUsesWin;
+
+        static MethodInfo ResolveAppDataForPkg()
         {
             try
             {
-                if (IsRunning("Raycast") || IsRunning("Raycast.UIAccess"))
+                var t = Type.GetType("Windows.Management.Core.ApplicationDataManager, Windows.Management, ContentType=WindowsRuntime");
+                return t != null ? t.GetMethod("CreateForPackageFamily", new[] { typeof(string) }) : null;
+            }
+            catch { return null; }
+        }
+
+        static bool RaycastUsesWinKey(string local)
+        {
+            string pkgRoot = Path.Combine(local, "Packages");
+            if (Directory.Exists(pkgRoot))
+            {
+                try
                 {
-                    string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                    bool parsed = false, usesWin = false;
-                    string pkgRoot = Path.Combine(local, "Packages");
-                    if (Directory.Exists(pkgRoot))
+                    foreach (var dir in Directory.GetDirectories(pkgRoot, "Raycast.Raycast_*"))
                     {
-                        foreach (var dir in Directory.GetDirectories(pkgRoot, "Raycast.Raycast_*"))
+                        string pkgFamily = Path.GetFileName(dir);
+                        string dat = Path.Combine(dir, "Settings", "settings.dat");
+                        DateTime mtime = File.Exists(dat) ? File.GetLastWriteTimeUtc(dat) : DateTime.MinValue;
+                        if (cachedPkgValid && string.Equals(pkgFamily, cachedPkgFamily, StringComparison.OrdinalIgnoreCase) && mtime == cachedPkgMtime)
+                            return cachedPkgUsesWin;
+
+                        if (AppDataForPkg != null)
                         {
-                            string dat = Path.Combine(dir, "Settings", "settings.dat");
-                            if (!File.Exists(dat)) continue;
                             try
                             {
-                                using (var fs = new FileStream(dat, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                                var appData = AppDataForPkg.Invoke(null, new object[] { pkgFamily }) as Windows.Storage.ApplicationData;
+                                if (appData != null)
                                 {
-                                    byte[] bytes = new byte[fs.Length];
-                                    int n = fs.Read(bytes, 0, bytes.Length);
-                                    string u16 = Encoding.Unicode.GetString(bytes, 0, n);
-                                    int idx = u16.LastIndexOf("\"hotkeyJson\"", StringComparison.Ordinal);
-                                    if (idx < 0)
+                                    var values = appData.LocalSettings.Values;
+                                    object raw;
+                                    string val = null;
+                                    if (values.TryGetValue("ActivationHotkey-Production", out raw) && raw != null)
+                                        val = raw.ToString();
+                                    if (string.IsNullOrEmpty(val))
                                     {
-                                        u16 = Encoding.UTF8.GetString(bytes, 0, n);
-                                        idx = u16.LastIndexOf("\"hotkeyJson\"", StringComparison.Ordinal);
+                                        foreach (var kv in values)
+                                        {
+                                            if (kv.Key != null && kv.Key.StartsWith("ActivationHotkey", StringComparison.Ordinal) && kv.Value != null)
+                                            {
+                                                val = kv.Value.ToString();
+                                                if (!string.IsNullOrEmpty(val)) break;
+                                            }
+                                        }
                                     }
-                                    if (idx >= 0)
+                                    if (!string.IsNullOrEmpty(val))
                                     {
-                                        int len = Math.Min(400, u16.Length - idx);
-                                        usesWin = HasWinToken(u16.Substring(idx, len));
-                                        parsed = true;
-                                        break;
+                                        bool usesWin = HasWinToken(val);
+                                        cachedPkgFamily = pkgFamily;
+                                        cachedPkgMtime = mtime;
+                                        cachedPkgUsesWin = usesWin;
+                                        cachedPkgValid = true;
+                                        return usesWin;
                                     }
                                 }
                             }
                             catch { }
                         }
                     }
-                    if (!parsed)
+                }
+                catch { }
+            }
+
+            string logDir = Path.Combine(local, "Raycast", "Logs");
+            if (Directory.Exists(logDir))
+            {
+                try
+                {
+                    var files = new DirectoryInfo(logDir).GetFiles("Raycast-Production-*.log");
+                    Array.Sort(files, delegate (FileInfo a, FileInfo b) { return b.LastWriteTimeUtc.CompareTo(a.LastWriteTimeUtc); });
+                    for (int i = 0; i < files.Length; i++)
                     {
-                        string logDir = Path.Combine(local, "Raycast", "Logs");
-                        if (Directory.Exists(logDir))
+                        if (files[i].Name.EndsWith("-Backend-Fallback.log", StringComparison.OrdinalIgnoreCase)) continue;
+                        DateTime mtime = files[i].LastWriteTimeUtc;
+                        if (cachedLogValid && string.Equals(files[i].FullName, cachedLogFile, StringComparison.OrdinalIgnoreCase) && mtime == cachedLogMtime)
+                            return cachedLogUsesWin;
+
+                        try
                         {
-                            var files = new DirectoryInfo(logDir).GetFiles("Raycast-Production-*.log");
-                            Array.Sort(files, (a, b) => b.LastWriteTimeUtc.CompareTo(a.LastWriteTimeUtc));
-                            for (int i = 0; i < files.Length && !parsed; i++)
+                            using (var fs = new FileStream(files[i].FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                            using (var sr = new StreamReader(fs, Encoding.UTF8))
                             {
-                                try
+                                string line, lastBinding = null;
+                                while ((line = sr.ReadLine()) != null)
                                 {
-                                    using (var fs = new FileStream(files[i].FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-                                    using (var sr = new StreamReader(fs, Encoding.UTF8))
-                                    {
-                                        string line, lastBinding = null;
-                                        while ((line = sr.ReadLine()) != null)
-                                        {
-                                            if (line.IndexOf("[ui-access] Binding 0", StringComparison.Ordinal) >= 0)
-                                                lastBinding = line;
-                                        }
-                                        if (lastBinding != null)
-                                        {
-                                            usesWin = HasWinToken(lastBinding);
-                                            parsed = true;
-                                        }
-                                    }
+                                    if (line.IndexOf("[ui-access] Binding 0", StringComparison.Ordinal) >= 0)
+                                        lastBinding = line;
                                 }
-                                catch { }
+                                if (lastBinding != null)
+                                {
+                                    bool usesWin = HasWinToken(lastBinding);
+                                    cachedLogFile = files[i].FullName;
+                                    cachedLogMtime = mtime;
+                                    cachedLogUsesWin = usesWin;
+                                    cachedLogValid = true;
+                                    return usesWin;
+                                }
                             }
                         }
+                        catch { }
                     }
-                    if (!parsed || usesWin) return true;
+                }
+                catch { }
+            }
+
+            return true;
+        }
+
+        static bool? DetectExternalWinKey()
+        {
+            try
+            {
+                var procs = RunningProcesses();
+                if (procs == null) return null;
+
+                if (procs.Contains("Raycast") || procs.Contains("Raycast.UIAccess"))
+                {
+                    string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                    if (RaycastUsesWinKey(local)) return true;
                 }
 
                 string[] shells = { "OpenShellMenu", "StartAllBackCfg", "Start11", "Start11Srv" };
                 for (int i = 0; i < shells.Length; i++)
-                    if (IsRunning(shells[i])) return true;
+                    if (procs.Contains(shells[i])) return true;
 
-                if (IsRunning("Flow.Launcher"))
+                if (procs.Contains("Flow.Launcher"))
                 {
                     string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
                     string flowCfg = Path.Combine(appData, "FlowLauncher", "Settings", "Settings.json");
@@ -629,9 +716,9 @@ namespace Tepi
                         catch { }
                     }
                 }
+                return false;
             }
-            catch { }
-            return false;
+            catch { return null; }
         }
     }
 }
