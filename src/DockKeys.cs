@@ -23,6 +23,10 @@ namespace Tepi
         IntPtr hook;
         HookProc proc;
         volatile bool winDown, externalWin, raycastUsesWin = true, otherExternalWin, lastLoggedExternalWin;
+        readonly object extGate = new object();
+        IntPtr extProc, extHwnd;
+        uint trackedPid;
+        readonly HashSet<uint> seenPids = new HashSet<uint>();
         bool used, passed;
         int eaten;
         long winUpTicks, keyTicks;
@@ -36,6 +40,7 @@ namespace Tepi
 
         // Shell surfaces where Windows drops simulated keys
         static readonly string[] ShellHosts = { "ShellExperienceHost", "StartMenuExperienceHost", "SearchHost", "ShellHost", "LockApp" };
+        static readonly string[] BypassProcs = { "mstsc", "vmconnect", "vmware-view", "VirtualBoxVM" };
 
         const int VkLWin = 0x5B, VkRWin = 0x5C, VkEsc = 0x1B, VkShift = 0x10, VkCtrl = 0x11, VkAlt = 0x12;
         // Unassigned key; hides lone Win
@@ -69,6 +74,7 @@ namespace Tepi
         }
 
         delegate IntPtr HookProc(int code, IntPtr msg, IntPtr info);
+        delegate bool EnumProc(IntPtr h, IntPtr l);
 
         [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetWindowsHookEx(int id, HookProc fn, IntPtr mod, uint thread);
         [DllImport("user32.dll")] static extern bool UnhookWindowsHookEx(IntPtr hook);
@@ -85,6 +91,9 @@ namespace Tepi
         [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
         [DllImport("user32.dll")] static extern IntPtr GetShellWindow();
         [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+        [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+        [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, int cmd);
+        [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc fn, IntPtr l);
         [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
         [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int index);
         [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr h, int index, int value);
@@ -101,6 +110,7 @@ namespace Tepi
         [DllImport("advapi32.dll")] static extern bool OpenProcessToken(IntPtr p, uint access, out IntPtr token);
         [DllImport("advapi32.dll")] static extern bool GetTokenInformation(IntPtr token, int cls, out int value, int len, out int ret);
         [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+        [DllImport("kernel32.dll")] static extern uint WaitForSingleObject(IntPtr h, uint ms);
         [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern IntPtr GetModuleHandle(string name);
         [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint pid);
@@ -165,15 +175,16 @@ namespace Tepi
                 try { keeper = new Keeper { Due = OnTimer, Key = OnKeeperKey }; }
                 catch (Exception ex) { Log.Write("start key: keeper " + ex.Message); }
                 RefreshExternalWin(true);
-                if (keeper != null) keeper.Later(CheckTimer, 1000);
+                if (keeper != null) keeper.Later(CheckTimer, 3000);
                 // Windows Start appears: Tepi's replaces it
                 watchProc = OnForeground;
                 watch = SetWinEventHook(3, 3, IntPtr.Zero, watchProc, 0, 0, 0);
-                if (keeper != null && IsDesktop(GetForegroundWindow())) keeper.Later(ParkTimer, 350);
+                if (keeper != null && IsDesktop(GetForegroundWindow()) && !IsExternalWinActive()) keeper.Later(ParkTimer, 350);
             }, OnHelpMessage, delegate
             {
                 if (watch != IntPtr.Zero) UnhookWinEvent(watch);
                 watch = IntPtr.Zero;
+                ClearTrackedExternal();
                 // Leave the desktop as it was
                 if (keeper != null && GetForegroundWindow() == keeper.Handle && IsWindow(desk)) SetForegroundWindow(desk);
                 if (keeper != null) keeper.DestroyHandle();
@@ -244,11 +255,12 @@ namespace Tepi
                 if (!winDown)
                 {
                     winDown = true;
-                    bool ext = IsExternalWinActive();
+                    bool modHeld = Held(VkShift) || Held(VkCtrl) || Held(VkAlt);
+                    bool ext = IsExternalWinActive() || IsBypassedForeground();
                     externalWin = ext;
-                    if (ext)
+                    if (ext || modHeld)
                     {
-                        used = false;
+                        used = modHeld;
                         passed = true;
                     }
                     else
@@ -261,8 +273,13 @@ namespace Tepi
             else if (win && up && winDown)
             {
                 winDown = false;
+                if (Held(0x01) || Held(0x02) || Held(0x04))
+                {
+                    used = true;
+                    passed = true;
+                }
                 // Mask first; release always passes through
-                if (!passed) Tap(Mask);
+                if (!passed && !externalWin) Tap(Mask);
                 if (!used && !externalWin) Raise("start");
                 if (!externalWin)
                 {
@@ -274,10 +291,9 @@ namespace Tepi
             {
                 used = true;
                 // Plain Win+letter only; Win+Shift+S stays
-                string what = Held(VkShift) || Held(VkCtrl) || Held(VkAlt) ? null : Letter(k.Vk);
+                string what = externalWin || Held(VkShift) || Held(VkCtrl) || Held(VkAlt) ? null : Letter(k.Vk);
                 if (what != null)
                 {
-                    passed = false;
                     eaten = (int)k.Vk;
                     Raise(what);
                     return (IntPtr)1;
@@ -286,9 +302,12 @@ namespace Tepi
             }
             else if (!winDown && down && k.Vk == VkEsc && Held(VkCtrl) && !Held(VkShift) && !Held(VkAlt))
             {
-                eaten = VkEsc;
-                Raise("start");
-                return (IntPtr)1;
+                if (!IsExternalWinActive() && !IsBypassedForeground())
+                {
+                    eaten = VkEsc;
+                    Raise("start");
+                    return (IntPtr)1;
+                }
             }
             else if (eaten != 0 && up && k.Vk == eaten)
             {
@@ -311,7 +330,7 @@ namespace Tepi
             else if (id == CheckTimer)
             {
                 RefreshExternalWin(false);
-                if (keeper != null) keeper.Later(CheckTimer, 1000);
+                if (keeper != null) keeper.Later(CheckTimer, 3000);
             }
         }
 
@@ -327,7 +346,7 @@ namespace Tepi
         void Park()
         {
             var fg = GetForegroundWindow();
-            if (keeper == null || handedBack || !IsDesktop(fg)) return;
+            if (keeper == null || handedBack || IsExternalWinActive() || !IsDesktop(fg)) return;
             // Menu, drag or rename on the desktop: wait
             uint pid, tid = GetWindowThreadProcessId(fg, out pid);
             var gi = new GuiInfo { Size = Marshal.SizeOf(typeof(GuiInfo)) };
@@ -440,23 +459,19 @@ namespace Tepi
                 return;
             }
             string exe = ProcessName(hwnd);
-            bool shellStart = string.Equals(exe, "StartMenuExperienceHost", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(exe, "SearchHost", StringComparison.OrdinalIgnoreCase);
-            if (!shellStart && string.Equals(exe, "ShellHost", StringComparison.OrdinalIgnoreCase))
-            {
-                string cls = ClassOf(hwnd);
-                shellStart = cls == "ShellUXFrameWindowClass" || cls == "Windows.UI.Core.CoreWindow";
-            }
-            if (shellStart)
+            if (string.Equals(exe, "StartMenuExperienceHost", StringComparison.OrdinalIgnoreCase) || string.Equals(exe, "SearchHost", StringComparison.OrdinalIgnoreCase))
             {
                 if (!IsExternalWinActive()) StartCameUp();
                 return;
             }
+            uint fgPid;
+            GetWindowThreadProcessId(hwnd, out fgPid);
+            if (fgPid != 0 && seenPids.Add(fgPid) && keeper != null) keeper.Later(CheckTimer, 100);
             lastFront = hwnd;
             parked = false;
             if (IsDesktop(hwnd))
             {
-                if (keeper != null && !handedBack) keeper.Later(ParkTimer, 350);
+                if (keeper != null && !handedBack && !IsExternalWinActive()) keeper.Later(ParkTimer, 350);
             }
             else
             {
@@ -528,6 +543,17 @@ namespace Tepi
             if (h != null) try { h(what); } catch (Exception ex) { Log.Write("start key: " + ex.Message); }
         }
 
+        static bool IsBypassedForeground()
+        {
+            IntPtr fg = GetForegroundWindow();
+            if (fg == IntPtr.Zero) return false;
+            if (ClassOf(fg) == "TscShellContainerClass") return true;
+            string exe = ProcessName(fg);
+            for (int i = 0; i < BypassProcs.Length; i++)
+                if (string.Equals(exe, BypassProcs[i], StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
         static bool IsRaycastHookAlive()
         {
             return FindWindowEx(IntPtr.Zero, IntPtr.Zero, "RaycastUIAccessCallbacks", null) != IntPtr.Zero
@@ -535,10 +561,73 @@ namespace Tepi
                     || FindWindowEx((IntPtr)(-3), IntPtr.Zero, "RaycastKeyboardHookLiveness", null) != IntPtr.Zero);
         }
 
+        static bool IsOtherHookWindowAlive()
+        {
+            return FindWindowEx(IntPtr.Zero, IntPtr.Zero, "OpenShell.CStartHookWindow", null) != IntPtr.Zero
+                || FindWindowEx(IntPtr.Zero, IntPtr.Zero, "ClassicShell.CStartHookWindow", null) != IntPtr.Zero
+                || FindWindowEx(IntPtr.Zero, IntPtr.Zero, "StartAllBack.Hook", null) != IntPtr.Zero;
+        }
+
+        bool IsTrackedExternalAlive()
+        {
+            lock (extGate)
+            {
+                if (!otherExternalWin) return false;
+                if (extProc != IntPtr.Zero && WaitForSingleObject(extProc, 0) != 0x00000102)
+                    return false;
+                if (extHwnd != IntPtr.Zero && !IsWindow(extHwnd))
+                    return false;
+                return true;
+            }
+        }
+
         bool IsExternalWinActive()
         {
-            if (otherExternalWin) return true;
-            return IsRaycastHookAlive() && raycastUsesWin;
+            if (IsRaycastHookAlive() && raycastUsesWin) return true;
+            if (IsOtherHookWindowAlive()) return true;
+            return IsTrackedExternalAlive();
+        }
+
+        void ClearTrackedExternal()
+        {
+            IntPtr old = IntPtr.Zero;
+            lock (extGate)
+            {
+                otherExternalWin = false;
+                trackedPid = 0;
+                extHwnd = IntPtr.Zero;
+                old = extProc;
+                extProc = IntPtr.Zero;
+            }
+            if (old != IntPtr.Zero) CloseHandle(old);
+        }
+
+        void SetTrackedExternal(bool active, uint pid, IntPtr hwnd)
+        {
+            if (!active)
+            {
+                ClearTrackedExternal();
+                return;
+            }
+            IntPtr nextProc = IntPtr.Zero, old = IntPtr.Zero;
+            lock (extGate)
+            {
+                if (otherExternalWin && trackedPid == pid && extProc != IntPtr.Zero && WaitForSingleObject(extProc, 0) == 0x00000102)
+                {
+                    if (hwnd != IntPtr.Zero) extHwnd = hwnd;
+                    return;
+                }
+            }
+            if (pid != 0) nextProc = OpenProcess(0x00101000, false, pid);
+            lock (extGate)
+            {
+                otherExternalWin = true;
+                trackedPid = pid;
+                extHwnd = hwnd;
+                old = extProc;
+                extProc = nextProc;
+            }
+            if (old != IntPtr.Zero) CloseHandle(old);
         }
 
         void RefreshExternalWin(bool first)
@@ -548,9 +637,21 @@ namespace Tepi
                 string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                 raycastUsesWin = RaycastUsesWinKey(local);
             }
-            bool? other = DetectOtherExternalWinKey();
-            if (other.HasValue) otherExternalWin = other.Value;
+            uint pid;
+            IntPtr hwnd;
+            bool? other = DetectOtherExternalWinKey(out pid, out hwnd);
+            if (other.HasValue) SetTrackedExternal(other.Value, pid, hwnd);
             bool ext = IsExternalWinActive();
+            if (ext && (kept || parked))
+            {
+                Unkeep();
+                parked = false;
+                if (keeper != null && GetForegroundWindow() == keeper.Handle)
+                {
+                    if (IsWindow(desk)) SetForegroundWindow(desk);
+                    keeper.Rest();
+                }
+            }
             if (!other.HasValue && first && !ext)
             {
                 lastLoggedExternalWin = false;
@@ -570,13 +671,13 @@ namespace Tepi
             }
         }
 
-        static HashSet<string> RunningProcesses()
+        static Dictionary<string, uint> RunningProcesses()
         {
             IntPtr snap = CreateToolhelp32Snapshot(2, 0);
             if (snap == IntPtr.Zero || snap == (IntPtr)(-1)) return null;
             try
             {
-                var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var map = new Dictionary<string, uint>(StringComparer.OrdinalIgnoreCase);
                 var pe = new PROCESSENTRY32W { dwSize = (uint)Marshal.SizeOf(typeof(PROCESSENTRY32W)) };
                 if (!Process32FirstW(snap, ref pe)) return null;
                 do
@@ -585,11 +686,28 @@ namespace Tepi
                     if (string.IsNullOrEmpty(exe)) continue;
                     if (exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                         exe = exe.Substring(0, exe.Length - 4);
-                    set.Add(exe);
+                    if (!map.ContainsKey(exe)) map[exe] = pe.th32ProcessID;
                 } while (Process32NextW(snap, ref pe));
-                return set;
+                return map;
             }
             finally { CloseHandle(snap); }
+        }
+
+        static IntPtr FindProcessWindow(uint pid)
+        {
+            if (pid == 0) return IntPtr.Zero;
+            IntPtr visible = IntPtr.Zero, any = IntPtr.Zero;
+            EnumWindows((h, l) =>
+            {
+                uint wp;
+                GetWindowThreadProcessId(h, out wp);
+                if (wp != pid || GetWindow(h, 4) != IntPtr.Zero) return true;
+                if (ClassOf(h) == "IME") return true;
+                if (IsWindowVisible(h)) { visible = h; return false; }
+                if (any == IntPtr.Zero) any = h;
+                return true;
+            }, IntPtr.Zero);
+            return visible != IntPtr.Zero ? visible : any;
         }
 
         static bool HasWinToken(string s)
@@ -715,18 +833,26 @@ namespace Tepi
             return true;
         }
 
-        static bool? DetectOtherExternalWinKey()
+        static bool? DetectOtherExternalWinKey(out uint pid, out IntPtr hwnd)
         {
+            pid = 0;
+            hwnd = IntPtr.Zero;
             try
             {
                 var procs = RunningProcesses();
                 if (procs == null) return null;
 
-                string[] shells = { "OpenShellMenu", "StartAllBackCfg", "Start11", "Start11Srv" };
+                string[] shells = { "OpenShellMenu", "StartAllBackCfg", "Start11", "Start11Srv", "EverythingToolbar" };
                 for (int i = 0; i < shells.Length; i++)
-                    if (procs.Contains(shells[i])) return true;
+                {
+                    if (procs.TryGetValue(shells[i], out pid))
+                    {
+                        hwnd = FindProcessWindow(pid);
+                        return true;
+                    }
+                }
 
-                if (procs.Contains("Flow.Launcher"))
+                if (procs.TryGetValue("Flow.Launcher", out pid))
                 {
                     string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
                     string flowCfg = Path.Combine(appData, "FlowLauncher", "Settings", "Settings.json");
@@ -741,14 +867,44 @@ namespace Tepi
                                 || json.IndexOf("\"Hotkey\":\"Win\"", StringComparison.OrdinalIgnoreCase) >= 0
                                 || json.IndexOf("\"Hotkey\":\"LWin\"", StringComparison.OrdinalIgnoreCase) >= 0
                                 || json.IndexOf("\"Hotkey\":\"RWin\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                hwnd = FindProcessWindow(pid);
                                 return true;
+                            }
                         }
                         catch { }
                     }
                 }
+
+                if (procs.TryGetValue("PowerToys.PowerLauncher", out pid))
+                {
+                    string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                    string ptCfg = Path.Combine(local, "Microsoft", "PowerToys", "PowerToys Run", "settings.json");
+                    if (File.Exists(ptCfg))
+                    {
+                        try
+                        {
+                            string json = File.ReadAllText(ptCfg);
+                            int idx = json.IndexOf("\"open_powerlauncher\"", StringComparison.OrdinalIgnoreCase);
+                            if (idx >= 0)
+                            {
+                                string slice = json.Substring(idx, Math.Min(200, json.Length - idx));
+                                if (slice.IndexOf("\"win\":true", StringComparison.OrdinalIgnoreCase) >= 0
+                                    || slice.IndexOf("\"win\": true", StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    hwnd = FindProcessWindow(pid);
+                                    return true;
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                pid = 0;
                 return false;
             }
-            catch { return null; }
+            catch { pid = 0; hwnd = IntPtr.Zero; return null; }
         }
     }
 }
