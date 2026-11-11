@@ -418,7 +418,7 @@ namespace Tepi
         DateTime stripUtc = DateTime.MinValue;
         bool stripOpen;
         // Dots band: full tab row tall; open cells keep this much room for the title on the left
-        const float DotBandH = 48, DotPadX = 6, DotPadY = 4, DotTitleRoom = 152;
+        const float DotBandH = 48, DotPadX = 6, DotPadY = 4;
 
         bool DotsMoving()
         {
@@ -447,7 +447,7 @@ namespace Tepi
             if (DotTabs)
             {
                 float dotsW = (n - 1) * DotCell + DotActive + (n - 1) * 6;
-                float dx = Math.Min(w / 2 - dotsW / 2 + 30, w - 96 - dotsW);
+                float dx = Math.Min(w / 2 - dotsW / 2, w - 92 - dotsW);
                 for (int i = 0; i < n; i++)
                 {
                     xs[i] = dx;
@@ -456,14 +456,14 @@ namespace Tepi
                 }
                 return;
             }
-            // Left: hide; right: action and gear
-            float room = w - 152, cell = TabIcon;
+            // Right: action and gear
+            float room = w - 110, cell = TabIcon;
             float label = active >= 0 ? p.Measure(TabLabel(tabs[active]), Ink.Semi(12f)) + 7 : 0;
             float total = n * cell + (n - 1) * TabGap + label;
             // Too tight: icons only
             if (total > room) { label = 0; total = n * cell + (n - 1) * TabGap; }
             if (total > room) { cell = (room - (n - 1) * TabGap) / n; total = room; }
-            float x = w / 2 - 18 - total / 2;
+            float x = Math.Min(w / 2 - total / 2, w - 92 - total);
             for (int i = 0; i < n; i++)
             {
                 xs[i] = x;
@@ -555,13 +555,14 @@ namespace Tepi
         void DrawDots(float w, int at, RectangleF[] rects)
         {
             int n = tabs.Length, hover = -1;
-            float cy = TabY + TabH / 2;
+            float cy = 18f;
+            float labelY = 39f;
             var now = DateTime.UtcNow;
             // Open layout: equal cells about the strip's centre, clear of the title and the action buttons
-            float pitch = Math.Max(24, Math.Min(40, (w - 96 - DotTitleRoom) / Math.Max(1, n)));
+            float pitch = Math.Max(28, Math.Min(40, (w - 110) / Math.Max(1, n)));
             float total = n * pitch;
             float mid = n > 0 ? (tabToX[0] + tabToX[n - 1] + tabToW[n - 1]) / 2 : w / 2;
-            float x0 = Math.Max(DotTitleRoom, Math.Min(mid - total / 2, w - 96 - total));
+            float x0 = Math.Max(18, Math.Min(mid - total / 2, w - 92 - total));
             var closedBand = n > 0 ? new RectangleF(tabToX[0] - 3, 0, tabToX[n - 1] + tabToW[n - 1] - tabToX[0] + 6, DotBandH) : RectangleF.Empty;
             var openBand = new RectangleF(x0, 0, total, DotBandH);
             bool focusIn = keyboardMode && focusId != null && focusId.Length > 3 && focusId.StartsWith("tab", StringComparison.Ordinal) && char.IsDigit(focusId[3]);
@@ -598,7 +599,7 @@ namespace Tepi
                 float keepA = p.Alpha;
                 p.Alpha = keepA * ha;
                 string hid = "tab" + tabs[Math.Max(0, hover)];
-                p.FillRound(new RectangleF(dotHotX.Value - (pitch - 4) / 2, cy - 14, pitch - 4, 28), 12, Pressed(hid) ? p.T.FillPressed : p.T.FillHover);
+                p.FillRound(new RectangleF(dotHotX.Value - (pitch - 4) / 2, cy - 12, pitch - 4, 24), 12, Pressed(hid) ? p.T.FillPressed : p.T.FillHover);
                 p.Alpha = keepA;
             }
             for (int i = 0; i < n; i++)
@@ -615,7 +616,7 @@ namespace Tepi
                 Color iconColor;
                 if (i == at)
                 {
-                    float pw = Ease.Lerp(r.Width, pitch - 4, t), ph = Ease.Lerp(8, 26, t);
+                    float pw = Ease.Lerp(r.Width, pitch - 4, t), ph = Ease.Lerp(8, 24, t);
                     p.FillRound(new RectangleF(cx - pw / 2, cy - ph / 2, pw, ph), ph / 2, p.T.Accent);
                     iconColor = p.T.OnAccent;
                 }
@@ -646,11 +647,10 @@ namespace Tepi
                     p.Alpha = keep;
                 }
             }
-            // Title: current or hovered page, left of the (possibly wider) strip
-            float firstX = n > 0 ? Ease.Lerp(rects[0].X, x0, e) : w / 2;
-            float titleRight = firstX - 14;
+            // Title: current or hovered page, centered below the strip
+            float stripMid = n > 0 ? Ease.Lerp((rects[0].X + rects[n - 1].Right) / 2, x0 + total / 2, e) : w / 2;
             int named = hover >= 0 ? tabs[hover] : page;
-            p.Text(TabLabel(named), Ink.Display(15f), hover >= 0 && tabs[hover] != page ? p.T.Sub : p.T.Text, 62, cy, titleRight - 62, StringAlignment.Near);
+            p.TextCenter(TabLabel(named), Ink.Semi(12f), hover >= 0 ? p.T.Text : p.T.Sub, stripMid, labelY);
             DrawTabAction(w);
         }
 
@@ -813,28 +813,6 @@ namespace Tepi
             tabHover.Start();
         }
 
-        // Chevron up: close the panel into Mini
-        void DrawHideButton()
-        {
-            var r = new RectangleF(18, TabY, 34, TabH);
-            AddHit(r, "toMini", delegate { GoMini(); });
-            if (Hover("toMini")) p.FillRound(r, TabH / 2, Pressed("toMini") ? p.T.FillHover : p.T.Fill);
-            Color c = Hover("toMini") ? p.T.Text : p.T.Sub;
-            float cx = r.X + 17, cy = r.Y + TabH / 2;
-            int at = PlaceNow;
-            // Points toward the edge it tucks into
-            if (at == PlaceRight) p.Symbol(Sym.ChevronRight, cx, cy, 14f, c);
-            else if (at == PlaceLeft)
-            {
-                var st = g.Save();
-                g.TranslateTransform(cx, cy);
-                g.ScaleTransform(-1, 1);
-                p.Symbol(Sym.ChevronRight, 0, 0, 14f, c);
-                g.Restore(st);
-            }
-            else p.Symbol(Sym.ChevronUp, cx, cy, 14f, c);
-        }
-
         // Gear, far right: settings without right-click
         void DrawPrefsButton(float w)
         {
@@ -845,13 +823,6 @@ namespace Tepi
         }
 
         Action openPrefsAct;
-
-        void GoMini()
-        {
-            if (!MiniWanted()) ToggleMini();
-            expanded = false;
-            Kick();
-        }
 
         // Round action button; trash swallows flyers
         void TabButton(string id, char glyph, Action act, bool trash)
@@ -867,7 +838,6 @@ namespace Tepi
         // Contextual action right of tabs
         void DrawTabAction(float w)
         {
-            DrawHideButton();
             DrawPrefsButton(w);
             var r = new RectangleF(w - 88, TabY, 34, TabH);
             if (page == PageMusic && mediaInfo.Present && mediaInfo.Title.Length > 0)

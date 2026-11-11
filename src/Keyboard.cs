@@ -132,7 +132,6 @@ namespace Tepi
                 case "deny": return Lang.T("Tolak");
                 case "always": return Lang.T("Selalu");
                 case "term": return Lang.T("Terminal");
-                case "toMini": return Lang.T("Mini");
                 case "prefsOpen": return Lang.T("Pengaturan");
                 case "voiceFolder": return Lang.T("Folder rekaman");
                 case "clearVoice": return Lang.T("Kosongkan");
