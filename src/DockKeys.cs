@@ -22,7 +22,7 @@ namespace Tepi
         uint hookId, helpId;
         IntPtr hook;
         HookProc proc;
-        volatile bool winDown, externalWin;
+        volatile bool winDown, externalWin, raycastUsesWin = true, otherExternalWin, lastLoggedExternalWin;
         bool used, passed;
         int eaten;
         long winUpTicks, keyTicks;
@@ -165,7 +165,7 @@ namespace Tepi
                 try { keeper = new Keeper { Due = OnTimer, Key = OnKeeperKey }; }
                 catch (Exception ex) { Log.Write("start key: keeper " + ex.Message); }
                 RefreshExternalWin(true);
-                if (keeper != null) keeper.Later(CheckTimer, 5000);
+                if (keeper != null) keeper.Later(CheckTimer, 1000);
                 // Windows Start appears: Tepi's replaces it
                 watchProc = OnForeground;
                 watch = SetWinEventHook(3, 3, IntPtr.Zero, watchProc, 0, 0, 0);
@@ -244,7 +244,9 @@ namespace Tepi
                 if (!winDown)
                 {
                     winDown = true;
-                    if (externalWin)
+                    bool ext = IsExternalWinActive();
+                    externalWin = ext;
+                    if (ext)
                     {
                         used = false;
                         passed = true;
@@ -309,7 +311,7 @@ namespace Tepi
             else if (id == CheckTimer)
             {
                 RefreshExternalWin(false);
-                if (keeper != null) keeper.Later(CheckTimer, 5000);
+                if (keeper != null) keeper.Later(CheckTimer, 1000);
             }
         }
 
@@ -438,9 +440,16 @@ namespace Tepi
                 return;
             }
             string exe = ProcessName(hwnd);
-            if (string.Equals(exe, "StartMenuExperienceHost", StringComparison.OrdinalIgnoreCase) || string.Equals(exe, "SearchHost", StringComparison.OrdinalIgnoreCase))
+            bool shellStart = string.Equals(exe, "StartMenuExperienceHost", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(exe, "SearchHost", StringComparison.OrdinalIgnoreCase);
+            if (!shellStart && string.Equals(exe, "ShellHost", StringComparison.OrdinalIgnoreCase))
             {
-                if (!externalWin) StartCameUp();
+                string cls = ClassOf(hwnd);
+                shellStart = cls == "ShellUXFrameWindowClass" || cls == "Windows.UI.Core.CoreWindow";
+            }
+            if (shellStart)
+            {
+                if (!IsExternalWinActive()) StartCameUp();
                 return;
             }
             lastFront = hwnd;
@@ -519,18 +528,45 @@ namespace Tepi
             if (h != null) try { h(what); } catch (Exception ex) { Log.Write("start key: " + ex.Message); }
         }
 
+        static bool IsRaycastHookAlive()
+        {
+            return FindWindowEx(IntPtr.Zero, IntPtr.Zero, "RaycastUIAccessCallbacks", null) != IntPtr.Zero
+                && (FindWindowEx(IntPtr.Zero, IntPtr.Zero, "RaycastUIAccessHelper", null) != IntPtr.Zero
+                    || FindWindowEx((IntPtr)(-3), IntPtr.Zero, "RaycastKeyboardHookLiveness", null) != IntPtr.Zero);
+        }
+
+        bool IsExternalWinActive()
+        {
+            if (otherExternalWin) return true;
+            return IsRaycastHookAlive() && raycastUsesWin;
+        }
+
         void RefreshExternalWin(bool first)
         {
-            bool? ext = DetectExternalWinKey();
-            if (!ext.HasValue)
+            if (IsRaycastHookAlive())
             {
-                if (first) Log.Write("start key: external win shortcut none, using Tepi Start");
+                string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                raycastUsesWin = RaycastUsesWinKey(local);
+            }
+            bool? other = DetectOtherExternalWinKey();
+            if (other.HasValue) otherExternalWin = other.Value;
+            bool ext = IsExternalWinActive();
+            if (!other.HasValue && first && !ext)
+            {
+                lastLoggedExternalWin = false;
+                Log.Write("start key: external win shortcut none, using Tepi Start");
                 return;
             }
-            if (first || ext.Value != externalWin)
+            if (first || ext != lastLoggedExternalWin)
             {
-                externalWin = ext.Value;
-                Log.Write("start key: external win shortcut " + (ext.Value ? "detected, yielding Win" : "none, using Tepi Start"));
+                bool was = lastLoggedExternalWin;
+                lastLoggedExternalWin = ext;
+                Log.Write("start key: external win shortcut " + (ext ? "detected, yielding Win" : "none, using Tepi Start"));
+                if (!first && was && !ext)
+                {
+                    PostThreadMessage(hookId, RehookMsg, IntPtr.Zero, IntPtr.Zero);
+                    if (keeper != null && IsDesktop(GetForegroundWindow())) keeper.Later(ParkTimer, 50);
+                }
             }
         }
 
@@ -679,18 +715,12 @@ namespace Tepi
             return true;
         }
 
-        static bool? DetectExternalWinKey()
+        static bool? DetectOtherExternalWinKey()
         {
             try
             {
                 var procs = RunningProcesses();
                 if (procs == null) return null;
-
-                if (procs.Contains("Raycast") || procs.Contains("Raycast.UIAccess"))
-                {
-                    string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                    if (RaycastUsesWinKey(local)) return true;
-                }
 
                 string[] shells = { "OpenShellMenu", "StartAllBackCfg", "Start11", "Start11Srv" };
                 for (int i = 0; i < shells.Length; i++)
