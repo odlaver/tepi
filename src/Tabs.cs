@@ -178,6 +178,7 @@ namespace Tepi
         void StepPanel(float dt)
         {
             tabMorph.Step(dt);
+            dotOpen.Step(dt); dotHotX.Step(dt); dotHotA.Step(dt);
             classSegX.Step(dt); shelfSegX.Step(dt);
             agentScroll.Step(dt); taskScroll.Step(dt); notifScroll.Step(dt); plainScroll.Step(dt); scheduleScroll.Step(dt); clipScroll.Step(dt); shelfScroll.Step(dt); convScroll.Step(dt); homeScroll.Step(dt);
             // Rubber band: let go after a beat
@@ -192,7 +193,7 @@ namespace Tepi
         bool PanelMoving()
         {
             var now = DateTime.UtcNow;
-            return !tabMorph.Settled || !classSegX.Settled || !shelfSegX.Settled ||
+            return !tabMorph.Settled || DotsMoving() || !classSegX.Settled || !shelfSegX.Settled ||
                    !agentScroll.Settled || !taskScroll.Settled || !notifScroll.Settled || !plainScroll.Settled || !scheduleScroll.Settled || !clipScroll.Settled || !shelfScroll.Settled || !homeScroll.Settled ||
                    (now - pageSwitchUtc).TotalSeconds < 0.7 || (now - panelOpenedUtc).TotalSeconds < 0.7 || (now - segSwitchUtc).TotalSeconds < 0.6 || MusicMoving(now) ||
                    (page == PageAgents && (now - agentFocusUtc).TotalSeconds < 1.6);
@@ -405,11 +406,24 @@ namespace Tepi
 
         // Icon tabs; active one widens with name
 
-        const float TabIcon = 32, TabH = 28, TabGap = 4, TabY = 10, DotCell = 16, DotActive = 30, TabGlyph = 0.86f;
+        const float TabIcon = 32, TabH = 28, TabGap = 4, TabY = 10, DotCell = 22, DotActive = 30, TabGlyph = 0.86f;
         readonly Spring tabMorph = new Spring(1, 300, 26, 0.002f);
         // Wheel past last tab: bar leans back
         readonly Spring tabNudge = new Spring(0, 420, 18, 0.05f);
         bool tabDotsDrawn;
+        // One progress for the whole strip: hover or focus anywhere opens every dot
+        readonly Spring dotOpen = new Spring(0, 460, 30, 0.002f);
+        // Highlight pill slides to the item the pointer would pick
+        readonly Spring dotHotX = new Spring(0, 620, 38, 0.05f), dotHotA = new Spring(0, 620, 38, 0.004f);
+        DateTime stripUtc = DateTime.MinValue;
+        bool stripOpen;
+        // Dots band: full tab row tall; open cells keep this much room for the title on the left
+        const float DotBandH = 48, DotPadX = 6, DotPadY = 4, DotTitleRoom = 152;
+
+        bool DotsMoving()
+        {
+            return !dotOpen.Settled || !dotHotX.Settled || !dotHotA.Settled || (DateTime.UtcNow - stripUtc).TotalSeconds < 0.32;
+        }
 
         // Many tabs: dots plus page title
         bool DotTabs
@@ -537,28 +551,104 @@ namespace Tepi
             DrawTabAction(w);
         }
 
-        // Dots: active stretches; hover names page
+        // Dots: hover or focus anywhere opens the whole strip into icons; hover names page
         void DrawDots(float w, int at, RectangleF[] rects)
         {
             int n = tabs.Length, hover = -1;
             float cy = TabY + TabH / 2;
+            var now = DateTime.UtcNow;
+            // Open layout: equal cells about the strip's centre, clear of the title and the action buttons
+            float pitch = Math.Max(24, Math.Min(40, (w - 96 - DotTitleRoom) / Math.Max(1, n)));
+            float total = n * pitch;
+            float mid = n > 0 ? (tabToX[0] + tabToX[n - 1] + tabToW[n - 1]) / 2 : w / 2;
+            float x0 = Math.Max(DotTitleRoom, Math.Min(mid - total / 2, w - 96 - total));
+            var closedBand = n > 0 ? new RectangleF(tabToX[0] - 3, 0, tabToX[n - 1] + tabToW[n - 1] - tabToX[0] + 6, DotBandH) : RectangleF.Empty;
+            var openBand = new RectangleF(x0, 0, total, DotBandH);
+            bool focusIn = keyboardMode && focusId != null && focusId.Length > 3 && focusId.StartsWith("tab", StringComparison.Ordinal) && char.IsDigit(focusId[3]);
+            // Open: stay open inside the open band plus padding; closed: only the dots themselves open it
+            var local = new PointF(mouse.X - originX, mouse.Y - originY - hitDy);
+            var zone = stripOpen ? RectangleF.Inflate(openBand, DotPadX, DotPadY) : closedBand;
+            bool over = pointerInside && zone.Contains(local);
+            if (over || focusIn) stripUtc = now;
+            double idle = (now - stripUtc).TotalSeconds;
+            // Leaving collapses after a beat
+            bool open = over || focusIn || idle < 0.28;
+            stripOpen = open;
+            // Panel was closed meanwhile: start shut
+            if (!open && idle > 1) dotOpen.Snap(0);
+            dotOpen.Target = open ? 1 : 0;
+            if (Anim.Reduced) dotOpen.Snap(dotOpen.Target);
+            float e = Ease.Clamp01(dotOpen.Value);
+            // Hits follow the geometry the user sees once open
             for (int i = 0; i < n; i++)
             {
                 int to = tabs[i];
-                var hit = new RectangleF(tabToX[i] - 3, TabY, tabToW[i] + 6, TabH);
-                AddHit(hit, "tab" + to, delegate { SetPage(to, false); });
-                if (Hover("tab" + to)) hover = i;
+                var hit = open ? new RectangleF(x0 + i * pitch, 0, pitch, DotBandH) : new RectangleF(tabToX[i] - 3, TabY - 2, tabToW[i] + 6, TabH + 4);
+                string id = "tab" + to;
+                AddHit(hit, id, delegate { SetPage(to, false); });
+                if (Hover(id) || (keyboardMode && focusId == id)) hover = i;
+            }
+            float hotTo = x0 + Math.Max(0, hover) * pitch + pitch / 2;
+            dotHotA.Target = open && hover >= 0 && hover != at ? 1 : 0;
+            if (dotHotA.Target > 0 && dotHotA.Value < 0.02f) dotHotX.Snap(hotTo); else dotHotX.Target = hotTo;
+            if (Anim.Reduced) { dotHotA.Snap(dotHotA.Target); dotHotX.Snap(hotTo); }
+            float ha = Ease.Clamp01(dotHotA.Value) * e;
+            if (ha > 0.01f)
+            {
+                float keepA = p.Alpha;
+                p.Alpha = keepA * ha;
+                string hid = "tab" + tabs[Math.Max(0, hover)];
+                p.FillRound(new RectangleF(dotHotX.Value - (pitch - 4) / 2, cy - 14, pitch - 4, 28), 12, Pressed(hid) ? p.T.FillPressed : p.T.FillHover);
+                p.Alpha = keepA;
+            }
+            for (int i = 0; i < n; i++)
+            {
+                int to = tabs[i];
                 var r = rects[i];
+                bool lit = i == hover;
                 bool news = (to == PageMessages && unread > 0) || (to == PageAgents && approvals.Count + BusyCount() > 0);
-                if (i == at) p.FillRound(new RectangleF(r.X, cy - 4, r.Width, 8), 4, p.T.Accent);
+                bool mark = (to == PageMessages && unread > 0) || (to == PageAgents && approvals.Count + BusyCount() > 0 && page != PageAgents);
+                float cx = Ease.Lerp(r.X + r.Width / 2, x0 + i * pitch + pitch / 2, e);
+                // Small stagger across the strip; all settled once e reaches 1
+                float t = Ease.Clamp01(e * 1.35f - 0.35f * i / Math.Max(1, n - 1));
+                float ia = Ease.Clamp01((t - 0.35f) / 0.65f), keep = p.Alpha;
+                Color iconColor;
+                if (i == at)
+                {
+                    float pw = Ease.Lerp(r.Width, pitch - 4, t), ph = Ease.Lerp(8, 26, t);
+                    p.FillRound(new RectangleF(cx - pw / 2, cy - ph / 2, pw, ph), ph / 2, p.T.Accent);
+                    iconColor = p.T.OnAccent;
+                }
                 else
                 {
-                    float rad = Hover("tab" + to) ? 4.5f : news ? 4f : 3.2f;
-                    p.Circle(r.X + r.Width / 2, cy, rad, Hover("tab" + to) || news ? p.T.Text : p.T.Faint);
+                    // The dot melts away as its icon arrives
+                    float rad = Ease.Lerp(lit ? 4.5f : news ? 4f : 3.2f, 7f, t);
+                    p.Alpha = keep * (1 - t);
+                    if (t < 0.99f) p.Circle(cx, cy, rad, lit || news ? p.T.Text : p.T.Faint);
+                    p.Alpha = keep;
+                    iconColor = lit ? p.T.Text : p.T.Sub;
+                }
+                if (ia > 0.01f)
+                {
+                    float grow = (0.55f + 0.45f * t) * (lit && i != at ? 1.1f : 1f);
+                    p.Alpha = keep * ia;
+                    var st = g.Save();
+                    g.TranslateTransform(cx, cy);
+                    g.ScaleTransform(grow, grow);
+                    DrawTabIcon(to, 0, 0, iconColor);
+                    g.Restore(st);
+                    // Unread or busy marker stays on the icon
+                    if (mark)
+                    {
+                        p.Circle(cx + 8, cy - 8, 4.2f, p.T.Bg);
+                        p.Circle(cx + 8, cy - 8, 3f, p.T.Text);
+                    }
+                    p.Alpha = keep;
                 }
             }
-            // Title: current or hovered page
-            float titleRight = (n > 0 ? rects[0].X : w / 2) - 14;
+            // Title: current or hovered page, left of the (possibly wider) strip
+            float firstX = n > 0 ? Ease.Lerp(rects[0].X, x0, e) : w / 2;
+            float titleRight = firstX - 14;
             int named = hover >= 0 ? tabs[hover] : page;
             p.Text(TabLabel(named), Ink.Display(15f), hover >= 0 && tabs[hover] != page ? p.T.Sub : p.T.Text, 62, cy, titleRight - 62, StringAlignment.Near);
             DrawTabAction(w);
