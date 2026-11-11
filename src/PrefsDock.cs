@@ -85,7 +85,7 @@ namespace Tepi
                     var view = Switch("dockbar.taskview", false, null);
                     view.Enabled = on;
                     add(Row(Lang.T("Tombol semua jendela"), Lang.T("Task View, sama dengan Win+Tab"), view));
-                    var winkey = Switch("dockbar.winkey", true, null);
+                    var winkey = Switch("dockbar.winkey", false, null);
                     winkey.Enabled = on;
                     var winkeyRow = Row(Lang.T("Tombol Windows membuka Tepi Start"), Lang.T("Juga Win+S, Win+A, Win+N, Win+W, Win+X, dan Ctrl+Esc; pintasan Win lain tetap jalan"), winkey);
                     winkeyRow.Glyph = (char)0xE765;
