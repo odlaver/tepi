@@ -183,7 +183,13 @@ namespace Tepi
                 IntPtr fg = GetForegroundWindow();
                 int at = a.Wins.FindIndex(w => w.H == fg);
                 var next = at >= 0 && a.Wins.Count > 1 ? a.Wins[(at + 1) % a.Wins.Count] : at >= 0 ? a.Wins[at] : a.Recent();
-                if (next != null) ShellApp.Activate(next.H);
+                if (next != null)
+                {
+                    // An elevated window ignores us; only the app itself can raise it again
+                    bool stuck = ShellApp.OutOfReach(next.H);
+                    if (stuck) ShellApp.Relaunch(next.H);
+                    else ShellApp.Activate(next.H);
+                }
                 if (!fromCard) CloseCard();
             }
 
@@ -775,10 +781,12 @@ namespace Tepi
                 var at = Cursor.Position;
                 if (button == MouseButtons.Left)
                 {
-                    TrayHost.Send(ic, 0x202, at);
+                    bool reached = TrayHost.Send(ic, 0x202, at);
                     if (ic.Version >= 3) TrayHost.Send(ic, 0x400, at);
                     lastTrayKey = ic.Key;
                     lastTrayUtc = DateTime.UtcNow;
+                    // Elevated owner: the click never arrives, so start the app again to raise its window
+                    if (!reached) TrayHost.Restore(ic);
                 }
                 else if (button == MouseButtons.Right)
                 {
