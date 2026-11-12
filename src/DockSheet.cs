@@ -384,6 +384,7 @@ namespace Tepi
                         if (!IsDisposed && Form.ActiveForm != this) Done();
                     }));
                 };
+                MenuGuard.Watch(m);
                 m.Show(Cursor.Position);
             }
 

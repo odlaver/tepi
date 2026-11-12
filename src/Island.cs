@@ -1494,6 +1494,7 @@ namespace Tepi
             {
                 var mh = HitById(HitAt(pt));
                 if (mh != null && mh.Menu != null) { mh.Menu(); return; }
+                MenuGuard.Watch(menu);
                 menu.Show(Control.MousePosition);
                 return;
             }

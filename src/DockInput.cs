@@ -286,6 +286,7 @@ namespace Tepi
                 labelShow.Target = 0;
                 MenuLook.Apply(m);
                 m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
+                MenuGuard.Watch(m);
                 m.Show(Cursor.Position);
             }
 
@@ -560,6 +561,7 @@ namespace Tepi
                 MenuLook.Apply(m);
                 m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
                 var at = HitScreenRect("sys:start");
+                MenuGuard.Watch(m);
                 m.Show(new Point(at.X, at.Top - (int)(6 * scale)), ToolStripDropDownDirection.AboveRight);
             }
 
