@@ -302,7 +302,7 @@ namespace Tepi
         }
 
         // Compile panel chrome before its first frame
-        static readonly string[] PanelChrome = { "DrawPanel", "DrawTabs", "DrawDots", "TabLayout", "DrawTabAction", "DrawHideButton", "TabButton", "DrawBackdrop", "BackdropShown", "DrawPlate", "PlateFits", "DrawSegments", "DrawSegmentPage", "DrawCorner" };
+        static readonly string[] PanelChrome = { "DrawPanel", "DrawTabs", "DrawDots", "TabLayout", "DrawTabAction", "TabButton", "DrawBackdrop", "BackdropShown", "DrawPlate", "PlateFits", "DrawSegments", "DrawSegmentPage", "DrawCorner" };
         bool chromeReady;
 
         void WarmChrome()
