@@ -1,4 +1,4 @@
-# Kulia, Notion, Todoist, kalender, dan pesan
+# Kulia, Notion, Todoist, kalender, Spotify, dan pesan
 
 [← Kembali ke README](../README.md)
 
@@ -21,6 +21,17 @@ Buka **Pengaturan > Integrasi**:
 - **Kalender**: tempel tautan iCal (`https` atau `webcal`). Di Google Calendar, pakai **Secret address in iCal format** dari pengaturan kalender. Outlook, iCloud, dan aplikasi lain yang punya tautan iCal juga bisa. Paling banyak 12 kalender.
 
 Data diperbarui tiap 10 menit, dan saat tab Tugas atau Jadwal dibuka. Token dan tautan kalender disimpan terenkripsi dengan DPAPI Windows dan tidak pernah ditulis ke log.
+
+## Spotify
+
+Tanpa pengaturan apa pun, "putar Evaluasi dari Hindia" memutar hasil teratas YouTube di browser bawaanmu. Sambungkan Spotify kalau ingin lagunya main di aplikasi Spotify. Butuh Spotify **Premium**: Spotify hanya mengizinkan aplikasi lain memutar lagu untuk akun Premium, dan pemilik app developer juga wajib Premium. Tanpa Premium, "putar Evaluasi di Spotify" hanya membuka hasil pencarian Spotify.
+
+1. Buka [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) dengan akun Spotify-mu, lalu **Create app**.
+2. Isi nama dan deskripsi bebas. Di **Redirect URIs**, isi `http://127.0.0.1/callback` (tanpa port, bukan `localhost`). Centang **Web API**, lalu simpan.
+3. Salin **Client ID** dari halaman app itu.
+4. Di Tepi, buka **Pengaturan > Integrasi > Spotify**, tempel Client ID, lalu **Masuk**. Browser terbuka; setujui izinnya.
+
+App developer Spotify dibatasi 5 pengguna, jadi tiap orang sebaiknya membuat app sendiri. Tepi meminta izin mengatur pemutaran, melihat perangkat yang sedang memutar, dan membaca jenis akunmu. Kalau aplikasi Spotify di laptop belum terbuka, Tepi membukanya lalu memutar di sana. Login disimpan terenkripsi dengan DPAPI Windows; **Lepas** menghapusnya.
 
 ## Notifikasi pesan
 

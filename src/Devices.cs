@@ -262,15 +262,21 @@ namespace Tepi
             t.Start();
         }
 
-        public void Toggle(bool isWifi)
+        public void Toggle(bool isWifi) { Change(isWifi, null); }
+
+        public void Set(bool isWifi, bool on) { Change(isWifi, on); }
+
+        // Null flips the current state
+        void Change(bool isWifi, bool? on)
         {
             lock (work) work.Enqueue(delegate
             {
                 if (MediaService.Await(Radio.RequestAccessAsync()) != RadioAccessStatus.Allowed) { Denied = true; Raise(); return; }
                 var r = isWifi ? wifi : bluetooth;
                 if (r == null) return;
-                var to = r.State == RadioState.On ? RadioState.Off : RadioState.On;
-                if (MediaService.Await(r.SetStateAsync(to)) != RadioAccessStatus.Allowed) Denied = true;
+                bool want = on ?? r.State != RadioState.On;
+                if ((r.State == RadioState.On) == want) return;
+                if (MediaService.Await(r.SetStateAsync(want ? RadioState.On : RadioState.Off)) != RadioAccessStatus.Allowed) Denied = true;
                 Read();
             });
             signal.Set();

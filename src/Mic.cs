@@ -94,6 +94,8 @@ namespace Tepi
             bool changed = muted != micMuted;
             micMuted = muted;
             micPresent = present;
+            // New default mic: listen again from it
+            if (first) hearStale = true;
             if (!first && changed)
             {
                 var t = ShowToast(View.Mic, 1.6, 1, false, true);

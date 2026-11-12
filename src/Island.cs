@@ -219,6 +219,7 @@ namespace Tepi
             StartMic();
             StartControls();
             StartDictate();
+            StartHear();
             LoadOneShots();
             ApplyReserve();
             ApplyDock();
@@ -268,6 +269,8 @@ namespace Tepi
             CloseMirror();
             CloseConvert();
             StopDictate();
+            hearTick.Stop();
+            StopHear();
             if (RapatOn) AbortRapat();
             if (tray != null) { tray.Visible = false; tray.Dispose(); }
             base.OnFormClosed(e);

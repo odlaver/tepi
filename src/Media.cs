@@ -57,6 +57,8 @@ namespace Tepi
         }
 
         public void TogglePlay() { Enqueue(s => Fire(s.TryTogglePlayPauseAsync())); }
+        public void Play() { Enqueue(s => Fire(s.TryPlayAsync())); }
+        public void Pause() { Enqueue(s => Fire(s.TryPauseAsync())); }
         public void Next() { Enqueue(s => Fire(s.TrySkipNextAsync())); }
         public void Previous() { Enqueue(s => Fire(s.TrySkipPreviousAsync())); }
         public void Seek(double ms) { Enqueue(s => Fire(s.TryChangePlaybackPositionAsync((long)(ms * 10000)))); }

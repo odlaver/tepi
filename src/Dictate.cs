@@ -163,8 +163,9 @@ namespace Tepi
             }
             if (!up && k.Vk == 0x1B && dictState == DictState.Listening)
             {
+                string said = hearTurn ? Lang.T("Perintah dibatalkan") : Lang.T("Dikte dibatalkan");
                 CancelDictate();
-                DictSay(Lang.T("Dikte dibatalkan"), "", true);
+                DictSay(said, "", true);
                 return true;
             }
             if (!up && !IsModifier(k.Vk))
@@ -233,6 +234,7 @@ namespace Tepi
 
         void CancelDictate()
         {
+            if (hearTurn) { EndHearTurn(); return; }
             dictCap.Stop();
             finishOnUp = false;
             var rec = dictRec;
@@ -246,6 +248,12 @@ namespace Tepi
 
         void FinishDictate()
         {
+            // "Tepi, …": click ends it early
+            if (hearTurn)
+            {
+                if (dictState == DictState.Listening && hear != null) hear.EndCapture();
+                return;
+            }
             var rec = dictRec;
             var pcm = dictPcm;
             if (dictState != DictState.Listening || rec == null) return;
@@ -269,22 +277,28 @@ namespace Tepi
                 // Short and silent: Ctrl+click, not speech
                 double secs = raw.Length / 2.0 / Recorder.Rate;
                 if (rec.Peak < 0.18f || secs < 0.5) error = secs < 2 ? "" : Lang.T("Tidak ada suara terdengar");
-                else
-                {
-                    var wav = Wav.FromPcm(raw, 0, raw.Length);
-                    SpeechResult res;
-                    if (engine == "lokal") res = Speech.Local(model, wav, lang, vocab.Prompt());
-                    else
-                    {
-                        res = Ai.Transcribe(wav, lang, vocab.Prompt(), false);
-                        // No internet: offline model stands in
-                        if (!res.Ok && res.NoNet && Speech.LocalReady(model)) { res = Speech.Local(model, wav, lang, vocab.Prompt()); fallback = res.Ok; }
-                    }
-                    if (res.Ok) text = vocab.Apply(res.Text, style, fillers, commands);
-                    else error = res.Error;
-                }
+                else text = SpeechText(raw, engine, lang, model, vocab, "", style, fillers, commands, out error, out fallback);
                 Post(delegate { DeliverDictate(text, error, fallback); });
             });
+        }
+
+        // Dictation and "Tepi, …" share the engine
+        static string SpeechText(byte[] raw, string engine, string lang, Speech.LocalModel model, Words vocab, string hint, Words.Style style, bool fillers, bool commands, out string error, out bool fallback)
+        {
+            error = null;
+            fallback = false;
+            var wav = Wav.FromPcm(raw, 0, raw.Length);
+            string prompt = hint + vocab.Prompt();
+            SpeechResult res;
+            if (engine == "lokal") res = Speech.Local(model, wav, lang, prompt);
+            else
+            {
+                res = Ai.Transcribe(wav, lang, prompt, false);
+                // No internet: offline model stands in
+                if (!res.Ok && res.NoNet && Speech.LocalReady(model)) { res = Speech.Local(model, wav, lang, prompt); fallback = res.Ok; }
+            }
+            if (!res.Ok) { error = res.Error; return null; }
+            return vocab.Apply(res.Text, style, fillers, commands);
         }
 
         void DeliverDictate(string text, string error, bool fallback)
@@ -497,7 +511,8 @@ namespace Tepi
             if (secs - dictLevelT >= 1.0 / 20)
             {
                 dictLevelT = secs;
-                dictLevels[dictLevelAt] = rec != null ? rec.Level : 0;
+                var h = hear;
+                dictLevels[dictLevelAt] = rec != null ? rec.Level : hearTurn && h != null ? h.Level : 0;
                 dictLevelAt = (dictLevelAt + 1) % dictLevels.Length;
             }
             int n = dictLevels.Length;
@@ -514,6 +529,7 @@ namespace Tepi
 
         string DescribeDictate()
         {
+            if (dictState == DictState.Listening && hearTurn) return Lang.T("Mendengarkan perintah setelah \"Tepi\". Diam sebentar untuk selesai.");
             if (dictState == DictState.Listening) return dictHandsFree ? Lang.T("Mendengarkan tanpa tangan. Tekan tombol dikte lagi untuk selesai, Esc untuk batal.") : Lang.T("Mendengarkan. Lepas tombol untuk selesai, Esc untuk batal.");
             if (dictState == DictState.Working) return WorkingLabel;
             return toast == null ? "" : Lang.F("Ditempel: {0}", toast.Title);

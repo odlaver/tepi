@@ -126,6 +126,7 @@ namespace Tepi
         {
             var done = TryOffline(me.Text);
             if (done != null) { SuruhDone(me, done); return; }
+            if (StartSong(me)) return;
             if (!Ai.Ready(Ai.Text))
             {
                 SuruhDone(me, new ChatMsg { Text = Lang.T("Belum paham perintahnya") + ". " + Lang.T("Coba: timer 25 menit, ingetin minum 30 menit lagi"), Fix = "ai" });
@@ -238,6 +239,8 @@ namespace Tepi
         {
             var sb = new StringBuilder();
             if (mediaInfo.Present && mediaInfo.Title.Length > 0) sb.Append("Now playing: ").Append(mediaInfo.Title).Append(" by ").Append(mediaInfo.Artist).Append(". ");
+            if (mediaInfo.Present) sb.Append(mediaInfo.Playing ? "Music is playing. " : "Music is paused. ");
+            sb.Append("System volume: ").Append(muted ? "muted" : ((int)Math.Round(vol * 100)).ToString(CultureInfo.InvariantCulture) + "%").Append(". ");
             if (TimerOn) sb.Append("A timer is running. ");
             var task = SoonTask();
             if (task != null) sb.Append("Next deadline: ").Append(task.Title).Append(" at ").Append(task.DeadlineUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)).Append(". ");
@@ -267,6 +270,39 @@ namespace Tepi
                     if (s("text").Length == 0) return null;
                     SaveNote(s("text"), "rak");
                     return new ChatAct { Glyph = IcoNote, Text = Lang.F("Dicatat: {0}", s("text")) };
+                case "control_music":
+                    int times;
+                    if (!int.TryParse(s("count"), out times)) times = 1;
+                    char glyph;
+                    string act = s("action").ToLowerInvariant();
+                    string done = DoMedia(act == "previous" ? "prev" : act, times, out glyph);
+                    return new ChatAct { Glyph = done == null ? IcoFail : glyph, Text = done ?? Lang.T("Tidak ada pemutar musik") };
+                case "set_volume":
+                    string mute = s("mute").ToLowerInvariant();
+                    int pct, change;
+                    float level;
+                    if (int.TryParse(s("percent"), out pct)) level = pct / 100f;
+                    else if (int.TryParse(s("change"), out change)) level = vol + change / 100f;
+                    else if (mute == "true") return new ChatAct { Glyph = Ink.IcoMute, Text = MuteTo(true) };
+                    else if (mute == "false") return new ChatAct { Glyph = VolumeGlyph(vol), Text = MuteTo(false) };
+                    else return new ChatAct { Glyph = IcoFail, Text = Lang.T("Volume tidak jelas") };
+                    level = Math.Max(0, Math.Min(1, level));
+                    return new ChatAct { Glyph = VolumeGlyph(level), Text = VolumeTo(level) };
+                case "open_app":
+                    return s("name").Length == 0 ? null : OpenApp(s("name"));
+                case "play_song":
+                    return s("query").Length == 0 ? null : PlaySongLater(s("query"));
+                case "control_device":
+                    string key;
+                    if (!DeviceTools.TryGetValue(s("action"), out key)) return null;
+                    int amount;
+                    if (!int.TryParse(s("percent"), out amount))
+                    {
+                        if (key == "bright") return new ChatAct { Glyph = IcoFail, Text = Lang.T("Kecerahan berapa persen?") };
+                        amount = 10;
+                    }
+                    var dev = RunCmd(key, amount);
+                    return dev == null ? null : new ChatAct { Glyph = dev.Glyph, Text = dev.Text };
                 case "add_task":
                     if (s("text").Length == 0 || sources == null) return null;
                     string to = sources.Find("todoist") != null ? "todoist" : "notion";
@@ -287,6 +323,13 @@ namespace Tepi
 
         static Dictionary<string, object> P(string type, string about) { return new Dictionary<string, object> { { "type", type }, { "description", about } }; }
 
+        static Dictionary<string, object> Pick(string about, params string[] values)
+        {
+            var d = P("string", about);
+            d["enum"] = values;
+            return d;
+        }
+
         // Worker: one round, the chat so far as context
         static Ai.Reply AskSuruh(List<KeyValuePair<string, string>> turns, string context, bool tasks, out string error)
         {
@@ -295,8 +338,13 @@ namespace Tepi
                 Fn("set_reminder", "Remind the user once at a local date and time.", new Dictionary<string, object> { { "at", P("string", "Local time, yyyy-MM-ddTHH:mm") }, { "text", P("string", "What to remind, in the user's words") } }, new[] { "at", "text" }),
                 Fn("start_timer", "Start a countdown timer.", new Dictionary<string, object> { { "minutes", P("integer", "Length in minutes") }, { "focus", P("boolean", "True for a focus session with a break after") } }, new[] { "minutes" }),
                 Fn("add_note", "Save a quick note.", new Dictionary<string, object> { { "text", P("string", "Note text") } }, new[] { "text" }),
+                Fn("control_music", "Play, pause, or skip songs in the music player.", new Dictionary<string, object> { { "action", Pick("play, pause, next or previous", "play", "pause", "next", "previous") }, { "count", P("integer", "How many songs to skip, 1 by default") } }, new[] { "action" }),
+                Fn("set_volume", "Set the system volume or mute it.", new Dictionary<string, object> { { "percent", P("integer", "Volume to set, 0-100") }, { "change", P("integer", "Relative step in points, e.g. 10 or -10") }, { "mute", P("boolean", "True mutes, false unmutes") } }, new string[0]),
+                Fn("open_app", "Open an installed app by name, e.g. Spotify, Brave, Calculator. \"browser\" opens the default browser.", new Dictionary<string, object> { { "name", P("string", "App name as the user said it") } }, new[] { "name" }),
+                Fn("control_device", "Switch Wi-Fi, Bluetooth, dark mode, screen brightness, the microphone, do not disturb, keep awake, or lock the screen.", new Dictionary<string, object> { { "action", Pick("What to do", new List<string>(DeviceTools.Keys).ToArray()) }, { "percent", P("integer", "Brightness 0-100 for brightness_set, or the step for brightness_up and brightness_down") } }, new[] { "action" }),
                 Fn("reply", "Talk to the user: answers, follow-ups, or what the other tools cannot do.", new Dictionary<string, object> { { "text", P("string", "Plain text in the user's language") } }, new[] { "text" }),
             };
+            tools.Add(Fn("play_song", "Play a specific song by title: on Spotify when connected with Premium, else the top YouTube result in the browser. Use control_music for play, pause, or skip without a title.", new Dictionary<string, object> { { "query", P("string", "Song title, with the artist if the user named one") } }, new[] { "query" }));
             if (tasks) tools.Add(Fn("add_task", "Add a to-do item.", new Dictionary<string, object> { { "text", P("string", "Task text") } }, new[] { "text" }));
             string now = DateTime.Now.ToString("yyyy-MM-dd HH:mm dddd", CultureInfo.InvariantCulture);
             // Who made Tepi; the model vendor did not
@@ -368,6 +416,12 @@ namespace Tepi
                 var o = AddOneShot(at, what);
                 return Did(Ink.IcoBell, ReminderSaid(at, what), o);
             }
+
+            var cmd = TryCommand(text);
+            if (cmd != null) return cmd;
+
+            var opened = TryOpen(text);
+            if (opened != null) return opened;
 
             string converted;
             if (TryConvert(low, out converted)) return Said(converted);

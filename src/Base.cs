@@ -415,6 +415,8 @@ namespace Tepi
             req.Method = method;
             req.Timeout = timeoutMs;
             req.ReadWriteTimeout = timeoutMs;
+            // Loopback: no proxy auto-detect delay
+            if (req.RequestUri.IsLoopback) req.Proxy = null;
             req.UserAgent = "Tepi/" + Island.AppVersion + " (+https://github.com/odlaver/tepi)";
             if (headers != null)
                 foreach (var h in headers)

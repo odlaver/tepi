@@ -131,6 +131,8 @@ namespace Tepi
                 NotionRows(hub, add);
                 cap("Todoist");
                 TodoistRows(hub, add);
+                cap("Spotify");
+                SpotifyRows(add);
                 cap(Lang.T("Kalender"));
                 CalendarRows(hub, add);
             }
@@ -335,6 +337,47 @@ namespace Tepi
                         Say(row, err ?? "");
                     });
                 });
+            }
+
+            // Each user brings own Spotify app
+            void SpotifyRows(Action<KitRow> add)
+            {
+                if (SpotifyLink.Connected)
+                {
+                    string who = SpotifyLink.User.Length > 0 ? SpotifyLink.User : "Spotify";
+                    add(Row("Spotify", SpotifyLink.Premium ? Lang.F("{0} · Premium. Coba \"putar Evaluasi dari Hindia\".", who) : Lang.F("{0} · bukan Premium, jadi lagu pilihan tidak bisa diputar", who),
+                        Button(Lang.T("Lepas"), false, delegate { SpotifyLink.Forget(); Rebuild(); })));
+                    return;
+                }
+                var field = new KitField(Ui, true, Lang.T("Client ID Spotify"), 200);
+                KitRow row = null;
+                KitButton go = null;
+                go = Button(Lang.T("Masuk"), true, delegate
+                {
+                    string id = field.Box.Text.Trim();
+                    if (id.Length == 0) { Say(row, Lang.T("Client ID kosong")); field.Box.Focus(); return; }
+                    go.Enabled = field.Enabled = false;
+                    Say(row, Lang.T("Selesaikan login di browser…"));
+                    ThreadPool.QueueUserWorkItem(delegate
+                    {
+                        string err = SpotifyLink.SignIn(id);
+                        island.Post(delegate
+                        {
+                            if (err == null) { Rebuild(); return; }
+                            if (go.IsDisposed) return;
+                            go.Enabled = field.Enabled = true;
+                            Say(row, err);
+                        });
+                    });
+                });
+                field.Submit = delegate { go.PerformClick(); };
+                row = Row("Spotify", Lang.T("Buat app di dashboard Spotify dengan Redirect URI http://127.0.0.1/callback dan Web API, lalu tempel Client ID-nya"), Pair(field, go));
+                add(row);
+                add(Row(Lang.T("Dashboard Spotify"), Lang.T("Butuh akun Premium, maksimal 5 pengguna per app"), Button(Lang.T("Buka"), false, delegate
+                {
+                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://developer.spotify.com/dashboard") { UseShellExecute = true }); }
+                    catch (Exception ex) { Log.Write("spotify dashboard: " + ex.Message); }
+                })));
             }
 
             void TodoistRows(SourceHub hub, Action<KitRow> add)

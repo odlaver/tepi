@@ -21,10 +21,14 @@ namespace Tepi
         readonly ManualResetEvent opened = new ManualResetEvent(false);
         bool openOk;
 
-        public Recorder(bool loopback, Stream sink)
+        readonly bool comms;
+
+        // comms: Windows' call mode, echo and noise cut by the driver
+        public Recorder(bool loopback, Stream sink, bool comms = false)
         {
             this.loopback = loopback;
             this.sink = sink;
+            this.comms = comms;
         }
 
         // Smoothed loudness 0..1 for the island
@@ -181,6 +185,12 @@ namespace Tepi
                 object o;
                 if (dev.Activate(ref iid, 23, IntPtr.Zero, out o) != 0) return false;
                 client = (IAudioClient)o;
+                if (comms && !loopback)
+                {
+                    var c2 = client as IAudioClient2;
+                    var props = new AudioClientProps { Size = 16, Category = 3 };
+                    if (c2 != null) Log.Write("rekam mode panggilan: " + c2.SetClientProperties(ref props));
+                }
                 IntPtr fmt;
                 if (client.GetMixFormat(out fmt) != 0) return false;
                 try

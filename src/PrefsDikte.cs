@@ -62,6 +62,18 @@ namespace Tepi
                 string engine = Ai.SttId == Ai.Offline ? Lang.T("Offline") : sp != null ? Ai.Label(sp) : "?";
                 add(Row(Lang.T("Mesin dikte"), Lang.F("{0} · diatur di halaman AI", engine), Button(Lang.T("Buka AI"), false, delegate { Go("ai"); })));
 
+                cap(Lang.T("Perintah suara"));
+                add(Row(Lang.T("Dengarkan terus"), Hear.Available ? Lang.T("Ucapkan \"Tepi, pause\", \"Tepi, open Spotify\", atau \"Tepi, turn on wifi\". Dikenali offline di laptop ini, bahasa Inggris.") : Lang.T("Windows tidak punya pengenal ucapan Inggris"), Switch("listen", false, on => { settings.Set("listen", on); settings.Save(); island.ApplyHear(); Rebuild(); })));
+                // Off by default: audio may leave
+                string freeMissing = island.DictMissing();
+                string freeNote = freeMissing != null ? freeMissing + ". " + Lang.T("Atur di Pengaturan › AI")
+                    : Ai.SttId == Ai.Offline ? Lang.T("Kalimat biasa setelah \"Tepi\", bahasa Indonesia juga: \"Tepi, buka Brave\", \"Tepi, ingetin minum jam 4\". Ditranskrip offline di laptop ini.")
+                    : Lang.F("Kalimat biasa setelah \"Tepi\", bahasa Indonesia juga: \"Tepi, buka Brave\", \"Tepi, ingetin minum jam 4\". Potongan suara sesudah \"Tepi\" dikirim ke {0}.", engine);
+                add(Row(Lang.T("Perintah bebas setelah Tepi"), freeNote, Switch("listen.free", false, on => { settings.Set("listen.free", on); settings.Save(); island.ApplyHear(); })));
+                add(Row(Lang.T("Wajib sebut Tepi"), Lang.T("Hanya untuk musik dan volume. Perintah lain selalu butuh kata Tepi."), Switch("listen.wake", true, on => { settings.Set("listen.wake", on); settings.Save(); island.ApplyHear(); })));
+
+                add(Row(Lang.T("Peredam gema"), Lang.T("Musik dari speaker tidak menutupi suaramu. Matikan kalau perintah malah tidak terdengar."), Switch("listen.aec", true, on => { settings.Set("listen.aec", on); settings.Save(); island.ApplyHear(); })));
+
                 cap(Lang.T("Hasil"));
                 add(Row(Lang.T("Kamus dan snippet"), Lang.F("{0} istilah, {1} pengganti, {2} snippet", words.Terms.Count, words.Swaps.Count, words.Snippets.Count),
                     Button(Lang.T("Ubah…"), false, delegate { using (var w = new WordsWindow()) w.ShowDialog(this); island.ApplyDictate(); Rebuild(); })));

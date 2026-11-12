@@ -4,6 +4,7 @@ rem Optional: build.cmd [output.exe] [extra source files]
 setlocal
 set FW=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319
 set WMD=%WINDIR%\System32\WinMetadata
+set SPEECH=%WINDIR%\Microsoft.NET\assembly\GAC_MSIL\System.Speech\v4.0_4.0.0.0__31bf3856ad364e35\System.Speech.dll
 set ROOT=%~dp0
 set OUT=%~1
 if "%OUT%"=="" set OUT=%ROOT%Tepi.exe
@@ -13,7 +14,7 @@ if not "%~2"=="" set EXTRA="%~2"
 "%FW%\csc.exe" /nologo /target:winexe /optimize+ /platform:x64 /warn:4 ^
   /out:"%OUT%" ^
   /win32manifest:"%ROOT%src\app.manifest" /win32icon:"%ROOT%src\Tepi.ico" /resource:"%ROOT%src\Tepi.ico",Tepi.ico ^
-  /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll /r:System.Security.dll /r:System.Management.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll ^
+  /r:"%SPEECH%" /r:"%FW%\WPF\UIAutomationClient.dll" /r:"%FW%\WPF\UIAutomationTypes.dll" /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll /r:System.Security.dll /r:System.Management.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll ^
   /r:"%WMD%\Windows.Foundation.winmd" /r:"%WMD%\Windows.Media.winmd" /r:"%WMD%\Windows.Storage.winmd" /r:"%WMD%\Windows.Networking.winmd" ^
   /r:"%WMD%\Windows.UI.winmd" /r:"%WMD%\Windows.ApplicationModel.winmd" /r:"%WMD%\Windows.Devices.winmd" /r:"%WMD%\Windows.Graphics.winmd" /r:"%WMD%\Windows.Data.winmd" /r:"%WMD%\Windows.Globalization.winmd" ^
   /r:"%FW%\System.Runtime.dll" /r:"%FW%\System.Runtime.InteropServices.WindowsRuntime.dll" /r:"%FW%\System.Runtime.WindowsRuntime.dll" ^

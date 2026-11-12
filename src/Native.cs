@@ -294,6 +294,29 @@ namespace Tepi
         [PreserveSig] int GetService(ref Guid iid, [MarshalAs(UnmanagedType.IUnknown)] out object service);
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    struct AudioClientProps { public uint Size; public int Offload, Category, Options; }
+
+    [ComImport, Guid("726778CD-F60A-4EDA-82DE-E47610CD78AA"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IAudioClient2
+    {
+        [PreserveSig] int Initialize(int shareMode, int streamFlags, long bufferDuration, long periodicity, IntPtr format, IntPtr sessionGuid);
+        [PreserveSig] int GetBufferSize(out uint frames);
+        [PreserveSig] int GetStreamLatency(out long latency);
+        [PreserveSig] int GetCurrentPadding(out uint padding);
+        [PreserveSig] int IsFormatSupported(int shareMode, IntPtr format, out IntPtr closest);
+        [PreserveSig] int GetMixFormat(out IntPtr format);
+        [PreserveSig] int GetDevicePeriod(out long defaultPeriod, out long minimumPeriod);
+        [PreserveSig] int Start();
+        [PreserveSig] int Stop();
+        [PreserveSig] int Reset();
+        [PreserveSig] int SetEventHandle(IntPtr handle);
+        [PreserveSig] int GetService(ref Guid iid, [MarshalAs(UnmanagedType.IUnknown)] out object service);
+        [PreserveSig] int IsOffloadCapable(int category, [MarshalAs(UnmanagedType.Bool)] out bool capable);
+        [PreserveSig] int SetClientProperties(ref AudioClientProps props);
+        [PreserveSig] int GetBufferSizeLimits(IntPtr format, [MarshalAs(UnmanagedType.Bool)] bool eventDriven, out long min, out long max);
+    }
+
     [ComImport, Guid("C8ADBD64-E71E-48A0-A4DE-185C395CD317"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IAudioCaptureClient
     {
