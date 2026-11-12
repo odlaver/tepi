@@ -23,6 +23,7 @@ namespace Tepi
             Def(MiniHotkey, "key.mini", "Mini", "Ctrl+Alt+K", false),
             Def(MicHotkey, "key.mic", "Mikrofon", "Ctrl+Alt+M", false),
             Def(NoteHotkey, "key.note", "Catatan kilat", "Ctrl+Alt+N", false),
+            Def(WorkHotkey, "key.work", "Tugas dan catatan", "Ctrl+Alt+J", false),
             Def(MirrorHotkey, "key.mirror", "Cermin kamera", "Ctrl+Alt+C", false),
             // No default: free combos vary per PC
             Def(PickerHotkey, "key.picker", "Ambil warna", "", false),

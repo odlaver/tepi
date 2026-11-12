@@ -61,6 +61,8 @@ namespace Tepi
         [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out int value, int size);
         [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(int access, bool inherit, int pid);
         [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+        [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+        [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out Native.RECT r);
 
         const int ExAppWindow = 0x40000, ExToolWindow = 0x80, ExNoActivate = 0x8000000;
 
@@ -89,11 +91,12 @@ namespace Tepi
         {
             if (!IsWindowVisible(h)) return false;
             int ex = Native.GetWindowLong(h, -20);
-            if ((ex & ExAppWindow) == 0)
-            {
-                if ((ex & (ExToolWindow | ExNoActivate)) != 0) return false;
-                if (GetWindow(h, 4) != IntPtr.Zero) return false;
-            }
+            // Tool and non-activating helper windows (e.g. Raycast's 2x2 InvisibleMainWindow) stay out of the dock even if WPF left WS_EX_APPWINDOW set
+            if ((ex & (ExToolWindow | ExNoActivate)) != 0) return false;
+            if ((ex & ExAppWindow) == 0 && GetWindow(h, 4) != IntPtr.Zero) return false;
+            // Tiny dummy/parking windows (1x1, 2x2) when not minimized are background helpers, not taskbar windows
+            Native.RECT r;
+            if (!IsIconic(h) && GetWindowRect(h, out r) && (r.Right - r.Left <= 8 || r.Bottom - r.Top <= 8)) return false;
             // Other virtual desktops and parked store apps are cloaked
             int cloaked;
             if (DwmGetWindowAttribute(h, 14, out cloaked, 4) == 0 && cloaked != 0) return false;
@@ -316,10 +319,11 @@ namespace Tepi
         }
 
         // Pins in their order, then running apps by first sight
-        public List<DockApp> Arrange(IList<string> pins, Dictionary<string, DockApp> old)
+        public List<DockApp> Arrange(IList<string> pins, Dictionary<string, DockApp> old, IntPtr skip = default(IntPtr))
         {
             var list = new List<DockApp>();
             var taken = new HashSet<IntPtr>();
+            if (skip != IntPtr.Zero) taken.Add(skip);
             var ordered = new List<DockWin>(wins.Values);
             ordered.Sort((a, b) => a.Seen.CompareTo(b.Seen));
             foreach (var target in pins)

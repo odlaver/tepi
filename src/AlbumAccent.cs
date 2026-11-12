@@ -27,6 +27,17 @@ namespace Tepi
         // Most colourful hue bucket, lifted to 3:1 on the island
         static string CoverAccent(Bitmap cover, Color bg)
         {
+            Color pick;
+            if (!HuePick(cover, out pick)) return "";
+            var toward = Luminance(bg) < 0.5 ? Color.White : Color.Black;
+            for (int i = 0; i < 12 && Contrast(pick, bg) < 3; i++) pick = MixRound(pick, toward, 0.15);
+            return HexOf(pick);
+        }
+
+        // Dominant colourful hue of a picture; false for greys
+        static bool HuePick(Image cover, out Color pick)
+        {
+            pick = Color.Empty;
             const int N = 24;
             var weight = new double[12];
             var sumR = new double[12];
@@ -56,11 +67,9 @@ namespace Tepi
             }
             int best = 0;
             for (int i = 1; i < 12; i++) if (weight[i] > weight[best]) best = i;
-            if (weight[best] < 1.5) return "";
-            var pick = Color.FromArgb(255, (int)(sumR[best] / weight[best]), (int)(sumG[best] / weight[best]), (int)(sumB[best] / weight[best]));
-            var toward = Luminance(bg) < 0.5 ? Color.White : Color.Black;
-            for (int i = 0; i < 12 && Contrast(pick, bg) < 3; i++) pick = MixRound(pick, toward, 0.15);
-            return HexOf(pick);
+            if (weight[best] < 1.5) return false;
+            pick = Color.FromArgb(255, (int)(sumR[best] / weight[best]), (int)(sumG[best] / weight[best]), (int)(sumB[best] / weight[best]));
+            return true;
         }
     }
 }

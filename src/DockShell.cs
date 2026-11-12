@@ -103,6 +103,9 @@ namespace Tepi
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern int GetApplicationUserModelId(IntPtr process, ref int length, StringBuilder id);
         [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(int access, bool inherit, int pid);
         [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+        [DllImport("kernel32.dll")] static extern int GetCurrentProcessId();
+        [DllImport("advapi32.dll", SetLastError = true)] static extern bool OpenProcessToken(IntPtr process, int access, out IntPtr token);
+        [DllImport("advapi32.dll", SetLastError = true)] static extern bool GetTokenInformation(IntPtr token, int cls, out int value, int size, out int needed);
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, int flags, StringBuilder name, ref int size);
         [DllImport("gdi32.dll")] static extern int GetObject(IntPtr obj, int size, out BITMAP bmp);
         [DllImport("gdi32.dll")] static extern int GetDIBits(IntPtr dc, IntPtr bmp, uint start, uint lines, byte[] bits, ref Native.BITMAPINFOHEADER info, uint usage);
@@ -129,6 +132,27 @@ namespace Tepi
             finally { if (store != null) Marshal.ReleaseComObject(store); }
         }
 
+        public static void SetWindowAppId(IntPtr hwnd, string id)
+        {
+            IPropStore store = null;
+            IntPtr ptr = IntPtr.Zero;
+            try
+            {
+                var iid = typeof(IPropStore).GUID;
+                if (SHGetPropertyStoreForWindow(hwnd, ref iid, out store) != 0 || store == null) return;
+                var key = AppId;
+                ptr = Marshal.StringToCoTaskMemUni(id ?? "");
+                var pv = new PVar { Vt = 31, Ptr = ptr };
+                if (store.SetValue(ref key, ref pv) == 0) store.Commit();
+            }
+            catch (Exception) { }
+            finally
+            {
+                if (ptr != IntPtr.Zero) Marshal.FreeCoTaskMem(ptr);
+                if (store != null) Marshal.ReleaseComObject(store);
+            }
+        }
+
         static string ReadString(IPropStore store, PKey key)
         {
             PVar v;
@@ -148,6 +172,26 @@ namespace Tepi
                 var sb = new StringBuilder(len);
                 return GetApplicationUserModelId(h, ref len, sb) == 0 ? sb.ToString() : "";
             }
+            finally { CloseHandle(h); }
+        }
+
+        // Elevated token: a process we may look at but not drive
+        public static bool Elevated(int pid)
+        {
+            IntPtr h = OpenProcess(0x1000, false, pid);
+            if (h == IntPtr.Zero) return false;
+            try
+            {
+                IntPtr token;
+                if (!OpenProcessToken(h, 0x0008, out token)) return false;
+                try
+                {
+                    int elevated, needed;
+                    return GetTokenInformation(token, 20, out elevated, 4, out needed) && elevated != 0;
+                }
+                finally { CloseHandle(token); }
+            }
+            catch (Exception) { return false; }
             finally { CloseHandle(h); }
         }
 
@@ -442,6 +486,29 @@ namespace Tepi
             bool ok = SetForegroundWindow(h);
             if (joined) AttachThreadInput(mine, theirs, false);
             if (!ok) SwitchToThisWindow(h, true);
+        }
+
+        // True when the window belongs to a process we may not drive: UIPI drops every
+        // ShowWindow and SetForegroundWindow we send it, so its window stays put
+        public static bool OutOfReach(IntPtr h)
+        {
+            if (!IsIconic(h)) return false;
+            uint pid = GetWindowThreadProcessId(h, IntPtr.Zero);
+            return pid != 0 && Elevated((int)pid) && !Elevated(GetCurrentProcessId());
+        }
+
+        // The app owns a window we cannot move: starting it again raises that same window
+        public static void Relaunch(IntPtr h)
+        {
+            uint pid = GetWindowThreadProcessId(h, IntPtr.Zero);
+            string exe = ProcessPath((int)pid);
+            if (exe.Length == 0) return;
+            try
+            {
+                AllowSetForegroundWindow(-1);
+                Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe) });
+            }
+            catch (Exception ex) { Log.Write("relaunch " + exe + ": " + ex.Message); }
         }
 
         public static void Close(IntPtr h) { PostMessage(h, 0x10, IntPtr.Zero, IntPtr.Zero); }

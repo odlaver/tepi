@@ -15,7 +15,7 @@ Bagian di samping dikelompokkan: **Umum**, **Tampilan**, **Dynamic Island**, **D
 
 ### Tampilan
 
-- **Tema dan warna**: tema (gelap, terang, atau otomatis mengikuti mode aplikasi Windows), material (Liquid, Frost, Hitam), aksen (termasuk dari sampul album: warna paling mencolok di sampul lagu yang diputar, diterangkan atau digelapkan sampai terbaca di island), dan warna sendiri (pilih latar, teks, dan aksen dari preset, ambil dari layar, atau warna bebas; warna lain diturunkan dari ketiganya seperti di pembuat paket, kontras teks ditampilkan, dan hasilnya bisa disimpan jadi paket tema).
+- **Tema dan warna**: tema (gelap, terang, atau otomatis mengikuti mode aplikasi Windows), material (Liquid, Frost, Hitam), aksen (termasuk dari sampul album: warna paling mencolok di sampul lagu yang diputar, diterangkan atau digelapkan sampai terbaca di island), sinkronkan warna wallpaper (kaca notch, dock, dan kartunya diberi nuansa warna dominan wallpaper yang gelap atau pucat mengikuti tema, blur tetap; aksen ikut wallpaper selama belum memilih aksen), dan warna sendiri (pilih latar, teks, dan aksen dari preset, ambil dari layar, atau warna bebas; warna lain diturunkan dari ketiganya seperti di pembuat paket, kontras teks ditampilkan, dan hasilnya bisa disimpan jadi paket tema).
 - **Paket tema**: paket, suara sapaan paket, folder paket, dan pembuat paket.
 
 ### Dynamic Island
@@ -29,6 +29,13 @@ Bagian di samping dikelompokkan: **Umum**, **Tampilan**, **Dynamic Island**, **D
 ### Dock
 
 - **Dock**: bar aplikasi dan widget di tepi bawah, mati sampai dinyalakan. Ganti taskbar Windows (Start, tray, Quick Settings, dan jam pindah ke dock; taskbar kembali saat dimatikan), bentuk (mengambang atau selebar layar), ukuran ikon, perbesar saat disorot, sembunyikan dock (selalu tampil, otomatis, atau saat tertutup jendela), tetap tampil di desktop kosong, tampil di rekaman layar, sisakan ruang, pratinjau jendela, angka notifikasi, tombol cari dan semua jendela, tombol Windows membuka Tepi Start, widget (jam, musik, kuota AI dan agen, timer, cuaca, baterai, CPU dan RAM), dan aplikasi tersemat.
+
+### Tugas dan catatan
+
+* Buka dengan **Ctrl+Alt+J**, menu tray **Tugas dan catatan**, **Pengaturan › Fitur › Tugas dan catatan › Buka**, atau tombol **Tugas dan catatan** di dock. **Ctrl+Alt+T** tetap untuk Rekam rapat.
+* **Dock › Tombol tugas dan catatan** (`dockbar.work`, aktif secara bawaan) menyatukan pintasan dan jendelanya pada satu slot dock yang sama (seperti aplikasi tersemat): baik dibuka dari ikon dock maupun pintasan **Ctrl+Alt+J**, indikator aktif menyala tepat di bawah ikon tersebut tanpa memunculkan ikon jendela kedua di sisi kanan dock. Tombol **×** menyembunyikan jendela dan memadamkan indikatornya.
+* Tugas lokal: ketik lalu Enter untuk tambah cepat, atau **Tugas baru…** untuk formulir. Gunakan pensil di baris tugas, klik ganda, menu klik kanan, atau **F2/Enter** untuk mengubah judul, tenggat, prioritas, dan status. Filter: Semua, Aktif, Hari ini, Terlambat, Selesai. Sintaks cepat `@besok 09:00` tetap tersedia.
+* Catatan lokal: pilih catatan di kiri atau klik **Baru**. Baris pertama menjadi judul; isi tersimpan otomatis. Jika file berubah dari luar aplikasi, konfirmasi muncul sebelum draf menimpanya. Penghapusan memakai konfirmasi dan bisa dipulihkan dari Recycle Bin.
 
 ### Fitur
 
@@ -69,6 +76,7 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `sound.agent` | `0` | Suara saat agen minta izin atau selesai, dan saat `--run` selesai |
 | `update.check` | `1` | Cek versi baru sekali sehari |
 | `accent` | kosong | Warna aksen, misalnya `#4C8DFF`; kosong untuk monokrom; `album` mengambil warna dari sampul lagu yang diputar |
+| `wall.sync` | `0` | Kaca notch dan dock memakai nuansa warna wallpaper, aksen ikut jika `accent` kosong; mati saat warna sendiri dipakai |
 | `monitor` | kosong | Monitor tempat island tampil; kosong untuk monitor utama |
 | `focus.break` | `5` | Menit istirahat setelah fokus |
 | `dock` | `1` | Menempel di tepi layar; `0` untuk mengambang |

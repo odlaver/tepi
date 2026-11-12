@@ -46,7 +46,7 @@ namespace Tepi
             string drawnSig = "";
             int tickN;
             // Dock slides in on open and for auto-hide
-            readonly Spring reveal = new Spring(0, 1, 1, 0.001f), hover = new Spring(0, 1, 1, 0.002f);
+            readonly Spring reveal = new Spring(0, 1, 1, 0.001f), hover = new Spring(0, 1, 1, 0.002f), workDot = new Spring(0, 1, 1, 0.003f);
             bool wantShown = true;
 
             [DllImport("user32.dll")] static extern bool RegisterShellHookWindow(IntPtr h);
@@ -87,6 +87,7 @@ namespace Tepi
                 Bounds = new Rectangle(-32000, -32000, 1, 1);
                 Tune(reveal, 170, 0.86f);
                 Tune(hover, 260, 0.9f);
+                Tune(workDot, 340, 0.78f);
                 tick.Tick += delegate { Tick(); };
                 dwell.Tick += delegate { dwell.Stop(); Dwell(); };
                 hideLater.Tick += delegate { hideLater.Stop(); AutoHide(); };
@@ -204,6 +205,7 @@ namespace Tepi
                 Reserve(Reserving && !Dry);
                 if (Replacing && !Dry && S.GetBool("dockbar.tray", true)) StartTray();
                 else StopTray();
+                // Yields bare Win automatically if an external Win-key launcher is active
                 if (Replacing && !Dry && S.GetBool("dockbar.winkey", true)) StartKeys();
                 else StopKeys();
                 if (Glass) frost.Start(); else { frost.Stop(); if (plate != null) { plate.Dispose(); plate = null; } }
@@ -328,9 +330,15 @@ namespace Tepi
                 // Must be ours and writable
                 if (mi.State != 0x1000 || (mi.Protect & 0x04) == 0) return false;
                 IntPtr h = Marshal.ReadIntPtr(info);
-                var app = apps.Find(a => a.Wins.Exists(w => w.H == h));
-                if (app == null || !Visible) return false;
-                var r = IconScreenRect(app);
+                Rectangle r = Rectangle.Empty;
+                if (Visible && h != IntPtr.Zero && h == isle.WorkHwnd && S.GetBool("dockbar.work", true))
+                    r = SlotScreenRect("work");
+                else
+                {
+                    var app = apps.Find(a => a.Wins.Exists(w => w.H == h));
+                    if (app == null || !Visible) return false;
+                    r = IconScreenRect(app);
+                }
                 if (r.IsEmpty) return false;
                 int off = IntPtr.Size;
                 Marshal.WriteInt32(info, off, r.Left);
@@ -352,7 +360,8 @@ namespace Tepi
             {
                 var keep = new Dictionary<string, DockApp>();
                 foreach (var a in apps) if (!a.Leaving) keep[a.Key] = a;
-                var next = watch.Arrange(isle.DockPins(), keep);
+                IntPtr skipWork = S.GetBool("dockbar.work", true) ? isle.WorkHwnd : IntPtr.Zero;
+                var next = watch.Arrange(isle.DockPins(), keep, skipWork);
                 var result = new List<DockApp>(next);
                 var inNext = new HashSet<DockApp>(next);
                 for (int i = 0; i < apps.Count; i++)
@@ -393,11 +402,24 @@ namespace Tepi
 
             string lookSig = "";
 
+            public void SyncWork()
+            {
+                if (closing || !IsHandleCreated) return;
+                IntPtr h = isle.WorkHwnd;
+                if (h != IntPtr.Zero) watch.Track(h);
+                if (!isle.WorkOpen && card != null && card.Kind == DockCard.WindowsKind && card.App != null && card.App.Key == "sys:work") CloseCard();
+                Refresh(false);
+                workDot.Target = WorkDotTarget();
+                Animate();
+                Render();
+            }
+
             // What the centre shows: apps, their windows, focus, badges, calls for attention
             string LookSig()
             {
                 var sb = new StringBuilder();
                 IntPtr fg = GetForegroundWindow();
+                sb.Append(S.GetBool("dockbar.work", true) && isle.WorkOpen ? (fg == isle.WorkHwnd ? 'W' : 'w') : '-').Append('|');
                 foreach (var a in apps)
                     sb.Append(a.Key).Append(a.Pinned ? 'p' : 'r').Append(a.Wins.Count).Append(a.Attention ? '!' : '.').Append(a.Badge).Append(a.Leaving ? 'x' : 'o').Append(a.Wins.Exists(w => w.H == fg) ? 'f' : '-').Append('|');
                 return sb.ToString();
@@ -405,7 +427,7 @@ namespace Tepi
 
             bool Moving()
             {
-                if (!reveal.Settled || !hover.Settled || WidgetsMoving()) return true;
+                if (!reveal.Settled || !hover.Settled || !workDot.Settled || WidgetsMoving()) return true;
                 foreach (var a in apps) if (!a.Show.Settled || !a.Grow.Settled || !a.Dot.Settled || a.Hop >= 0) return true;
                 return false;
             }
@@ -414,13 +436,14 @@ namespace Tepi
             string FocusKey()
             {
                 IntPtr fg = GetForegroundWindow();
+                if (S.GetBool("dockbar.work", true) && isle.WorkOpen && fg == isle.WorkHwnd) return "sys:work";
                 var app = apps.Find(a => a.Wins.Exists(w => w.H == fg));
                 return app != null ? app.Key : "";
             }
 
             void TuneApp(DockApp a)
             {
-                Tune(a.Grow, 900, 0.82f);
+                Tune(a.Grow, 900, 0.95f);
                 Tune(a.Show, 260, 0.8f);
                 Tune(a.Dot, 340, 0.78f);
                 Tune(a.X, 300, 0.82f);
@@ -517,7 +540,7 @@ namespace Tepi
             string Signature()
             {
                 var sb = new StringBuilder();
-                sb.Append(Fmt.Clock(DateTime.Now)).Append('|').Append(hoverId).Append('|').Append(pressId).Append('|').Append(FocusKey());
+                sb.Append(Fmt.Clock(DateTime.Now)).Append('|').Append(hoverId).Append('|').Append(pressId).Append('|').Append(FocusKey()).Append('|').Append(isle.WorkOpen);
                 foreach (var a in apps) sb.Append(a.Key.Length).Append(a.Wins.Count).Append(a.Badge).Append(a.Attention ? '!' : '.');
                 var mi = isle.mediaInfo;
                 if (mi.Present) sb.Append(mi.Title).Append(mi.Playing);

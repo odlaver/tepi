@@ -420,14 +420,27 @@ namespace Tepi
             if (ic.Hicon != IntPtr.Zero) { Native.DestroyIcon(ic.Hicon); ic.Hicon = IntPtr.Zero; }
         }
 
-        // Mouse traffic in the shape each icon version expects
-        public static void Send(TrayIcon ic, uint mouse, Point at)
+        // Mouse traffic in the shape each icon version expects; false when the owner refused it
+        public static bool Send(TrayIcon ic, uint mouse, Point at)
         {
-            if (ic.Callback == 0) return;
+            if (ic.Callback == 0) return false;
             long w, l;
             if (ic.Version > 3) { w = (uint)((at.Y << 16) | (at.X & 0xFFFF)); l = mouse | ((long)ic.Uid << 16); }
             else { w = ic.Uid; l = mouse; }
-            SendNotifyMessage(ic.Hwnd, ic.Callback, new IntPtr(w), new IntPtr(l & 0xFFFFFFFFL));
+            return SendNotifyMessage(ic.Hwnd, ic.Callback, new IntPtr(w), new IntPtr(l & 0xFFFFFFFFL));
+        }
+
+        // An elevated app never hears a click from us: UIPI drops the message while the
+        // window still lives on. Asking the app to start again raises the window it owns.
+        public static void Restore(TrayIcon ic)
+        {
+            if (ic == null || ic.Exe.Length == 0 || !IsWindow(ic.Hwnd)) return;
+            try
+            {
+                AllowSetForegroundWindow(-1);
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(ic.Exe) { UseShellExecute = true });
+            }
+            catch (Exception ex) { Log.Write("tray restore " + ic.Exe + ": " + ex.Message); }
         }
 
         public static void Down(TrayIcon ic, uint mouse, Point at)

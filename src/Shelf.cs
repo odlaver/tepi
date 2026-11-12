@@ -203,7 +203,7 @@ namespace Tepi
             string ext = Path.GetExtension(item.Path).ToLowerInvariant();
             bool picture = ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".gif" || ext == ".tif" || ext == ".tiff";
             if (picture && OcrNow()) m.Items.Add(Lang.T("Salin teks"), null, delegate { CopyText(item.Path); });
-            if (picture && File.Exists(item.Path)) m.Items.Add(Lang.T("Samarkan…"), null, delegate { OpenRedact(item.Path); });
+            if (picture && File.Exists(item.Path)) m.Items.Add(Lang.T("Edit gambar…"), null, delegate { OpenRedact(item.Path); });
             if (PhonePaired && File.Exists(item.Path)) m.Items.Add(Lang.T("Kirim ke HP"), null, delegate { SendToPhone(item.Path); });
             m.Items.Add(new ToolStripSeparator());
             m.Items.Add(Lang.T("Keluarkan dari rak"), null, delegate { Vanish(new[] { ShelfCellRect(item) }, false); RemoveFromShelf(item); });

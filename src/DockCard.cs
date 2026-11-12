@@ -276,7 +276,7 @@ namespace Tepi
                         frost = new DockFrost(pl => { try { BeginInvoke(new Action(() => TakePlate(pl))); } catch (Exception) { pl.Dispose(); } });
                         frost.Start();
                     }
-                    frost.Request(new Rectangle(left, top, pw2, ph2), Ink.Base.Bg, Ink.Light, isle.LiquidOn);
+                    frost.Request(new Rectangle(left, top, pw2, ph2), Ink.Veil, Ink.Light, isle.LiquidOn);
                 }
                 Render();
             }
@@ -365,7 +365,7 @@ namespace Tepi
                         }
                         g.Restore(inner);
                     }
-                    g.FillPath(p.B(Ink.A(Ink.Base.Bg, plate != null && dock.Glass ? 0.3f : 0.94f)), path);
+                    g.FillPath(p.B(Ink.A(Ink.Veil, plate != null && dock.Glass ? 0.3f : 0.94f)), path);
                     using (var lg = new LinearGradientBrush(new RectangleF(r.X, r.Y - 1, r.Width, 40), Color.FromArgb((int)(fade * (Ink.Light ? 80 : 22)), 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f))
                         g.FillRectangle(lg, r.X, r.Y, r.Width, 39);
                     g.Restore(st);

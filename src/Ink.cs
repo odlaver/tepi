@@ -92,6 +92,9 @@ namespace Tepi
         public static bool Light;
 
         static Color? accent;
+        // Glass veil: wallpaper-tinted while wallpaper sync is on, else the tone's own background
+        public static Color? VeilTint;
+        public static Color Veil { get { return VeilTint ?? Base.Bg; } }
         // Theme pack colors; "card." keys style the light cards
         static Dictionary<string, string> pack = new Dictionary<string, string>();
 

@@ -1,10 +1,94 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace Tepi
 {
+    // Menus opened from Tepi's own windows never take focus: the dock, island and
+    // sheets are WS_EX_NOACTIVATE and answer WM_MOUSEACTIVATE with MA_NOACTIVATE.
+    // WinForms closes a drop-down when it loses activation, so with no activation
+    // there is nothing to lose and the menu would sit there forever. While such a
+    // menu is open a low-level mouse hook watches for a click landing outside it and
+    // closes it. The click is not swallowed, so the window under it still gets it.
+    static class MenuGuard
+    {
+        const int WH_MOUSE_LL = 14;
+        const int WM_LBUTTONDOWN = 0x201, WM_RBUTTONDOWN = 0x204, WM_MBUTTONDOWN = 0x207, WM_NCLBUTTONDOWN = 0xA1;
+
+        delegate IntPtr HookProc(int code, IntPtr msg, IntPtr info);
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct POINT { public int X, Y; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct MSLLHOOKSTRUCT { public POINT Pt; public int MouseData; public int Flags; public int Time; public IntPtr Extra; }
+
+        [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetWindowsHookEx(int id, HookProc fn, IntPtr mod, uint thread);
+        [DllImport("user32.dll")] static extern bool UnhookWindowsHookEx(IntPtr hook);
+        [DllImport("user32.dll")] static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr msg, IntPtr info);
+        [DllImport("kernel32.dll")] static extern IntPtr GetModuleHandle(string name);
+
+        static IntPtr hook = IntPtr.Zero;
+        static HookProc proc;
+        static ToolStripDropDown watched;
+        static bool closing;
+
+        // Only one of Tepi's menus is ever up, so a new one replaces the last
+        internal static void Watch(ToolStripDropDown menu)
+        {
+            Stop();
+            if (menu == null) return;
+            watched = menu;
+            menu.Closed += delegate { if (ReferenceEquals(watched, menu)) Stop(); };
+            proc = Callback;
+            hook = SetWindowsHookEx(WH_MOUSE_LL, proc, GetModuleHandle(null), 0);
+            if (hook == IntPtr.Zero) Log.Write("menu guard: hook failed, menu may stay open");
+        }
+
+        static void Stop()
+        {
+            watched = null;
+            closing = false;
+            proc = null;
+            if (hook == IntPtr.Zero) return;
+            UnhookWindowsHookEx(hook);
+            hook = IntPtr.Zero;
+        }
+
+        static IntPtr Callback(int code, IntPtr msg, IntPtr info)
+        {
+            if (code >= 0 && watched != null)
+            {
+                int id = msg.ToInt32();
+                if (id == WM_LBUTTONDOWN || id == WM_RBUTTONDOWN || id == WM_MBUTTONDOWN || id == WM_NCLBUTTONDOWN)
+                {
+                    var data = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(info, typeof(MSLLHOOKSTRUCT));
+                    Down(new Point(data.Pt.X, data.Pt.Y));
+                }
+            }
+            return CallNextHookEx(hook, code, msg, info);
+        }
+
+        // A press outside the menu closes it; a press inside is the menu's own business
+        internal static void Down(Point at)
+        {
+            var m = watched;
+            if (m == null || closing || m.IsDisposed || !m.Visible) return;
+            if (m.Bounds.Contains(at)) return;
+            closing = true;
+            try
+            {
+                m.BeginInvoke(new Action(delegate
+                {
+                    try { if (!m.IsDisposed) m.Close(ToolStripDropDownCloseReason.AppClicked); }
+                    catch (Exception ex) { Log.Write("menu guard close: " + ex.Message); }
+                }));
+            }
+            catch (Exception ex) { closing = false; Log.Write("menu guard: " + ex.Message); }
+        }
+    }
     // Menus in island colours, rounded corners
     class MenuLook : ToolStripProfessionalRenderer
     {
