@@ -316,10 +316,11 @@ namespace Tepi
         }
 
         // Pins in their order, then running apps by first sight
-        public List<DockApp> Arrange(IList<string> pins, Dictionary<string, DockApp> old)
+        public List<DockApp> Arrange(IList<string> pins, Dictionary<string, DockApp> old, IntPtr skip = default(IntPtr))
         {
             var list = new List<DockApp>();
             var taken = new HashSet<IntPtr>();
+            if (skip != IntPtr.Zero) taken.Add(skip);
             var ordered = new List<DockWin>(wins.Values);
             ordered.Sort((a, b) => a.Seen.CompareTo(b.Seen));
             foreach (var target in pins)

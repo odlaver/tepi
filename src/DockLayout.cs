@@ -40,6 +40,8 @@ namespace Tepi
                 }
             }
 
+            // Share of the magnify setting that still applies when icons swell without moving neighbours
+            const float InPlaceK = 0.6f;
             const float PadTop = 7, PadBottom = 9, GapX = 8, PadX = 12, Side = 8, SegGap = 21, Hop = 18, HopSecs = 0.42f;
             float BarH { get { return IconRest + PadTop + PadBottom; } }
             // Every tile and hover plate shares this size and centre line
@@ -81,7 +83,7 @@ namespace Tepi
                 if (frost != null && Glass)
                 {
                     int top = area.Bottom - (int)Math.Ceiling((BarH + Edge) * scale);
-                    frost.Request(new Rectangle(at.X, top, cw, area.Bottom - top), Ink.Base.Bg, Ink.Light, isle.LiquidOn);
+                    frost.Request(new Rectangle(at.X, top, cw, area.Bottom - top), Ink.Veil, Ink.Light, isle.LiquidOn);
                 }
                 if (tray != null) tray.SetArea(TrayArea());
             }
@@ -132,8 +134,15 @@ namespace Tepi
                 return Rectangle.FromLTRB(o.X + (int)Math.Floor(r.Left * scale), o.Y + (int)Math.Floor(r.Top * scale), o.X + (int)Math.Ceiling(r.Right * scale), o.Y + (int)Math.Ceiling(r.Bottom * scale));
             }
 
+            Rectangle SlotScreenRect(string id)
+            {
+                foreach (var s in slots) if (s.Id == id) return ToScreen(s.Icon);
+                return Rectangle.Empty;
+            }
+
             Rectangle IconScreenRect(DockApp app)
             {
+                if (app != null && app.Key == "sys:work") return SlotScreenRect("work");
                 foreach (var s in slots) if (s.App == app) return ToScreen(s.Icon);
                 return Rectangle.Empty;
             }
@@ -144,7 +153,7 @@ namespace Tepi
                 if (!sysGrow.TryGetValue(id, out s))
                 {
                     s = new Spring(1, 1, 1, 0.0005f);
-                    Tune(s, 900, 0.82f);
+                    Tune(s, 900, 0.95f);
                     sysGrow[id] = s;
                 }
                 return s;
@@ -160,6 +169,11 @@ namespace Tepi
                     if (S.GetBool("dockbar.search", true)) slots.Add(new Slot { Id = "search" });
                     if (S.GetBool("dockbar.taskview", false)) slots.Add(new Slot { Id = "taskview" });
                     if (apps.Count > 0) slots.Add(new Slot { Id = "sep", Sep = true });
+                }
+                if (S.GetBool("dockbar.work", true))
+                {
+                    slots.Add(new Slot { Id = "work" });
+                    if (!Replacing && apps.Count > 0) slots.Add(new Slot { Id = "worksep", Sep = true });
                 }
                 foreach (var a in apps) slots.Add(new Slot { Id = "app:" + a.Key, App = a, Show = Ease.Clamp01(a.Show.Value) });
                 // The dragged app leaves a gap that follows the pointer
@@ -205,7 +219,8 @@ namespace Tepi
                 float gap = GapX * fit;
                 float originRest = dipW / 2 - (leftBlock + restW + rightBlock) / 2 + leftBlock;
                 // Magnification targets from rest positions: no feedback loop
-                float sigma = iconSize * 1.35f, mag = Mag;
+                // Icons swell in place: slots, spacing and capsule never move, so a fast sweep cannot shake the row
+                float mag = 1 + (Mag - 1) * InPlaceK, sigma = (iconSize + GapX * fit) * 0.7f;
                 bool wave = inside && mouseY >= barTop - iconSize * (mag - 1) - 8 && dragApp == null;
                 float x = originRest;
                 foreach (var s in slots)
@@ -220,39 +235,18 @@ namespace Tepi
                     }
                     x += w + gap * s.Show;
                 }
-                // Grown spans; the slot under the pointer stays under it
-                float grownW = 0;
-                foreach (var s in slots) grownW += (SlotW(s) * s.Grow + gap) * s.Show;
-                grownW -= slots.Count > 0 ? gap * slots[slots.Count - 1].Show : 0;
-                float originGrown = originRest;
-                float mouseRest = mouseX - originRest;
-                if (mouseRest >= restW) originGrown = originRest + restW - grownW;
-                else if (mouseRest > 0)
-                {
-                    float rx = 0, gx = 0;
-                    foreach (var s in slots)
-                    {
-                        float rs = (SlotW(s) + gap) * s.Show, gs = (SlotW(s) * s.Grow + gap) * s.Show;
-                        if (mouseRest < rx + rs || s == slots[slots.Count - 1])
-                        {
-                            float f = rs > 0 ? (mouseRest - rx) / rs : 0;
-                            originGrown = mouseX - (gx + f * gs);
-                            break;
-                        }
-                        rx += rs;
-                        gx += gs;
-                    }
-                }
+                float grownW = restW, originGrown = originRest;
                 x = originGrown;
                 float floor = barBottom - PadBottom;
                 foreach (var s in slots)
                 {
-                    float w = SlotW(s) * s.Grow * s.Show;
+                    // Slot at rest; the icon grows from its bottom centre
+                    float w = SlotW(s) * s.Show, gw = w * s.Grow;
                     float lift = s.App != null ? HopLift(s.App) : 0;
-                    s.Icon = new RectangleF(x, floor - w - lift, w, w);
+                    s.Icon = new RectangleF(x + (w - gw) / 2, floor - gw - lift, gw, gw);
                     if (s.Sep) s.Icon = new RectangleF(x, barTop + 12, w, BarH - 24);
                     s.Hit = new RectangleF(x - gap / 2, Math.Min(s.Icon.Y, barTop), w + gap, barBottom - Math.Min(s.Icon.Y, barTop));
-                    x += (SlotW(s) * s.Grow + gap) * s.Show;
+                    x += (w + gap) * s.Show;
                 }
                 // Widgets and the tray ride on either side of the apps
                 float left = originGrown - leftBlock, right = originGrown + grownW + rightBlock;
@@ -286,7 +280,9 @@ namespace Tepi
                 bool moving = false;
                 reveal.Step(dt);
                 hover.Step(dt);
-                moving |= !reveal.Settled || !hover.Settled;
+                workDot.Target = WorkDotTarget();
+                workDot.Step(dt);
+                moving |= !reveal.Settled || !hover.Settled || !workDot.Settled;
                 foreach (var s in sysGrow.Values) { s.Step(dt); moving |= !s.Settled; }
                 foreach (var s in widgetShow.Values) { s.Step(dt); moving |= !s.Settled; }
                 for (int i = apps.Count - 1; i >= 0; i--)
@@ -314,6 +310,12 @@ namespace Tepi
                 if (StepDrag(dt)) moving = true;
                 if (StepLabel(dt)) moving = true;
                 return moving;
+            }
+
+            float WorkDotTarget()
+            {
+                if (!S.GetBool("dockbar.work", true) || !isle.WorkOpen) return 0;
+                return GetForegroundWindow() == isle.WorkHwnd ? 2 : 1;
             }
 
             float DotTarget(DockApp a)

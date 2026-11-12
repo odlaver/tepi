@@ -60,6 +60,7 @@ namespace Tepi
         {
             Ink.SetPack(MergedColors());
             Ink.Apply(Ink.Light);
+            WallApply();
             ResetFrost();
             Kick();
         }

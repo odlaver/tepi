@@ -40,11 +40,27 @@ namespace Tepi
                 return null;
             }
 
+            readonly DockApp workSlotApp = new DockApp { Key = "sys:work", Pinned = true };
+
             DockApp AppById(string id)
             {
                 if (id == null || !id.StartsWith("app:", StringComparison.Ordinal)) return null;
                 string key = id.Substring(4);
                 return apps.Find(a => a.Key == key && !a.Leaving);
+            }
+
+            DockApp PreviewAppById(string id)
+            {
+                if (id == "sys:work")
+                {
+                    if (!S.GetBool("dockbar.work", true) || !isle.WorkOpen || isle.WorkHwnd == IntPtr.Zero) return null;
+                    workSlotApp.Name = Lang.T("Tugas dan catatan");
+                    workSlotApp.Wins.Clear();
+                    var w = watch.Find(isle.WorkHwnd) ?? new DockWin { H = isle.WorkHwnd, Title = workSlotApp.Name };
+                    workSlotApp.Wins.Add(w);
+                    return workSlotApp;
+                }
+                return AppById(id);
             }
 
             TrayIcon TrayById(string id)
@@ -80,7 +96,7 @@ namespace Tepi
             {
                 hoverId = id;
                 bool label = id != null && (id.StartsWith("app:", StringComparison.Ordinal) || id.StartsWith("sys:", StringComparison.Ordinal) || id.StartsWith("tray:", StringComparison.Ordinal));
-                var app = AppById(id);
+                var app = PreviewAppById(id);
                 bool previewing = card != null && card.Kind == DockCard.WindowsKind && app != null && card.App == app;
                 labelShow.Target = label && !previewing ? 1 : 0;
                 dwell.Stop();
@@ -95,7 +111,7 @@ namespace Tepi
 
             void Dwell()
             {
-                var app = AppById(hoverId);
+                var app = PreviewAppById(hoverId);
                 if (app != null && app.Running && inside && dragApp == null) ShowPreview(app);
             }
 
@@ -179,6 +195,22 @@ namespace Tepi
                 a.LaunchUtc = DateTime.UtcNow;
                 if (a.Hop < 0) { a.Hop = 0; a.Hops = 1; }
                 Animate();
+            }
+
+            void WorkMenu()
+            {
+                var m = new ContextMenuStrip();
+                m.Items.Add(new ToolStripMenuItem(Lang.T("Tugas dan catatan")) { Enabled = false });
+                m.Items.Add(new ToolStripSeparator());
+                m.Items.Add(Lang.T("Tugas"), null, delegate { isle.OpenWork(0); });
+                m.Items.Add(Lang.T("Catatan"), null, delegate { isle.OpenWork(1); });
+                m.Items.Add(Lang.T("Lepas dari Dock"), null, delegate { isle.SetFlag("dockbar.work", false); if (isle.prefs != null && !isle.prefs.IsDisposed) isle.prefs.Relayout(); });
+                if (isle.WorkOpen && isle.WorkHwnd != IntPtr.Zero)
+                {
+                    m.Items.Add(new ToolStripSeparator());
+                    m.Items.Add(Lang.T("Tutup jendela"), null, delegate { ShellApp.Close(isle.WorkHwnd); });
+                }
+                ShowMenu(m);
             }
 
             void AppMenu(DockApp a)

@@ -417,6 +417,46 @@ namespace Tepi
         }
     }
 
+    // Check row: pill with a drawn tick, so no native CheckBox box leaks in
+    class KitCheck : KitButton
+    {
+        bool on, hovered;
+
+        public event EventHandler CheckedChanged;
+
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); hovered = true; Invalidate(); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); hovered = false; Invalidate(); }
+
+        public bool Checked { get { return on; } set { if (on == value) return; on = value; var h = CheckedChanged; if (h != null) h(this, EventArgs.Empty); Invalidate(); } }
+
+        protected override void OnClick(EventArgs e) { base.OnClick(e); Checked = !on; }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            KitInk.Smooth(g);
+            g.Clear(KitInk.Under(this));
+            bool ringOn = Focused && ShowFocusCues && !KitInk.ByMouse;
+            var r = ringOn ? new RectangleF(3.5f, 3.5f, Width - 7, Height - 7) : new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
+            using (var path = Ink.Round(r, r.Height / 2f))
+            using (var b = new SolidBrush(hovered ? KitInk.Hover : KitInk.Line)) g.FillPath(b, path);
+            float box = Math.Min(16f, r.Height - 8f), cy = r.Y + r.Height / 2f, cx = r.X + 7f + box / 2f;
+            var tick = new RectangleF(cx - box / 2, cy - box / 2, box, box);
+            using (var pen = new Pen(on ? KitInk.Text : KitInk.Faint, 1.4f))
+                using (var path = Ink.Round(tick, 4)) g.DrawPath(pen, path);
+            if (on)
+                using (var pen = new Pen(KitInk.Text, 1.8f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
+                    g.DrawLines(pen, new[] { new PointF(cx - box * 0.3f, cy), new PointF(cx - box * 0.06f, cy + box * 0.22f), new PointF(cx + box * 0.32f, cy - box * 0.22f) });
+            KitInk.Draw(g, Text, Font, KitInk.Text, new RectangleF(r.X + 7f + box + 8f, r.Y, r.Width - box - 22f, r.Height), ContentAlignment.MiddleLeft);
+            if (ringOn)
+            {
+                var ring = new RectangleF(1, 1, Width - 2.5f, Height - 2.5f);
+                using (var path = Ink.Round(ring, ring.Height / 2f))
+                using (var pen = new Pen(KitInk.Text, 1.6f)) g.DrawPath(pen, path);
+            }
+        }
+    }
+
     // List choice: button opening styled menu
     class KitPopup : KitButton
     {
@@ -425,6 +465,14 @@ namespace Tepi
         public event Action<int> Changed;
 
         public int Selected { get { return selected; } set { selected = value; Text = (value >= 0 && value < Items.Length ? Items[value] : "") + "  ▾"; } }
+
+        public void Pick(int i)
+        {
+            if (i < 0 || i >= Items.Length || i == selected) return;
+            Selected = i;
+            var h = Changed;
+            if (h != null) h(i);
+        }
 
         protected override void OnClick(EventArgs e)
         {
@@ -655,5 +703,79 @@ namespace Tepi
                 ScaleTree(c, s);
             }
         }
+    }
+
+    // Confirmation or notice in the app's own colours, never a native MessageBox
+    sealed class KitAsk : KitWindow
+    {
+        readonly Label text = new Label { AutoSize = false };
+        readonly KitButton yes = new KitButton { Primary = true };
+        readonly KitButton no = new KitButton { Text = "Batal" };
+        readonly KitButton ok = new KitButton { Text = "Tutup", Visible = false };
+        bool two;
+        Font uiFont;
+
+        // Esc and the close box mean no; only an explicit confirm proceeds
+        public static bool Confirm(Form owner, string message, string confirm = "Hapus", string dismiss = "Batal")
+        {
+            using (var d = new KitAsk(message, true, confirm, dismiss))
+                return d.ShowDialog(owner ?? Form.ActiveForm) == DialogResult.Yes;
+        }
+
+        public static void Notice(Form owner, string message)
+        {
+            using (var d = new KitAsk(message, false, "", ""))
+                d.ShowDialog(owner ?? Form.ActiveForm);
+        }
+
+        KitAsk(string message, bool question, string confirm, string dismiss)
+        {
+            two = question;
+            Text = "Tugas dan catatan";
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = MinimizeBox = false;
+            StartPosition = FormStartPosition.CenterParent;
+            ShowInTaskbar = false;
+            text.Text = message;
+            text.AccessibleName = message;
+            yes.Text = confirm;
+            no.Text = dismiss;
+            yes.Click += delegate { DialogResult = DialogResult.Yes; Close(); };
+            no.Click += delegate { DialogResult = DialogResult.No; Close(); };
+            ok.Click += delegate { DialogResult = DialogResult.OK; Close(); };
+            Controls.AddRange(new Control[] { text, yes, no, ok });
+            // Visibility is a post-parenting property; set it once the buttons are in the tree
+            yes.Visible = two;
+            no.Visible = two;
+            ok.Visible = !two;
+        }
+
+        protected override void OnHandleCreated(EventArgs e) { base.OnHandleCreated(e); Relayout(); }
+
+        public override void Relayout()
+        {
+            if (!IsHandleCreated) return;
+            if (uiFont == null) { uiFont = UiFont(14f); text.Font = UiFont(14f); yes.Font = no.Font = ok.Font = UiFont(13f); }
+            Font = uiFont; BackColor = KitInk.Window; ForeColor = KitInk.Text;
+            float s = Ui;
+            int w = (int)(420 * s);
+            int textW = w - (int)(40 * s);
+            var size = TextRenderer.MeasureText(text.Text, text.Font, new Size(textW, 0), TextFormatFlags.WordBreak);
+            int textH = Math.Max((int)(24 * s), size.Height);
+            int rowY = textH + (int)(58 * s);
+            text.SetBounds((int)(20 * s), (int)(22 * s), textW, textH);
+            no.Visible = two;
+            int right = w - (int)(20 * s) - (int)(96 * s);
+            if (two)
+            {
+                no.SetBounds(right, rowY, (int)(96 * s), (int)(34 * s));
+                yes.SetBounds(right - (int)(108 * s), rowY, (int)(96 * s), (int)(34 * s));
+            }
+            ok.SetBounds(right, rowY, (int)(96 * s), (int)(34 * s));
+            ClientSize = new Size(w, rowY + (int)(34 * s) + (int)(20 * s));
+            ActiveControl = two ? (Control)yes : ok;
+        }
+
+        protected override void Dispose(bool disposing) { base.Dispose(disposing); if (disposing && uiFont != null) uiFont.Dispose(); }
     }
 }

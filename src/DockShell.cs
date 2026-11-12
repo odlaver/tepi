@@ -129,6 +129,27 @@ namespace Tepi
             finally { if (store != null) Marshal.ReleaseComObject(store); }
         }
 
+        public static void SetWindowAppId(IntPtr hwnd, string id)
+        {
+            IPropStore store = null;
+            IntPtr ptr = IntPtr.Zero;
+            try
+            {
+                var iid = typeof(IPropStore).GUID;
+                if (SHGetPropertyStoreForWindow(hwnd, ref iid, out store) != 0 || store == null) return;
+                var key = AppId;
+                ptr = Marshal.StringToCoTaskMemUni(id ?? "");
+                var pv = new PVar { Vt = 31, Ptr = ptr };
+                if (store.SetValue(ref key, ref pv) == 0) store.Commit();
+            }
+            catch (Exception) { }
+            finally
+            {
+                if (ptr != IntPtr.Zero) Marshal.FreeCoTaskMem(ptr);
+                if (store != null) Marshal.ReleaseComObject(store);
+            }
+        }
+
         static string ReadString(IPropStore store, PKey key)
         {
             PVar v;

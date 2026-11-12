@@ -163,7 +163,7 @@ namespace Tepi
                 {
                     frost = new DockFrost(pl => { try { BeginInvoke(new Action(() => TakePlate(pl))); } catch (Exception) { pl.Dispose(); } });
                     frost.Start();
-                    frost.Request(new Rectangle(left, baseY, pw, ph), Ink.Base.Bg, Ink.Light, isle.LiquidOn);
+                    frost.Request(new Rectangle(left, baseY, pw, ph), Ink.Veil, Ink.Light, isle.LiquidOn);
                 }
                 open.Snap(0);
                 open.Target = 1;
@@ -263,7 +263,7 @@ namespace Tepi
                         }
                         g.Restore(inner);
                     }
-                    g.FillPath(p.B(Ink.A(Ink.Base.Bg, glass ? 0.34f : 0.95f)), path);
+                    g.FillPath(p.B(Ink.A(Ink.Veil, glass ? 0.34f : 0.95f)), path);
                     using (var lg = new LinearGradientBrush(new RectangleF(r.X, r.Y - 1, r.Width, 58), Color.FromArgb((int)(fade * (Ink.Light ? 80 : 22)), 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f))
                     {
                         // No wrap: a tiled gradient leaves a bright seam
@@ -299,7 +299,7 @@ namespace Tepi
             // Darker footer shelf
             protected void Shelf(RectangleF r, float height)
             {
-                g.FillRectangle(p.B(Ink.A(Ink.Base.Bg, 0.35f)), r.X, H - height, r.Width, height);
+                g.FillRectangle(p.B(Ink.A(Ink.Veil, 0.35f)), r.X, H - height, r.Width, height);
                 // Solid: a hairline marks the footer
                 if (!dock.Glass) g.DrawLine(p.P(p.T.Line, 1f), r.X, H - height, r.Right, H - height);
             }

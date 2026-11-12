@@ -191,7 +191,7 @@ namespace Tepi
                 job = new FrostJob { W = w, H = h, Left = WindowLeft(w), Top = monitorPx.Top };
             }
             else job = AnchoredFrost(targetH, wide, bubbleW, out w, out h);
-            job.Bg = Ink.Base.Bg;
+            job.Bg = Ink.Veil;
             job.Light = Ink.Light;
             job.Liquid = LiquidOn;
             job.BackdropGen = backdropGen;
@@ -559,11 +559,12 @@ namespace Tepi
             else
             {
                 // Translucent base outside the frost
-                if (!covered) g.FillPath(p.B(Ink.A(tone.Bg, 0.62f)), path);
+                var veil = baseTone ? Ink.Veil : tone.Bg;
+                if (!covered) g.FillPath(p.B(Ink.A(veil, 0.62f)), path);
                 if (pl != null)
                 {
                     BlitPart(pl.Base, fx, fy, bounds);
-                    if (extra > 0.01f) g.FillPath(p.B(Ink.A(tone.Bg, extra)), path);
+                    if (extra > 0.01f) g.FillPath(p.B(Ink.A(veil, extra)), path);
                 }
                 InnerLight(bounds, light);
             }
@@ -646,7 +647,7 @@ namespace Tepi
         // Plate matches this panel, tone, backdrop
         bool PlateFits(Plate pl, int fx, int fy, RectangleF bounds, float extra)
         {
-            if (pl.Plain == null || !pl.Job.Panel || pl.Job.Bg != Ink.Base.Bg || pl.Job.Light != Ink.Light || Math.Abs(pl.Job.Extra - extra) > 0.005f) return false;
+            if (pl.Plain == null || !pl.Job.Panel || pl.Job.Bg != Ink.Veil || pl.Job.Light != Ink.Light || Math.Abs(pl.Job.Extra - extra) > 0.005f) return false;
             int bx = fx + pl.Job.Bake.X, by = fy + pl.Job.Bake.Y;
             return Math.Abs(bx - bounds.X * scale) <= 1.01f && Math.Abs(pl.Job.Bake.Width - bounds.Width * scale) <= 1.01f &&
                    Math.Abs(by - bounds.Y * scale) <= 1.01f;

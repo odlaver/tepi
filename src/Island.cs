@@ -222,6 +222,7 @@ namespace Tepi
             LoadOneShots();
             ApplyReserve();
             ApplyDock();
+            StartWallSync();
             // Left hidden by a crash: the taskbar comes back
             if (dockWin == null) Taskbar.Restore(settings);
             // New installs: tour, not notes
@@ -256,6 +257,7 @@ namespace Tepi
             Application.Idle -= OnIdle;
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettings;
             SystemEvents.SessionSwitch -= OnSessionSwitch;
+            StopWallSync();
             var abd = new Native.APPBARDATA { cbSize = Marshal.SizeOf(typeof(Native.APPBARDATA)), hWnd = Handle };
             Native.SHAppBarMessage(1, ref abd);
             foreach (var hook in new[] { winHook, moveHook, minHook })
@@ -316,6 +318,7 @@ namespace Tepi
                     else if (m.WParam.ToInt32() == MiniHotkey) ToggleMini();
                     else if (m.WParam.ToInt32() == MicHotkey) ToggleMic();
                     else if (m.WParam.ToInt32() == NoteHotkey) BeginInvoke(new Action(OpenNote));
+                else if (m.WParam.ToInt32() == WorkHotkey) BeginInvoke(new Action(OpenWork));
                     else if (m.WParam.ToInt32() == MirrorHotkey) ToggleMirror();
                     else if (m.WParam.ToInt32() == PickerHotkey) BeginInvoke(new Action(OpenPicker));
                     else if (m.WParam.ToInt32() == ScreenTextHotkey) BeginInvoke(new Action(ReadScreenText));
@@ -1754,6 +1757,7 @@ namespace Tepi
             var miniItem = new ToolStripMenuItem(Lang.T("Mini"), null, delegate { ToggleMini(); }) { ShortcutKeyDisplayString = HotkeyText(MiniHotkey) };
             var prompterItem = new ToolStripMenuItem(Lang.T("Teleprompter"), null, delegate { if (!PrompterOn) OpenPrompter(); });
             var focusItem = new ToolStripMenuItem(Lang.T("Timer"));
+            var workItem = new ToolStripMenuItem(Lang.T("Tugas dan catatan"), null, delegate { OpenWork(); }) { ShortcutKeyDisplayString = HotkeyText(WorkHotkey) };
             var noteItem = new ToolStripMenuItem(Lang.T("Catatan kilat"), null, delegate { OpenNote(); }) { ShortcutKeyDisplayString = HotkeyText(NoteHotkey) };
             var rapatItem = new ToolStripMenuItem(Lang.T("Rekam rapat"), null, delegate { ToggleRapat(); });
             var suruhItem = new ToolStripMenuItem(Lang.T("Suruh Tepi…"), null, delegate { BeginInvoke(new Action(OpenSuruh)); });
@@ -1762,7 +1766,7 @@ namespace Tepi
             var screenTextItem = new ToolStripMenuItem(Lang.T("Salin teks dari layar"), null, delegate { BeginInvoke(new Action(ReadScreenText)); });
             var exit = new ToolStripMenuItem(Lang.T("Keluar"), null, delegate { Close(); });
             var prefsItem = new ToolStripMenuItem(Lang.T("Pengaturan…"), null, delegate { OpenPrefs(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, suruhItem, rapatItem, mirrorItem, pickerItem, screenTextItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, workItem, noteItem, suruhItem, rapatItem, mirrorItem, pickerItem, screenTextItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
             menu.Opening += delegate
             {
                 // Style submenus after they're rebuilt
@@ -1772,6 +1776,7 @@ namespace Tepi
                 keysItem.ShortcutKeyDisplayString = HotkeyText(KeysHotkey);
                 miniItem.ShortcutKeyDisplayString = HotkeyText(MiniHotkey);
                 noteItem.ShortcutKeyDisplayString = HotkeyText(NoteHotkey);
+                workItem.ShortcutKeyDisplayString = HotkeyText(WorkHotkey);
                 rapatItem.Text = RapatOn ? Lang.T("Hentikan rekaman rapat") : Lang.T("Rekam rapat");
                 rapatItem.Enabled = !rapatWriting;
                 rapatItem.ShortcutKeyDisplayString = HotkeyText(RapatHotkey);

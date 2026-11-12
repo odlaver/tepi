@@ -92,6 +92,10 @@ namespace Tepi
                     add(winkeyRow);
                 }
 
+                var work = Switch("dockbar.work", true, null);
+                work.Enabled = on;
+                add(Row(Lang.T("Tombol tugas dan catatan"), Lang.T("Satu tombol untuk mengakses Tugas dan catatan"), work));
+
                 cap(Lang.T("Widget"));
                 string[] notes = { "Jam dan tanggal; klik membuka Ringkasan", "Sampul, judul, dan tombol putar", "Pemakaian tertinggi dan agen yang bekerja", "Saat timer berjalan", "Butuh kota di Pengaturan › Sistem", "Hanya di laptop", "CPU dan RAM, dibaca tiap 3 detik" };
                 char[] glyphs = { (char)0xE823, (char)0xE8D6, (char)0xEC4A, (char)0xE916, (char)0xE753, (char)0xE83F, (char)0xE9D9 };

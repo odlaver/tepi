@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 namespace Tepi
 {
-    // Edit a picture before sharing: blur, crop, turn, mirror
+    // Edit a picture before sharing: blur, draw, crop, turn, mirror
     partial class Island
     {
         void OpenRedact(string path)
@@ -33,20 +33,33 @@ namespace Tepi
 
     class RedactWindow : KitWindow
     {
-        enum EditKind { Blur, Crop, Turn, MirrorX, MirrorY }
+        enum EditKind { Blur, Draw, Crop, Turn, MirrorX, MirrorY }
 
         struct Edit
         {
             public EditKind Kind;
             public Rectangle Box;
+            public PointF[] Points;
+            public Color StrokeColor;
+            public float StrokeWidth;
         }
+
+        static readonly int[] StrokeWidths = { 3, 6, 12 };
+        static readonly string[][] StrokeColors =
+        {
+            new[] { "Merah", "#FF3B30" }, new[] { "Kuning", "#FFD24A" }, new[] { "Hijau", "#3DD68C" }, new[] { "Biru", "#4C8DFF" },
+            new[] { "Oranye", "#FF9F43" }, new[] { "Ungu", "#A78BFA" }, new[] { "Putih", "#FFFFFF" }, new[] { "Hitam", "#111111" },
+        };
 
         readonly Bitmap original;
         Bitmap work;
         // Replayed on the original: undo is one step fewer
         readonly List<Edit> edits = new List<Edit>();
+        readonly List<PointF> stroke = new List<PointF>();
         readonly Label hint = new Label();
         readonly KitSegmented mode = new KitSegmented();
+        readonly KitSwatch inkColor = new KitSwatch();
+        readonly KitPopup inkWidth = new KitPopup();
         readonly KitButton copy = new KitButton(), save = new KitButton(), undo = new KitButton(), cancel = new KitButton(), turn = new KitButton(), mirrorX = new KitButton(), mirrorY = new KitButton();
         RectangleF canvas;
         float fit = 1;
@@ -56,7 +69,8 @@ namespace Tepi
 
         public event Action Copied;
 
-        bool Cropping { get { return mode.Selected == 1; } }
+        bool Drawing { get { return mode.Selected == 1; } }
+        bool Cropping { get { return mode.Selected == 2; } }
 
         public RedactWindow(Bitmap pic)
         {
@@ -70,9 +84,22 @@ namespace Tepi
             Cursor = Cursors.Cross;
             hint.UseMnemonic = false;
             hint.AutoSize = false;
-            mode.Items = new[] { Lang.T("Samarkan"), Lang.T("Potong") };
+            mode.Items = new[] { Lang.T("Samarkan"), Lang.T("Coret"), Lang.T("Potong") };
             mode.AccessibleName = Lang.T("Alat");
-            mode.Changed += i => { hint.Text = HintText(); Invalidate(); };
+            mode.Changed += i =>
+            {
+                inkColor.Visible = inkWidth.Visible = Drawing;
+                hint.Text = HintText();
+                Invalidate();
+            };
+            inkColor.Presets = StrokeColors;
+            inkColor.Value = ColorTranslator.FromHtml("#FF3B30");
+            inkColor.AccessibleName = Lang.T("Warna coretan");
+            inkColor.Visible = false;
+            inkWidth.Items = new[] { Lang.T("Tipis"), Lang.T("Sedang"), Lang.T("Tebal") };
+            inkWidth.Selected = 1;
+            inkWidth.AccessibleName = Lang.T("Ketebalan");
+            inkWidth.Visible = false;
             turn.Text = Lang.T("Putar 90°");
             turn.AccessibleDescription = Lang.T("Putar 90 derajat searah jarum jam");
             turn.Click += delegate { Add(new Edit { Kind = EditKind.Turn }); };
@@ -91,10 +118,14 @@ namespace Tepi
             undo.Click += delegate { Undo(); };
             cancel.Text = Lang.T("Batal");
             cancel.Click += delegate { Close(); };
-            foreach (Control c in new Control[] { hint, mode, turn, mirrorX, mirrorY, cancel, undo, save, copy }) { c.Cursor = Cursors.Default; Controls.Add(c); }
+            foreach (Control c in new Control[] { hint, mode, inkColor, inkWidth, turn, mirrorX, mirrorY, cancel, undo, save, copy }) { c.Cursor = Cursors.Default; Controls.Add(c); }
         }
 
-        string HintText() { return Cropping ? Lang.T("Seret untuk memilih bagian yang disimpan.") : Lang.T("Seret di atas bagian yang mau disamarkan."); }
+        string HintText()
+        {
+            if (Drawing) return Lang.T("Seret pada gambar untuk mencoret.");
+            return Cropping ? Lang.T("Seret untuk memilih bagian yang disimpan.") : Lang.T("Seret di atas bagian yang mau disamarkan.");
+        }
 
         protected override void OnHandleCreated(EventArgs e)
         {
@@ -113,27 +144,41 @@ namespace Tepi
             float maxW = Math.Min(area.Width * 0.8f, u(1100)), maxH = Math.Min(area.Height * 0.66f, u(680));
             fit = Math.Min(1f, Math.Min(maxW / work.Width, maxH / work.Height));
             int m = u(20), btnH = u(30), gap = u(8);
+            var font = UiFont(12.5f);
             foreach (var b in new[] { copy, save, undo, cancel, turn, mirrorX, mirrorY })
             {
-                b.Font = UiFont(12.5f);
+                b.Font = font;
                 b.Size = new Size(TextRenderer.MeasureText(b.Text, b.Font).Width + u(28), btnH);
             }
-            mode.Size = new Size(u(190), btnH);
-            // Wide enough for both button rows
-            int tools = mode.Width + turn.Width + mirrorX.Width + mirrorY.Width + 3 * gap;
+            inkColor.Font = font;
+            inkColor.Size = new Size(TextRenderer.MeasureText("      #DDDDDD", font).Width + u(28), btnH);
+            inkWidth.Font = font;
+            int ww = 0;
+            foreach (var it in inkWidth.Items) ww = Math.Max(ww, TextRenderer.MeasureText(it + "  ▾", font).Width);
+            inkWidth.Size = new Size(ww + u(28), btnH);
+            int sw = 0;
+            foreach (var it in mode.Items) sw = Math.Max(sw, TextRenderer.MeasureText(it, font).Width);
+            mode.Size = new Size(Math.Max(u(234), (sw + u(22)) * mode.Items.Length), btnH);
+            inkColor.Visible = inkWidth.Visible = Drawing;
+            // Wide enough for the fullest tool row so switching modes never jumps the window
+            int leftTools = mode.Width + inkColor.Width + inkWidth.Width + 2 * gap;
+            int rightTools = turn.Width + mirrorX.Width + mirrorY.Width + 2 * gap;
+            int tools = leftTools + gap + rightTools;
             int actions = cancel.Width + undo.Width + save.Width + copy.Width + 3 * gap;
             int cw = Math.Max(Math.Max(tools, actions), (int)(work.Width * fit)), ch = (int)(work.Height * fit);
             canvas = new RectangleF(m + (cw - work.Width * fit) / 2, m, work.Width * fit, ch);
             hint.Text = HintText();
-            hint.Font = UiFont(12.5f);
+            hint.Font = font;
             hint.ForeColor = KitInk.Sub;
             hint.BackColor = KitInk.Window;
             hint.TextAlign = ContentAlignment.MiddleLeft;
             int y1 = m + ch + u(14);
             hint.SetBounds(m, y1, cw, u(22));
-            // Tools on the left, actions on the right
+            // Tools on the left, transforms and actions anchored right
             int y2 = y1 + u(30), x = m;
-            foreach (Control c in new Control[] { mode, turn, mirrorX, mirrorY }) { c.Location = new Point(x, y2); x += c.Width + gap; }
+            foreach (Control c in new Control[] { mode, inkColor, inkWidth }) { c.Location = new Point(x, y2); x += c.Width + gap; }
+            int tx = m + cw;
+            foreach (var b in new[] { mirrorY, mirrorX, turn }) { tx -= b.Width; b.Location = new Point(tx, y2); tx -= gap; }
             int y3 = y2 + btnH + u(12), xr = m + cw;
             foreach (var b in new[] { copy, save, undo, cancel }) { xr -= b.Width; b.Location = new Point(xr, y3); xr -= gap; }
             undo.Enabled = edits.Count > 0;
@@ -148,7 +193,19 @@ namespace Tepi
             g.InterpolationMode = fit < 1 ? InterpolationMode.HighQualityBilinear : InterpolationMode.NearestNeighbor;
             g.PixelOffsetMode = PixelOffsetMode.Half;
             g.DrawImage(work, canvas);
-            if (!dragging || dragBox.Width < 1 || dragBox.Height < 1) return;
+            if (!dragging) return;
+            if (Drawing)
+            {
+                if (stroke.Count > 0)
+                {
+                    var clip = g.Clip;
+                    g.SetClip(canvas);
+                    DrawStroke(g, stroke.ToArray(), inkColor.Value, CurrentStrokeWidth(), fit, canvas.Location);
+                    g.Clip = clip;
+                }
+                return;
+            }
+            if (dragBox.Width < 1 || dragBox.Height < 1) return;
             var r = ToScreen(dragBox);
             KitInk.Smooth(g);
             if (Cropping)
@@ -177,20 +234,52 @@ namespace Tepi
             return new Point(Math.Max(0, Math.Min(work.Width, x)), Math.Max(0, Math.Min(work.Height, y)));
         }
 
+        PointF ToImageF(Point p)
+        {
+            float x = (p.X - canvas.X) / fit, y = (p.Y - canvas.Y) / fit;
+            return new PointF(Math.Max(0f, Math.Min(work.Width, x)), Math.Max(0f, Math.Min(work.Height, y)));
+        }
+
+        float CurrentStrokeWidth()
+        {
+            int idx = Math.Max(0, Math.Min(StrokeWidths.Length - 1, inkWidth.Selected));
+            return Math.Max(1.5f, StrokeWidths[idx] * Ui / Math.Max(0.05f, fit));
+        }
+
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
             if (e.Button != MouseButtons.Left || !canvas.Contains(e.Location)) return;
             dragging = true;
+            Capture = true;
+            if (Drawing)
+            {
+                stroke.Clear();
+                stroke.Add(ToImageF(e.Location));
+                Invalidate();
+                return;
+            }
             dragFrom = ToImage(e.Location);
             dragBox = Rectangle.Empty;
-            Capture = true;
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
             if (!dragging) return;
+            if (Drawing)
+            {
+                var pt = ToImageF(e.Location);
+                if (stroke.Count == 0) stroke.Add(pt);
+                else
+                {
+                    var last = stroke[stroke.Count - 1];
+                    float dx = pt.X - last.X, dy = pt.Y - last.Y, minStep = 0.75f / Math.Max(0.05f, fit);
+                    if (dx * dx + dy * dy >= minStep * minStep) stroke.Add(pt);
+                }
+                Invalidate();
+                return;
+            }
             var p = ToImage(e.Location);
             dragBox = Rectangle.FromLTRB(Math.Min(dragFrom.X, p.X), Math.Min(dragFrom.Y, p.Y), Math.Max(dragFrom.X, p.X), Math.Max(dragFrom.Y, p.Y));
             Invalidate();
@@ -202,6 +291,21 @@ namespace Tepi
             if (!dragging) return;
             dragging = false;
             Capture = false;
+            if (Drawing)
+            {
+                var pt = ToImageF(e.Location);
+                if (stroke.Count == 0) stroke.Add(pt);
+                else
+                {
+                    var last = stroke[stroke.Count - 1];
+                    if (Math.Abs(pt.X - last.X) > 0.05f || Math.Abs(pt.Y - last.Y) > 0.05f) stroke.Add(pt);
+                }
+                var pts = stroke.ToArray();
+                stroke.Clear();
+                if (pts.Length > 0) Add(new Edit { Kind = EditKind.Draw, Points = pts, StrokeColor = inkColor.Value, StrokeWidth = CurrentStrokeWidth() });
+                else Invalidate();
+                return;
+            }
             int least = Cropping ? 8 : 4;
             if (dragBox.Width >= least && dragBox.Height >= least) Add(new Edit { Kind = Cropping ? EditKind.Crop : EditKind.Blur, Box = dragBox });
             Invalidate();
@@ -212,7 +316,12 @@ namespace Tepi
             if (keys == (Keys.Control | Keys.Z)) { Undo(); return true; }
             if (keys == (Keys.Control | Keys.C) || keys == Keys.Enter) { CopyOut(); return true; }
             if (keys == (Keys.Control | Keys.S)) { SaveOut(); return true; }
-            if (keys == Keys.Escape) { Close(); return true; }
+            if (keys == Keys.Escape)
+            {
+                if (dragging) { dragging = false; Capture = false; stroke.Clear(); dragBox = Rectangle.Empty; Invalidate(); return true; }
+                Close();
+                return true;
+            }
             return base.ProcessCmdKey(ref msg, keys);
         }
 
@@ -232,6 +341,9 @@ namespace Tepi
             switch (e.Kind)
             {
                 case EditKind.Blur: Pixelate(b, e.Box); return b;
+                case EditKind.Draw:
+                    using (var g = Graphics.FromImage(b)) DrawStroke(g, e.Points, e.StrokeColor, e.StrokeWidth, 1f, PointF.Empty);
+                    return b;
                 case EditKind.Crop:
                     var box = Rectangle.Intersect(e.Box, new Rectangle(0, 0, b.Width, b.Height));
                     if (box.Width < 2 || box.Height < 2) return b;
@@ -243,6 +355,40 @@ namespace Tepi
                 case EditKind.MirrorY: b.RotateFlip(RotateFlipType.RotateNoneFlipY); return b;
             }
             return b;
+        }
+
+        internal static void DrawStroke(Graphics g, PointF[] pts, Color color, float width, float scale, PointF origin)
+        {
+            if (pts == null || pts.Length == 0) return;
+            float w = Math.Max(1f, width * scale);
+            bool moved = false;
+            for (int i = 1; i < pts.Length; i++)
+            {
+                float dx = pts[i].X - pts[0].X, dy = pts[i].Y - pts[0].Y;
+                if (dx * dx + dy * dy > 0.04f) { moved = true; break; }
+            }
+            var prevSmooth = g.SmoothingMode;
+            var prevOffset = g.PixelOffsetMode;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            try
+            {
+                if (!moved)
+                {
+                    float cx = origin.X + pts[0].X * scale, cy = origin.Y + pts[0].Y * scale;
+                    using (var b = new SolidBrush(color)) g.FillEllipse(b, cx - w / 2f, cy - w / 2f, w, w);
+                    return;
+                }
+                var mapped = new PointF[pts.Length];
+                for (int i = 0; i < pts.Length; i++) mapped[i] = new PointF(origin.X + pts[i].X * scale, origin.Y + pts[i].Y * scale);
+                using (var pen = new Pen(color, w) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
+                    g.DrawLines(pen, mapped);
+            }
+            finally
+            {
+                g.SmoothingMode = prevSmooth;
+                g.PixelOffsetMode = prevOffset;
+            }
         }
 
         // Rebuilt from the original, no history copies

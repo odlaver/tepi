@@ -159,7 +159,7 @@ namespace Tepi
                     if (glass) Backdrop(img, r, 1f);
                     if (glass && isle.LiquidOn && radius > 0) Lens(img, r, radius);
                     // Solid until glass arrives; over glass only a light veil
-                    g.FillPath(p.B(Ink.A(Ink.Base.Bg, glass ? (isle.LiquidOn ? 0.1f : 0.06f) : 0.9f)), path);
+                    g.FillPath(p.B(Ink.A(Ink.Veil, glass ? (isle.LiquidOn ? 0.1f : 0.06f) : 0.9f)), path);
                     Sheen(r);
                     g.Restore(st);
                     RimLight(r, path);
@@ -206,7 +206,7 @@ namespace Tepi
                 g.PixelOffsetMode = PixelOffsetMode.Half;
                 dst.Offset(-offX, -offY);
                 g.DrawImage(img, dst, src.X, src.Y, src.Width, src.Height, GraphicsUnit.Pixel);
-                g.FillRectangle(p.B(Ink.A(Ink.Base.Bg, 0.08f)), dst);
+                g.FillRectangle(p.B(Ink.A(Ink.Veil, 0.08f)), dst);
                 g.Restore(st);
             }
 
@@ -303,13 +303,15 @@ namespace Tepi
                     case "start": act = delegate { ToggleSheet("start"); }; menu = QuickMenu; break;
                     case "search": act = delegate { ToggleSheet("start"); }; break;
                     case "taskview": act = delegate { ShellVerb("WindowSwitcher"); }; break;
+                    case "work": act = delegate { isle.OpenWork(); }; menu = WorkMenu; break;
                 }
                 Hit(s.Hit, id, act, menu);
                 hot |= keyMode && keySel == id;
                 Plate(OnBar(s.Icon, 0, pressId == id), hot, pressId == id, 1);
                 if (keyMode && keySel == id) FocusRing(s.Icon);
                 float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, u = r.Width / 42f;
-                Color ink = hot ? p.T.Text : Ink.Mix(p.T.Sub, p.T.Text, 0.55f);
+                bool active = s.Id == "work" && isle.WorkOpen && GetForegroundWindow() == isle.WorkHwnd;
+                Color ink = hot || active ? p.T.Text : Ink.Mix(p.T.Sub, p.T.Text, 0.55f);
                 switch (s.Id)
                 {
                     case "start":
@@ -319,6 +321,10 @@ namespace Tepi
                         break;
                     case "search": p.Icon('\uE721', 16 * u, ink, cx, cy); break;
                     case "taskview": p.Icon('\uE7C4', 16 * u, ink, cx, cy); break;
+                    case "work":
+                        p.Icon('\uE73A', 21 * u, ink, cx, cy);
+                        Indicator(workDot.Value, false, s.Icon);
+                        break;
                 }
             }
 
@@ -627,13 +633,14 @@ namespace Tepi
             }
 
             // Dot when running, a wider bar for the front app; accent when it calls for you
-            void Indicator(DockApp a, RectangleF r)
+            void Indicator(DockApp a, RectangleF r) { Indicator(a.Dot.Value, a.Attention, r); }
+
+            void Indicator(float v, bool attention, RectangleF r)
             {
-                float v = a.Dot.Value;
                 if (v < 0.02f) return;
                 float focus = Ease.Clamp01(v - 1), cx = r.X + r.Width / 2, cy = barBottom - 4.6f;
                 float w = 4 + 12 * focus, h = 3.6f;
-                Color c = a.Attention ? p.T.Accent : Ink.Mix(Ink.A(p.T.Text, 0.62f), p.T.Text, focus);
+                Color c = attention ? p.T.Accent : Ink.Mix(Ink.A(p.T.Text, 0.62f), p.T.Text, focus);
                 p.FillRound(new RectangleF(cx - w / 2, cy - h / 2, w, h), h / 2, Ink.A(c, Ease.Clamp01(v)));
             }
 
@@ -671,7 +678,7 @@ namespace Tepi
                     else if (s.Id == id.Replace("sys:", "") && id.StartsWith("sys:", StringComparison.Ordinal))
                     {
                         anchor = s.Icon;
-                        return s.Id == "start" ? "Start" : s.Id == "search" ? Lang.T("Cari") : Lang.T("Semua jendela");
+                        return s.Id == "work" ? Lang.T("Tugas dan catatan") : s.Id == "start" ? "Start" : s.Id == "search" ? Lang.T("Cari") : Lang.T("Semua jendela");
                     }
                 foreach (var kv in hits)
                     if (kv.Value == id && id.StartsWith("tray:", StringComparison.Ordinal))

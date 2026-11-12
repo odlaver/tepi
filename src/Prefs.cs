@@ -59,6 +59,7 @@ namespace Tepi
             bool light = ThemeLight();
             if (light == Ink.Light) return;
             Ink.Apply(light);
+            WallApply();
             ResetFrost();
             if (prefs != null && !prefs.IsDisposed) prefs.Relayout();
             if (chatWin != null && !chatWin.IsDisposed) chatWin.Relayout();
@@ -74,6 +75,7 @@ namespace Tepi
             albumAccentFor = null;
             albumTinted = false;
             AlbumAccent();
+            WallApply();
             Kick();
         }
 
@@ -94,6 +96,7 @@ namespace Tepi
             else if (key == "tidy") ApplyTidy();
             else if (key == "capture.show") ApplyGlass();
             else if (key == "shelf" || key == "convert") InitShelfDrop();
+            else if (key == "wall.sync") WallToggle(on);
             else if (key.StartsWith("dockbar.", StringComparison.Ordinal)) ApplyDock();
             Kick();
         }
@@ -199,7 +202,7 @@ namespace Tepi
             static readonly string[] CategoryNotes =
             {
                 "Bahasa, jam, layanan AI, HP, dan integrasi", "Tema, warna, dan paket tema", "Letak, perilaku, isi, dan panel island",
-                "Bar aplikasi dan widget, atau pengganti taskbar", "Musik, pesan, sistem, rak, agen, dikte, dan pengingat", "Aksesibilitas, pintasan, dan tentang Tepi",
+                "Bar aplikasi dan widget, atau pengganti taskbar", "Tugas, catatan, musik, pesan, sistem, dan pengingat", "Aksesibilitas, pintasan, dan tentang Tepi",
             };
 
             // Help: a sidebar label over its own pages
@@ -240,7 +243,7 @@ namespace Tepi
                 new[] { "look", "Tema dan warna", "", "1" }, new[] { "packs", "Paket tema", "", "1" },
                 new[] { "island", "Letak dan bentuk", "", "2" }, new[] { "behave", "Perilaku", "", "2" }, new[] { "idle", "Saat diam", "", "2" }, new[] { "home", "Ringkasan", "", "2" }, new[] { "tabs", "Tab panel", "", "2" },
                 new[] { "dock", "Dock dan taskbar", "", "3" },
-                new[] { "music", "Musik", "", "4" }, new[] { "messages", "Pesan", "", "4" }, new[] { "system", "Sistem", "", "4" }, new[] { "files", "Rak dan berkas", "", "4" },
+                new[] { "work", "Tugas dan catatan", "\uE73A", "4" }, new[] { "music", "Musik", "", "4" }, new[] { "messages", "Pesan", "", "4" }, new[] { "system", "Sistem", "", "4" }, new[] { "files", "Rak dan berkas", "", "4" },
                 new[] { "agents", "Agen", "", "4" }, new[] { "dikte", "Dikte", "", "4" }, new[] { "remind", "Pengingat", "", "4" },
                 new[] { "access", "Aksesibilitas", "", "5" }, new[] { "keys", "Pintasan", "", "5" }, new[] { "about", "Tentang", "", "5" },
             };
@@ -254,7 +257,7 @@ namespace Tepi
                 { "island", "Di mana island tinggal dan bagaimana ia menempel" }, { "behave", "Kapan island menyingkir dan bagaimana panel terbuka" },
                 { "idle", "Isi island saat tidak ada aktivitas" }, { "home", "Kartu yang tampil di Ringkasan dan urutannya" },
                 { "tabs", "Tab di panel island dan urutannya" }, { "dock", "Bar aplikasi dan widget, atau pengganti taskbar" },
-                { "music", "Lirik dan visualizer" }, { "messages", "Notifikasi pesan dan siapa yang menampilkannya" },
+                { "work", "Daftar tugas, pengingat tenggat, dan catatan lokal" }, { "music", "Lirik dan visualizer" }, { "messages", "Notifikasi pesan dan siapa yang menampilkannya" },
                 { "system", "HUD keyboard, perangkat, dan aktivitas sistem" }, { "files", "Rak, ubah format, clipboard, dan screenshot" },
                 { "agents", "Claude Code, Codex, dan agent lain" }, { "dikte", "Bicara, lalu teksnya ditempel" },
                 { "remind", "Sholat, cuaca, minum, mata, dan peregangan" }, { "access", "Pembaca layar, gerak, dan Senyap" },
@@ -966,6 +969,7 @@ namespace Tepi
                         var accentPick = Popup(names.ToArray(), at, i => island.SetAccentHex(Accents[i][1]));
                         accentPick.Enabled = !custom;
                         add(Row(Lang.T("Aksen"), custom ? Lang.T("Warna sendiri sedang dipakai") : settings.Get("theme.pack", "").Length > 0 ? Lang.T("Paket tema bisa menimpanya") : null, accentPick));
+                        add(Row(Lang.T("Sinkronkan warna wallpaper"), custom ? Lang.T("Warna sendiri sedang dipakai") : Lang.T("Kaca notch dan dock, serta aksen, mengikuti warna wallpaper; blur tetap"), Switch("wall.sync", false, null)));
                         cap(Lang.T("Warna sendiri"));
                         add(Row(Lang.T("Pakai warna sendiri"), Lang.T("Menimpa warna paket tema, gambarnya tetap"), Switch("look.custom", false, on =>
                         {
@@ -1138,6 +1142,13 @@ namespace Tepi
                         foreach (HomeCard c in Enum.GetValues(typeof(HomeCard))) if (!cards.Contains(c)) cards.Add(c);
                         tabFocus.Clear();
                         foreach (var c in cards) add(CardRow(c));
+                        break;
+                    case "work":
+                        add(Row(Lang.T("Tugas dan catatan"), Lang.T("Buka daftar tugas dan editor catatan lokal"),
+                            Button(Lang.T("Buka"), true, delegate { island.OpenWork(); })));
+                        add(Row(Lang.T("Tombol di dock"), Lang.T("Satu tombol untuk mengakses Tugas dan catatan"), Switch("dockbar.work", true, null)));
+                        add(Row(Lang.T("Pintasan keyboard"), island.HotkeyText(WorkHotkey),
+                            Button(Lang.T("Atur pintasan"), false, delegate { section = "keys"; Relayout(); })));
                         break;
                     case "music":
                         add(Row(Lang.T("Lirik di island"), null, Switch("lyrics", true, null)));
