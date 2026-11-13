@@ -62,13 +62,13 @@ namespace Tepi
             bool on = notifApp == app;
             string pick = app;
             AddHit(r, id, delegate { notifApp = pick; notifScroll.Snap(0); Kick(); });
-            float hk = HoverK(id);
-            if (on) p.FillRound(r, h / 2, p.T.FillHover);
-            else if (hk > 0 || Pressed(id)) p.FillRound(r, h / 2, SoftFill(id));
-            p.StrokeRound(r, h / 2, on ? Ink.A(p.T.Text, 0.4f) : p.T.Line, 1f);
+            float hk = HoverK(id), ok = StateK(id, on);
+            if (ok < 0.999f && (hk > 0 || Pressed(id))) p.FillRound(r, h / 2, SoftFill(id));
+            if (ok > 0.001f) p.FillRound(r, h / 2, Ink.A(p.T.FillHover, ok));
+            p.StrokeRound(r, h / 2, Ink.Mix(p.T.Line, Ink.A(p.T.Text, 0.4f), ok), 1f);
             float tx = r.X + 11;
             if (!brand.IsEmpty) { p.Circle(tx + 4, y + h / 2, 4f, brand); tx += 12; }
-            p.Text(label, f, on ? p.T.Text : SoftInk(id), tx, y + h / 2, tw + 2, StringAlignment.Near);
+            p.Text(label, f, Ink.Mix(SoftInk(id), p.T.Text, ok), tx, y + h / 2, tw + 2, StringAlignment.Near);
             x += cw + 6;
             return true;
         }

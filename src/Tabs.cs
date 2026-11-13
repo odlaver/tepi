@@ -122,7 +122,7 @@ namespace Tepi
         {
             var state = TaskState();
             // Room for the button
-            if (state == DataState.Off || state == DataState.Failed) return 252;
+            if (state == DataState.Off || state == DataState.Failed || state == DataState.Empty) return 252;
             if (state != DataState.Ready) return 214;
             return Clamp(PanelTop + 14 + tasks.Count * 54 + TaskFoot(), 150, 372);
         }

@@ -34,7 +34,8 @@ namespace Tepi
         bool DictOn { get { return settings.GetBool("dictate", false); } }
         string DictEngine { get { return Ai.SttId; } }
         Speech.LocalModel DictModel { get { return Speech.Model(settings.Get("dictate.model", "seimbang")); } }
-        int HoldVk { get { return settings.Get("dictate.key", "rctrl") == "ralt" ? 0xA5 : 0xA3; } }
+        int holdVk = 0xA3;
+        int HoldVk { get { return holdVk; } }
 
         // Empty when ready, else what's missing
         string DictMissing()
@@ -68,22 +69,29 @@ namespace Tepi
             {
                 if (dictState == DictState.Listening && (DateTime.UtcNow - dictStartUtc).TotalSeconds >= MaxDictSec) FinishDictate();
             };
+            keyWatch.Tick += delegate { WatchKey(); };
             ApplyDictate();
         }
 
         public void ApplyDictate()
         {
             bool want = DictOn;
-            if (want && keyHook == IntPtr.Zero)
+            holdVk = settings.Get("dictate.key", "rctrl") == "ralt" ? 0xA5 : 0xA3;
+            if (want && dictKeys == null)
             {
-                keyProc = OnKey;
-                keyHook = SetWindowsHookEx(13, keyProc, GetModuleHandle(null), 0);
-                if (keyHook == IntPtr.Zero) Log.Write("dikte hook: " + Marshal.GetLastWin32Error());
+                dictKeys = new KeyThread("dikte key", OnHookKey);
+                dictKeys.Start();
+                dictPark = new DesktopPark(delegate { var d = dockWin; return d != null && d.WinKeyOn; });
+                dictPark.Start();
+                keyWatch.Start();
             }
-            else if (!want && keyHook != IntPtr.Zero)
+            else if (!want && dictKeys != null)
             {
-                UnhookWindowsHookEx(keyHook);
-                keyHook = IntPtr.Zero;
+                keyWatch.Stop();
+                dictKeys.Stop();
+                dictKeys = null;
+                if (dictPark != null) { dictPark.Stop(); dictPark = null; }
+                keyDown = false;
                 CancelDictate();
             }
             words = Words.Load();
@@ -91,95 +99,103 @@ namespace Tepi
 
         void StopDictate()
         {
-            if (keyHook != IntPtr.Zero) { UnhookWindowsHookEx(keyHook); keyHook = IntPtr.Zero; }
+            keyWatch.Stop();
+            if (dictKeys != null) { dictKeys.Stop(); dictKeys = null; }
+            if (dictPark != null) { dictPark.Stop(); dictPark = null; }
             CancelDictate();
         }
 
-        // Low-level keyboard hook
+        // Key events: hook thread stays tiny, the UI thread decides
 
-        [StructLayout(LayoutKind.Sequential)]
-        struct KeyInfo { public uint Vk, Scan, Flags, Time; public IntPtr Extra; }
-
-        delegate IntPtr KeyHookProc(int code, IntPtr msg, IntPtr info);
-
-        [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetWindowsHookEx(int id, KeyHookProc fn, IntPtr mod, uint thread);
-        [DllImport("user32.dll")] static extern bool UnhookWindowsHookEx(IntPtr hook);
-        [DllImport("user32.dll")] static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr msg, IntPtr info);
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern IntPtr GetModuleHandle(string name);
-
-        IntPtr keyHook;
-        KeyHookProc keyProc;
+        KeyThread dictKeys;
+        DesktopPark dictPark;
+        readonly System.Windows.Forms.Timer keyWatch = new System.Windows.Forms.Timer { Interval = 50 };
+        volatile bool holdSeen;
+        long otherTicks;
+        DateTime physSince = DateTime.MinValue;
+        bool hookWarned;
 
         static bool IsModifier(uint vk) { return (vk >= 0xA0 && vk <= 0xA5) || vk == 0x10 || vk == 0x11 || vk == 0x12 || vk == 0x5B || vk == 0x5C || vk == 0x14; }
 
-        // UI thread; a throw kills Tepi
-        IntPtr OnKey(int code, IntPtr msg, IntPtr info)
+        // Hook thread; true swallows the key
+        bool OnHookKey(uint vk, bool up)
         {
-            if (code < 0) return CallNextHookEx(keyHook, code, msg, info);
-            try { if (KeyEvent(msg, info)) return (IntPtr)1; }
-            catch (Exception ex) { Log.Write("dikte kunci: " + ex.Message); }
-            return CallNextHookEx(keyHook, code, msg, info);
-        }
-
-        // True swallows the key
-        bool KeyEvent(IntPtr msg, IntPtr info)
-        {
-            var k = (KeyInfo)Marshal.PtrToStructure(info, typeof(KeyInfo));
-            // Our own Ctrl+V and dummy keys
-            if ((k.Flags & 0x10) != 0) return false;
-            int m = msg.ToInt32();
-            bool up = m == 0x0101 || m == 0x0105;
             var now = DateTime.UtcNow;
-            if (k.Vk == HoldVk)
+            if (vk == (uint)holdVk)
             {
-                if (!up)
-                {
-                    if (keyDown) return false;
-                    keyDown = true;
-                    keyCombo = false;
-                    keyDownUtc = now;
-                    if (dictState == DictState.Listening && dictHandsFree) finishOnUp = true;
-                    else if (dictState == DictState.Off) { holdTimer.Stop(); holdTimer.Start(); }
-                }
-                else
-                {
-                    keyDown = false;
-                    holdTimer.Stop();
-                    double held = (now - keyDownUtc).TotalSeconds;
-                    if (finishOnUp) { finishOnUp = false; FinishDictate(); }
-                    else if (dictState == DictState.Listening && !dictHandsFree)
-                    {
-                        if ((now - dictStartUtc).TotalSeconds < TapSec) CancelDictate();
-                        else FinishDictate();
-                    }
-                    else if (dictState == DictState.Off && !keyCombo && held < TapSec)
-                    {
-                        // Two quick taps: hands-free
-                        if ((now - lastTapUtc).TotalSeconds < DoubleTapSec) { lastTapUtc = DateTime.MinValue; BeginDictate(true); }
-                        else lastTapUtc = now;
-                    }
-                }
+                holdSeen = !up;
+                Post(delegate { if (up) HoldUp(now); else HoldDown(now); });
                 return false;
             }
-            if (!up && k.Vk == 0x1B && dictState == DictState.Listening)
-            {
-                string said = hearTurn ? Lang.T("Perintah dibatalkan") : Lang.T("Dikte dibatalkan");
-                CancelDictate();
-                DictSay(said, "", true);
-                return true;
-            }
-            if (!up && !IsModifier(k.Vk))
-            {
-                lastTapUtc = DateTime.MinValue;
-                if (keyDown)
-                {
-                    keyCombo = true;
-                    holdTimer.Stop();
-                    // Ctrl+C and friends, not speech
-                    if (dictState == DictState.Listening && !dictHandsFree && (now - dictStartUtc).TotalSeconds < 1.0) CancelDictate();
-                }
-            }
+            if (up) return false;
+            // Esc cancels and stays out of the app
+            if (vk == 0x1B && dictState == DictState.Listening) { Post(CancelByEsc); return true; }
+            if (IsModifier(vk)) return false;
+            Interlocked.Exchange(ref otherTicks, now.Ticks);
+            if (holdSeen) Post(delegate { OtherKey(now); });
             return false;
+        }
+
+        void HoldDown(DateTime now)
+        {
+            if (keyDown) return;
+            keyDown = true;
+            keyCombo = false;
+            keyDownUtc = now;
+            if (dictState == DictState.Listening && dictHandsFree) finishOnUp = true;
+            else if (dictState == DictState.Off) { holdTimer.Stop(); holdTimer.Start(); }
+        }
+
+        void HoldUp(DateTime now)
+        {
+            if (!keyDown) return;
+            keyDown = false;
+            holdTimer.Stop();
+            double held = (now - keyDownUtc).TotalSeconds;
+            if (finishOnUp) { finishOnUp = false; FinishDictate(); }
+            else if (dictState == DictState.Listening && !dictHandsFree) FinishDictate();
+            else if (dictState == DictState.Off && !keyCombo && held < TapSec)
+            {
+                // Two quick taps with nothing typed between: hands-free
+                bool typed = Interlocked.Read(ref otherTicks) > lastTapUtc.Ticks;
+                if (!typed && (now - lastTapUtc).TotalSeconds < DoubleTapSec) { lastTapUtc = DateTime.MinValue; BeginDictate(true); }
+                else lastTapUtc = now;
+            }
+        }
+
+        void OtherKey(DateTime now)
+        {
+            lastTapUtc = DateTime.MinValue;
+            if (!keyDown) return;
+            keyCombo = true;
+            holdTimer.Stop();
+            // Ctrl+C and friends, not speech
+            if (dictState == DictState.Listening && !dictHandsFree && (now - dictStartUtc).TotalSeconds < 1.0) CancelDictate();
+        }
+
+        void CancelByEsc()
+        {
+            if (dictState != DictState.Listening) return;
+            string said = hearTurn ? Lang.T("Perintah dibatalkan") : Lang.T("Dikte dibatalkan");
+            CancelDictate();
+            DictSay(said, "", true);
+        }
+
+        // Asks the keyboard itself, so a hook Windows dropped cannot leave the key stuck
+        void WatchKey()
+        {
+            holdVk = settings.Get("dictate.key", "rctrl") == "ralt" ? 0xA5 : 0xA3;
+            bool down = AnyHeld(holdVk);
+            var now = DateTime.UtcNow;
+            if (keyDown && !down) { physSince = DateTime.MinValue; HoldUp(now); return; }
+            if (keyDown || !down) { physSince = DateTime.MinValue; return; }
+            if (physSince == DateTime.MinValue) { physSince = now; return; }
+            if ((now - physSince).TotalSeconds < 0.12) return;
+            // Held, yet the hook never said so
+            if (!hookWarned) { hookWarned = true; Log.Write("dikte: tombol tertekan tapi hook diam, dipasang ulang"); }
+            if (dictKeys != null) dictKeys.Rehook();
+            HoldDown(physSince);
+            physSince = DateTime.MinValue;
         }
 
         // Recording
@@ -396,6 +412,13 @@ namespace Tepi
             string preview = text.Trim().Replace("\r", "").Replace('\n', ' ');
             bool gone = target == IntPtr.Zero || !IsWindow(target);
             bool blocked = !gone && !selfElevated && Elevated(target);
+            // Empty desktop: no text field to type into
+            if (!gone && dictPark != null && target == dictPark.KeeperHandle)
+            {
+                try { Clipboard.SetText(text); } catch (Exception) { }
+                DictSay(Lang.T("Teks disalin"), Lang.T("Tidak ada kolom teks, tempel dengan Ctrl+V"), true);
+                return;
+            }
             if (gone || blocked || GetAncestor(GetForegroundWindow(), 3) != target)
             {
                 // Can't type there: clipboard only

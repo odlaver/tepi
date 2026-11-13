@@ -104,6 +104,20 @@ namespace Tepi
             return Ease.Clamp01(prompterHover.Value);
         }
 
+        // On/off blend per id; springs rest at 0 or 1
+        readonly Dictionary<string, Spring> stateK = new Dictionary<string, Spring>();
+
+        float StateK(string id, bool on)
+        {
+            Spring k;
+            float want = on ? 1 : 0;
+            if (!stateK.TryGetValue(id, out k)) { k = new Spring(want, 1, 1, 0.004f); Springs.Tune(k, 0.2f, 1f); stateK[id] = k; }
+            if (k.Target != want) { k.Target = want; if (Anim.Reduced) k.Snap(want); else Kick(); }
+            return Ease.Clamp01(k.Value);
+        }
+
+        bool StateMoving() { foreach (var k in stateK.Values) if (!k.Settled) return true; return false; }
+
         // Slide distance multiplier; 0 when reduced
         static float Moves { get { return Anim.Reduced ? 0 : 1; } }
 
@@ -144,6 +158,7 @@ namespace Tepi
             StepRing(dt);
             StepSwipe(dt);
             hoverOut.Step(dt);
+            foreach (var k in stateK.Values) k.Step(dt);
             if (hoverOutId != null && hoverOut.Settled) hoverOutId = null;
             bool silent = true;
             for (int i = 0; i < wave.Length; i++)
@@ -156,7 +171,7 @@ namespace Tepi
             if (silent && !mediaInfo.Playing) for (int i = 0; i < wave.Length; i++) wave[i].Snap(0);
         }
 
-        bool PartsMoving() { return !squish.Settled || !scrubGrow.Settled || !hoverIn.Settled || (hoverOutId != null && !hoverOut.Settled) || !muteFade.Settled || HomeMoving() || PlanMoving() || BackdropMoving() || !prompterHover.Settled || ShelfMoving() || CountMoving() || CallPulsing() || UndoArriving() || !swipe.Settled || AgentPulsing() || TabTipWaiting() || RingMoving() || TitleMoving() || ToneMoving(); }
+        bool PartsMoving() { return !squish.Settled || !scrubGrow.Settled || !hoverIn.Settled || (hoverOutId != null && !hoverOut.Settled) || !muteFade.Settled || HomeMoving() || PlanMoving() || BackdropMoving() || !prompterHover.Settled || ShelfMoving() || CountMoving() || CallPulsing() || UndoArriving() || !swipe.Settled || AgentPulsing() || TabTipWaiting() || RingMoving() || TitleMoving() || ToneMoving() || StateMoving(); }
 
         // Held control's scale, 1 at rest
         float PressScale(string id, float depth)
@@ -260,12 +275,13 @@ namespace Tepi
             bool down = available && Pressed(id);
             var circle = new RectangleF(cx - r, cy - r, d, d);
             float s = Squish(id, circle, 0.92f);
-            Color fill = on ? (down ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.22f) : Ink.Mix(p.T.Accent, p.T.OnAccent, 0.1f * hk))
-                            : down ? p.T.FillPressed : Ink.Mix(p.T.Fill, p.T.FillHover, hk);
-            // Accent stays solid; off gets module light
-            if (on) p.Circle(cx, cy, r, fill);
-            else p.Module(circle, r, fill);
-            p.Icon(glyph, 17f, on ? p.T.OnAccent : available ? p.T.Text : p.T.Quaternary, cx, cy);
+            float ok = StateK(id, on);
+            Color onFill = down ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.22f) : Ink.Mix(p.T.Accent, p.T.OnAccent, 0.1f * hk);
+            Color offFill = down ? p.T.FillPressed : Ink.Mix(p.T.Fill, p.T.FillHover, hk);
+            // Module light fades under the accent disc
+            if (ok < 0.999f) p.Module(circle, r, offFill);
+            if (ok > 0.001f) p.Circle(cx, cy, r, Ink.A(onFill, ok));
+            p.Icon(glyph, 17f, Ink.Mix(available ? p.T.Text : p.T.Quaternary, p.T.OnAccent, ok), cx, cy);
             Unsquish(circle, s);
             p.TextCenter(label, Ink.Caption, available ? p.T.Sub : p.T.Faint, cx, cy + r + 13);
         }

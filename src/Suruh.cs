@@ -124,6 +124,7 @@ namespace Tepi
         // Offline first; else the AI, with the chat so far
         void Answer(ChatMsg me)
         {
+            if (StartFavorite(me)) return;
             var done = TryOffline(me.Text);
             if (done != null) { SuruhDone(me, done); return; }
             if (StartSong(me)) return;

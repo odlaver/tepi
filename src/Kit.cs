@@ -227,7 +227,7 @@ namespace Tepi
 
         // Knob springs; press stretches it
         readonly Spring knob = new Spring(0, 420, 31, 0.002f);
-        readonly Glide press = new Glide(0.05f), hover = new Glide(0.08f);
+        readonly Glide press = new Glide(0.05f), hover = new Glide(0.08f), ena = new Glide(0.09f);
         readonly Func<float, bool> step;
 
         public KitSwitch()
@@ -236,6 +236,8 @@ namespace Tepi
             BackColor = Color.Transparent;
             Text = "";
             step = Step;
+            ena.Snap(1);
+            EnabledChanged += delegate { ena.Target = Enabled ? 1 : 0; if (IsHandleCreated) Go(); else ena.Snap(ena.Target); };
             CheckedChanged += delegate
             {
                 knob.K = 420 / (Anim.Pace * Anim.Pace);
@@ -248,7 +250,7 @@ namespace Tepi
 
         void Go()
         {
-            if (Anim.Reduced) { knob.Snap(knob.Target); press.Snap(press.Target); hover.Snap(hover.Target); Invalidate(); return; }
+            if (Anim.Reduced) { knob.Snap(knob.Target); press.Snap(press.Target); hover.Snap(hover.Target); ena.Snap(ena.Target); Invalidate(); return; }
             KitMotion.Run(step);
         }
 
@@ -256,9 +258,9 @@ namespace Tepi
         {
             if (IsDisposed) return false;
             knob.Step(dt);
-            bool a = press.Step(dt), b = hover.Step(dt);
+            bool a = press.Step(dt), b = hover.Step(dt), c = ena.Step(dt);
             Invalidate();
-            return a || b || !knob.Settled;
+            return a || b || c || !knob.Settled;
         }
 
         protected override void OnCreateControl() { base.OnCreateControl(); knob.Snap(Checked ? 1 : 0); }
@@ -272,12 +274,12 @@ namespace Tepi
             var track = new RectangleF(1, (Height - 22 * s) / 2, 40 * s, 22 * s);
             Color off = Ink.Mix(KitInk.Line, KitInk.Faint, 0.3f * hover.Value), on = Ink.Mix(KitInk.Accent, KitInk.Window, 0.12f * hover.Value);
             using (var path = Ink.Round(track, 11 * s))
-            using (var b = new SolidBrush(Enabled ? Ink.Mix(off, on, kc) : KitInk.Line)) g.FillPath(b, path);
+            using (var b = new SolidBrush(Ink.Mix(KitInk.Line, Ink.Mix(off, on, kc), ena.Value))) g.FillPath(b, path);
             float r = 9 * s, stretch = 5 * s * press.Value;
             float cx = track.X + 11 * s + k * 18 * s, cy = track.Y + 11 * s;
             var pill = RectangleF.FromLTRB(cx - r - stretch * kc, cy - r, cx + r + stretch * (1 - kc), cy + r);
             using (var path = Ink.Round(pill, r))
-            using (var b = new SolidBrush(Enabled ? Ink.Mix(KitInk.Text, KitInk.OnAccent, kc) : KitInk.Faint)) g.FillPath(b, path);
+            using (var b = new SolidBrush(Ink.Mix(KitInk.Faint, Ink.Mix(KitInk.Text, KitInk.OnAccent, kc), ena.Value))) g.FillPath(b, path);
             if (Focused && ShowFocusCues && !KitInk.ByMouse)
             {
                 var ring = KitControl.Inside(RectangleF.Inflate(track, 2, 2), Width, Height);
@@ -449,16 +451,16 @@ namespace Tepi
         bool dragging;
 
         // Shown fill and knob size glide
-        readonly Glide shown = new Glide(0.045f), grow = new Glide(0.07f);
+        readonly Glide shown = new Glide(0.045f), grow = new Glide(0.07f), ena = new Glide(0.09f);
         Func<float, bool> step;
         bool seeded;
 
         bool Tick(float dt)
         {
             if (IsDisposed) return false;
-            bool a = shown.Step(dt), b = grow.Step(dt);
+            bool a = shown.Step(dt), b = grow.Step(dt), c = ena.Step(dt);
             Invalidate();
-            return a || b;
+            return a || b || c;
         }
 
         void Go()
@@ -466,7 +468,8 @@ namespace Tepi
             if (step == null) step = Tick;
             grow.Target = dragging ? 1 : Hovered ? 0.5f : 0;
             shown.Target = Frac;
-            if (!seeded || Anim.Reduced) { seeded = true; shown.Snap(shown.Target); grow.Snap(grow.Target); Invalidate(); return; }
+            ena.Target = Enabled ? 1 : 0;
+            if (!seeded || Anim.Reduced) { seeded = true; shown.Snap(shown.Target); grow.Snap(grow.Target); ena.Snap(ena.Target); Invalidate(); return; }
             KitMotion.Run(step);
         }
 
@@ -512,18 +515,18 @@ namespace Tepi
             var g = e.Graphics;
             KitInk.Smooth(g);
             g.Clear(KitInk.Under(this));
-            if (!seeded) { seeded = true; shown.Snap(Frac); }
-            else if (shown.Target != Frac) Go();
+            if (!seeded) { seeded = true; shown.Snap(Frac); ena.Snap(Enabled ? 1 : 0); }
+            else if (shown.Target != Frac || ena.Target != (Enabled ? 1 : 0)) Go();
             float s = Ui, f = shown.Value;
             var t = Track;
             Fill(g, t, t.Height / 2, KitInk.Line);
-            Fill(g, new RectangleF(t.X, t.Y, Math.Max(t.Height, t.Width * f), t.Height), t.Height / 2, Enabled ? KitInk.Text : KitInk.Faint);
+            Fill(g, new RectangleF(t.X, t.Y, Math.Max(t.Height, t.Width * f), t.Height), t.Height / 2, Ink.Mix(KitInk.Faint, KitInk.Text, ena.Value));
             float r = (8 + 2 * grow.Value) * s, cx = t.X + t.Width * f, cy = t.Y + t.Height / 2;
             using (var b = new SolidBrush(KitInk.Text)) g.FillEllipse(b, cx - r, cy - r, r * 2, r * 2);
             using (var pen = new Pen(KitInk.Line, 1f)) g.DrawEllipse(pen, cx - r, cy - r, r * 2, r * 2);
             if (ShowValue)
                 using (var f2 = new Font(Ink.MenuFamily, 12f * s, GraphicsUnit.Pixel))
-                    TextRenderer.DrawText(g, Format(Value), f2, new Rectangle(0, 0, (int)LabelW, Height), Enabled ? KitInk.Sub : KitInk.Faint,
+                    TextRenderer.DrawText(g, Format(Value), f2, new Rectangle(0, 0, (int)LabelW, Height), Ink.Mix(KitInk.Faint, KitInk.Sub, ena.Value),
                         TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
             Ring(g, new RectangleF(1, 1, Width - 3, Height - 3), Height / 2f);
         }
@@ -544,7 +547,7 @@ namespace Tepi
     {
         public bool Primary;
         // Hover fades in, press sinks
-        readonly Glide hover = new Glide(0.07f), press = new Glide(0.04f);
+        readonly Glide hover = new Glide(0.07f), press = new Glide(0.04f), ena = new Glide(0.09f);
         readonly Func<float, bool> step;
 
         public KitButton()
@@ -555,19 +558,21 @@ namespace Tepi
             BackColor = Color.Transparent;
             UseVisualStyleBackColor = false;
             step = Step;
+            ena.Snap(1);
+            EnabledChanged += delegate { ena.Target = Enabled ? 1 : 0; if (IsHandleCreated) Go(); else ena.Snap(ena.Target); };
         }
 
         bool Step(float dt)
         {
             if (IsDisposed) return false;
-            bool a = hover.Step(dt), b = press.Step(dt);
+            bool a = hover.Step(dt), b = press.Step(dt), c = ena.Step(dt);
             Invalidate();
-            return a || b;
+            return a || b || c;
         }
 
         void Go()
         {
-            if (Anim.Reduced) { hover.Snap(hover.Target); press.Snap(press.Target); Invalidate(); return; }
+            if (Anim.Reduced) { hover.Snap(hover.Target); press.Snap(press.Target); ena.Snap(ena.Target); Invalidate(); return; }
             KitMotion.Run(step);
         }
 
@@ -600,10 +605,10 @@ namespace Tepi
             r = RectangleF.Inflate(r, -sink * 1.6f, -sink);
             float h = hover.Value, p = press.Value;
             Color bg = Primary ? Ink.Mix(KitInk.Text, KitInk.Window, 0.15f * h + 0.12f * p) : Ink.Mix(Ink.Mix(KitInk.Line, KitInk.Hover, h), KitInk.Faint, 0.25f * p);
-            if (!Enabled) bg = KitInk.Line;
+            bg = Ink.Mix(KitInk.Line, bg, ena.Value);
             using (var path = Ink.Round(r, r.Height / 2f))
             using (var b = new SolidBrush(bg)) g.FillPath(b, path);
-            KitInk.Draw(g, Text, Font, !Enabled ? KitInk.Faint : Primary ? KitInk.Window : KitInk.Text, r, ContentAlignment.MiddleCenter);
+            KitInk.Draw(g, Text, Font, Ink.Mix(KitInk.Faint, Primary ? KitInk.Window : KitInk.Text, ena.Value), r, ContentAlignment.MiddleCenter);
             if (ringOn)
             {
                 var ring = new RectangleF(1, 1, Width - 2.5f, Height - 2.5f);

@@ -185,7 +185,11 @@ namespace Tepi
             // Opens on General's page list
             string section = "cat:0", beforeSearch = "cat:0";
             readonly TextBox search = new KitText();
-            readonly Panel content = new Panel();
+            readonly SmoothPanel content = new SmoothPanel();
+            KitVeil veil;
+            bool builtLight;
+            readonly Timer later = new Timer { Interval = 150 };
+            const int Instant = 0, Slide = 1, Soft = 2;
             readonly SideList side = new SideList();
             bool building;
 
@@ -299,8 +303,10 @@ namespace Tepi
                     building = true;
                     search.Text = "";
                     building = false;
-                    Fill();
+                    Fill(Slide);
                 };
+                later.Tick += delegate { later.Stop(); if (!IsDisposed && IsHandleCreated) Fill(Soft); };
+                FormClosed += delegate { later.Stop(); later.Dispose(); };
                 Controls.Add(search);
                 Controls.Add(side);
                 Controls.Add(content);
@@ -318,7 +324,7 @@ namespace Tepi
                 building = true;
                 search.Text = "";
                 building = false;
-                if (IsHandleCreated) { Fill(); side.RevealSelected(); }
+                if (IsHandleCreated) { Fill(Slide); side.RevealSelected(); }
             }
 
             protected override void OnHandleCreated(EventArgs e)
@@ -351,13 +357,17 @@ namespace Tepi
                 }
                 side.Headers = new[] { "", Lang.T(Categories[HelpCat][0]) };
                 side.Selected = SideId(section);
+                bool restyled = builtLight != Ink.Light;
                 search.Font = UiFont(13f);
                 search.BackColor = KitInk.Line;
                 search.ForeColor = KitInk.Text;
                 // Hint stays while focused
                 SendMessage(search.Handle, 0x1501, (IntPtr)1, Lang.T("Cari pengaturan"));
                 Place();
-                Fill();
+                // A toggle's own motion plays out before the page is rebuilt
+                later.Stop();
+                if (restyled || content.Controls.Count == 0 || !Visible || Anim.Reduced) Fill(Soft);
+                else later.Start();
                 Invalidate(true);
             }
 
@@ -399,9 +409,15 @@ namespace Tepi
             float y;
             int rowW;
 
-            void Fill()
+            void Fill(int mode = Instant)
             {
                 if (!IsHandleCreated) return;
+                var keep = content.AutoScrollPosition;
+                KitVeil cover = null;
+                if (mode != Instant && content.Controls.Count > 0) cover = KitVeil.Begin(content, veil);
+                else if (veil != null) veil.Finish();
+                veil = cover;
+                builtLight = Ink.Light;
                 building = true;
                 content.SuspendLayout();
                 var old = new List<Control>();
@@ -448,7 +464,9 @@ namespace Tepi
                 var spacer = new Panel { Location = new Point(0, (int)y), Size = new Size(1, (int)(16 * Ui)), BackColor = KitInk.Window };
                 content.Controls.Add(spacer);
                 content.ResumeLayout();
+                if (mode == Soft) content.AutoScrollPosition = new Point(-keep.X, -keep.Y);
                 building = false;
+                if (cover != null) cover.Play(mode == Slide ? 0.3f : 0.18f, mode == Slide ? 12 * Ui : 0);
             }
 
             // Blank a Label draws before its first letter
@@ -528,7 +546,7 @@ namespace Tepi
             {
                 bool keys = !KitInk.ByMouse;
                 section = id;
-                Fill();
+                Fill(Slide);
                 Control head;
                 if (keys && tabFocus.TryGetValue("head", out head)) head.Focus();
             }
@@ -541,7 +559,7 @@ namespace Tepi
                 if (PageCount(cat) < 2 || cat == HelpCat) return;
                 string from = PageName(section);
                 section = "cat:" + cat;
-                Fill();
+                Fill(Slide);
                 // Back on the row it came from
                 foreach (Control c in content.Controls)
                     foreach (Control r in c.Controls)
@@ -571,8 +589,25 @@ namespace Tepi
                 public event Action Back;
                 RectangleF parentAt;
                 bool overParent;
+                readonly Glide over = new Glide(0.07f);
+                readonly Func<float, bool> step;
 
-                public PageHeader() { TabStop = false; }
+                public PageHeader() { TabStop = false; step = Step; }
+
+                bool Step(float dt)
+                {
+                    if (IsDisposed) return false;
+                    bool more = over.Step(dt);
+                    Invalidate();
+                    return more;
+                }
+
+                void Fade()
+                {
+                    over.Target = overParent ? 1 : 0;
+                    if (Anim.Reduced) { over.Snap(over.Target); Invalidate(); }
+                    else KitMotion.Run(step);
+                }
 
                 // Focusable only when there is a way back
                 protected override void OnCreateControl() { base.OnCreateControl(); TabStop = Crumb != null; }
@@ -580,14 +615,14 @@ namespace Tepi
                 protected override void OnMouseMove(MouseEventArgs e)
                 {
                     base.OnMouseMove(e);
-                    bool over = Crumb != null && parentAt.Contains(e.Location);
-                    if (over == overParent) return;
-                    overParent = over;
-                    Cursor = over ? Cursors.Hand : Cursors.Default;
-                    Invalidate();
+                    bool inside = Crumb != null && parentAt.Contains(e.Location);
+                    if (inside == overParent) return;
+                    overParent = inside;
+                    Cursor = inside ? Cursors.Hand : Cursors.Default;
+                    Fade();
                 }
 
-                protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); overParent = false; Invalidate(); }
+                protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); overParent = false; Fade(); }
                 protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); if (e.Button == MouseButtons.Left && overParent) Fire(); }
                 protected override bool IsInputKey(Keys k) { return k == Keys.Enter || k == Keys.Space || base.IsInputKey(k); }
 
@@ -620,8 +655,8 @@ namespace Tepi
                             // Category in grey, then the page in full ink
                             int pw = TextRenderer.MeasureText(g, Crumb, tf, Size.Empty, TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine).Width;
                             parentAt = new RectangleF(x - 6 * s, line.Y, pw + 10 * s, line.Height);
-                            if (overParent) Fill(g, parentAt, 8 * s, KitInk.Hover);
-                            KitInk.Draw(g, Crumb, tf, overParent ? KitInk.Text : KitInk.Sub, new RectangleF(x - 2 * s, line.Y, pw + 4 * s, line.Height), ContentAlignment.MiddleLeft);
+                            if (over.Value > 0.01f) Fill(g, parentAt, 8 * s, Ink.A(KitInk.Hover, over.Value));
+                            KitInk.Draw(g, Crumb, tf, Ink.Mix(KitInk.Sub, KitInk.Text, over.Value), new RectangleF(x - 2 * s, line.Y, pw + 4 * s, line.Height), ContentAlignment.MiddleLeft);
                             x += pw + 6 * s;
                             using (var icons = new Font(Ink.IconFamily, 14f * s, GraphicsUnit.Pixel)) KitInk.Draw(g, "\uE76C", icons, KitInk.Sub, new RectangleF(x, line.Y, 20 * s, line.Height), ContentAlignment.MiddleCenter);
                             x += 26 * s;
@@ -690,7 +725,7 @@ namespace Tepi
                 new[] { "Dock", "\uE90E" }, new[] { "Sisakan ruang untuk dock", "\uE73F" }, new[] { "Perbesar ikon", "\uE71E" }, new[] { "Ganti taskbar Windows", "\uE90E" },
                 new[] { "Letak", "\uE759" }, new[] { "Geser", "\uE759" }, new[] { "Jarak dari pojok", "\uE759" }, new[] { "Tinggi", "\uE759" }, new[] { "Urutan kartu", "\uE8CB" }, new[] { "Garis cahaya", "\uE781" }, new[] { "Posisi", "\uE759" }, new[] { "Lebar panel", "\uE740" }, new[] { "Layar", "\uE7F4" },
                 new[] { "Gaya tab", "\uECA5" }, new[] { "Dibuka di", "\uE8A7" }, new[] { "Pindah tab", "\uE8A9" },
-                new[] { "Lirik di island", "\uE8D6" }, new[] { "Cari lirik online", "\uE721" }, new[] { "Visualizer", "\uE9E9" },
+                new[] { "Lirik di island", "\uE8D6" }, new[] { "Cari lirik online", "\uE721" }, new[] { "Visualizer", "\uE9E9" }, new[] { "Lagu favorit", "\uE734" },
                 new[] { "Notifikasi pesan", "\uE8BD" }, new[] { "Tampilkan isi pesan", "\uE8BD" }, new[] { "Caps Lock", "\uE765" }, new[] { "Ingatkan cabut charger", "\uE83E" }, new[] { "Cuaca dan hujan", "\uE753" }, new[] { "Mode rapat", "\uE720" },
                 new[] { "Num Lock, Scroll Lock", "\uE765" }, new[] { "Bahasa input", "\uE765" }, new[] { "Kelas yang berlangsung", "\uE7BE" },
                 new[] { "Progres unduhan", "\uE896" }, new[] { "Riwayat clipboard", "\uE77F" }, new[] { "Flashdisk", "\uE88E" },
@@ -770,6 +805,33 @@ namespace Tepi
                 c.Size = new Size((int)Math.Min(260 * Ui, w + 30 * Ui), (int)(30 * Ui));
                 c.Changed += i => { if (!building) changed(i); };
                 return c;
+            }
+
+            // YouTube link opened by "lagu biasa" or "lagu favoritku"
+            KitRow FavRow()
+            {
+                string detail = Lang.T("Ucapkan \"lagu biasa\" atau \"lagu favoritku\", Tepi memutar tautan YouTube ini");
+                var f = new KitField(Ui, false, "https://youtube.com/…", 500);
+                f.Size = new Size((int)(300 * Ui), (int)(30 * Ui));
+                f.Box.Text = settings.Get("fav.music", "");
+                var row = Row(Lang.T("Lagu favorit"), detail, f);
+                var back = new System.Windows.Forms.Timer { Interval = 2500 };
+                back.Tick += delegate { back.Stop(); row.Detail = detail; row.Invalidate(); };
+                f.Disposed += delegate { back.Dispose(); };
+                Action save = delegate
+                {
+                    string text = f.Box.Text.Trim();
+                    if (text == settings.Get("fav.music", "")) return;
+                    bool ok = text.Length == 0 || Island.FavUrl(text) != null;
+                    if (ok) { settings.Set("fav.music", text); settings.Save(); }
+                    row.Detail = ok ? Lang.T("Tersimpan") : Lang.T("Tautan harus dari YouTube");
+                    row.Invalidate();
+                    back.Stop();
+                    back.Start();
+                };
+                f.Submit = save;
+                f.Box.LostFocus += delegate { save(); };
+                return row;
             }
 
             // Comma list saved on Enter or leaving the box
@@ -1144,6 +1206,7 @@ namespace Tepi
                         add(Row(Lang.T("Lirik di island"), null, Switch("lyrics", true, null)));
                         add(Row(Lang.T("Cari lirik online"), Lang.T("Judul, artis, dan durasi ke LRCLIB, cadangannya NetEase"), Switch("lyrics.online", true, null)));
                         add(Row(Lang.T("Visualizer"), null, Switch("visualizer", true, null)));
+                        add(FavRow());
                         break;
                     case "messages":
                         add(Row(Lang.T("Notifikasi pesan"), null, Switch("notif", true, on => { island.SetFlag("notif", on); Relayout(); })));
@@ -1425,7 +1488,7 @@ namespace Tepi
                     else if (!sw.Checked && list.Count > 1) list.Remove(page);
                     island.SetLayout("panel.tabs", island.TabIds(list));
                     Preview();
-                    RefillTabs(page + "sw");
+                    RefillTabs(page + "sw", true, true);
                 };
                 tabFocus[page + "sw"] = sw;
                 var r = Row(name, null, sw);
@@ -1455,7 +1518,7 @@ namespace Tepi
                     island.SetPlace(i);
                     row.Detail = Lang.T(PlaceNames[i]);
                     row.Invalidate();
-                    RefillTabs("place");
+                    RefillTabs("place", false, true);
                 };
                 tabFocus["place"] = picker;
                 return row;
@@ -1475,7 +1538,7 @@ namespace Tepi
                     else if (!sw.Checked) list.Remove(card);
                     island.SetHomeCards(list);
                     Preview(PageHome);
-                    RefillTabs(key + "sw");
+                    RefillTabs(key + "sw", true, true);
                 };
                 tabFocus[key + "sw"] = sw;
                 var r = Row(name, Lang.T(HomeNotes[(int)card]), sw);
@@ -1516,18 +1579,51 @@ namespace Tepi
                 RefillTabs(page + "grip");
             }
 
-            // Rebuild rows; scroll and focus stay
-            void RefillTabs(string focusKey)
+            // Rebuild rows; scroll and focus stay, moved rows glide
+            void RefillTabs(string focusKey) { RefillTabs(focusKey, true, false); }
+
+            Timer refill;
+
+            void RefillTabs(string focusKey, bool glide, bool afterKnob)
             {
-                var at = content.AutoScrollPosition;
                 bool refocus = ContainsFocus;
-                BeginInvoke(new Action(delegate
+                Action run = delegate
                 {
-                    Fill();
-                    content.AutoScrollPosition = new Point(-at.X, -at.Y);
-                    Control c;
-                    if (refocus && tabFocus.TryGetValue(focusKey, out c) && c.Visible) c.Focus();
-                }));
+                    if (IsDisposed) return;
+                    var at = content.AutoScrollPosition;
+                    var tops = new Dictionary<string, int>();
+                    foreach (Control c in content.Controls)
+                    {
+                        var g = c as KitGroup;
+                        if (g == null) continue;
+                        foreach (Control r in g.Controls) { var kr = r as KitRow; if (kr != null) tops[kr.Title + "|" + kr.Detail] = g.Top + kr.Top; }
+                    }
+                    Fill(glide ? Instant : Soft);
+                    if (glide) content.AutoScrollPosition = new Point(-at.X, -at.Y);
+                    var moved = new List<KitRow>();
+                    var was = new List<int>();
+                    if (glide)
+                        foreach (Control c in content.Controls)
+                        {
+                            var g = c as KitGroup;
+                            if (g == null) continue;
+                            foreach (Control r in g.Controls)
+                            {
+                                var kr = r as KitRow;
+                                int old;
+                                if (kr != null && tops.TryGetValue(kr.Title + "|" + kr.Detail, out old) && old - g.Top != kr.Top) { moved.Add(kr); was.Add(old - g.Top); }
+                            }
+                        }
+                    KitSlide.Rows(moved, was);
+                    Control f;
+                    if (refocus && tabFocus.TryGetValue(focusKey, out f) && f.Visible) f.Focus();
+                };
+                if (refill != null) { refill.Stop(); refill.Dispose(); refill = null; }
+                if (!afterKnob || Anim.Reduced) { BeginInvoke(run); return; }
+                // The switch finishes its slide first
+                refill = new Timer { Interval = 150 };
+                refill.Tick += delegate { refill.Stop(); refill.Dispose(); refill = null; run(); };
+                refill.Start();
             }
 
             // Six-dot handle: drag, or arrow keys
@@ -1539,7 +1635,41 @@ namespace Tepi
                 int grabY, startTop, baseTop, slot, target;
                 bool dragging;
 
-                public TabGrip() { Cursor = Cursors.SizeNS; }
+                readonly List<KitRow> glideRows = new List<KitRow>();
+                readonly List<int> glideTo = new List<int>();
+                readonly Func<float, bool> glide;
+                Action settled;
+
+                public TabGrip() { Cursor = Cursors.SizeNS; glide = Settle; }
+
+                // Peers ease toward their slot instead of jumping
+                void Aim(KitRow r, int top)
+                {
+                    if (Anim.Reduced) { r.Top = top; return; }
+                    int i = glideRows.IndexOf(r);
+                    if (i < 0) { glideRows.Add(r); glideTo.Add(top); } else glideTo[i] = top;
+                    KitMotion.Run(glide);
+                }
+
+                bool Settle(float dt)
+                {
+                    float k = 1 - (float)Math.Exp(-dt / (0.045f * Anim.Pace));
+                    for (int i = glideRows.Count - 1; i >= 0; i--)
+                    {
+                        var r = glideRows[i];
+                        int d = glideTo[i] - (r.IsDisposed ? glideTo[i] : r.Top);
+                        if (d == 0) { glideRows.RemoveAt(i); glideTo.RemoveAt(i); continue; }
+                        int mv = (int)Math.Round(d * k);
+                        if (mv == 0) mv = Math.Sign(d);
+                        r.Top += mv;
+                        if (r.Parent != null) r.Parent.Invalidate();
+                    }
+                    if (glideRows.Count > 0) return true;
+                    var done = settled;
+                    settled = null;
+                    if (done != null) done();
+                    return false;
+                }
 
                 protected override bool IsInputKey(Keys k) { return k == Keys.Up || k == Keys.Down || base.IsInputKey(k); }
 
@@ -1597,7 +1727,7 @@ namespace Tepi
                     {
                         if (p == row) continue;
                         if (k == target) k++;
-                        p.Top = baseTop + k * h;
+                        Aim(p, baseTop + k * h);
                         k++;
                     }
                     row.Parent.Invalidate();
@@ -1621,8 +1751,12 @@ namespace Tepi
                     dragging = false;
                     Capture = false;
                     Lift(false);
-                    row.Top = baseTop + target * row.Height;
-                    if (target != slot && Dropped != null) Dropped(target);
+                    int to = target;
+                    bool moved = to != slot && Dropped != null;
+                    if (Anim.Reduced) { row.Top = baseTop + to * row.Height; if (moved) Dropped(to); return; }
+                    // The row settles into its slot, then the page rebuilds
+                    settled = moved ? new Action(delegate { Dropped(to); }) : null;
+                    Aim(row, baseTop + to * row.Height);
                 }
 
                 // Held row takes the hover tint
@@ -1671,9 +1805,38 @@ namespace Tepi
             public List<string[]> Items = new List<string[]>();
             // One heading per group, above its first row
             public string[] Headers = new string[0];
-            public string Selected = "";
+            string selected = "";
+            public string Selected { get { return selected; } set { if (selected == value) return; selected = value; Invalidate(); } }
             public event Action<string> Picked;
             int hover = -1;
+
+            // The pill glides between rows; the hover pill follows the pointer
+            readonly Spring pillY = new Spring(0, 1, 1, 0.01f), hoverY = new Spring(0, 1, 1, 0.01f);
+            readonly Glide hoverA = new Glide(0.07f);
+            readonly Func<float, bool> step;
+            bool pillSet;
+            float goal;
+
+            public SideList() { step = Step; }
+
+            void Go()
+            {
+                if (Anim.Reduced) { pillY.Snap(pillY.Target); hoverY.Snap(hoverY.Target); hoverA.Snap(hoverA.Target); scroll = goal; Invalidate(); }
+                else KitMotion.Run(step);
+            }
+
+            bool Step(float dt)
+            {
+                if (IsDisposed) return false;
+                pillY.Step(dt);
+                hoverY.Step(dt);
+                bool a = hoverA.Step(dt);
+                scroll += (goal - scroll) * (1 - (float)Math.Exp(-dt / (0.07f * Anim.Pace)));
+                bool b = Math.Abs(goal - scroll) > 0.5f;
+                if (!b) scroll = goal;
+                Invalidate();
+                return a || b || !pillY.Settled || !hoverY.Settled;
+            }
 
             float RowH { get { return 32 * Ui; } }
 
@@ -1711,9 +1874,10 @@ namespace Tepi
             void ScrollTo(float v)
             {
                 v = Math.Max(0, Math.Min(MaxScroll(), v));
-                if (v == scroll) return;
-                scroll = v;
-                Invalidate();
+                if (v == goal && v == scroll) return;
+                goal = v;
+                if (Anim.Reduced || !IsHandleCreated) { scroll = v; Invalidate(); }
+                else Go();
             }
 
             // Arrow keys keep the pick in view
@@ -1721,17 +1885,18 @@ namespace Tepi
             {
                 if (i < 0 || i >= Items.Count) return;
                 var c = Cell(i);
-                if (c.Top < 0) ScrollTo(scroll + c.Top - 6 * Ui);
-                else if (c.Bottom > Height) ScrollTo(scroll + c.Bottom - Height + 6 * Ui);
+                float top = c.Top + scroll - goal, bottom = c.Bottom + scroll - goal;
+                if (top < 0) ScrollTo(goal + top - 6 * Ui);
+                else if (bottom > Height) ScrollTo(goal + bottom - Height + 6 * Ui);
             }
 
             protected override void OnMouseWheel(MouseEventArgs e)
             {
                 base.OnMouseWheel(e);
-                ScrollTo(scroll - e.Delta / 120f * RowH * 1.5f);
+                ScrollTo(goal - e.Delta / 120f * RowH * 1.5f);
             }
 
-            protected override void OnResize(EventArgs e) { base.OnResize(e); ScrollTo(scroll); RevealSelected(); }
+            protected override void OnResize(EventArgs e) { base.OnResize(e); ScrollTo(goal); RevealSelected(); }
 
             public void RevealSelected() { Reveal(IndexOf(Selected)); }
 
@@ -1780,6 +1945,24 @@ namespace Tepi
                 KitInk.Smooth(g);
                 g.Clear(KitInk.Side);
                 float s = Ui;
+                int at = IndexOf(Selected);
+                if (at >= 0)
+                {
+                    float want = Cell(at).Y + scroll;
+                    if (!pillSet || Anim.Reduced) { pillY.Snap(want); pillSet = true; }
+                    else if (pillY.Target != want) { Springs.Tune(pillY, 0.3f, 0.9f); pillY.Target = want; Go(); }
+                }
+                bool wantHover = hover >= 0 && hover != at;
+                if (wantHover)
+                {
+                    float hy = Cell(hover).Y + scroll;
+                    if (hoverA.Value < 0.03f || Anim.Reduced) hoverY.Snap(hy);
+                    else if (hoverY.Target != hy) { Springs.Tune(hoverY, 0.2f, 1f); hoverY.Target = hy; Go(); }
+                }
+                float ha = wantHover ? 1 : 0;
+                if (hoverA.Target != ha) { hoverA.Target = ha; Go(); }
+                if (hoverA.Value > 0.01f) Fill(g, new RectangleF(10 * s, hoverY.Value - scroll, Width - 20 * s, RowH - 2 * s), 9 * s, Ink.A(Ink.Mix(KitInk.Side, KitInk.Hover, 0.5f), hoverA.Value));
+                if (at >= 0) Fill(g, new RectangleF(10 * s, pillY.Value - scroll, Width - 20 * s, RowH - 2 * s), 9 * s, KitInk.Hover);
                 using (var f = new Font(Ink.MenuFamily, 13.5f * s, GraphicsUnit.Pixel))
                 using (var head = new Font(Ink.MenuFamily, 11.5f * s, FontStyle.Bold, GraphicsUnit.Pixel))
                 using (var icons = new Font(Ink.IconFamily, 14f * s, GraphicsUnit.Pixel))
@@ -1790,12 +1973,12 @@ namespace Tepi
                         // First row of a group: its heading above
                         if ((i == 0 || GroupOf(Items[i - 1]) != group) && HeaderOf(group).Length > 0)
                             KitInk.Draw(g, HeaderOf(group), head, KitInk.Sub, new RectangleF(c.X + 10 * s, c.Y - HeaderDip * s + 4 * s, c.Width - 10 * s, HeaderDip * s - 6 * s), ContentAlignment.MiddleLeft);
-                        bool sel = Items[i][0] == Selected;
-                        if (sel || i == hover) Fill(g, c, 9 * s, sel ? KitInk.Hover : Ink.Mix(KitInk.Side, KitInk.Hover, 0.5f));
-                        KitInk.Draw(g, Items[i][2], icons, sel ? KitInk.Text : KitInk.Sub, new RectangleF(c.X + 8 * s, c.Y, 22 * s, c.Height), ContentAlignment.MiddleCenter);
-                        KitInk.Draw(g, Items[i][1], f, sel ? KitInk.Text : KitInk.Sub, new RectangleF(c.X + 38 * s, c.Y, c.Width - 44 * s, c.Height), ContentAlignment.MiddleLeft);
+                        // Ink warms as the pill passes under it
+                        float near = at >= 0 ? Ease.Clamp01(1 - Math.Abs(pillY.Value - (c.Y + scroll)) / RowH) : 0;
+                        var ink = Ink.Mix(KitInk.Sub, KitInk.Text, near);
+                        KitInk.Draw(g, Items[i][2], icons, ink, new RectangleF(c.X + 8 * s, c.Y, 22 * s, c.Height), ContentAlignment.MiddleCenter);
+                        KitInk.Draw(g, Items[i][1], f, ink, new RectangleF(c.X + 38 * s, c.Y, c.Width - 44 * s, c.Height), ContentAlignment.MiddleLeft);
                     }
-                int at = IndexOf(Selected);
                 if (at >= 0) Ring(g, Cell(at), 9 * s);
             }
 

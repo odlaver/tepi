@@ -429,6 +429,9 @@ namespace Tepi
 
             StartKey startKey;
 
+            // The dock's Win key hook already parks the focus on an empty desktop
+            public bool WinKeyOn { get { return startKey != null; } }
+
             void StartKeys()
             {
                 if (startKey != null) return;
