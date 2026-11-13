@@ -38,7 +38,7 @@ namespace Tepi
 
         void OpenConvert(string[] files)
         {
-            if (ConvRunning) { ShowInfo(IcoConvert, Lang.T("Masih mengubah berkas lain"), "", true); return; }
+            if (ConvRunning) { ShowWarn(IcoConvert, Lang.T("Masih mengubah berkas lain"), "", true); return; }
             var list = new List<ShelfItem>();
             foreach (var raw in files)
             {
@@ -48,7 +48,7 @@ namespace Tepi
                 if (list.Exists(i => string.Equals(i.Path, full, StringComparison.OrdinalIgnoreCase))) continue;
                 list.Add(new ShelfItem { Path = full, Name = Path.GetFileName(full.TrimEnd('\\')), Id = ++shelfIds, AddedUtc = DateTime.UtcNow });
             }
-            if (list.Count == 0) { ShowInfo(IcoConvert, Lang.T("Tidak ada yang bisa diubah"), "", true); return; }
+            if (list.Count == 0) { ShowWarn(IcoConvert, Lang.T("Tidak ada yang bisa diubah"), "", true); return; }
             DropConvertItems();
             convItems = list;
             for (int i = 0; i < Math.Min(2, list.Count); i++) LoadThumb(list[i]);
@@ -336,7 +336,7 @@ namespace Tepi
         void OpenPath(string path)
         {
             try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
-            catch (Exception ex) { Log.Write("convert open: " + ex.Message); ShowInfo(IcoAlert, Lang.T("Berkas tidak bisa dibuka"), Path.GetFileName(path), true); }
+            catch (Exception ex) { Log.Write("convert open: " + ex.Message); ShowFail(IcoAlert, Lang.T("Berkas tidak bisa dibuka"), Path.GetFileName(path), true); }
         }
 
         void RevealPath(string path)

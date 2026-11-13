@@ -196,6 +196,7 @@ namespace Tepi
                         if (baked == null) { if (forFrost != null) forFrost.Dispose(); return; }
                         if (current != View.Panel || !ReferenceEquals(mediaInfo.Cover, src)) { baked.Dispose(); if (forFrost != null) forFrost.Dispose(); return; }
                         if (blurCache != null) blurCache.Dispose();
+                        else if (!Anim.Reduced) backdropUtc = DateTime.UtcNow;
                         blurCache = baked;
                         blurSource = src;
                         blurKey = key;
@@ -304,14 +305,14 @@ namespace Tepi
                 p.Alpha = alpha * (1 - Ease.Clamp01(k * 1.8f));
                 bool hold = hitsOn;
                 hitsOn = false;
-                if (album) DrawLyricsLayout(w, h, now, -k * 8);
-                else DrawAlbumLayout(w, h, now, -k * 8);
+                if (album) DrawLyricsLayout(w, h, now, -k * 8 * Moves);
+                else DrawAlbumLayout(w, h, now, -k * 8 * Moves);
                 hitsOn = hold;
             }
             p.Alpha = alpha * Ease.Clamp01(k * 1.2f);
             if (k < 0.8f) hitsOn = false;
-            if (album) DrawAlbumLayout(w, h, now, (1 - k) * 10);
-            else DrawLyricsLayout(w, h, now, (1 - k) * 10);
+            if (album) DrawAlbumLayout(w, h, now, (1 - k) * 10 * Moves);
+            else DrawLyricsLayout(w, h, now, (1 - k) * 10 * Moves);
             p.Alpha = alpha;
             double pp = Prof.T();
             DrawProgressRow(w, h, now);
@@ -330,6 +331,8 @@ namespace Tepi
                 AddHit(new RectangleF(x0, y - 8, x1 - x0, 20), "seek", null, f => { scrubbing = true; scrubFrac = f; },
                        null, delegate { if (scrubbing) media.Seek(scrubFrac * mediaInfo.DurationMs); scrubbing = false; });
             bool active = scrubbing || Hover("seek");
+            scrubGrow.Target = active ? 1 : 0;
+            if (Anim.Reduced) scrubGrow.Snap(scrubGrow.Target);
             // Redrawn when a second or pixel turns
             LiveRect(new RectangleF(x0 - 8, y - 26, x1 - x0 + 16, 54), mediaInfo.Playing && !active ? 4 : 0, () => ProgressSig(x1 - x0), t => PaintProgressRow(x0, x1, y, active, t));
         }
@@ -358,20 +361,21 @@ namespace Tepi
         {
             var r = new RectangleF(cx - 16, cy - 14, 32, 28);
             AddHit(r, id, act);
-            bool hover = Hover(id);
-            if (on) p.FillRound(r, 14, Ink.A(p.T.Accent, 0.22f));
-            else if (hover) p.FillRound(r, 14, p.T.Fill);
-            p.Icon(glyph, 14f, on ? p.T.Accent : hover ? p.T.Text : p.T.Sub, cx, cy);
+            float hk = HoverK(id), s = Squish(id, r, 0.9f);
+            if (on) p.FillRound(r, 14, Ink.A(p.T.Accent, 0.22f + 0.08f * hk));
+            else if (hk > 0 || Pressed(id)) p.FillRound(r, 14, SoftFill(id));
+            p.Icon(glyph, 14f, on ? p.T.Accent : SoftInk(id), cx, cy);
+            Unsquish(r, s);
         }
 
         void PaintProgressRow(float x0, float x1, float y, bool active, DateTime now)
         {
             // Thicker under the pointer, like Music's scrubber
-            float th = active ? 6f : 4f;
+            float grow = Ease.Clamp01(scrubGrow.Value), th = 4f + 2f * grow;
             DrawProgress(x0, x1, y - (th - 4) / 2, th, now);
             double pos = scrubbing ? scrubFrac * mediaInfo.DurationMs : mediaInfo.Position(now);
             if (mediaInfo.DurationMs > 0 && (knob == null || active))
-                p.Circle(x0 + (x1 - x0) * Ease.Clamp01((float)(pos / mediaInfo.DurationMs)), y + 2, active ? 7f : 4.5f, p.T.Accent);
+                p.Circle(x0 + (x1 - x0) * Ease.Clamp01((float)(pos / mediaInfo.DurationMs)), y + 2, 4.5f + 2.5f * grow, p.T.Accent);
             p.Text(Fmt.Clock(pos), Ink.Small(11f), scrubbing ? p.T.Text : p.T.Sub, x0, y + 18);
             if (mediaInfo.DurationMs > 0) p.TextRight("-" + Fmt.Clock(mediaInfo.DurationMs - pos), Ink.Small(11f), scrubbing ? p.T.Text : p.T.Sub, x1, y + 18);
         }
@@ -452,10 +456,12 @@ namespace Tepi
                     (r, c) => { if (mediaInfo.Playing) p.Pause(r.X + 19, r.Y + 19, 15, c); else p.Play(r.X + 19, r.Y + 19, 15, c); });
                 return;
             }
-            float pr = Hover("play") ? 25 : 23;
-            p.Circle(cx, cy, pr, p.T.Text);
+            var pad = new RectangleF(cx - 25, cy - 25, 50, 50);
+            float ps = Squish("play", pad, 0.9f);
+            p.Circle(cx, cy, 23 + 2 * HoverK("play"), p.T.Text);
             if (mediaInfo.Playing) p.Pause(cx, cy, 15, p.T.Bg);
             else p.Play(cx, cy, 16, p.T.Bg);
+            Unsquish(pad, ps);
             AddHit(new RectangleF(cx - 25, cy - 25, 50, 50), "play", delegate { media.TogglePlay(); });
         }
 

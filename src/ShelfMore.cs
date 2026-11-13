@@ -56,7 +56,7 @@ namespace Tepi
             var cells = new List<RectangleF>();
             foreach (var s in gone) cells.Add(ShelfCellRect(s));
             Vanish(cells.ToArray(), false);
-            foreach (var s in gone) RemoveFromShelf(s);
+            RemoveShelfLater(gone, gone.Count == 1 ? Lang.T("Dikeluarkan dari rak") : Lang.F("{0} berkas dikeluarkan", gone.Count));
             shelfPicked.Clear();
         }
 

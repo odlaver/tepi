@@ -203,7 +203,11 @@ namespace Tepi
                 float gapL = hasL && (hasC || hasR) ? SegGap * leftPresence : 0, gapR = hasR && hasC ? SegGap : 0;
                 float leftBlock = hasL ? wl + gapL : 0, rightBlock = hasR ? wr + gapR : 0;
                 float gap = GapX * fit;
-                float originRest = dipW / 2 - (leftBlock + restW + rightBlock) / 2 + leftBlock;
+                // Centre glides when the right side changes width
+                rightGlide.Target = rightBlock;
+                if (!rightPrimed || Anim.Reduced) { rightGlide.Snap(rightBlock); rightPrimed = true; }
+                else if (!rightGlide.Settled) Animate();
+                float originRest = dipW / 2 - (leftBlock + restW + rightGlide.Value) / 2 + leftBlock;
                 // Magnification targets from rest positions: no feedback loop
                 float sigma = iconSize * 1.35f, mag = Mag;
                 bool wave = inside && mouseY >= barTop - iconSize * (mag - 1) - 8 && dragApp == null;
@@ -274,7 +278,7 @@ namespace Tepi
             // One small hop when launching; a few when an app calls for you
             static float HopLift(DockApp a)
             {
-                if (a.Hop < 0) return 0;
+                if (a.Hop < 0 || Anim.Reduced) return 0;
                 float t = a.Hop / HopSecs;
                 float height = a.Attention ? 0.8f : 0.6f;
                 return Hop * height * (float)Math.Sin(Math.PI * Ease.Clamp01(t));
@@ -286,18 +290,22 @@ namespace Tepi
                 bool moving = false;
                 reveal.Step(dt);
                 hover.Step(dt);
-                moving |= !reveal.Settled || !hover.Settled;
+                StepHot(dt);
+                rightGlide.Step(dt);
+                moving |= !rightGlide.Settled;
+                moving |= !reveal.Settled || !hover.Settled || HotMoving();
                 foreach (var s in sysGrow.Values) { s.Step(dt); moving |= !s.Settled; }
                 foreach (var s in widgetShow.Values) { s.Step(dt); moving |= !s.Settled; }
                 for (int i = apps.Count - 1; i >= 0; i--)
                 {
                     var a = apps[i];
                     a.Grow.Step(dt);
+                    a.X.Step(dt);
                     if (a.Delay > 0) { a.Delay -= dt; moving = true; }
                     else a.Show.Step(dt);
                     a.Dot.Target = DotTarget(a);
                     a.Dot.Step(dt);
-                    moving |= !a.Grow.Settled || !a.Show.Settled || !a.Dot.Settled;
+                    moving |= !a.Grow.Settled || !a.Show.Settled || !a.Dot.Settled || !a.X.Settled || BadgePopping(a);
                     if (a.Hop >= 0)
                     {
                         a.Hop += dt;
@@ -316,6 +324,8 @@ namespace Tepi
                 return moving;
             }
 
+            static bool BadgePopping(DockApp a) { return (DateTime.UtcNow - a.BadgeUtc).TotalSeconds < 0.32; }
+
             float DotTarget(DockApp a)
             {
                 if (!a.Running) return 0;
@@ -332,6 +342,9 @@ namespace Tepi
                 foreach (var id in ids) w += WidgetW(id) + 6;
                 return w;
             }
+
+            readonly Spring rightGlide = new Spring(0, 240, 31, 0.05f);
+            bool rightPrimed;
 
             Spring WidgetSpring(string id)
             {

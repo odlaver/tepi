@@ -20,8 +20,18 @@ namespace Tepi
             public CalendarSheet(Island isle, DockWindow dock) : base(isle, dock, "cal", "Tepi Calendar")
             {
                 W = 360;
-                refresh.Tick += delegate { Render(); };
+                // Redraw only when the minute or the list changes
+                refresh.Tick += delegate
+                {
+                    var list = isle.notifs;
+                    string s = string.Concat(DateTime.Now.ToString("yyyyMMddHHmm"), list.Count, list.Count > 0 ? list[0].Id : 0, isle.NotifOn, isle.QuietSwitch, Ink.Epoch);
+                    if (s == drawnSig) return;
+                    drawnSig = s;
+                    Render();
+                };
             }
+
+            string drawnSig;
 
             protected override void Opening(Rectangle mon, int barTop)
             {
@@ -68,11 +78,16 @@ namespace Tepi
                     var row = new RectangleF(Pad - 8, 46 + i * RowH, W - Pad * 2 + 16, RowH - 4);
                     string id = "n" + (first + i), del = "x" + (first + i);
                     bool hover = hotId == id || hotId == del;
+                    float rk = Math.Max(HotK(id), HotK(del));
                     Hit(row, id);
-                    if (hover) p.FillRound(row, 14, pressId == id ? p.T.FillPressed : p.T.Fill);
+                    if (pressId == id) p.FillRound(row, 14, p.T.FillPressed);
+                    else if (rk > 0) p.FillRound(row, 14, Ink.A(p.T.Fill, rk));
                     float cy = row.Y + row.Height / 2;
                     var logo = new RectangleF(row.X + 10, cy - 16, 32, 32);
-                    if (item.Logo != null) g.DrawImage(item.Logo, logo);
+                    // The app's colour behind its logo
+                    var brand = isle.Brand(item);
+                    if (!brand.IsEmpty) p.Circle(logo.X + 16, cy, 20, Ink.A(brand, AppTint.Mode == "lembut" ? 0.18f : 0.3f));
+                    if (item.Logo != null) p.Picture(AppTint.On ? item.Logo : NotifSource.Drained(item.Logo), RectangleF.Inflate(logo, brand.IsEmpty ? 0 : -3, brand.IsEmpty ? 0 : -3));
                     else
                     {
                         p.FillRound(logo, 9, p.T.FillHover);
@@ -83,13 +98,17 @@ namespace Tepi
                     p.Text(isle.NotifTitle(item), Ink.Semi(12.5f), p.T.Text, tx, cy - 9, row.Right - tx - 74, StringAlignment.Near);
                     p.Text(isle.NotifBody(item), Ink.Text(11.5f), p.T.Sub, tx, cy + 9, row.Right - tx - 40, StringAlignment.Near);
                     var x = new RectangleF(row.Right - 36, cy - 14, 28, 28);
-                    if (hover)
+                    // Time hands over to the close button
+                    if (hover) Hit(x, del);
+                    float keep = p.Alpha;
+                    if (rk < 1) { p.Alpha = keep * (1 - rk); p.TextRight(Fmt.Ago(item.Time), Ink.Small(11f), p.T.Sub, row.Right - 12, cy - 9); }
+                    if (rk > 0)
                     {
-                        Hit(x, del);
-                        p.Circle(x.X + 14, x.Y + 14, 12, hotId == del ? p.T.FillHover : p.T.Fill);
+                        p.Alpha = keep * rk;
+                        p.Circle(x.X + 14, x.Y + 14, 12, Ink.Mix(p.T.Fill, p.T.FillHover, HotK(del)));
                         p.Cross(x.X + 14, x.Y + 14, 10, p.T.Sub);
                     }
-                    else p.TextRight(Fmt.Ago(item.Time), Ink.Small(11f), p.T.Sub, row.Right - 12, cy - 9);
+                    p.Alpha = keep;
                 }
                 // More than fit: a thin scroll mark
                 if (list.Count > rows)
@@ -119,6 +138,35 @@ namespace Tepi
                     p.TextCenter(ci.DateTimeFormat.GetShortestDayName(dow), Ink.Small(11f), p.T.Sub, x0 + c * Cell + Cell / 2, y);
                 }
                 y += 16;
+                // Month change: grids slide the way you went
+                if (month != drawnMonth)
+                {
+                    swapFrom = drawnMonth;
+                    swapUtc = drawnMonth == int.MinValue || Anim.Reduced ? DateTime.MinValue : DateTime.UtcNow;
+                    drawnMonth = month;
+                    Animate();
+                }
+                float k = Ease.OutCubic((float)(DateTime.UtcNow - swapUtc).TotalSeconds / 0.22f), dir = Math.Sign(month - swapFrom), keep = p.Alpha;
+                var st = g.Save();
+                g.IntersectClip(new RectangleF(0, y - 2, W, 6 * CellH + 4));
+                if (k < 1)
+                {
+                    p.Alpha = keep * (1 - k);
+                    DrawDays(new DateTime(today.Year, today.Month, 1).AddMonths(swapFrom), today, dayOne, x0 - dir * 18 * k, y);
+                }
+                p.Alpha = keep * k;
+                DrawDays(shown, today, dayOne, x0 + dir * 18 * (1 - k), y);
+                p.Alpha = keep;
+                g.Restore(st);
+            }
+
+            int drawnMonth = int.MinValue, swapFrom;
+            DateTime swapUtc = DateTime.MinValue;
+
+            protected override bool Animating(float dt) { return (DateTime.UtcNow - swapUtc).TotalSeconds < 0.24; }
+
+            void DrawDays(DateTime shown, DateTime today, DayOfWeek dayOne, float x0, float y)
+            {
                 int lead = ((int)shown.DayOfWeek - (int)dayOne + 7) % 7;
                 var day = shown.AddDays(-lead);
                 for (int r = 0; r < 6; r++)
@@ -152,10 +200,17 @@ namespace Tepi
                 return id != null && id.Length > 1 && id[0] == tag && int.TryParse(id.Substring(1), out i) ? i : -1;
             }
 
+            int wheelAcc;
+
             protected override void Wheel(string id, int delta)
             {
-                if (IndexOf(id, 'n') >= 0 || IndexOf(id, 'x') >= 0) first -= Math.Sign(delta);
-                else month -= Math.Sign(delta);
+                // Whole notches only, so touchpads don't race
+                wheelAcc += delta;
+                int steps = wheelAcc / 120;
+                if (steps == 0) return;
+                wheelAcc -= steps * 120;
+                if (IndexOf(id, 'n') >= 0 || IndexOf(id, 'x') >= 0) first -= steps;
+                else month -= steps;
             }
 
             protected override void Clicked(string id, MouseButtons button)

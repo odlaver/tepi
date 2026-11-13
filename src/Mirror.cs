@@ -196,7 +196,7 @@ namespace Tepi
             ThreadPool.QueueUserWorkItem(delegate
             {
                 m.Start((int)Math.Round((MirrorW - 16) * scale), (int)Math.Round((MirrorH - 16) * scale), 20 * scale);
-                if (m.Failed) Post(() => { if (ReferenceEquals(m, mirror)) { CloseMirror(); ShowInfo(Ink.IcoCam, Lang.T("Kamera tidak bisa dibuka"), "", true); } });
+                if (m.Failed) Post(() => { if (ReferenceEquals(m, mirror)) { CloseMirror(); ShowFail(Ink.IcoCam, Lang.T("Kamera tidak bisa dibuka"), "", true); } });
             });
             Kick();
         }

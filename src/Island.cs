@@ -23,6 +23,8 @@ namespace Tepi
         public DateTime ShownUtc;
         public string Title = "", Detail = "";
         public char Glyph;
+        // Meaning: 0 plain, 1 done, 2 heads-up, 3 failed
+        public int Kind;
         public bool Emblem;
         public object Data;
         public bool Flag;
@@ -113,6 +115,8 @@ namespace Tepi
 
             Ink.Init();
             Anim.Read(settings);
+            Retune();
+            AppTint.Mode = settings.Get("notif.tint", "penuh");
             Fmt.H24 = settings.GetBool("clock.24", true);
             Ink.Apply(ThemeLight());
             Ink.SetAccent(settings.Get("accent", ""));
@@ -121,7 +125,7 @@ namespace Tepi
             {
                 toastTimer.Stop();
                 // Buttons under the pointer stay; gone soon after it leaves
-                if (toast != null && toast.Interactive && pointerInside) { toastTimer.Interval = 1500; toastTimer.Start(); return; }
+                if (toast != null && toast.Interactive && pointerInside) { ArmToast(1500); return; }
                 DismissToast();
             };
             hoverTimer.Tick += delegate
@@ -254,6 +258,8 @@ namespace Tepi
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            // Quitting is not undoing
+            CommitPending();
             Application.Idle -= OnIdle;
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettings;
             SystemEvents.SessionSwitch -= OnSessionSwitch;
@@ -330,10 +336,11 @@ namespace Tepi
                     return;
                 case 0x020E: // WM_MOUSEHWHEEL: sideways swipe changes tab
                     if (expanded) WheelTab((short)((m.WParam.ToInt64() >> 16) & 0xFFFF));
+                    else SwipeWheel((short)((m.WParam.ToInt64() >> 16) & 0xFFFF));
                     m.Result = IntPtr.Zero;
                     return;
                 case 0x001A: // WM_SETTINGCHANGE: animation effects, light or dark
-                    if (m.WParam.ToInt64() == 0x1043) { Anim.Read(settings); Kick(); }
+                    if (m.WParam.ToInt64() == 0x1043) { Anim.Read(settings); Retune(); Kick(); }
                     else if (m.LParam != IntPtr.Zero && Marshal.PtrToStringUni(m.LParam) == "ImmersiveColorSet") OnColorSetChanged();
                     break;
                 case Native.WM_DPICHANGED:
@@ -614,6 +621,20 @@ namespace Tepi
             renderMs = 0;
             worstMs = 0;
             fpsStart = t;
+        }
+
+        // Raw springs follow motion.feel too
+        void Retune()
+        {
+            Tune(sr, 300, 0.75f);
+            Tune(bubble, 170, 0.58f);
+            Tune(topGap, 380, 0.62f);
+            Tune(batteryFill, 90, 0.63f);
+            Tune(vinylOut, 110, 0.62f);
+            Tune(classSegX, 420, 0.83f);
+            Tune(shelfSegX, 420, 0.83f);
+            foreach (var s in switches.Values) Tune(s, 520, 0.66f);
+            if (dockWin != null) dockWin.Changed();
         }
 
         // Stiffness scales with response squared
@@ -1261,6 +1282,9 @@ namespace Tepi
             var st = g.Save();
             float w = shell.Width, h = shell.Height;
             g.TranslateTransform(shell.X, shell.Y);
+            // Swiped toast follows the finger
+            if (v == current && swipe.Value != 0) g.TranslateTransform(swipe.Value, 0);
+            alpha *= SwipeFade(v);
             // Settles from 1.04 about the centre
             if (Math.Abs(zoom - 1) > 0.0005f)
             {
@@ -1272,7 +1296,7 @@ namespace Tepi
             originX = shell.X;
             originY = shell.Y;
             hitsOn = registerHits;
-            try { DrawView(v, w, h, now); }
+            try { DrawView(v, w, h, now); DrawToastClock(v, w, h); }
             finally
             {
                 g.Restore(st);
@@ -1391,6 +1415,7 @@ namespace Tepi
             base.OnMouseMove(e);
             mouse = new PointF(e.X / scale, e.Y / scale);
             if (prompterSizing != 0) { SizePrompterTo(Control.MousePosition); return; }
+            if (SwipeMove()) return;
             if (dragId != null)
             {
                 var dh = HitById(dragId);
@@ -1404,6 +1429,7 @@ namespace Tepi
             if (inside && !pointerInside)
             {
                 pointerInside = true;
+                PauseToast();
                 Kick();
                 leaveTimer.Stop();
                 if (!expanded)
@@ -1421,7 +1447,16 @@ namespace Tepi
             else if (!inside && pointerInside) { PointerLeave(); return; }
             string id = inside ? HitAt(mouse) : null;
             // Redraw only when the hovered control changes
-            if (id != hoverId) { hoverId = id; Kick(); if (expanded) TabHoverCheck(id); }
+            if (id != hoverId) { hoverId = id; Kick(); if (expanded) TabHoverCheck(id); PointerShape(id); }
+        }
+
+        // Hand over what acts; prompter edges set their own
+        void PointerShape(string id)
+        {
+            if (current == View.Prompter) return;
+            var h = id != null ? HitById(id) : null;
+            var want = h != null && ((h.Act != null && h.Act != noAct) || h.Drag != null) ? Cursors.Hand : Cursors.Default;
+            if (Cursor != want) Cursor = want;
         }
 
         void PointerLeave()
@@ -1431,6 +1466,8 @@ namespace Tepi
             if (prompterSizing != 0) return;
             pointerInside = false;
             shellDown = false;
+            ResumeToast();
+            PointerShape(null);
             hoverTimer.Stop();
             leaveTimer.Stop();
             leaveTimer.Start();
@@ -1460,6 +1497,7 @@ namespace Tepi
                 var pt = new PointF(e.X / scale, e.Y / scale);
                 if (current == View.Prompter && PrompterGrab(pt, Control.MousePosition)) return;
                 pressedId = HitAt(pt);
+                SwipeDown(pt);
                 var h = HitById(pressedId);
                 if (h != null && h.Drag != null) { dragId = pressedId; Capture = true; h.Drag(Fraction(h, pt)); }
                 // Bare pill or a pill-wide hit
@@ -1480,6 +1518,7 @@ namespace Tepi
                 if (!InShape(pt)) PointerLeave();
                 return;
             }
+            if (SwipeUp()) return;
             if (dragId != null)
             {
                 var dh = HitById(dragId);
@@ -1607,11 +1646,18 @@ namespace Tepi
                 t.ShownUtc = DateTime.UtcNow;
                 if (!Anim.Reduced) topGap.Velocity += 70; // arrival dip
             }
+            else if (current == v && !Anim.Reduced && (v == View.Notif || v == View.Track || v == View.Info || v == View.Done))
+            {
+                // New words in the same toast: crossfade
+                snapWanted = true;
+                previous = v;
+                switchedUtc = DateTime.UtcNow;
+                topGap.Velocity += 35;
+            }
             toast = t;
             if (!same) EyesToast(v, t);
-            toastTimer.Stop();
-            toastTimer.Interval = Math.Max(1, (int)(seconds * 1000));
-            toastTimer.Start();
+            ResetSwipe();
+            ArmToast(seconds * 1000);
             Kick();
             // Text is filled after: size again
             Post(Kick);
@@ -1629,11 +1675,20 @@ namespace Tepi
             t.Detail = detail;
         }
 
-        void ShowInfo(char glyph, string title, string detail, bool force = false)
+        void ShowInfo(char glyph, string title, string detail, bool force = false) { ShowKind(0, glyph, title, detail, force); }
+        void ShowOk(char glyph, string title, string detail, bool force = false) { ShowKind(1, glyph, title, detail, force); }
+        void ShowWarn(char glyph, string title, string detail, bool force = false) { ShowKind(2, glyph, title, detail, force); }
+        void ShowFail(char glyph, string title, string detail, bool force = false) { ShowKind(3, glyph, title, detail, force); }
+
+        const char IcoCheck = '';
+
+        void ShowKind(int kind, char glyph, string title, string detail, bool force)
         {
-            var t = ShowToast(View.Info, 2.8, 1, false, force);
+            // Failures stay a little longer to be read
+            var t = ShowToast(View.Info, kind == 3 ? 4 : 2.8, kind == 3 ? 2 : 1, false, force);
             if (t == null) return;
-            t.Glyph = glyph;
+            t.Glyph = glyph != '\0' ? glyph : kind == 1 ? IcoCheck : kind >= 2 ? IcoAlert : '\0';
+            t.Kind = kind;
             t.Title = title;
             t.Detail = detail;
         }
@@ -1641,6 +1696,7 @@ namespace Tepi
         void DismissToast()
         {
             toastTimer.Stop();
+            ResetSwipe();
             bool held = toast != null && toast.Hold;
             toast = null;
             if (held) StopRemind();
@@ -1657,8 +1713,7 @@ namespace Tepi
             t.ShownUtc = DateTime.UtcNow;
             toast = t;
             EyesToast(t.View, t);
-            toastTimer.Interval = Math.Max(1, (int)(t.Seconds * 1000));
-            toastTimer.Start();
+            ArmToast(t.Seconds * 1000);
             Post(Kick);
         }
 

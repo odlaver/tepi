@@ -29,9 +29,10 @@ namespace Tepi
             int barTop, baseY;
             DockFrost frost;
             DockPlate plate;
-            readonly Timer closeSoon = new Timer { Interval = 320 }, frames = new Timer { Interval = 15 };
+            readonly Timer closeSoon = new Timer { Interval = 320 };
+            readonly PacedTimer frames = new PacedTimer();
             readonly Spring open = new Spring(0, 1, 1, 0.003f);
-            DateTime lastStep = DateTime.UtcNow;
+            long lastStep;
             string hot, press;
             bool over, leaving;
 
@@ -40,6 +41,19 @@ namespace Tepi
                 public DockWin Win;
                 public IntPtr Id;
                 public RectangleF Box, Pic, Close;
+                public DateTime Born;
+            }
+
+            // Card slides to the next app instead of jumping
+            readonly Spring slideX = new Spring(0, 1, 1, 0.5f);
+            bool slid;
+
+            float BornK(Thumb t) { return Ease.OutCubic((float)(DateTime.UtcNow - t.Born).TotalSeconds / 0.16f); }
+
+            bool ThumbsArriving()
+            {
+                foreach (var t in thumbs) if (BornK(t) < 1) return true;
+                return false;
             }
 
             readonly List<Thumb> thumbs = new List<Thumb>();
@@ -138,7 +152,7 @@ namespace Tepi
                 leaving = true;
                 Tune(open, 2600, 1f);
                 open.Target = 0;
-                lastStep = DateTime.UtcNow;
+                lastStep = System.Diagnostics.Stopwatch.GetTimestamp();
                 frames.Start();
             }
 
@@ -198,7 +212,7 @@ namespace Tepi
             {
                 open.Snap(0);
                 open.Target = 1;
-                lastStep = DateTime.UtcNow;
+                lastStep = System.Diagnostics.Stopwatch.GetTimestamp();
                 Show();
                 frames.Start();
             }
@@ -215,7 +229,7 @@ namespace Tepi
                     foreach (var w in App.Wins)
                     {
                         if (keep.Count >= 6) break;
-                        var t = thumbs.Find(x => x.Win.H == w.H) ?? new Thumb { Win = w };
+                        var t = thumbs.Find(x => x.Win.H == w.H) ?? new Thumb { Win = w, Born = Visible && !Anim.Reduced ? DateTime.UtcNow : DateTime.MinValue };
                         keep.Add(t);
                     }
                     foreach (var t in thumbs) if (!keep.Contains(t) && t.Id != IntPtr.Zero) DwmUnregisterThumbnail(t.Id);
@@ -268,7 +282,19 @@ namespace Tepi
                 int top = Math.Min(barTop, anchor.Top) - (int)(10 * scale) - ph2;
                 baseY = top;
                 if (pw2 != cw || ph2 != ch) MakeCanvas(pw2, ph2);
-                Bounds = new Rectangle(left, top + Rise(), pw2, ph2);
+                // Already up: glide from where it stands
+                var glass = new Rectangle(left, top, pw2, ph2);
+                if (Visible && !leaving && !Anim.Reduced && Math.Abs(Location.X - left) > 2)
+                {
+                    if (!slid || slideX.Settled) slideX.Snap(Location.X);
+                    Springs.Tune(slideX, 0.22f, 1f);
+                    slideX.Target = left;
+                    slid = true;
+                    glass = Rectangle.Union(glass, new Rectangle((int)slideX.Value, top, pw2, ph2));
+                    frames.Start();
+                }
+                else { slideX.Snap(left); slid = true; }
+                Bounds = new Rectangle((int)Math.Round(slideX.Value), top + Rise(), pw2, ph2);
                 if (dock.Glass)
                 {
                     if (frost == null)
@@ -276,12 +302,12 @@ namespace Tepi
                         frost = new DockFrost(pl => { try { BeginInvoke(new Action(() => TakePlate(pl))); } catch (Exception) { pl.Dispose(); } });
                         frost.Start();
                     }
-                    frost.Request(new Rectangle(left, top, pw2, ph2), Ink.Base.Bg, Ink.Light, isle.LiquidOn);
+                    frost.Request(glass, Ink.Base.Bg, Ink.Light, isle.LiquidOn);
                 }
                 Render();
             }
 
-            int Rise() { return (int)Math.Round((1 - open.Value) * 8 * scale); }
+            int Rise() { return Anim.Reduced ? 0 : (int)Math.Round((1 - open.Value) * 8 * scale); }
 
             void TakePlate(DockPlate pl)
             {
@@ -294,14 +320,13 @@ namespace Tepi
 
             void Step()
             {
-                var now = DateTime.UtcNow;
-                float dt = (float)Math.Min(0.05, (now - lastStep).TotalSeconds);
-                lastStep = now;
+                float dt = Math.Min(0.05f, Anim.Dt(ref lastStep));
                 open.Step(dt);
                 if (leaving && open.Value < 0.03f) { frames.Stop(); Finish(); return; }
-                Location = new Point(Location.X, baseY + Rise());
+                slideX.Step(dt);
+                Location = new Point((int)Math.Round(slideX.Value), baseY + Rise());
                 Render();
-                if (open.Settled) frames.Stop();
+                if (open.Settled && slideX.Settled && !ThumbsArriving()) frames.Stop();
             }
 
             void MakeCanvas(int w, int h)
@@ -357,12 +382,25 @@ namespace Tepi
                     {
                         var inner = g.Save();
                         g.ResetTransform();
-                        using (var ia = new ImageAttributes())
+                        var o = Location;
+                        var dst = new Rectangle(plate.Rect.X - o.X, plate.Rect.Y - o.Y + Rise(), plate.Rect.Width, plate.Rect.Height);
+                        if (fade >= 0.999f && dst.Width == plate.Text.Width && dst.Height == plate.Text.Height)
                         {
-                            ia.SetColorMatrix(new ColorMatrix { Matrix33 = fade });
-                            var o = Location;
-                            g.DrawImage(plate.Text, new Rectangle(plate.Rect.X - o.X, plate.Rect.Y - o.Y + Rise(), plate.Rect.Width, plate.Rect.Height), 0, 0, plate.Text.Width, plate.Text.Height, GraphicsUnit.Pixel, ia);
+                            // Settled: plain copy, no matrix
+                            var im = g.InterpolationMode;
+                            var po = g.PixelOffsetMode;
+                            g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                            g.PixelOffsetMode = PixelOffsetMode.Half;
+                            g.DrawImage(plate.Text, dst);
+                            g.InterpolationMode = im;
+                            g.PixelOffsetMode = po;
                         }
+                        else
+                            using (var ia = new ImageAttributes())
+                            {
+                                ia.SetColorMatrix(new ColorMatrix { Matrix33 = fade });
+                                g.DrawImage(plate.Text, dst, 0, 0, plate.Text.Width, plate.Text.Height, GraphicsUnit.Pixel, ia);
+                            }
                         g.Restore(inner);
                     }
                     g.FillPath(p.B(Ink.A(Ink.Base.Bg, plate != null && dock.Glass ? 0.3f : 0.94f)), path);
@@ -405,7 +443,7 @@ namespace Tepi
                     float tx = t.Box.X + 8, ty = t.Box.Y + TitleH / 2 + 2;
                     // The app's icon before the title, as the taskbar shows it
                     var mark = dock.IconOf(App);
-                    if (mark != null) { g.DrawImage(mark, new RectangleF(tx, ty - 8, 16, 16)); tx += 22; }
+                    if (mark != null) { p.Picture(mark, new RectangleF(tx, ty - 8, 16, 16)); tx += 22; }
                     p.Text(t.Win.Title, Ink.Semi(11.5f), p.T.Text, tx, ty, t.Box.Right - tx - (on ? 32 : 8), StringAlignment.Near);
                     if (on)
                     {
@@ -415,7 +453,7 @@ namespace Tepi
                     }
                     // Seen only when Windows has no live picture of the window
                     p.FillRound(t.Pic, 8, p.T.Fill);
-                    if (mark != null) g.DrawImage(mark, new RectangleF(t.Pic.X + t.Pic.Width / 2 - 20, t.Pic.Y + t.Pic.Height / 2 - 20, 40, 40));
+                    if (mark != null) p.Picture(mark, new RectangleF(t.Pic.X + t.Pic.Width / 2 - 20, t.Pic.Y + t.Pic.Height / 2 - 20, 40, 40));
                     if (t.Id == IntPtr.Zero) continue;
                     // DWM paints the live window over this spot
                     var d = t.Pic;
@@ -423,7 +461,7 @@ namespace Tepi
                     {
                         Flags = 0x1 | 0x4 | 0x8 | 0x10,
                         Dest = new Native.RECT { Left = (int)(d.X * scale), Top = (int)(d.Y * scale), Right = (int)(d.Right * scale), Bottom = (int)(d.Bottom * scale) },
-                        Opacity = (byte)(255 * fade),
+                        Opacity = (byte)(255 * fade * BornK(t)),
                         Visible = true,
                         ClientOnly = false
                     };
@@ -447,7 +485,7 @@ namespace Tepi
                     ic.Spot = ToScreen(cell);
                     if (hot == id) { p.FillRound(Inset(cell, 2), 8, press == id ? p.T.FillPressed : p.T.FillHover); tip = FirstLine(ic.Tip); }
                     var bmp = dock.TrayPicture(ic);
-                    if (bmp != null) g.DrawImage(bmp, new RectangleF(cell.X + (Cell - 16) / 2, cell.Y + (Cell - 16) / 2, 16, 16));
+                    if (bmp != null) p.Picture(bmp, new RectangleF(cell.X + (Cell - 16) / 2, cell.Y + (Cell - 16) / 2, 16, 16));
                 }
                 // Footer: the hovered icon's name, and where Windows sorts them
                 float fy = ch / scale - Pad - 13;

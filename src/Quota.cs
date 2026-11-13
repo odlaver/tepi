@@ -1035,10 +1035,10 @@ namespace Tepi
                     p.Text(w.PctText, pf, hot ? p.T.Text : p.T.Sub, tx, cy, 60, StringAlignment.Near);
                     tx += p.Measure(w.PctText, pf) + 7;
                 }
-                p.Text(w.ResetText, lf, p.T.Faint, tx, cy, 200, StringAlignment.Near);
+                p.Text(w.ResetText, lf, p.T.Hint, tx, cy, 200, StringAlignment.Near);
                 x += Math.Max(quotaCols[i], tx + p.Measure(w.ResetText, lf) - x) + 22;
             }
-            if (right - x > p.Measure(tail, lf) + 4) p.TextRight(tail, lf, p.T.Faint, right, cy);
+            if (right - x > p.Measure(tail, lf) + 4) p.TextRight(tail, lf, p.T.Hint, right, cy);
         }
 
         // Near the limit: the ring breathes
@@ -1085,7 +1085,7 @@ namespace Tepi
             catch (Exception ex) { Log.Write("agy statusline: " + ex.Message); }
             if (on) { LogQuota("codex"); LogQuota("copilot"); }
             else { quotas.Clear(); quotaVersion++; }
-            if (err != null) ShowInfo(IcoGauge, Lang.T("Kuota belum dipantau"), err, true);
+            if (err != null) ShowFail(IcoGauge, Lang.T("Kuota belum dipantau"), err, true);
             else ShowInfo(IcoGauge, on ? Lang.T("Kuota agent dipantau") : Lang.T("Kuota agent dilepas"), "", true);
             Kick();
         }

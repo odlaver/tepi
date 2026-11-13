@@ -75,6 +75,57 @@ namespace Tepi
         }
     }
 
+    // Shared tick for Kit controls; stops when idle
+    static class KitMotion
+    {
+        static readonly Timer timer = new Timer { Interval = 15 };
+        static readonly List<Func<float, bool>> live = new List<Func<float, bool>>();
+        static DateTime last;
+
+        static KitMotion() { timer.Tick += Tick; }
+
+        public static void Run(Func<float, bool> step)
+        {
+            if (!live.Contains(step)) live.Add(step);
+            if (timer.Enabled) return;
+            last = DateTime.UtcNow;
+            timer.Start();
+        }
+
+        static void Tick(object sender, EventArgs e)
+        {
+            var now = DateTime.UtcNow;
+            float dt = Math.Min(0.05f, (float)(now - last).TotalSeconds);
+            last = now;
+            for (int i = live.Count - 1; i >= 0; i--)
+            {
+                bool more;
+                try { more = live[i](dt); } catch (ObjectDisposedException) { more = false; }
+                if (!more) live.RemoveAt(i);
+            }
+            if (live.Count == 0) timer.Stop();
+        }
+    }
+
+    // Time-based approach; snaps under reduced motion
+    class Glide
+    {
+        public float Value, Target;
+        readonly float tau;
+
+        public Glide(float tau) { this.tau = tau; }
+
+        public bool Step(float dt)
+        {
+            if (Anim.Reduced) { Value = Target; return false; }
+            Value += (Target - Value) * (1 - (float)Math.Exp(-dt / (tau * Anim.Pace)));
+            if (Math.Abs(Target - Value) < 0.004f) { Value = Target; return false; }
+            return true;
+        }
+
+        public void Snap(float v) { Value = Target = v; }
+    }
+
     // Base: own HWND, focusable, window DPI
     // TextBox with Ctrl+Backspace and Ctrl+Delete
     class KitText : TextBox
@@ -163,41 +214,70 @@ namespace Tepi
     // iOS switch over CheckBox for readers
     class KitSwitch : CheckBox
     {
-        protected override void OnMouseDown(MouseEventArgs e) { KitInk.ByMouse = true; base.OnMouseDown(e); }
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            KitInk.ByMouse = true;
+            base.OnMouseDown(e);
+            if (e.Button == MouseButtons.Left) { press.Target = 1; Go(); }
+        }
+        protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); press.Target = 0; Go(); }
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); hover.Target = 1; Go(); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); hover.Target = 0; press.Target = 0; Go(); }
         protected override void OnKeyUp(KeyEventArgs e) { if (KitInk.ByMouse) { KitInk.ByMouse = false; Invalidate(); } base.OnKeyUp(e); }
 
-        float knob;
-        readonly Timer anim = new Timer { Interval = 15 };
+        // Knob springs; press stretches it
+        readonly Spring knob = new Spring(0, 420, 31, 0.002f);
+        readonly Glide press = new Glide(0.05f), hover = new Glide(0.08f);
+        readonly Func<float, bool> step;
 
         public KitSwitch()
         {
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
             BackColor = Color.Transparent;
             Text = "";
-            anim.Tick += delegate
+            step = Step;
+            CheckedChanged += delegate
             {
-                float want = Checked ? 1 : 0;
-                knob += (want - knob) * (Anim.Reduced ? 1f : 0.35f);
-                if (Math.Abs(want - knob) < 0.01f) { knob = want; anim.Stop(); }
-                Invalidate();
+                knob.K = 420 / (Anim.Pace * Anim.Pace);
+                knob.D = Anim.Damping(0.75f) * 2 * (float)Math.Sqrt(knob.K);
+                knob.Target = Checked ? 1 : 0;
+                if (!IsHandleCreated) knob.Snap(knob.Target);
+                Go();
             };
-            CheckedChanged += delegate { anim.Start(); };
         }
 
-        protected override void OnCreateControl() { base.OnCreateControl(); knob = Checked ? 1 : 0; }
+        void Go()
+        {
+            if (Anim.Reduced) { knob.Snap(knob.Target); press.Snap(press.Target); hover.Snap(hover.Target); Invalidate(); return; }
+            KitMotion.Run(step);
+        }
+
+        bool Step(float dt)
+        {
+            if (IsDisposed) return false;
+            knob.Step(dt);
+            bool a = press.Step(dt), b = hover.Step(dt);
+            Invalidate();
+            return a || b || !knob.Settled;
+        }
+
+        protected override void OnCreateControl() { base.OnCreateControl(); knob.Snap(Checked ? 1 : 0); }
 
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
             KitInk.Smooth(g);
             g.Clear(KitInk.Under(this));
-            float s = Height / 24f;
+            float s = Height / 24f, k = Math.Max(-0.05f, Math.Min(1.05f, knob.Value)), kc = Ease.Clamp01(k);
             var track = new RectangleF(1, (Height - 22 * s) / 2, 40 * s, 22 * s);
+            Color off = Ink.Mix(KitInk.Line, KitInk.Faint, 0.3f * hover.Value), on = Ink.Mix(KitInk.Accent, KitInk.Window, 0.12f * hover.Value);
             using (var path = Ink.Round(track, 11 * s))
-            using (var b = new SolidBrush(Enabled ? Ink.Mix(KitInk.Line, KitInk.Accent, knob) : KitInk.Line)) g.FillPath(b, path);
-            float r = 9 * s;
-            float cx = track.X + 11 * s + knob * 18 * s, cy = track.Y + 11 * s;
-            using (var b = new SolidBrush(Enabled ? Ink.Mix(KitInk.Text, KitInk.OnAccent, knob) : KitInk.Faint)) g.FillEllipse(b, cx - r, cy - r, r * 2, r * 2);
+            using (var b = new SolidBrush(Enabled ? Ink.Mix(off, on, kc) : KitInk.Line)) g.FillPath(b, path);
+            float r = 9 * s, stretch = 5 * s * press.Value;
+            float cx = track.X + 11 * s + k * 18 * s, cy = track.Y + 11 * s;
+            var pill = RectangleF.FromLTRB(cx - r - stretch * kc, cy - r, cx + r + stretch * (1 - kc), cy + r);
+            using (var path = Ink.Round(pill, r))
+            using (var b = new SolidBrush(Enabled ? Ink.Mix(KitInk.Text, KitInk.OnAccent, kc) : KitInk.Faint)) g.FillPath(b, path);
             if (Focused && ShowFocusCues && !KitInk.ByMouse)
             {
                 var ring = KitControl.Inside(RectangleF.Inflate(track, 2, 2), Width, Height);
@@ -206,21 +286,66 @@ namespace Tepi
             }
         }
 
-        protected override void Dispose(bool disposing) { if (disposing) anim.Dispose(); base.Dispose(disposing); }
     }
 
     // Pill choices; arrows move between
     class KitSegmented : KitControl
     {
         public string[] Items = new string[0];
-        int selected;
+        int selected, hot = -1;
         public event Action<int> Changed;
+
+        // Pill slides between segments
+        readonly Spring pill = new Spring(0, 520, 40, 0.002f);
+        readonly Glide hotFade = new Glide(0.07f);
+        readonly Func<float, bool> step;
+
+        public KitSegmented() { step = Step; }
 
         public int Selected
         {
             get { return selected; }
-            set { if (value == selected) return; selected = value; Invalidate(); AccessibilityNotifyClients(AccessibleEvents.Selection, selected); }
+            set
+            {
+                if (value == selected) return;
+                selected = value;
+                pill.K = 520 / (Anim.Pace * Anim.Pace);
+                pill.D = Anim.Damping(0.82f) * 2 * (float)Math.Sqrt(pill.K);
+                pill.Target = value;
+                if (!IsHandleCreated || Anim.Reduced) pill.Snap(value);
+                else KitMotion.Run(step);
+                Invalidate();
+                AccessibilityNotifyClients(AccessibleEvents.Selection, selected);
+            }
         }
+
+        bool Step(float dt)
+        {
+            if (IsDisposed) return false;
+            pill.Step(dt);
+            bool more = hotFade.Step(dt);
+            Invalidate();
+            return more || !pill.Settled;
+        }
+
+        void Hot(int i)
+        {
+            if (i == hot && hotFade.Target == (i >= 0 ? 1 : 0)) return;
+            if (i >= 0) { if (i != hot) hotFade.Value = 0; hot = i; }
+            hotFade.Target = i >= 0 ? 1 : 0;
+            if (Anim.Reduced) { hotFade.Snap(hotFade.Target); Invalidate(); }
+            else KitMotion.Run(step);
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            int at = -1;
+            for (int i = 0; i < Items.Length; i++) if (Cell(i).Contains(e.Location)) at = i;
+            Hot(at);
+        }
+
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); Hot(-1); }
 
         RectangleF Cell(int i)
         {
@@ -260,15 +385,25 @@ namespace Tepi
             var box = new RectangleF(0, 0, Width - 1, Height - 1);
             Fill(g, box, Height / 2f, KitInk.Line);
             var f = new Font(Ink.MenuFamily, 12.5f * Ui, FontStyle.Regular, GraphicsUnit.Pixel);
-            var fs = new Font(Ink.MenuFamily, 12.5f * Ui, FontStyle.Regular, GraphicsUnit.Pixel);
+            float w = (Width - 1f) / Math.Max(1, Items.Length);
+            if (hot >= 0 && hot < Items.Length && hot != selected && hotFade.Value > 0)
+            {
+                var hc = RectangleF.Inflate(Cell(hot), -2, -2);
+                Fill(g, hc, hc.Height / 2, Ink.Mix(KitInk.Line, KitInk.Hover, hotFade.Value));
+            }
+            if (Items.Length > 0)
+            {
+                float at = Math.Max(-0.1f, Math.Min(Items.Length - 0.9f, pill.Value));
+                var pr = new RectangleF(at * w, 0, w, Height - 1);
+                Fill(g, pr, pr.Height / 2, KitInk.Raised);
+            }
             for (int i = 0; i < Items.Length; i++)
             {
                 var c = Cell(i);
-                if (i == selected) Fill(g, c, c.Height / 2, KitInk.Raised);
-                KitInk.Draw(g, Items[i], i == selected ? fs : f, i == selected ? KitInk.Text : KitInk.Sub, c, ContentAlignment.MiddleCenter);
+                float near = Ease.Clamp01(1 - Math.Abs(pill.Value - i));
+                KitInk.Draw(g, Items[i], f, Ink.Mix(KitInk.Sub, KitInk.Text, near), c, ContentAlignment.MiddleCenter);
             }
             f.Dispose();
-            fs.Dispose();
             Ring(g, box, Height / 2f);
         }
 
@@ -313,12 +448,39 @@ namespace Tepi
         public event Action<int> Changed;
         bool dragging;
 
+        // Shown fill and knob size glide
+        readonly Glide shown = new Glide(0.045f), grow = new Glide(0.07f);
+        Func<float, bool> step;
+        bool seeded;
+
+        bool Tick(float dt)
+        {
+            if (IsDisposed) return false;
+            bool a = shown.Step(dt), b = grow.Step(dt);
+            Invalidate();
+            return a || b;
+        }
+
+        void Go()
+        {
+            if (step == null) step = Tick;
+            grow.Target = dragging ? 1 : Hovered ? 0.5f : 0;
+            shown.Target = Frac;
+            if (!seeded || Anim.Reduced) { seeded = true; shown.Snap(shown.Target); grow.Snap(grow.Target); Invalidate(); return; }
+            KitMotion.Run(step);
+        }
+
+        float Frac { get { return (float)(Value - Minimum) / Math.Max(1, Maximum - Minimum); } }
+
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); Go(); }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); Go(); }
+
         void Set(int v)
         {
             v = Math.Max(Minimum, Math.Min(Maximum, (int)Math.Round((double)(v - Minimum) / Step) * Step + Minimum));
             if (v == Value) return;
             Value = v;
-            Invalidate();
+            Go();
             AccessibilityNotifyClients(AccessibleEvents.ValueChange, -1);
             var h = Changed;
             if (h != null) h(v);
@@ -330,9 +492,9 @@ namespace Tepi
 
         int At(int x) { var t = Track; return Minimum + (int)Math.Round((Maximum - Minimum) * Ease.Clamp01((x - t.X) / Math.Max(1, t.Width))); }
 
-        protected override void OnMouseDown(MouseEventArgs e) { base.OnMouseDown(e); Focus(); dragging = true; Capture = true; Set(At(e.X)); }
+        protected override void OnMouseDown(MouseEventArgs e) { base.OnMouseDown(e); Focus(); dragging = true; Capture = true; Go(); Set(At(e.X)); }
         protected override void OnMouseMove(MouseEventArgs e) { base.OnMouseMove(e); if (dragging) Set(At(e.X)); }
-        protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); dragging = false; Capture = false; Invalidate(); }
+        protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); dragging = false; Capture = false; Go(); }
 
         protected override bool IsInputKey(Keys key) { return key == Keys.Left || key == Keys.Right || key == Keys.Home || key == Keys.End || base.IsInputKey(key); }
 
@@ -350,11 +512,13 @@ namespace Tepi
             var g = e.Graphics;
             KitInk.Smooth(g);
             g.Clear(KitInk.Under(this));
-            float s = Ui, f = (float)(Value - Minimum) / Math.Max(1, Maximum - Minimum);
+            if (!seeded) { seeded = true; shown.Snap(Frac); }
+            else if (shown.Target != Frac) Go();
+            float s = Ui, f = shown.Value;
             var t = Track;
             Fill(g, t, t.Height / 2, KitInk.Line);
             Fill(g, new RectangleF(t.X, t.Y, Math.Max(t.Height, t.Width * f), t.Height), t.Height / 2, Enabled ? KitInk.Text : KitInk.Faint);
-            float r = (dragging || Hovered ? 9 : 8) * s, cx = t.X + t.Width * f, cy = t.Y + t.Height / 2;
+            float r = (8 + 2 * grow.Value) * s, cx = t.X + t.Width * f, cy = t.Y + t.Height / 2;
             using (var b = new SolidBrush(KitInk.Text)) g.FillEllipse(b, cx - r, cy - r, r * 2, r * 2);
             using (var pen = new Pen(KitInk.Line, 1f)) g.DrawEllipse(pen, cx - r, cy - r, r * 2, r * 2);
             if (ShowValue)
@@ -379,7 +543,9 @@ namespace Tepi
     class KitButton : Button
     {
         public bool Primary;
-        bool hovered;
+        // Hover fades in, press sinks
+        readonly Glide hover = new Glide(0.07f), press = new Glide(0.04f);
+        readonly Func<float, bool> step;
 
         public KitButton()
         {
@@ -388,12 +554,39 @@ namespace Tepi
             FlatAppearance.BorderSize = 0;
             BackColor = Color.Transparent;
             UseVisualStyleBackColor = false;
+            step = Step;
         }
 
-        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); hovered = true; Invalidate(); }
-        protected override void OnMouseDown(MouseEventArgs e) { KitInk.ByMouse = true; base.OnMouseDown(e); }
-        protected override void OnKeyUp(KeyEventArgs e) { if (KitInk.ByMouse) { KitInk.ByMouse = false; Invalidate(); } base.OnKeyUp(e); }
-        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); hovered = false; Invalidate(); }
+        bool Step(float dt)
+        {
+            if (IsDisposed) return false;
+            bool a = hover.Step(dt), b = press.Step(dt);
+            Invalidate();
+            return a || b;
+        }
+
+        void Go()
+        {
+            if (Anim.Reduced) { hover.Snap(hover.Target); press.Snap(press.Target); Invalidate(); return; }
+            KitMotion.Run(step);
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); hover.Target = 1; Go(); }
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            KitInk.ByMouse = true;
+            base.OnMouseDown(e);
+            if (e.Button == MouseButtons.Left) { press.Target = 1; Go(); }
+        }
+        protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); press.Target = 0; Go(); }
+        protected override void OnKeyDown(KeyEventArgs e) { base.OnKeyDown(e); if (e.KeyCode == Keys.Space) { press.Target = 1; Go(); } }
+        protected override void OnKeyUp(KeyEventArgs e)
+        {
+            if (KitInk.ByMouse) { KitInk.ByMouse = false; Invalidate(); }
+            if (e.KeyCode == Keys.Space) { press.Target = 0; Go(); }
+            base.OnKeyUp(e);
+        }
+        protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); hover.Target = 0; press.Target = 0; Go(); }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -403,7 +596,10 @@ namespace Tepi
             bool ringOn = Focused && ShowFocusCues && !KitInk.ByMouse;
             // Focused pill shrinks so its ring fits
             var r = ringOn ? new RectangleF(3.5f, 3.5f, Width - 7, Height - 7) : new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
-            Color bg = Primary ? (hovered ? Ink.Mix(KitInk.Text, KitInk.Window, 0.15f) : KitInk.Text) : (hovered ? KitInk.Hover : KitInk.Line);
+            float sink = 1.5f * press.Value;
+            r = RectangleF.Inflate(r, -sink * 1.6f, -sink);
+            float h = hover.Value, p = press.Value;
+            Color bg = Primary ? Ink.Mix(KitInk.Text, KitInk.Window, 0.15f * h + 0.12f * p) : Ink.Mix(Ink.Mix(KitInk.Line, KitInk.Hover, h), KitInk.Faint, 0.25f * p);
             if (!Enabled) bg = KitInk.Line;
             using (var path = Ink.Round(r, r.Height / 2f))
             using (var b = new SolidBrush(bg)) g.FillPath(b, path);
@@ -603,6 +799,30 @@ namespace Tepi
                 double k = Math.Min(1, (DateTime.UtcNow - start).TotalMilliseconds / 160);
                 Opacity = 1 - (1 - k) * (1 - k);
                 if (k >= 1) { fade.Stop(); fade.Dispose(); }
+            };
+            fade.Start();
+        }
+
+        // Soft exit for modeless windows
+        bool leaving;
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+            if (e.Cancel || leaving || Modal || Anim.Reduced || !Visible || e.CloseReason != CloseReason.UserClosing) return;
+            e.Cancel = true;
+            leaving = true;
+            double from = Opacity;
+            var start = DateTime.UtcNow;
+            var fade = new Timer { Interval = 15 };
+            fade.Tick += delegate
+            {
+                if (IsDisposed) { fade.Stop(); fade.Dispose(); return; }
+                double k = Math.Min(1, (DateTime.UtcNow - start).TotalMilliseconds / 120);
+                Opacity = from * (1 - k * k);
+                if (k < 1) return;
+                fade.Stop();
+                fade.Dispose();
+                Close();
             };
             fade.Start();
         }

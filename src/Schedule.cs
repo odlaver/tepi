@@ -192,7 +192,7 @@ namespace Tepi
                         if (row.Bottom <= area.Bottom && row.Top >= area.Top) AddHit(row, rowId, delegate { OpenUrl(url); });
                     }
                     bool live = !c.Cancelled && !c.AllDay && nowLocal >= c.Start && nowLocal < c.End;
-                    var ink = c.Cancelled || nowLocal >= c.End ? p.T.Faint : p.T.Text;
+                    var ink = c.Cancelled || nowLocal >= c.End ? p.T.Hint : p.T.Text;
                     if (c.AllDay) p.Text(Lang.T("seharian"), Ink.Small(11f), p.T.Sub, 26, rc, 52, StringAlignment.Near);
                     else p.Text(Fmt.Hm(c.Start), Ink.Semi(12.5f), live ? p.T.Accent : ink, 26, rc, 52, StringAlignment.Near);
                     string tag = c.Cancelled ? Lang.T("batal") : c.Exam ? Lang.T("ujian") : live ? Lang.T("sekarang") : "";
@@ -204,10 +204,10 @@ namespace Tepi
                     {
                         var pill = new RectangleF(right - tagW, rc - 10, tagW, 20);
                         if (c.Cancelled) p.StrokeRound(pill, 10, p.T.Faint, 1f); else p.FillRound(pill, 10, p.T.Accent);
-                        p.TextCenter(tag, Ink.Semi(10.5f), c.Cancelled ? p.T.Faint : p.T.OnAccent, pill.X + tagW / 2, rc);
+                        p.TextCenter(tag, Ink.Semi(10.5f), c.Cancelled ? p.T.Hint : p.T.OnAccent, pill.X + tagW / 2, rc);
                         right -= tagW + 8;
                     }
-                    if (roomW > 0) p.Text(room, Ink.Small(11f), p.T.Faint, right, rc, roomW, StringAlignment.Far);
+                    if (roomW > 0) p.Text(room, Ink.Small(11f), p.T.Hint, right, rc, roomW, StringAlignment.Far);
                     float tx = 84, tw = right - roomW - 12 - tx;
                     p.Text(c.Title, Ink.Semi(12.5f), ink, tx, rc, tw, StringAlignment.Near);
                     if (c.Cancelled) g.DrawLine(p.P(p.T.Faint, 1f), tx, rc, tx + Math.Min(tw, p.Measure(c.Title, Ink.Semi(12.5f))), rc);

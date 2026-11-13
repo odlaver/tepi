@@ -14,6 +14,70 @@ namespace Tepi
         {
             string hoverId, pressId;
             Point downAt;
+            // Plate fades: hovered id in, previous out, held id sinks
+            readonly Spring hotIn = new Spring(0, 1, 1, 0.004f), hotOut = new Spring(0, 1, 1, 0.004f), held = new Spring(0, 1, 1, 0.003f);
+            string hotInId, hotOutId, heldId;
+
+            void StepHot(float dt)
+            {
+                string h = dragApp == null ? hoverId : null;
+                if (h != hotInId)
+                {
+                    float back = h != null && h == hotOutId ? hotOut.Value : 0;
+                    if (hotInId != null)
+                    {
+                        hotOutId = hotInId;
+                        hotOut.Value = hotIn.Value;
+                        hotOut.Velocity = 0;
+                        Springs.Tune(hotOut, 0.2f, 1f);
+                        hotOut.Target = 0;
+                    }
+                    else if (back > 0) hotOutId = null;
+                    hotInId = h;
+                    hotIn.Value = back;
+                    hotIn.Velocity = 0;
+                    Springs.Tune(hotIn, 0.1f, 1f);
+                    hotIn.Target = h != null ? 1 : 0;
+                }
+                string down = pressId != null && pressId == hoverId && dragApp == null ? pressId : null;
+                if (down != null && down != heldId) { heldId = down; heldSince = DateTime.UtcNow; Springs.Tune(held, 0.1f, 1f); held.Target = 1; }
+                // Held still on an app: it lifts, ready to drag
+                else if (down != null && held.Target == 1 && AppById(down) != null && (DateTime.UtcNow - heldSince).TotalSeconds > 0.32 && !Anim.Reduced)
+                {
+                    Springs.Tune(held, 0.24f, 0.7f);
+                    held.Target = -1.2f;
+                }
+                else if (down == null && heldId != null && held.Target != 0) { Springs.Tune(held, 0.3f, 0.6f); held.Target = 0; }
+                hotIn.Step(dt);
+                hotOut.Step(dt);
+                held.Step(dt);
+                if (hotOutId != null && hotOut.Settled) hotOutId = null;
+                if (heldId != null && down == null && held.Settled) heldId = null;
+            }
+
+            DateTime heldSince;
+
+            bool HotMoving()
+            {
+                bool waiting = heldId != null && pressId == heldId && held.Target == 1 && (DateTime.UtcNow - heldSince).TotalSeconds < 0.36;
+                return !hotIn.Settled || (hotOutId != null && !hotOut.Settled) || (heldId != null && !held.Settled) || waiting;
+            }
+
+            float HotK(string id)
+            {
+                if (id == null || dragApp != null) return 0;
+                if (Anim.Reduced) return hoverId == id ? 1 : 0;
+                if (id == hotInId) return Ease.Clamp01(hotIn.Value);
+                if (id == hotOutId) return Ease.Clamp01(hotOut.Value);
+                return 0;
+            }
+
+            float HeldK(string id)
+            {
+                if (id == null || dragApp != null) return 0;
+                if (Anim.Reduced) return pressId == id && hoverId == id ? 1 : 0;
+                return id == heldId ? held.Value : 0;
+            }
             // Reorder: the dragged app, its grab point, and the gaps it opens
             DockApp dragApp;
             PointF dragGrab;
@@ -123,6 +187,7 @@ namespace Tepi
                 dwell.Stop();
                 if (id != null && id.StartsWith("tray:", StringComparison.Ordinal)) TrayDown(id, e.Button);
                 Render();
+                Animate();
             }
 
             protected override void OnMouseUp(MouseEventArgs e)
@@ -143,6 +208,7 @@ namespace Tepi
                 }
                 pressId = null;
                 Render();
+                Animate();
             }
 
             static void Run(Action a, string id)
@@ -154,8 +220,9 @@ namespace Tepi
             {
                 base.OnMouseWheel(e);
                 if (hoverId != "status") return;
-                float step = e.Delta > 0 ? 0.02f : -0.02f;
+                float step = 0.02f * e.Delta / 120f;
                 isle.volume.Set(Ease.Clamp01(isle.vol + step));
+                Render();
             }
 
             // Click always brings the app forward, never minimizes it;
@@ -641,9 +708,9 @@ namespace Tepi
                 int to = Math.Max(0, Math.Min(dragTo, others.Count));
                 if (to <= pinned) Pin(a, PinIndex(others, to));
                 else if (a.Pinned) Pin(a, -1);
-                // The icon lands where the gap was, then grows back in
-                a.Show.Snap(0.6f);
-                a.Show.Target = 1;
+                // The icon flies from the ghost into the gap
+                a.Show.Snap(1);
+                if (!Anim.Reduced) a.LandX = mouseX - dragGrab.X;
                 Refresh(false);
             }
 

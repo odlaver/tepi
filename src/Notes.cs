@@ -42,16 +42,16 @@ namespace Tepi
                 {
                     File.AppendAllText(NotesPath, "- " + DateTime.Now.ToString("yyyy-MM-dd HH.mm") + "  " + text + Environment.NewLine);
                     if (settings.GetBool("shelf", true)) AddToShelf(new[] { NotesPath });
-                    ShowInfo(IcoShelf, Lang.T("Disimpan ke catatan"), Preview(text, 40), true);
+                    ShowOk(IcoShelf, Lang.T("Disimpan ke catatan"), Preview(text, 40), true);
                 }
-                catch (Exception ex) { Log.Write("note: " + ex.Message); ShowInfo(IcoShelf, Lang.T("Catatan gagal disimpan"), "", true); }
+                catch (Exception ex) { Log.Write("note: " + ex.Message); ShowFail(IcoShelf, Lang.T("Catatan gagal disimpan"), "", true); }
                 return;
             }
             string name = to == "notion" ? "Notion" : "Todoist";
             sources.Create(to, text, err =>
             {
-                if (err == null) ShowInfo(Ink.IcoCalendar, Lang.F("Tugas baru di {0}", name), Preview(text, 40), true);
-                else ShowInfo(Ink.IcoCalendar, err, "", true);
+                if (err == null) ShowOk(Ink.IcoCalendar, Lang.F("Tugas baru di {0}", name), Preview(text, 40), true);
+                else ShowFail(Ink.IcoCalendar, err, "", true);
             });
         }
 

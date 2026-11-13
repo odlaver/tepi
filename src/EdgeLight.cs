@@ -194,7 +194,7 @@ namespace Tepi
         {
             bool today = task.DeadlineUtc.ToLocalTime().Date == DateTime.Today;
             bool left = tasks != null && tasks.Exists(t => t != task && t.DeadlineUtc.ToLocalTime().Date == DateTime.Today);
-            if (!today || left) { ShowInfo('\0', Lang.T("Ditandai selesai"), task.Title, true); return; }
+            if (!today || left) { ShowOk('\0', Lang.T("Ditandai selesai"), task.Title, true); return; }
             var t2 = ShowToast(View.Info, 4, 3, false, true);
             if (t2 != null)
             {

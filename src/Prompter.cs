@@ -439,12 +439,24 @@ namespace Tepi
             if (done > 0) p.FillRound(new RectangleF(track.X, track.Y, Math.Max(2, track.Width * done), 2), 1, p.T.Accent);
             DrawKnob(track.X + track.Width * done, track.Y + 1, track.X, track.Right);
 
+            float ck = PrompterHoverK();
             if (prompterSizing != 0) p.TextRight(SizeText(), Ink.Small(11f), p.T.Sub, w - 22, 18);
-            else if (pointerInside) DrawPrompterControls(w, h);
             else
             {
-                string state = !prompterPaused ? LeftText() : prompterPos >= end ? Lang.T("selesai") : Lang.T("jeda") + " · " + LeftText();
-                p.TextRight(state, Ink.Small(11f), p.T.Sub, w - 22, 18);
+                // Time hands over to the control bar
+                float keep = p.Alpha;
+                if (ck < 1)
+                {
+                    p.Alpha = keep * (1 - ck);
+                    string state = !prompterPaused ? LeftText() : prompterPos >= end ? Lang.T("selesai") : Lang.T("jeda") + " · " + LeftText();
+                    p.TextRight(state, Ink.Small(11f), p.T.Sub, w - 22, 18);
+                }
+                if (ck > 0)
+                {
+                    p.Alpha = keep * ck;
+                    DrawPrompterControls(w, h);
+                }
+                p.Alpha = keep;
             }
             if (prompterPaused && (pointerInside || prompterSizing != 0)) DrawPrompterGrips(w, h);
         }
@@ -453,7 +465,7 @@ namespace Tepi
         {
             // Whole device pixels: crisp text, fewer redraws
             float pos = (float)Math.Round(prompterPos * scale) / scale;
-            float readY = (float)Math.Round(h * 0.4f), baseA = p.Alpha, bottom = pointerInside && prompterSizing == 0 ? h - 52 : h - 4;
+            float readY = (float)Math.Round(h * 0.4f), baseA = p.Alpha, bottom = prompterSizing == 0 ? Ease.Lerp(h - 4, h - 52, PrompterHoverK()) : h - 4;
             int first = Math.Max(0, (int)Math.Floor((pos - readY) / lh));
             for (int i = first; i < lineStart.Count; i++)
             {

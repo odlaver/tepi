@@ -50,7 +50,7 @@ namespace Tepi
                 + (navKey.Length > 0 ? " " + Lang.F("{0} memindahkan fokus ke island untuk dipakai dengan keyboard.", navKey) : "");
             var steps = new[]
             {
-                new TourStep { Title = Lang.T("Ini Tepi"), Body = Lang.T("Island di tepi atas ini membesar saat ada yang terjadi: lagu diputar, pesan masuk, agent minta izin, unduhan berjalan, atau flashdisk dicolok. Saat tidak dipakai, ia bisa menyusut jadi garis kecil bermata yang tembus klik.") },
+                new TourStep { Title = Lang.T("Ini Tepi"), Body = Lang.T("Island di tepi atas ini membesar saat ada yang terjadi: lagu, pesan, izin agent, unduhan, atau flashdisk. Saat diam, ia bisa menyusut jadi garis kecil bermata yang tembus klik.") },
                 new TourStep
                 {
                     Title = Lang.T("Buka panel"),
@@ -63,9 +63,9 @@ namespace Tepi
                     Body = Lang.F("Selagi panel terbuka, scroll di atasnya untuk pindah tab: {0}. Tab yang tampil bisa diatur di Pengaturan › Tab panel.", string.Join(", ", tabNames.ToArray())),
                     Done = () => { if (!expanded) return false; if (startPage < 0) startPage = page; return page != startPage; },
                 },
-                new TourStep { Title = Lang.T("Agent coding"), Body = Lang.T("Claude Code, Codex, Antigravity, dan Copilot CLI tampil di tab Agen beserta rencana kerjanya. Saat agent minta izin, pilih Izinkan atau Tolak langsung di island. Sambungkan lewat klik kanan › Hubungkan agen.") },
-                new TourStep { Title = Lang.T("Tugas dan pesan"), Body = Lang.T("Tugas dan jadwal dari Kulia, Notion, Todoist, atau kalender iCal masuk ke tab Kuliah, dengan pengingat sebelum tenggat. Pesan WhatsApp, Telegram, Discord, dan lainnya dikelompokkan per pengirim. Sambungkan di Pengaturan › Integrasi.") },
-                new TourStep { Title = Lang.T("Rak dan ubah format"), Body = Lang.T("Seret berkas ke island, lalu lepas di Taruh di rak untuk menyimpannya sementara, atau di Ubah format untuk mengonversinya, misalnya gambar ke PDF. Screenshot juga muncul di island dan bisa langsung diseret.") },
+                new TourStep { Title = Lang.T("Agent coding"), Body = Lang.T("Claude Code, Codex, Antigravity, dan Copilot CLI tampil di tab Agen. Izin yang diminta agent dijawab langsung di island. Sambungkan lewat klik kanan › Hubungkan agen.") },
+                new TourStep { Title = Lang.T("Tugas dan pesan"), Body = Lang.T("Tugas dan jadwal dari Kulia, Notion, Todoist, atau iCal masuk ke tab Kuliah. Pesan WhatsApp, Telegram, dan Discord dikelompokkan per pengirim, dengan warna aplikasinya. Sambungkan di Pengaturan › Integrasi.") },
+                new TourStep { Title = Lang.T("Rak dan ubah format"), Body = Lang.T("Seret berkas ke island, lalu lepas di Taruh di rak untuk menyimpannya sementara, atau di Ubah format untuk mengonversinya. Screenshot juga muncul di island, siap diseret.") },
                 new TourStep { Title = Lang.T("Dikte dan rapat"), Body = voice },
                 new TourStep { Title = Lang.T("Suruh Tepi"), Body = ask },
                 new TourStep { Title = Lang.T("Menu dan Pengaturan"), Body = menu },
@@ -103,7 +103,8 @@ namespace Tepi
             readonly System.Windows.Forms.Timer glide = new System.Windows.Forms.Timer { Interval = 15 };
             int at;
             DateTime doneSince = DateTime.MinValue;
-            Point target;
+            Point target, from;
+            DateTime glideAt;
             bool placed;
 
             // Dragged by hand: stays put
@@ -190,19 +191,22 @@ namespace Tepi
 
             public void Glide(Point to)
             {
+                if (to == target && glide.Enabled) return;
                 target = to;
                 if (!placed || Anim.Reduced) { placed = true; Location = to; return; }
-                if (Location != to && !glide.Enabled) glide.Start();
+                if (Location == to) return;
+                from = Location;
+                glideAt = DateTime.UtcNow;
+                if (!glide.Enabled) glide.Start();
             }
 
             // Eases toward the island's new edge
             void Step()
             {
                 if (Pinned) { glide.Stop(); return; }
-                var p = Location;
-                int dx = target.X - p.X, dy = target.Y - p.Y;
-                if (Math.Abs(dx) <= 1 && Math.Abs(dy) <= 1) { Location = target; glide.Stop(); return; }
-                Location = new Point(p.X + (int)Math.Round(dx * 0.22), p.Y + (int)Math.Round(dy * 0.22));
+                float k = Ease.OutCubic((float)(DateTime.UtcNow - glideAt).TotalSeconds / Anim.Response(0.32f));
+                Location = new Point(from.X + (int)Math.Round((target.X - from.X) * k), from.Y + (int)Math.Round((target.Y - from.Y) * k));
+                if (k >= 1) glide.Stop();
             }
 
             protected override bool ProcessCmdKey(ref Message msg, Keys keys)

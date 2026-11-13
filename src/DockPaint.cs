@@ -294,9 +294,8 @@ namespace Tepi
             void DrawSys(Slot s)
             {
                 string id = "sys:" + s.Id;
-                bool hot = hoverId == id;
-                var r = s.Icon;
-                if (pressId == id) r = Inset(r, r.Width * 0.05f);
+                float hk = keyMode && keySel == id ? 1 : HotK(id), dk = HeldK(id);
+                var r = Inset(s.Icon, s.Icon.Width * 0.05f * dk);
                 Action act = null, menu = null;
                 switch (s.Id)
                 {
@@ -305,11 +304,10 @@ namespace Tepi
                     case "taskview": act = delegate { ShellVerb("WindowSwitcher"); }; break;
                 }
                 Hit(s.Hit, id, act, menu);
-                hot |= keyMode && keySel == id;
-                Plate(OnBar(s.Icon, 0, pressId == id), hot, pressId == id, 1);
+                Plate(OnBar(s.Icon, 0, dk), hk, dk, 1);
                 if (keyMode && keySel == id) FocusRing(s.Icon);
                 float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, u = r.Width / 42f;
-                Color ink = hot ? p.T.Text : Ink.Mix(p.T.Sub, p.T.Text, 0.55f);
+                Color ink = Ink.Mix(Ink.Mix(p.T.Sub, p.T.Text, 0.55f), p.T.Text, hk);
                 switch (s.Id)
                 {
                     case "start":
@@ -327,34 +325,52 @@ namespace Tepi
                 var a = s.App;
                 if (a == dragApp) return;
                 var app = a;
+                if (!float.IsNaN(a.LandX))
+                {
+                    a.X.Snap(a.LandX - (s.Icon.X + s.Icon.Width / 2));
+                    a.X.Target = 0;
+                    a.LandX = float.NaN;
+                    Animate();
+                }
+                var icon = s.Icon;
+                icon.Offset(a.X.Value, 0);
                 Hit(s.Hit, s.Id, delegate { OpenApp(app, false); }, delegate { AppMenu(app); });
                 bool focus = keyMode && keySel == s.Id;
-                bool hot = (hoverId == s.Id && dragApp == null) || focus, down = pressId == s.Id && dragApp == null;
-                Plate(OnBar(s.Icon, HopLift(a), down), hot, down, s.Show);
-                if (focus) FocusRing(s.Icon);
-                var r = Glyph(down ? Inset(s.Icon, s.Icon.Width * 0.05f) : s.Icon);
+                float hk = focus ? 1 : HotK(s.Id), dk = HeldK(s.Id);
+                Plate(OnBar(icon, HopLift(a), dk), hk, dk, s.Show);
+                if (focus) FocusRing(icon);
+                var r = Glyph(Inset(icon, icon.Width * 0.05f * dk));
                 DrawIconImage(a, r, s.Show);
-                Indicator(a, s.Icon);
-                if (a.Badge > 0 && s.Show > 0.5f) Badge(s.Icon, a.Badge);
+                Indicator(a, icon);
+                if (a.Badge != a.BadgeShown)
+                {
+                    // New count: pop in
+                    a.BadgeShown = a.Badge;
+                    a.BadgeUtc = Anim.Reduced ? DateTime.MinValue : DateTime.UtcNow;
+                    Animate();
+                }
+                if (a.Badge > 0 && s.Show > 0.5f) Badge(icon, a.Badge, 0.6f + 0.4f * Ease.Pop((float)(DateTime.UtcNow - a.BadgeUtc).TotalSeconds / 0.3f));
             }
 
             // Apps and system buttons sit on one tile shape
             void Tile(RectangleF slot, bool hot, bool down, float alpha)
             {
-                Plate(Inset(slot, slot.Width * (down ? 0.1f : 0.07f)), hot, down, alpha);
+                Plate(Inset(slot, slot.Width * (down ? 0.1f : 0.07f)), hot ? 1 : 0, down ? 1 : 0, alpha);
             }
 
-            void Plate(RectangleF plate, bool hot, bool down, float alpha)
+            // Hover and press blend, never snap
+            void Plate(RectangleF plate, float hot, float down, float alpha)
             {
                 p.Alpha = Ease.Clamp01(alpha);
-                p.FillRound(plate, Math.Min(plate.Width, plate.Height) * 0.3f, down ? p.T.FillPressed : hot ? p.T.FillHover : p.T.Fill);
+                Color c = Ink.Mix(Ink.Mix(p.T.Fill, p.T.FillHover, hot), p.T.FillPressed, down);
+                p.FillRound(plate, Math.Min(plate.Width, plate.Height) * 0.3f, c);
                 p.Alpha = 1;
             }
 
             // Icon may rise; plate stays put
-            RectangleF OnBar(RectangleF slot, float lift, bool down)
+            RectangleF OnBar(RectangleF slot, float lift, float down)
             {
-                var plate = Inset(new RectangleF(slot.X, slot.Y + lift, slot.Width, slot.Height), slot.Width * (down ? 0.1f : 0.07f));
+                var plate = Inset(new RectangleF(slot.X, slot.Y + lift, slot.Width, slot.Height), slot.Width * (0.07f + 0.03f * down));
                 float top = Math.Max(plate.Y, barTop + 4);
                 return RectangleF.FromLTRB(plate.Left, Math.Min(top, plate.Bottom - 8), plate.Right, plate.Bottom);
             }
@@ -573,7 +589,10 @@ namespace Tepi
             {
                 var sb = new System.Text.StringBuilder();
                 sb.Append(Ink.Epoch).Append(scale).Append(Lang.English).Append('|');
-                if (hoverId != null && Owns(hoverId, left)) sb.Append('h').Append(hoverId);
+                // Hover weights, so fading plates redraw
+                if (hotInId != null && Owns(hotInId, left)) sb.Append('h').Append(hotInId).Append((int)(HotK(hotInId) * 24));
+                if (hotOutId != null && Owns(hotOutId, left)) sb.Append('o').Append(hotOutId).Append((int)(HotK(hotOutId) * 24));
+                if (hoverId != null && Owns(hoverId, left)) sb.Append('v').Append(hoverId);
                 if (pressId != null && Owns(pressId, left)) sb.Append('p').Append(pressId);
                 var now = DateTime.Now;
                 if (left)
@@ -641,12 +660,15 @@ namespace Tepi
             static readonly Color BadgeRed = Color.FromArgb(255, 217, 48, 37);
 
             // Unread count from Windows notifications
-            void Badge(RectangleF r, int n)
+            void Badge(RectangleF r, int n, float k)
             {
                 string s = n > 99 ? "99+" : n.ToString();
                 var f = Ink.SmallSemi(11f);
                 float h = 17, w = Math.Max(h, p.Measure(s, f) + 9);
                 var b = new RectangleF(r.Right - w * 0.7f, r.Top - h * 0.28f, w, h);
+                b = new RectangleF(b.X + b.Width * (1 - k) / 2, b.Y + b.Height * (1 - k) / 2, b.Width * k, b.Height * k);
+                h *= k;
+                f = Ink.SmallSemi(11f * k);
                 p.FillRound(Inset(b, -1.2f), (h + 2.4f) / 2, Ink.A(Ink.Base.Bg, 0.55f));
                 p.FillRound(b, h / 2, BadgeRed);
                 p.TextCenter(s, f, Color.White, b.X + b.Width / 2, b.Y + h / 2);
@@ -655,10 +677,11 @@ namespace Tepi
             void DrawTop()
             {
                 RectangleF anchor;
-                string text = LabelFor(keyMode ? keySel : hoverId, out anchor);
-                if (text.Length > 0) labelText = text;
+                string id = keyMode ? keySel : hoverId;
+                string text = LabelFor(id, out anchor);
                 float t = labelShow.Value;
-                if (t > 0.01f && labelText.Length > 0 && !anchor.IsEmpty) DrawLabel(labelText, anchor, t);
+                if (text.Length > 0 && !anchor.IsEmpty) AimLabel(id, text, anchor, t);
+                if (t > 0.01f && labelText.Length > 0 && !labelAnchor.IsEmpty) DrawLabel(t);
                 if (dragApp != null) DrawDragGhost();
             }
 
@@ -688,24 +711,62 @@ namespace Tepi
                 return (n >= 0 ? s.Substring(0, n) : s).Trim();
             }
 
-            void DrawLabel(string text, RectangleF anchor, float t)
+            // Label glides between icons, words crossfade
+            RectangleF labelAnchor;
+            string labelId, labelPrev = "";
+            readonly Spring labelX = new Spring(0, 1, 1, 0.05f), labelW = new Spring(0, 1, 1, 0.05f);
+            float labelSwap = 1;
+
+            void AimLabel(string id, string text, RectangleF anchor, float t)
+            {
+                float w = Math.Min(300, p.Measure(text, Ink.Semi(12f)) + 22);
+                float cx = Math.Max(w / 2 + 4, Math.Min(cw / scale - w / 2 - 4, anchor.X + anchor.Width / 2));
+                bool hidden = t < 0.05f || labelAnchor.IsEmpty || Anim.Reduced;
+                // Same icon, already arrived: follow magnification exactly
+                bool follow = id == labelId && labelX.Settled && labelW.Settled;
+                if (id != labelId && !hidden)
+                {
+                    Springs.Tune(labelX, 0.2f, 1f);
+                    Springs.Tune(labelW, 0.2f, 1f);
+                    if (text != labelText) { labelPrev = labelText; labelSwap = 0; }
+                }
+                labelX.Target = cx;
+                labelW.Target = w;
+                if (hidden || follow) { labelX.Snap(cx); labelW.Snap(w); }
+                if (id != labelId || hidden) labelAnchor = anchor;
+                else labelAnchor = new RectangleF(labelAnchor.X, anchor.Y, labelAnchor.Width, anchor.Height);
+                labelId = id;
+                labelText = text;
+            }
+
+            void DrawLabel(float t)
             {
                 var f = Ink.Semi(12f);
-                float w = Math.Min(300, p.Measure(text, f) + 22), h = 26;
-                float cx = Math.Max(w / 2 + 4, Math.Min(cw / scale - w / 2 - 4, anchor.X + anchor.Width / 2));
-                float bottom = anchor.Y - 9 + (1 - t) * 5;
+                float w = labelW.Value, h = 26, cx = labelX.Value;
+                float bottom = labelAnchor.Y - 9 + (1 - t) * 5;
                 var r = new RectangleF(cx - w / 2, bottom - h, w, h);
                 p.Alpha = t;
                 p.FillRound(r, 9, Ink.A(Ink.Base.Bg, 0.9f));
                 p.StrokeRound(r, 9, p.T.Line, 1f);
-                p.Text(text, f, p.T.Text, cx, r.Y + h / 2, w - 22, StringAlignment.Center);
+                float k = Ease.OutCubic(labelSwap);
+                if (k < 1 && labelPrev.Length > 0)
+                {
+                    p.Alpha = t * (1 - k);
+                    p.Text(labelPrev, f, p.T.Text, cx, r.Y + h / 2, w - 22, StringAlignment.Center);
+                }
+                p.Alpha = t * k;
+                p.Text(labelText, f, p.T.Text, cx, r.Y + h / 2, w - 22, StringAlignment.Center);
                 p.Alpha = 1;
             }
 
             bool StepLabel(float dt)
             {
                 labelShow.Step(dt);
-                return !labelShow.Settled;
+                labelX.Step(dt);
+                labelW.Step(dt);
+                if (labelSwap < 1) labelSwap = Math.Min(1, labelSwap + dt / Anim.Response(0.14f));
+                if (labelShow.Settled && labelShow.Value < 0.01f) labelAnchor = RectangleF.Empty;
+                return !labelShow.Settled || !labelX.Settled || !labelW.Settled || labelSwap < 1;
             }
 
             // Tray, network and sound, battery, clock, the desktop sliver
@@ -722,11 +783,11 @@ namespace Tepi
                 if (OverflowTray().Count > 0)
                 {
                     var cr = new RectangleF(x, top, 24, PlateH);
-                    bool hot = hoverId == "chev" || (card != null && card.Kind == DockCard.TrayKind);
+                    float hk = card != null && card.Kind == DockCard.TrayKind ? 1 : HotK("chev");
                     Hit(cr, "chev", ToggleTrayCard, null);
-                    if (hot) p.FillRound(cr, PlateR, pressId == "chev" ? p.T.FillPressed : p.T.FillHover);
+                    SpanPlate(cr, "chev", hk);
                     // Points up while closed, down while the grid is open
-                    p.Icon(card != null && card.Kind == DockCard.TrayKind ? '\uE70D' : '\uE70E', 10f, hot ? p.T.Text : p.T.Sub, cr.X + cr.Width / 2, cr.Y + cr.Height / 2);
+                    p.Icon(card != null && card.Kind == DockCard.TrayKind ? '\uE70D' : '\uE70E', 10f, Ink.Mix(p.T.Sub, p.T.Text, hk), cr.X + cr.Width / 2, cr.Y + cr.Height / 2);
                     x += 24;
                 }
                 DrawStatus(new RectangleF(x, top, StatusWidth(), PlateH));
@@ -735,7 +796,15 @@ namespace Tepi
                 // Show desktop: the bar's far end, padding included
                 var desk = new RectangleF(r.Right - 10, r.Y, 10 + PadX, r.Height);
                 Hit(desk, "desk", ShowDesktop, null);
-                if (hoverId == "desk") g.DrawLine(p.P(p.T.Sub, 1.2f), desk.X + 4.5f, r.Y + 13, desk.X + 4.5f, r.Bottom - 13);
+                float dk = HotK("desk");
+                if (dk > 0) g.DrawLine(p.P(Ink.A(p.T.Sub, dk), 1.2f), desk.X + 4.5f, r.Y + 13, desk.X + 4.5f, r.Bottom - 13);
+            }
+
+            // Hover plate faded by weight, press solid
+            void SpanPlate(RectangleF r, string id, float hk)
+            {
+                if (pressId == id && hoverId == id) p.FillRound(r, PlateR, p.T.FillPressed);
+                else if (hk > 0) p.FillRound(r, PlateR, Ink.A(p.T.FillHover, hk));
             }
 
             void DrawTrayIcon(TrayIcon ic, RectangleF cell)
@@ -743,7 +812,7 @@ namespace Tepi
                 string id = "tray:" + ic.Key;
                 Hit(cell, id, null, null);
                 ic.Spot = ToScreen(cell);
-                if (hoverId == id) p.FillRound(cell, PlateR, pressId == id ? p.T.FillPressed : p.T.FillHover);
+                SpanPlate(cell, id, HotK(id));
                 var bmp = tray != null ? tray.Picture(ic) : null;
                 if (bmp == null) return;
                 float s = 16;
@@ -753,9 +822,8 @@ namespace Tepi
 
             void DrawStatus(RectangleF r)
             {
-                bool hot = hoverId == "status";
                 Hit(r, "status", delegate { ToggleSheet("quick"); }, null);
-                if (hot) p.FillRound(r, PlateR, pressId == "status" ? p.T.FillPressed : p.T.FillHover);
+                SpanPlate(r, "status", HotK("status"));
                 // The icon group, centred: Wi-Fi to the battery's cap
                 float span = isle.hasBattery ? 66 : 36.5f;
                 float cx = r.X + (r.Width - span) / 2 + 7.25f, cy = r.Y + r.Height / 2;
@@ -774,15 +842,14 @@ namespace Tepi
 
             void DrawClock(RectangleF r)
             {
-                bool hot = hoverId == "clock";
                 Hit(r, "clock", delegate { ToggleSheet("cal"); }, ClockMenu);
-                if (hot) p.FillRound(r, PlateR, pressId == "clock" ? p.T.FillPressed : p.T.FillHover);
+                SpanPlate(r, "clock", HotK("clock"));
                 var now = DateTime.Now;
                 float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2;
                 p.TextCenter(Fmt.Clock(now), Ink.Semi(12.5f), p.T.Text, cx, cy - 7);
                 p.TextCenter(now.ToString("d MMM yyyy", Fmt.Id), Ink.Small(11f), p.T.Sub, cx, cy + 8);
                 // Messages waiting: a count, like the app badges
-                if (isle.unread > 0) Badge(r, isle.unread);
+                if (isle.unread > 0) Badge(r, isle.unread, 1);
             }
 
             static void ShowDesktop() { ShellVerb("ToggleDesktop"); }
@@ -881,7 +948,7 @@ namespace Tepi
             void DrawWidget(string id, RectangleF r)
             {
                 string hid = "w_" + id;
-                bool hot = hoverId == hid;
+                float hk = HotK(hid);
                 Action open = null;
                 switch (id)
                 {
@@ -894,7 +961,8 @@ namespace Tepi
                     case "system": open = delegate { Open("taskmgr.exe"); }; break;
                 }
                 Hit(r, hid, open, null);
-                if (hot && open != null) p.FillRound(r, 12, pressId == hid ? p.T.FillPressed : p.T.Fill);
+                if (open != null && pressId == hid && hoverId == hid) p.FillRound(r, 12, p.T.FillPressed);
+                else if (open != null && hk > 0) p.FillRound(r, 12, Ink.A(p.T.Fill, hk));
                 float cy = r.Y + r.Height / 2;
                 switch (id)
                 {
@@ -971,7 +1039,7 @@ namespace Tepi
                 p.Text(mi.Artist.Length > 0 ? mi.Artist : mi.App, Ink.Small(11f), p.T.Sub, tx, cy + 9, play - 18 - tx, StringAlignment.Near);
                 var btn = new RectangleF(play - 14, cy - 14, 28, 28);
                 Hit(btn, "w_play", delegate { isle.media.TogglePlay(); }, null);
-                p.Circle(play, cy, hoverId == "w_play" ? 14 : 13, p.T.Text);
+                p.Circle(play, cy, 13 + HotK("w_play"), p.T.Text);
                 if (mi.Playing) p.Pause(play, cy, 9.5f, p.T.Bg);
                 else p.Play(play, cy, 10f, p.T.Bg);
             }

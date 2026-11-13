@@ -25,8 +25,26 @@ namespace Tepi
             public QuickSheet(Island isle, DockWindow dock) : base(isle, dock, "quick", "Tepi Quick")
             {
                 W = 360;
-                // Radios change on other threads
-                refresh.Tick += delegate { Render(); };
+                // Radios change on other threads; redraw only on change
+                refresh.Tick += delegate
+                {
+                    string s = Sig();
+                    if (s == drawnSig) return;
+                    drawnSig = s;
+                    Render();
+                };
+            }
+
+            string drawnSig;
+
+            // Everything outside the card that it shows
+            string Sig()
+            {
+                var n = isle.net.Current;
+                var r = isle.radios;
+                return string.Concat(n.Wifi, n.Any, n.Captive, n.Online, n.Name, r.WifiOn, r.HasWifi, r.BluetoothOn, r.HasBluetooth, isle.QuietSwitch, isle.winDark,
+                    isle.AwakeOn, isle.AwakeLabel(), isle.micMuted, isle.micPresent, isle.muted, (int)Math.Round(isle.vol * 100), isle.audioDefault, isle.audioDevices.Count,
+                    isle.brightLevel, isle.battery, isle.onAc, Ink.Epoch);
             }
 
             bool HasBright { get { return isle.brightLevel >= 0; } }
@@ -42,7 +60,29 @@ namespace Tepi
 
             protected override void Backdrop(RectangleF r) { Shelf(r, Foot); }
 
+            // Wi-Fi list slides in from the side it lives on
+            bool drawnWifi;
+            DateTime viewUtc = DateTime.MinValue;
+
+            protected override bool Animating(float dt) { return (DateTime.UtcNow - viewUtc).TotalSeconds < 0.24; }
+
             protected override void Draw()
+            {
+                if (wifiView != drawnWifi)
+                {
+                    drawnWifi = wifiView;
+                    viewUtc = Anim.Reduced ? DateTime.MinValue : DateTime.UtcNow;
+                    Animate();
+                }
+                float k = Ease.OutCubic((float)(DateTime.UtcNow - viewUtc).TotalSeconds / 0.22f), keep = p.Alpha;
+                var st = g.Save();
+                g.TranslateTransform((wifiView ? 1 : -1) * 24 * (1 - k), 0);
+                p.Alpha = keep * k;
+                try { DrawView(); }
+                finally { p.Alpha = keep; g.Restore(st); }
+            }
+
+            void DrawView()
             {
                 if (wifiView) { DrawWifi(); return; }
                 var net = isle.net.Current;
@@ -258,10 +298,19 @@ namespace Tepi
                 return false;
             }
 
+            int wheelAcc;
+
             protected override void Wheel(string id, int delta)
             {
-                if (wifiView) { first -= Math.Sign(delta); return; }
-                float step = delta > 0 ? 0.02f : -0.02f;
+                if (wifiView)
+                {
+                    wheelAcc += delta;
+                    int steps = wheelAcc / 120;
+                    wheelAcc -= steps * 120;
+                    first -= steps;
+                    return;
+                }
+                float step = 0.02f * delta / 120f;
                 if (id == "bright" && HasBright) isle.setBright(Ease.Clamp01(isle.brightLevel / 100f + step * 2));
                 else isle.setVol(Ease.Clamp01(isle.vol + step));
             }

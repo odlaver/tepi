@@ -234,15 +234,24 @@ namespace Tepi
                 p.Icon(camApps.Length > 0 ? Ink.IcoCam : off ? IcoMicOff : Ink.IcoMic, 12f, off ? p.T.Negative : p.T.Sub, 22 + shift * 2, cy);
             }
             if (unread > 0) DrawCount(w - 22, cy, unread);
+            else countShown = 0;
         }
 
         // Inverted dot: something waits for you
         void DrawCount(float cx, float cy, int n)
         {
             string s = n > 9 ? "9+" : n.ToString();
-            float r = 8.5f;
+            // New count: a small pop
+            if (n != countShown) { countShown = n; countUtc = Anim.Reduced ? DateTime.MinValue : DateTime.UtcNow; }
+            float k = 0.7f + 0.3f * Ease.Pop((float)(DateTime.UtcNow - countUtc).TotalSeconds / 0.3f), r = 8.5f * k;
             p.Circle(cx, cy, r, p.T.Text);
-            p.TextCenter(s, Ink.Semi(10.5f), p.T.Bg, cx, cy);
+            p.TextCenter(s, Ink.Semi(10.5f * k), p.T.Bg, cx, cy);
+        }
+
+        int countShown;
+        DateTime countUtc = DateTime.MinValue;
+
+        bool CountMoving() { return (DateTime.UtcNow - countUtc).TotalSeconds < 0.32;
         }
 
         // Music
@@ -352,13 +361,18 @@ namespace Tepi
             // Trailing slot: waveform, play/pause under the pointer
             float slotX = w - cap;
             AddHit(new RectangleF(w - 2 * cap - 4, 0, 2 * cap + 4, h), "mediaPlay", MediaPlayAct());
-            if (Hover("mediaPlay"))
+            // Bars hand over to play/pause
+            float mk = HoverK("mediaPlay"), a0 = p.Alpha;
+            if (mk < 1) { p.Alpha = a0 * (1 - mk); DrawBars(slotX + 12.3f, cy, 5, 16, 3f, 2.4f); }
+            if (mk > 0)
             {
-                float s = Squish("mediaPlay", new RectangleF(slotX - 12, cy - 12, 24, 24), 0.9f);
-                p.Symbol(mediaInfo.Playing ? Sym.Pause : Sym.Play, slotX, cy, 13f, p.T.Text);
-                Unsquish(new RectangleF(slotX - 12, cy - 12, 24, 24), s);
+                p.Alpha = a0 * mk;
+                var slot = new RectangleF(slotX - 12, cy - 12, 24, 24);
+                float s = Squish("mediaPlay", slot, 0.9f);
+                p.Symbol(mediaInfo.Playing ? Sym.Pause : Sym.Play, slotX, cy, 13f * (0.8f + 0.2f * mk), p.T.Text);
+                Unsquish(slot, s);
             }
-            else DrawBars(slotX + 12.3f, cy, 5, 16, 3f, 2.4f);
+            p.Alpha = a0;
             // Title primary, artist secondary, centred between
             float left = 2 * cap + 3, avail = slotX - 15 - left;
             string title = mediaInfo.Title, tail = MediaTail();
@@ -540,7 +554,7 @@ namespace Tepi
 
         bool ApproveArming(DateTime now)
         {
-            return approvals.Count > 0 && approvals[0].ShownUtc != default(DateTime) && (now - approvals[0].ShownUtc).TotalSeconds < ArmSeconds + 0.05;
+            return approvals.Count > 0 && approvals[0].ShownUtc != default(DateTime) && (now - approvals[0].ShownUtc).TotalSeconds < ArmSeconds + 0.18;
         }
 
         bool ScrollApproval(int delta)
@@ -644,20 +658,36 @@ namespace Tepi
             var always = new RectangleF(deny.X - 8 - 84, y, 84, 32);
             // Unseen text is never allowed here
             bool locked = (clipped && !a.ReadAll) || !armed || a.Truncated;
-            if (locked) p.StrokeRound(allow, 10, p.T.Faint, 1.2f);
-            else p.FillRound(allow, 10, Hover("allow") ? Ink.A(p.T.Text, 0.82f) : p.T.Text);
+            float sa = Squish("allow", allow, 0.95f);
+            if (locked)
+            {
+                p.StrokeRound(allow, 10, p.T.Faint, 1.2f);
+                // Arming wait fills left to right
+                float arm = clipped && !a.ReadAll || a.Truncated ? 0 : Ease.Clamp01((float)(DateTime.UtcNow - a.ShownUtc).TotalSeconds / (float)ArmSeconds);
+                if (arm > 0 && !Anim.Reduced) p.FillRound(allow, 10, p.Split(allow.X, allow.Width, allow.X + allow.Width * Ease.InOutCubic(arm), Ink.A(p.T.Text, 0.16f), Color.Transparent));
+            }
+            else
+            {
+                float lit = Ease.Clamp01(((float)(DateTime.UtcNow - a.ShownUtc).TotalSeconds - (float)ArmSeconds) / 0.15f);
+                p.FillRound(allow, 10, Pressed("allow") ? Ink.A(p.T.Text, 0.68f) : Ink.A(p.T.Text, (1 - 0.18f * HoverK("allow")) * (Anim.Reduced ? 1 : 0.16f + 0.84f * lit)));
+            }
             p.TextCenter(Lang.T("Izinkan"), Ink.Semi(13f), locked ? p.T.Faint : p.T.Bg, allow.X + allow.Width / 2, allow.Y + 16);
-            if (Hover("deny")) p.FillRound(deny, 10, p.T.Fill);
+            Unsquish(allow, sa);
+            float sd = Squish("deny", deny, 0.95f);
+            if (HoverK("deny") > 0 || Pressed("deny")) p.FillRound(deny, 10, SoftFill("deny"));
             p.StrokeRound(deny, 10, p.T.Sub, 1.2f);
             p.TextCenter(Lang.T("Tolak"), Ink.Semi(13f), p.T.Text, deny.X + deny.Width / 2, deny.Y + 16);
+            Unsquish(deny, sd);
             bool once = locked || a.Risk != null;
-            if (!once && Hover("always")) p.FillRound(always, 10, p.T.Fill);
+            float sw2 = once ? 1 : Squish("always", always, 0.95f);
+            if (!once && (HoverK("always") > 0 || Pressed("always"))) p.FillRound(always, 10, SoftFill("always"));
             p.StrokeRound(always, 10, once ? p.T.Faint : p.T.Sub, 1.2f);
             p.TextCenter(Lang.T("Selalu"), Ink.Semi(13f), once ? p.T.Faint : p.T.Text, always.X + always.Width / 2, always.Y + 16);
+            Unsquish(always, sw2);
             var term = new RectangleF(14, y, always.X - 8 - 14, 32);
-            if (Hover("term")) p.FillRound(term, 10, p.T.Fill);
+            if (HoverK("term") > 0 || Pressed("term")) p.FillRound(term, 10, SoftFill("term"));
             p.Icon(Ink.IcoTerminal, 12f, p.T.Sub, term.X + 18, term.Y + 16);
-            p.Text(Lang.T("Terminal"), Ink.Small(12f), Hover("term") || (clipped && !scrollable) || a.Truncated ? p.T.Text : p.T.Sub, term.X + 32, term.Y + 16, term.Width - 36, StringAlignment.Near);
+            p.Text(Lang.T("Terminal"), Ink.Small(12f), (clipped && !scrollable) || a.Truncated ? p.T.Text : SoftInk("term"), term.X + 32, term.Y + 16, term.Width - 36, StringAlignment.Near);
             if (!locked) AddHit(allow, "allow", delegate { Decide(a, "allow"); });
             if (!once) AddHit(always, "always", delegate { AllowAlways(a); });
             AddHit(deny, "deny", delegate { Decide(a, "deny"); });
@@ -677,7 +707,7 @@ namespace Tepi
             if (s == null) return;
             float cy = h / 2;
             float k = (float)((now - toast.ShownUtc).TotalSeconds / 0.6);
-            float pop = Ease.OutBack(Ease.Clamp01(k * 1.6f));
+            float pop = Ease.Pop(Ease.Clamp01(k * 1.6f));
             p.Circle(34, cy, 15 * pop, p.T.Text);
             if (s.Failed) p.Cross(34, cy, 13, p.T.Bg);
             else p.Check(34, cy, 14, p.T.Bg, Ease.OutCubic(k - 0.15f));
@@ -711,18 +741,44 @@ namespace Tepi
 
         // Messages
 
+        // App's own colour, or empty when off or unknown
+        Color Brand(NotifItem item)
+        {
+            if (!AppTint.On || item == null) return Color.Empty;
+            if (!item.BrandSet) { item.Brand = AppTint.For(item.AppId, item.AppName, item.Logo); item.BrandSet = true; }
+            return item.Brand;
+        }
+
+        // Brand that reads on this surface, for rings and text
+        Color BrandInk(NotifItem item)
+        {
+            var c = Brand(item);
+            if (c.IsEmpty) return c;
+            int key = Ink.Epoch * 31 + p.T.Bg.ToArgb();
+            if (item.InkKey != key || item.BrandInk.IsEmpty) { item.BrandInk = AppTint.Readable(c, p.T.Bg, 3); item.InkKey = key; }
+            return item.BrandInk;
+        }
+
         void DrawAppBadge(NotifItem item, RectangleF r)
         {
-            float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2;
-            p.Circle(cx, cy, r.Width / 2, p.T.Fill);
+            float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, rad = r.Width / 2;
+            var brand = Brand(item);
+            if (brand.IsEmpty) p.Circle(cx, cy, rad, p.T.Fill);
+            else
+            {
+                // Soft wash of the app's colour; full adds its ring
+                bool full = AppTint.Mode != "lembut";
+                p.Circle(cx, cy, rad, Ink.A(brand, full ? 0.3f : 0.18f));
+                if (full) g.DrawEllipse(p.P(BrandInk(item), 1.5f), cx - rad + 0.75f, cy - rad + 0.75f, rad * 2 - 1.5f, rad * 2 - 1.5f);
+            }
             if (item.Logo != null)
             {
                 var inner = RectangleF.Inflate(r, -r.Width * 0.18f, -r.Height * 0.18f);
-                p.Image(item.Logo, inner, inner.Width * 0.24f);
+                p.Image(AppTint.On ? item.Logo : NotifSource.Drained(item.Logo), inner, inner.Width * 0.24f);
                 return;
             }
             string n = item.AppName.Length > 0 ? item.AppName : "?";
-            p.TextCenter(n.Substring(0, 1).ToUpperInvariant(), Ink.Semi(r.Height * 0.42f), p.T.Text, cx, cy);
+            p.TextCenter(n.Substring(0, 1).ToUpperInvariant(), Ink.Semi(r.Height * 0.42f), brand.IsEmpty ? p.T.Text : BrandInk(item), cx, cy);
         }
 
         string NotifBody(NotifItem item)
@@ -731,15 +787,37 @@ namespace Tepi
             return item.Body.Length > 0 ? item.Body : item.AppName;
         }
 
+        const float CallPulse = 1.8f;
+
+        bool CallPulsing()
+        {
+            var item = toast != null && toast.View == View.Notif ? toast.Data as NotifItem : null;
+            return item != null && !Anim.Reduced && (DateTime.UtcNow - toast.ShownUtc).TotalSeconds < CallPulse && IsCall(item);
+        }
+
         void DrawNotif(float w, float h)
         {
             var item = toast != null ? toast.Data as NotifItem : null;
             if (item == null) return;
             float cy = h / 2;
+            bool call = IsCall(item), vip = !call && IsVip(item);
+            // Ringing: three rings leave the badge, then rest
+            if (call && !Anim.Reduced)
+            {
+                float t = (float)(DateTime.UtcNow - toast.ShownUtc).TotalSeconds;
+                if (t < CallPulse)
+                {
+                    float ph = t % 0.6f / 0.6f;
+                    var ring = BrandInk(item);
+                    g.DrawEllipse(p.P(Ink.A(ring.IsEmpty ? p.T.Text : ring, 0.55f * (1 - ph)), 2f), 34 - 20 - 10 * ph, cy - 20 - 10 * ph, 40 + 20 * ph, 40 + 20 * ph);
+                }
+            }
             DrawAppBadge(item, new RectangleF(14, cy - 20, 40, 40));
-            string meta = notifBurst > 1 ? notifBurst + Lang.T(" pesan · ") + item.AppName : item.AppName;
+            string meta = call ? Lang.T("Panggilan") + " · " + item.AppName : notifBurst > 1 ? notifBurst + Lang.T(" pesan · ") + item.AppName : item.AppName;
+            if (vip) meta = Lang.T("Prioritas") + " · " + meta;
             float mw = Math.Min(130, p.Measure(meta, Ink.Small(11f)));
-            p.TextRight(meta, Ink.Small(11f), p.T.Sub, w - 22, cy - 10);
+            var ink = BrandInk(item);
+            p.TextRight(meta, Ink.Small(11f), ink.IsEmpty || AppTint.Mode == "lembut" ? p.T.Sub : AppTint.Readable(ink, p.T.Bg, 4.5), w - 22, cy - 10);
             p.Text(NotifTitle(item), Ink.Semi(13.5f), p.T.Text, 66, cy - 10, w - 66 - 32 - mw, StringAlignment.Near);
             p.Text(NotifBody(item), Ink.Text(12.5f), p.T.Sub, 66, cy + 10, w - 66 - 22, StringAlignment.Near);
             AddHit(new RectangleF(0, 0, w, h), "notifOpen", delegate { OpenNotifApp(item); });
@@ -749,7 +827,7 @@ namespace Tepi
 
         void DrawVolume(float w, float h, DateTime now)
         {
-            LevelHud(w, h, VolumeGlyph(), muted ? 0 : volBar.Value, volRoller, now);
+            LevelHud(w, h, VolumeGlyph(), VolShown(), volRoller, now);
         }
 
         string PowerTitle()
@@ -843,6 +921,13 @@ namespace Tepi
             float x = CenterStart(w, lead, toast.Title, semi, toast.Detail, Ink.Text(12.5f), 200);
             if (badge) DrawEmblem(x + 9, cy, 11f);
             else if (gauge) Ring(x + 8, cy, 7f, quotaToastLevel, p.T.Accent, 2f);
+            else if (glyph && toast.Kind > 0)
+            {
+                // Meaning in colour: a tinted disc behind the glyph
+                var c = toast.Kind == 1 ? p.T.Positive : toast.Kind == 2 ? p.T.Warning : p.T.Negative;
+                p.Circle(x + 8, cy, 11.5f, Ink.A(c, 0.2f));
+                p.Icon(toast.Glyph, 12.5f, c, x + 8, cy);
+            }
             else if (glyph) p.Icon(toast.Glyph, 14f, p.T.Text, x + 8, cy);
             x += lead;
             p.Text(toast.Title, semi, p.T.Text, x, cy, w - x - 16, StringAlignment.Near);

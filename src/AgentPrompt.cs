@@ -74,14 +74,14 @@ namespace Tepi
                 text = CleanPrompt(f.Prompt);
             }
             if (text.Length == 0) return;
-            if (!TerminalFinder.Focus(s.Window)) { ShowInfo(Ink.IcoTerminal, Lang.T("Terminal tidak bisa dibuka"), s.Project, true); return; }
+            if (!TerminalFinder.Focus(s.Window)) { ShowFail(Ink.IcoTerminal, Lang.T("Terminal tidak bisa dibuka"), s.Project, true); return; }
             IntPtr want = GetAncestor(s.Window, 3);
             string project = s.Project;
             // Waiting happens off the UI thread
             ThreadPool.QueueUserWorkItem(delegate
             {
                 string fail = TypeInto(want, text);
-                if (fail != null) Post(() => ShowInfo(Ink.IcoTerminal, fail, project, true));
+                if (fail != null) Post(() => ShowFail(Ink.IcoTerminal, fail, project, true));
             });
         }
 

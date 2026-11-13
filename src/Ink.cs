@@ -15,20 +15,37 @@ namespace Tepi
         public Color Bg, Text, Sub, Faint, Fill, FillHover, Line;
         // Disabled ink and tracks; held module
         public Color Quaternary, FillPressed;
+        // Quiet but readable text: 4.5:1 on Bg, unlike Faint
+        public Color Hint;
         // Module light: top glow, bottom lip
         public Color Highlight, Lip;
         // Accent: pill, bars, progress; ink on top of it
         public Color Accent, OnAccent, Progress;
-        // Semantic: diff lines only
-        public Color Positive, Negative;
+        // Semantic: done, failed, heads-up
+        public Color Positive, Negative, Warning;
 
         public bool IsDark { get { return Bg.R + Bg.G + Bg.B < 384; } }
+
+        // Least ink that still reads at 4.5:1 on bg
+        static Color Readable(Color text, Color bg)
+        {
+            bg = Color.FromArgb(255, bg.R, bg.G, bg.B);
+            int a = 100;
+            for (; a < 230; a += 6)
+            {
+                float k = a / 255f;
+                var m = Color.FromArgb(255, (int)(bg.R + (text.R - bg.R) * k), (int)(bg.G + (text.G - bg.G) * k), (int)(bg.B + (text.B - bg.B) * k));
+                if (AppTint.Ratio(m, bg) >= 4.6) break;
+            }
+            return Color.FromArgb(a, text.R, text.G, text.B);
+        }
 
         // Glass can sit on a bright wallpaper: secondary text at 74% keeps 4.5:1
         public Tone OnGlass()
         {
             var t = (Tone)MemberwiseClone();
             t.Sub = Color.FromArgb(Math.Max((int)Sub.A, 189), Sub);
+            t.Hint = Color.FromArgb(Math.Max((int)Hint.A, 185), Hint);
             return t;
         }
 
@@ -54,6 +71,7 @@ namespace Tepi
             bool dark = t.IsDark;
             t.Positive = dark ? Color.FromArgb(255, 110, 200, 140) : Color.FromArgb(255, 28, 128, 70);
             t.Negative = dark ? Color.FromArgb(255, 240, 120, 120) : Color.FromArgb(255, 190, 50, 50);
+            t.Warning = dark ? Color.FromArgb(255, 236, 184, 92) : Color.FromArgb(255, 150, 96, 0);
             Derive(t);
             return t;
         }
@@ -63,6 +81,7 @@ namespace Tepi
         {
             bool dark = t.IsDark;
             t.Quaternary = Ink.A(t.Text, 0.18f);
+            t.Hint = Readable(t.Text, t.Bg);
             t.FillPressed = Ink.A(t.Fill, dark ? 0.57f : 2.2f);
             t.Highlight = dark ? Color.FromArgb(23, 255, 255, 255) : Color.FromArgb(110, 255, 255, 255);
             t.Lip = dark ? Color.FromArgb(16, 255, 255, 255) : Color.FromArgb(150, 255, 255, 255);
@@ -112,6 +131,7 @@ namespace Tepi
             if (Hex(prefix + "progress", out c)) t.Progress = c;
             if (Hex(prefix + "positive", out c)) t.Positive = c;
             if (Hex(prefix + "negative", out c)) t.Negative = c;
+            if (Hex(prefix + "warning", out c)) t.Warning = c;
             Tone.Derive(t);
             if (Hex(prefix + "quaternary", out c)) t.Quaternary = c;
             if (Hex(prefix + "fillPressed", out c)) t.FillPressed = c;
@@ -551,6 +571,30 @@ namespace Tepi
         }
 
         // Covers stay monochrome: luminance-only copy
+        // Centre square at size, colours kept
+        public static Bitmap Square(Image src, int size)
+        {
+            var bmp = new Bitmap(size, size, PixelFormat.Format32bppPArgb);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                int side = Math.Min(src.Width, src.Height);
+                g.DrawImage(src, new Rectangle(0, 0, size, size), (src.Width - side) / 2, (src.Height - side) / 2, side, side, GraphicsUnit.Pixel);
+            }
+            var tone = ContentTone(src);
+            if (tone.A > 0) bmp.Tag = tone;
+            return bmp;
+        }
+
+        // Same square, drained of colour
+        public static Bitmap Drain(Bitmap src)
+        {
+            var bmp = Grayscale(src, src.Width);
+            if (src.Tag is Color) bmp.Tag = src.Tag;
+            return bmp;
+        }
+
         public static Bitmap Grayscale(Image src, int size)
         {
             var bmp = new Bitmap(size, size, PixelFormat.Format32bppPArgb);
@@ -866,6 +910,25 @@ namespace Tepi
         }
 
         // Same line with any brush, like Split
+        // One line whose ink flips at splitX: two clipped draws, no gradient edge
+        public void SplitText(string s, Font f, float x, float cy, float maxWidth, StringAlignment align, float splitX, Color left, Color right)
+        {
+            if (string.IsNullOrEmpty(s) || maxWidth < 4) return;
+            float w = Math.Min(maxWidth, Measure(s, f));
+            float x0 = align == StringAlignment.Near ? x : align == StringAlignment.Far ? x - w : x - w / 2;
+            if (splitX <= x0 + 0.5f) { Text(s, f, right, x, cy, maxWidth, align); return; }
+            if (splitX >= x0 + w + 0.5f) { Text(s, f, left, x, cy, maxWidth, align); return; }
+            float h = f.Size * 3f;
+            var st = G.Save();
+            G.IntersectClip(new RectangleF(x0 - 4, cy - h, splitX - x0 + 4, h * 2));
+            Text(s, f, left, x, cy, maxWidth, align);
+            G.Restore(st);
+            st = G.Save();
+            G.IntersectClip(new RectangleF(splitX, cy - h, x0 + w + 8 - splitX, h * 2));
+            Text(s, f, right, x, cy, maxWidth, align);
+            G.Restore(st);
+        }
+
         public void Text(string s, Font f, Brush b, float x, float cy, float maxWidth, StringAlignment align)
         {
             if (string.IsNullOrEmpty(s) || maxWidth < 4) return;
@@ -922,6 +985,19 @@ namespace Tepi
             if (stroke > 0) G.DrawPath(P(c, stroke), path);
             else G.FillPath(B(c), path);
             G.TranslateTransform(-cx, -cy);
+        }
+
+        readonly PointF[] picPts = new PointF[3];
+
+        // Plain image that honours Alpha
+        public void Picture(Image img, RectangleF r)
+        {
+            if (Alpha >= 0.999f) { G.DrawImage(img, r); return; }
+            if (Alpha <= 0.004f) return;
+            matrix.Matrix33 = Alpha;
+            imageAttr.SetColorMatrix(matrix);
+            picPts[0] = new PointF(r.Left, r.Top); picPts[1] = new PointF(r.Right, r.Top); picPts[2] = new PointF(r.Left, r.Bottom);
+            G.DrawImage(img, picPts, new RectangleF(0, 0, img.Width, img.Height), GraphicsUnit.Pixel, imageAttr);
         }
 
         public void Image(Image img, RectangleF r, float radius)

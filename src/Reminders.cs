@@ -562,9 +562,9 @@ namespace Tepi
                 float cx = r.X + 8 + cellW * (k + 0.5f);
                 bool isNext = today && i == next, past = times[i] <= nowLocal;
                 if (isNext) p.FillRound(new RectangleF(cx - cellW / 2 + 2, top, cellW - 4, 40), Ink.RadiusControl, Ink.A(p.T.Accent, 0.16f));
-                Color ink = isNext ? p.T.Text : past ? p.T.Faint : p.T.Sub;
+                Color ink = isNext ? p.T.Text : past ? p.T.Hint : p.T.Sub;
                 p.TextCenter(Lang.T(PrayTimes.Names[i]), Ink.Caption, isNext ? p.T.Accent : ink, cx, top + 12);
-                p.TextCenter(prayHm[i], Ink.Semi(13.5f), isNext ? p.T.Text : past ? p.T.Faint : p.T.Text, cx, top + 28);
+                p.TextCenter(prayHm[i], Ink.Semi(13.5f), isNext ? p.T.Text : past ? p.T.Hint : p.T.Text, cx, top + 28);
             }
         }
 
@@ -639,18 +639,28 @@ namespace Tepi
         float DrinkDots(float right, float cy)
         {
             int goal = DrinkGoal, n = Math.Min(goal, DrinkCount());
+            // The count in words, so the dots need no guessing
+            var cf = Ink.SmallSemi(11f);
+            string count = n + "/" + goal;
+            float cw = p.Measure(count, cf);
+            p.TextRight(count, cf, p.T.Sub, right, cy);
+            right -= cw + 10;
             if (goal <= 12)
             {
-                const float d = 6, gap = 4;
+                const float d = 7, gap = 4;
                 float width = goal * d + (goal - 1) * gap, x = right - width;
                 for (int k = 0; k < goal; k++)
-                    p.Circle(x + k * (d + gap) + d / 2, cy, d / 2, k < n ? p.T.Accent : p.T.Quaternary);
-                return width;
+                {
+                    float cx = x + k * (d + gap) + d / 2;
+                    if (k < n) p.Circle(cx, cy, d / 2, p.T.Accent);
+                    else p.G.DrawEllipse(p.P(p.T.Hint, 1.2f), cx - d / 2 + 0.6f, cy - d / 2 + 0.6f, d - 1.2f, d - 1.2f);
+                }
+                return width + cw + 10;
             }
             var bar = new RectangleF(right - 96, cy - 2.5f, 96, 5);
             p.FillRound(bar, 2.5f, p.T.Quaternary);
             if (n > 0) p.FillRound(bar, 2.5f, p.Split(bar.X, bar.Width, bar.X + bar.Width * n / goal, p.T.Accent, Color.Transparent));
-            return 96;
+            return 96 + cw + 10;
         }
     }
 }

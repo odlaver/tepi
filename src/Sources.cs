@@ -928,8 +928,8 @@ namespace Tepi
             SourceHub.SetLabels(labels, taskFrom > 1, eventFrom > 1);
             if (refreshAsked != 0 && !tasksLoading)
             {
-                if (refreshAsked == 1 && tasks != null) ShowInfo(Ink.IcoRefresh, Lang.T("Tugas diperbarui"), tasks.Count + Lang.T(" aktif"));
-                else if (refreshAsked == 2 && classes != null) ShowInfo(Ink.IcoRefresh, Lang.T("Jadwal diperbarui"), classes.Count == 1 ? Lang.T("1 acara") : Lang.F("{0} acara", classes.Count));
+                if (refreshAsked == 1 && tasks != null) ShowOk(Ink.IcoRefresh, Lang.T("Tugas diperbarui"), tasks.Count + Lang.T(" aktif"));
+                else if (refreshAsked == 2 && classes != null) ShowOk(Ink.IcoRefresh, Lang.T("Jadwal diperbarui"), classes.Count == 1 ? Lang.T("1 acara") : Lang.F("{0} acara", classes.Count));
                 refreshAsked = 0;
             }
         }
@@ -1009,7 +1009,7 @@ namespace Tepi
                 if (err == null) { TaskFinished(task); return; }
                 task.Status = old;
                 MergeSources();
-                ShowInfo(Ink.IcoLock, err, task.Title, true);
+                ShowFail(Ink.IcoLock, err, task.Title, true);
             });
         }
 

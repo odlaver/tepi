@@ -248,7 +248,7 @@ namespace Tepi
                     string here = TidyDir();
                     tidyNudged = here == null ? 0 : Loose(here).Count;
                     tidyNudgedUtc = DateTime.UtcNow;
-                    ShowInfo('\uE7A7', Lang.F("{0} berkas dikembalikan", back), missing > 0 ? Lang.F("{0} sudah dipindah atau dihapus", missing) : "", true);
+                    ShowOk('\uE7A7', Lang.F("{0} berkas dikembalikan", back), missing > 0 ? Lang.F("{0} sudah dipindah atau dihapus", missing) : "", true);
                 });
             });
         }

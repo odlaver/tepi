@@ -130,13 +130,14 @@ namespace Tepi
             {
                 vol = f;
                 volBar.Target = f;
-                volBar.Snap(f);
+                if (Anim.Reduced || Streaming(ref volSetAt)) volBar.Snap(f);
                 volume.SetLatest(f);
             };
             setBright = delegate (float f)
             {
                 brightLevel = (int)Math.Round(f * 100);
-                brightBar.Snap(f);
+                brightBar.Target = f;
+                if (Anim.Reduced || Streaming(ref brightSetAt)) brightBar.Snap(f);
                 brightness.Set(brightLevel);
             };
             actVolStep = delegate { setVol(StepUp(vol)); };
@@ -256,7 +257,7 @@ namespace Tepi
 
         void SoundSlider(RectangleF r)
         {
-            BigSlider(r, "ctlVol", muted ? 0 : volBar.Value, VolumeGlyph(), Lang.T("Suara"),
+            BigSlider(r, "ctlVol", VolShown(), VolumeGlyph(), Lang.T("Suara"),
                       muted ? Lang.T("Bisu") : Ink.Percent((int)Math.Round(vol * 100)), setVol, actVolStep, "ctlMute", actMute);
         }
 
@@ -386,7 +387,7 @@ namespace Tepi
             {
                 if (laps.Count != tmLapCount) { tmLapCount = laps.Count; tmLap = Lang.F("Putaran {0} · {1}", laps.Count, FormatSpan(laps[0])); }
                 float lw = p.Measure(tmLabel, Ink.Callout);
-                p.Text(tmLap, Ink.Caption, p.T.Faint, tx + lw + 10, cy - 19, 160, StringAlignment.Near);
+                p.Text(tmLap, Ink.Caption, p.T.Hint, tx + lw + 10, cy - 19, 160, StringAlignment.Near);
             }
             // Countdown redraws alone each second
             ctlClockX = tx - 1;
@@ -413,7 +414,7 @@ namespace Tepi
         void Switch(RectangleF r, string id, bool on, Action toggle)
         {
             Spring s;
-            if (!switches.TryGetValue(id, out s)) { s = new Spring(on ? 1 : 0, 520, 30, 0.004f); switches[id] = s; }
+            if (!switches.TryGetValue(id, out s)) { s = new Spring(on ? 1 : 0, 520, 30, 0.004f); Tune(s, 520, 0.66f); switches[id] = s; }
             s.Target = on ? 1 : 0;
             AddHit(RectangleF.Inflate(r, 4, 4), id, toggle);
             var track = new RectangleF(r.X, r.Y + r.Height / 2 - 11, 38, 22);

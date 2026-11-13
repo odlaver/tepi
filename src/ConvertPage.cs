@@ -208,7 +208,7 @@ namespace Tepi
             p.Text(Lang.T("Terakhir"), Ink.Semi(12f), p.T.Sub, 24, top + 8, 200, StringAlignment.Near);
             if (convHistory.Count == 0)
             {
-                p.Text(Lang.T("Hasil ubahan muncul di sini dan bisa diseret ke aplikasi lain"), Ink.Text(12.5f), p.T.Faint, 24, top + 36, w - 48, StringAlignment.Near);
+                p.Text(Lang.T("Hasil ubahan muncul di sini dan bisa diseret ke aplikasi lain"), Ink.Text(12.5f), p.T.Hint, 24, top + 36, w - 48, StringAlignment.Near);
                 return;
             }
             var area = new RectangleF(10, top + 22, w - 20, ConvListView(h));
@@ -227,7 +227,7 @@ namespace Tepi
                 DrawShelfThumb(d.Item, new RectangleF(row.X + 10, rcy - 17, 34, 34), 9);
                 float tx = row.X + 56;
                 p.Text(d.Item.Name, Ink.Semi(12.5f), p.T.Text, tx, rcy - 8, row.Right - tx - 14, StringAlignment.Near);
-                p.Text(d.From + " → " + d.To + " · " + Fmt.Ago(d.Utc), Ink.Small(11f), p.T.Faint, tx, rcy + 9, row.Right - tx - 14, StringAlignment.Near);
+                p.Text(d.From + " → " + d.To + " · " + Fmt.Ago(d.Utc), Ink.Small(11f), p.T.Hint, tx, rcy + 9, row.Right - tx - 14, StringAlignment.Near);
                 var pick = d;
                 if (row.Top >= area.Top && row.Bottom <= area.Bottom)
                 {

@@ -54,8 +54,17 @@ namespace Tepi
             switch (key)
             {
                 case Keys.Escape:
+                    // A toast goes first; a second Esc leaves
+                    if (!expanded && toast != null && Swipeable(current)) { DismissToast(); return true; }
                     ExitKeyboard();
                     return true;
+                case Keys.Z:
+                    if ((keyData & Keys.Control) != 0 && pending != null) { UndoPending(); return true; }
+                    break;
+                case Keys.Delete:
+                case Keys.Back:
+                    if (!expanded && toast != null && Swipeable(current)) { Fling(1); return true; }
+                    break;
                 case Keys.Tab:
                     MoveFocus(shift ? -1 : 1);
                     return true;
@@ -128,6 +137,7 @@ namespace Tepi
             }
             switch (id)
             {
+                case "undo": return Lang.T("Urungkan");
                 case "allow": return Lang.T("Izinkan");
                 case "deny": return Lang.T("Tolak");
                 case "always": return Lang.T("Selalu");
@@ -146,20 +156,41 @@ namespace Tepi
                 case "repeat": return Lang.T(mediaInfo.Repeat == 1 ? "Ulang satu lagu" : mediaInfo.Repeat == 2 ? "Ulang semua" : "Ulang mati");
             }
             if (id.StartsWith("send", StringComparison.Ordinal)) return Lang.T("Chat");
+            if (id.StartsWith("chip", StringComparison.Ordinal)) return id.Length > 4 && id[4] != '*' ? id.Substring(4) : Lang.T("Semua");
             return "";
         }
 
         void DrawFocusRing()
         {
-            if (!keyboardMode || focusId == null) return;
+            if (!keyboardMode || focusId == null) { ringId = null; return; }
             foreach (var h in hits)
             {
                 if (h.Id != focusId) continue;
                 var r = h.Rect;
                 r.Inflate(2, 2);
-                p.StrokeRound(r, Math.Min(12, r.Height / 2), p.T.Accent, 2f);
+                // Ring glides from the last target
+                bool snap = ringId == null || Anim.Reduced;
+                ringId = focusId;
+                ring.X.Target = r.X; ring.Y.Target = r.Y; ring.W.Target = r.Width; ring.H.Target = r.Height;
+                if (snap) { ring.X.Snap(r.X); ring.Y.Snap(r.Y); ring.W.Snap(r.Width); ring.H.Snap(r.Height); }
+                var at = new System.Drawing.RectangleF(ring.X.Value, ring.Y.Value, ring.W.Value, ring.H.Value);
+                p.StrokeRound(at, Math.Min(12, at.Height / 2), p.T.Accent, 2f);
                 return;
             }
         }
+
+        readonly CardGlide ring = MakeRing();
+        string ringId;
+
+        static CardGlide MakeRing()
+        {
+            var m = new CardGlide();
+            foreach (var s in new[] { m.X, m.Y, m.W, m.H }) Springs.Tune(s, 0.18f, 1f);
+            return m;
+        }
+
+        void StepRing(float dt) { ring.X.Step(dt); ring.Y.Step(dt); ring.W.Step(dt); ring.H.Step(dt); }
+
+        bool RingMoving() { return ringId != null && !ring.Settled; }
     }
 }

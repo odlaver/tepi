@@ -195,7 +195,7 @@ namespace Tepi
             var rect = new RectangleF(cx - r, cy - r, r * 2, r * 2);
             g.DrawEllipse(p.P(p.T.Line, 2.2f), rect);
             float sweep = 360f * TimerFraction();
-            Color c = timerPaused ? p.T.Faint : timerKind == TimerKind.Focus || timerKind == TimerKind.Countdown ? p.T.Accent : p.T.Sub;
+            Color c = timerPaused ? p.T.Hint : timerKind == TimerKind.Focus || timerKind == TimerKind.Countdown ? p.T.Accent : p.T.Sub;
             if (sweep > 0.5f) g.DrawArc(p.P(c, 2.2f), rect, -90, sweep);
         }
 
@@ -229,7 +229,7 @@ namespace Tepi
             LiveRect(new RectangleF(11, cy - 9, 18, 18), timerPaused ? 0 : TickFps, t => DrawTimerRing(20, cy, 7.5f));
             string label = timerPaused ? TimerLabel() + Lang.T(" · dijeda") : TimerLabel();
             p.Text(label, Ink.Semi(12.5f), p.T.Text, 38, cy, w - 38 - 70, StringAlignment.Near);
-            LiveTimer(Ink.Semi(13f), timerPaused ? p.T.Faint : p.T.Sub, w - 18, cy, StringAlignment.Far, 60);
+            LiveTimer(Ink.Semi(13f), timerPaused ? p.T.Hint : p.T.Sub, w - 18, cy, StringAlignment.Far, 60);
             AddHit(new RectangleF(0, 0, w, h), "timerPill", delegate { Expand(PageControl); });
         }
     }

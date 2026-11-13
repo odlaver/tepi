@@ -103,7 +103,8 @@ namespace Tepi
             settings.Set(key, value);
             settings.Save();
             if (key == "material") { ApplyGlass(); ResetFrost(); if (dockWin != null) dockWin.Changed(); }
-            else if (key == "motion.reduce" || key == "motion.feel") Anim.Read(settings);
+            else if (key == "motion.reduce" || key == "motion.feel") { Anim.Read(settings); Retune(); }
+            else if (key == "notif.tint") { AppTint.Mode = value; Kick(); }
             else if (key == "tabs.style") tabSnap = true;
             else if (key == "share.mode") ApplyShare();
             Kick();
@@ -163,7 +164,7 @@ namespace Tepi
             if (claude)
             {
                 string err = HookSetup.Install(port, settings.Get("agent.token", ""));
-                if (err != null) ShowInfo(Ink.IcoTerminal, Lang.T("Belum terhubung"), err, true);
+                if (err != null) ShowFail(Ink.IcoTerminal, Lang.T("Belum terhubung"), err, true);
             }
             CheckLinks();
             ShowInfo(Ink.IcoTerminal, Lang.F("Port {0}", port), Lang.T("sesi agen baru memakainya"), true);
@@ -1149,6 +1150,9 @@ namespace Tepi
                         var body = Switch("notif.content", true, null);
                         body.Enabled = settings.GetBool("notif", true);
                         add(Row(Lang.T("Tampilkan isi pesan"), body.Enabled ? null : Lang.T("Ikut notifikasi pesan"), body));
+                        string tint = settings.Get("notif.tint", "penuh");
+                        add(Row(Lang.T("Warna aplikasi"), Lang.T("Lingkaran pengirim memakai warna aplikasinya, misalnya hijau untuk WhatsApp"),
+                            Seg(new[] { Lang.T("Penuh"), Lang.T("Lembut"), Lang.T("Mati") }, tint == "lembut" ? 1 : tint == "mati" ? 2 : 0, i => island.SetChoice("notif.tint", i == 1 ? "lembut" : i == 2 ? "mati" : "penuh"))));
                         bool tepiBanner = settings.Get("notif.banner", "auto") == "tepi";
                         add(Row(Lang.T("Banner pesan"), tepiBanner ? Lang.T("Tepi selalu muncul; matikan banner Windows supaya tidak dobel") : Lang.T("Tepi muncul hanya untuk aplikasi yang banner Windows-nya mati"),
                             Seg(new[] { Lang.T("Otomatis"), "Tepi" }, tepiBanner ? 1 : 0, i => { settings.Set("notif.banner", i == 1 ? "tepi" : "auto"); settings.Save(); Relayout(); })));
@@ -1159,7 +1163,7 @@ namespace Tepi
                                 Button(Lang.T("Jadikan utama"), true, delegate
                                 {
                                     int n = island.MakeTepiPrimary();
-                                    island.ShowInfo('', n > 0 ? Lang.F("Banner Windows dimatikan untuk {0} aplikasi", n) : Lang.T("Banner Windows sudah mati"), Lang.T("Semua notifikasi lewat Tepi"), true);
+                                    island.ShowOk('', n > 0 ? Lang.F("Banner Windows dimatikan untuk {0} aplikasi", n) : Lang.T("Banner Windows sudah mati"), Lang.T("Semua notifikasi lewat Tepi"), true);
                                     Relayout();
                                 })));
                         else

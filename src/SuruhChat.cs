@@ -373,6 +373,7 @@ namespace Tepi
             int lines = 1;
             // Busy animation clock
             public float Phase;
+            long pulseLast;
 
             public ChatWindow(Island island)
             {
@@ -389,7 +390,7 @@ namespace Tepi
                 fresh.Click += delegate { list.Clear(); };
                 pulse.Tick += delegate
                 {
-                    Phase += 0.3f;
+                    Phase += 7.5f * Anim.Dt(ref pulseLast);
                     list.Pulse();
                     Invalidate(Rectangle.Round(FaceRect()));
                 };
@@ -608,6 +609,7 @@ namespace Tepi
             readonly List<Item> items = new List<Item>();
             readonly List<Tap> taps = new List<Tap>();
             readonly Timer glide = new Timer { Interval = 15 };
+            long glideLast;
             readonly Timer tick = new Timer { Interval = 1200 };
             readonly Timer undoEnd = new Timer { Interval = 8000 };
             float scroll, target, contentH;
@@ -648,7 +650,7 @@ namespace Tepi
                 this.win = win;
                 glide.Tick += delegate
                 {
-                    scroll += (target - scroll) * 0.28f;
+                    scroll += (target - scroll) * (1 - (float)Math.Exp(-Anim.Dt(ref glideLast) / 0.047f));
                     if (Math.Abs(target - scroll) < 0.6f) { scroll = target; glide.Stop(); }
                     Track(PointToClient(Cursor.Position));
                     Invalidate();

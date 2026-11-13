@@ -210,7 +210,7 @@ namespace Tepi
                 else if (st.Status == 1) p.Orbit(x + 7, cy, 6f, orbitPhase, p.T.Text);
                 else g.DrawEllipse(p.P(p.T.Faint, 1.4f), x + 1, cy - 6, 12, 12);
                 p.Text(st.Status == 1 && st.Active.Length > 0 ? st.Active : st.Text, st.Status == 1 ? Ink.Semi(12f) : Ink.Text(12f),
-                       st.Status == 2 ? p.T.Faint : st.Status == 1 ? p.T.Text : p.T.Sub, x + 22, cy, w - 22, StringAlignment.Near);
+                       st.Status == 2 ? p.T.Hint : st.Status == 1 ? p.T.Text : p.T.Sub, x + 22, cy, w - 22, StringAlignment.Near);
             }
         }
 

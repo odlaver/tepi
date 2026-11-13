@@ -462,7 +462,7 @@ namespace Tepi
             {
                 // Still emblem: small hop
                 double t = (now - emblemPlayUtc).TotalSeconds;
-                if (t < PulseLife) grow = (float)Math.Sin(t / PulseLife * Math.PI) * r * 0.16f;
+                if (t < PulseLife && !Anim.Reduced) grow = (float)Math.Sin(t / PulseLife * Math.PI) * r * 0.16f;
             }
             float rr = r + grow;
             var st = g.Save();
@@ -492,7 +492,7 @@ namespace Tepi
             float fit = CornerSize / Math.Max(frame.Width, frame.Height);
             float w = frame.Width * fit, h = frame.Height * fit;
             // Right edge near: mascot sits on the left corner
-            float x = RightHanded ? shell.Left - w * 0.6f : shell.Right - w * 0.4f, y = shell.Bottom - h * 0.42f + (1 - Ease.OutBack(k)) * 14;
+            float x = RightHanded ? shell.Left - w * 0.6f : shell.Right - w * 0.4f, y = shell.Bottom - h * 0.42f + (1 - Ease.Pop(k)) * 14;
             var st = g.Save();
             g.ResetTransform();
             g.InterpolationMode = InterpolationMode.HighQualityBilinear;

@@ -205,6 +205,64 @@ namespace Tepi
             }
         }
 
+        // Timer look-alike on the vsync pacer
+        sealed class PacedTimer
+        {
+            static readonly int Msg = Taskbar.RegisterWindowMessage("TepiPacedTick");
+            static Sink sink;
+            static readonly System.Collections.Generic.List<PacedTimer> live = new System.Collections.Generic.List<PacedTimer>();
+
+            public event EventHandler Tick;
+            public bool Enabled { get; private set; }
+
+            public void Start()
+            {
+                Enabled = true;
+                if (!live.Contains(this)) live.Add(this);
+                if (sink == null) sink = new Sink();
+                sink.Pacer.Want();
+            }
+
+            public void Stop() { Enabled = false; }
+
+            public void Dispose() { Stop(); }
+
+            static void Fire()
+            {
+                try
+                {
+                    foreach (var t in live.ToArray())
+                    {
+                        var h = t.Tick;
+                        if (t.Enabled && h != null) h(t, EventArgs.Empty);
+                    }
+                }
+                finally
+                {
+                    live.RemoveAll(t => !t.Enabled);
+                    sink.Pacer.Done(live.Count > 0);
+                }
+            }
+
+            // Message-only window the pacer posts to
+            sealed class Sink : System.Windows.Forms.NativeWindow
+            {
+                public readonly DockPacer Pacer;
+
+                public Sink()
+                {
+                    CreateHandle(new System.Windows.Forms.CreateParams { Parent = new IntPtr(-3) });
+                    Pacer = new DockPacer(Handle, Msg);
+                }
+
+                protected override void WndProc(ref System.Windows.Forms.Message m)
+                {
+                    if (m.Msg == Msg) { Fire(); return; }
+                    base.WndProc(ref m);
+                }
+            }
+        }
+
         // One frame per vsync, at most ~60 a second, only while asked
         sealed class DockPacer
         {

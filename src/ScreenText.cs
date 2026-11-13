@@ -19,7 +19,7 @@ namespace Tepi
 
         void ReadScreenText()
         {
-            if (!OcrNow()) { ShowInfo('', Lang.T("OCR Windows belum tersedia"), Lang.T("Tambahkan bahasa di Pengaturan Windows"), true); return; }
+            if (!OcrNow()) { ShowWarn('', Lang.T("OCR Windows belum tersedia"), Lang.T("Tambahkan bahasa di Pengaturan Windows"), true); return; }
             if (screenTextWait == null)
             {
                 screenTextWait = new System.Windows.Forms.Timer { Interval = 60000 };
@@ -34,7 +34,7 @@ namespace Tepi
             {
                 Log.Write("screenclip: " + ex.Message);
                 DisarmScreenText();
-                ShowInfo('', Lang.T("Alat potong layar tidak terbuka"), "", true);
+                ShowFail('', Lang.T("Alat potong layar tidak terbuka"), "", true);
             }
         }
 

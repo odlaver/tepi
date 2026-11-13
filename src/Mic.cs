@@ -85,7 +85,7 @@ namespace Tepi
 
         void ToggleMic()
         {
-            if (!micPresent) { ShowInfo(Ink.IcoMic, Lang.T("Tidak ada mikrofon"), "", true); return; }
+            if (!micPresent) { ShowWarn(Ink.IcoMic, Lang.T("Tidak ada mikrofon"), "", true); return; }
             volume.SetMicMute(!micMuted);
         }
 

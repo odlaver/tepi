@@ -21,11 +21,11 @@ namespace Tepi
                 using (var fs = File.OpenRead(path))
                 using (var img = Image.FromStream(fs)) pic = new Bitmap(img);
             }
-            catch (Exception ex) { Log.Write("redact open: " + ex.Message); ShowInfo('', Lang.T("Gambar tidak bisa dibuka"), "", true); return; }
+            catch (Exception ex) { Log.Write("redact open: " + ex.Message); ShowFail('', Lang.T("Gambar tidak bisa dibuka"), "", true); return; }
             DismissToast();
             var w = new RedactWindow(pic);
             // Shot preview already says it
-            w.Copied += delegate { if (!ShotsOn) ShowInfo('', Lang.T("Gambar disalin"), "", true); };
+            w.Copied += delegate { if (!ShotsOn) ShowOk('', Lang.T("Gambar disalin"), "", true); };
             w.Show();
             w.Activate();
         }

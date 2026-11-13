@@ -16,6 +16,7 @@ namespace Tepi
     {
         public string Path = "", Name = "";
         public Bitmap Thumb;
+        public DateTime ThumbUtc;
         public long Id;
         public DateTime AddedUtc;
     }
@@ -185,7 +186,7 @@ namespace Tepi
         void OpenShelfItem(ShelfItem item)
         {
             try { Process.Start(new ProcessStartInfo(item.Path) { UseShellExecute = true }); }
-            catch (Exception ex) { Log.Write("shelf open: " + ex.Message); ShowInfo('', Lang.T("Berkas tidak bisa dibuka"), item.Name, true); }
+            catch (Exception ex) { Log.Write("shelf open: " + ex.Message); ShowFail('', Lang.T("Berkas tidak bisa dibuka"), item.Name, true); }
         }
 
         void RevealShelfItem(ShelfItem item)
@@ -206,7 +207,7 @@ namespace Tepi
             if (picture && File.Exists(item.Path)) m.Items.Add(Lang.T("Samarkan…"), null, delegate { OpenRedact(item.Path); });
             if (PhonePaired && File.Exists(item.Path)) m.Items.Add(Lang.T("Kirim ke HP"), null, delegate { SendToPhone(item.Path); });
             m.Items.Add(new ToolStripSeparator());
-            m.Items.Add(Lang.T("Keluarkan dari rak"), null, delegate { Vanish(new[] { ShelfCellRect(item) }, false); RemoveFromShelf(item); });
+            m.Items.Add(Lang.T("Keluarkan dari rak"), null, delegate { Vanish(new[] { ShelfCellRect(item) }, false); RemoveShelfLater(new List<ShelfItem> { item }, Lang.T("Dikeluarkan dari rak")); });
             if (shelfPicked.Count > 1 && shelfPicked.Contains(item.Id)) m.Items.Add(Lang.F("Keluarkan {0} yang dipilih", shelfPicked.Count), null, delegate { RemovePicked(); });
             StyleMenu(m);
             m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
@@ -267,10 +268,15 @@ namespace Tepi
             g.IntersectClip(area);
             shelfCells.Clear();
             int lead = ShelfLead;
+            bool snap = (now - shelfDrawnUtc).TotalSeconds > 0.2;
+            shelfDrawnUtc = now;
             for (int i = 0; i < shelf.Count + lead; i++)
             {
                 float dy, a = RowIn(i / cols, now, out dy);
-                var cell = new RectangleF(x0 + (i % cols) * ShelfCellW, area.Y + (i / cols) * ShelfCellH - shelfScroll.Value + dy, ShelfCellW, ShelfCellH);
+                float sx = x0 + (i % cols) * ShelfCellW, sy = (i / cols) * ShelfCellH;
+                // Items slide to their new slot
+                if (i >= lead) { var at = ShelfSlot(shelf[i - lead].Id, sx, sy, snap); sx = at.X; sy = at.Y; }
+                var cell = new RectangleF(sx, area.Y + sy - shelfScroll.Value + dy, ShelfCellW, ShelfCellH);
                 if (cell.Bottom < area.Top || cell.Y > area.Bottom) continue;
                 float keep = p.Alpha;
                 p.Alpha = keep * a;
@@ -338,7 +344,9 @@ namespace Tepi
             var hit = RectangleF.Inflate(cell, -4, -4);
             AddHit(hit, id, delegate { ShelfClick(it); });
             bool hover = Hover(id) || Hover(del), picked = shelfPicked.Contains(item.Id);
-            if (hover || picked) p.FillRound(hit, 16, Pressed(id) || picked ? p.T.FillHover : p.T.Fill);
+            float hk = Math.Max(HoverK(id), HoverK(del));
+            if (Pressed(id) || picked) p.FillRound(hit, 16, p.T.FillHover);
+            else if (hk > 0) p.FillRound(hit, 16, Ink.A(p.T.Fill, hk));
             if (picked) p.StrokeRound(hit, 16, p.T.Accent, 1.6f);
             if (Pressed(id)) ShelfMouseDown(it);
             var thumb = new RectangleF(cell.X + cell.Width / 2 - ShelfThumbPx / 2, cell.Y + 10, ShelfThumbPx, ShelfThumbPx);
@@ -350,17 +358,63 @@ namespace Tepi
                 p.Icon('\uE73E', 10f, p.T.OnAccent, thumb.X + 2, thumb.Y + 2);
             }
             p.Text(item.Name, Ink.Small(11f), p.T.Text, cell.X + cell.Width / 2, cell.Y + 82, cell.Width - 12, StringAlignment.Center);
-            if (!hover) return;
+            if (hk <= 0) return;
             // Remove button over the thumbnail corner
             var x = new RectangleF(thumb.Right - 12, thumb.Y - 6, 20, 20);
-            AddHit(x, del, delegate { Vanish(new[] { ShelfCellRect(it) }, false); RemoveFromShelf(it); });
-            p.Circle(x.X + 10, x.Y + 10, 10, Hover(del) ? p.T.Text : Ink.Mix(p.T.Bg, p.T.Text, 0.25f));
-            p.Cross(x.X + 10, x.Y + 10, 8, Hover(del) ? p.T.Bg : p.T.Text);
+            if (hover) AddHit(x, del, delegate { Vanish(new[] { ShelfCellRect(it) }, false); RemoveShelfLater(new List<ShelfItem> { it }, Lang.T("Dikeluarkan dari rak")); });
+            float dk = HoverK(del), grow = Anim.Reduced ? 1 : 0.6f + 0.4f * Ease.Pop(hk);
+            p.Circle(x.X + 10, x.Y + 10, 10 * grow, Ink.A(Ink.Mix(Ink.Mix(p.T.Bg, p.T.Text, 0.25f), p.T.Text, dk), hk));
+            p.Cross(x.X + 10, x.Y + 10, 8 * grow, Ink.A(Ink.Mix(p.T.Text, p.T.Bg, dk), hk));
         }
 
         void DrawShelfThumb(ShelfItem item, RectangleF r, float radius)
         {
-            if (item.Thumb != null) { p.Image(item.Thumb, r, radius); return; }
+            float k = item.Thumb == null ? 0 : Ease.OutCubic((float)(DateTime.UtcNow - item.ThumbUtc).TotalSeconds / 0.22f);
+            if (k >= 1) { p.Image(item.Thumb, r, radius); return; }
+            float keep = p.Alpha;
+            p.Alpha = keep * (1 - k);
+            DrawShelfPlaceholder(item, r, radius);
+            p.Alpha = keep * k;
+            if (k > 0) p.Image(item.Thumb, r, radius);
+            p.Alpha = keep;
+        }
+
+        readonly Dictionary<long, CardGlide> shelfGlide = new Dictionary<long, CardGlide>();
+        DateTime shelfDrawnUtc;
+
+        PointF ShelfSlot(long id, float x, float y, bool snap)
+        {
+            CardGlide m;
+            if (!shelfGlide.TryGetValue(id, out m))
+            {
+                m = new CardGlide();
+                Springs.Tune(m.X, 0.3f, 0.9f);
+                Springs.Tune(m.Y, 0.3f, 0.9f);
+                shelfGlide[id] = m;
+                snap = true;
+            }
+            m.X.Target = x;
+            m.Y.Target = y;
+            if (snap || Anim.Reduced) { m.X.Snap(x); m.Y.Snap(y); }
+            return new PointF(m.X.Value, m.Y.Value);
+        }
+
+        void StepShelf(float dt)
+        {
+            if (shelfGlide.Count > 64) shelfGlide.Clear();
+            foreach (var m in shelfGlide.Values) { m.X.Step(dt); m.Y.Step(dt); }
+        }
+
+        bool ShelfMoving()
+        {
+            foreach (var m in shelfGlide.Values) if (!m.X.Settled || !m.Y.Settled) return true;
+            var now = DateTime.UtcNow;
+            foreach (var it in shelf) if ((now - it.ThumbUtc).TotalSeconds < 0.24) return true;
+            return false;
+        }
+
+        void DrawShelfPlaceholder(ShelfItem item, RectangleF r, float radius)
+        {
             p.FillRound(r, radius, p.T.Fill);
             string ext = Path.GetExtension(item.Name).TrimStart('.').ToUpperInvariant();
             if (ext.Length > 4) ext = ext.Substring(0, 4);
@@ -386,7 +440,7 @@ namespace Tepi
                 p.Text(ShelfOn ? Lang.T("Lepas untuk menaruh di rak") : Lang.T("Lepas untuk mengubah format"), Ink.Semi(13f), p.T.Text, 54, cy, w - 70, StringAlignment.Near);
                 return;
             }
-            float k = Ease.OutBack(Ease.Clamp01((float)((now - droppedUtc).TotalSeconds / 0.45)));
+            float k = Ease.Pop(Ease.Clamp01((float)((now - droppedUtc).TotalSeconds / 0.45)));
             p.Circle(30, cy, 13 * k, p.T.Text);
             p.Check(30, cy, 12, p.T.Bg, Ease.Clamp01((float)((now - droppedUtc).TotalSeconds / 0.5)));
             p.Text(droppedCount > 0 ? Lang.F("{0} berkas di rak", shelf.Count) : Lang.T("Tidak ada yang bisa ditaruh"), Ink.Semi(13f), p.T.Text, 54, cy, w - 70, StringAlignment.Near);
@@ -454,6 +508,7 @@ namespace Tepi
                     {
                         if (!shelf.Contains(item) && !ConvOwns(item)) { made.Dispose(); return; }
                         if (item.Thumb != null) item.Thumb.Dispose();
+                        else if (!Anim.Reduced) item.ThumbUtc = DateTime.UtcNow;
                         item.Thumb = made;
                         Kick();
                     });

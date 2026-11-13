@@ -74,9 +74,9 @@ namespace Tepi
                         Close();
                         return;
                     }
-                    if (error == Restart) { ShowInfo(Ink.IcoRefresh, Lang.F("Tepi {0} terpasang", version), Lang.T("buka ulang Tepi"), true); return; }
+                    if (error == Restart) { ShowOk(Ink.IcoRefresh, Lang.F("Tepi {0} terpasang", version), Lang.T("buka ulang Tepi"), true); return; }
                     Log.Write("update failed: " + error);
-                    ShowInfo(Ink.IcoRefresh, Lang.T("Pembaruan gagal"), Lang.T("halaman rilis dibuka"), true);
+                    ShowFail(Ink.IcoRefresh, Lang.T("Pembaruan gagal"), Lang.T("halaman rilis dibuka"), true);
                     if (newUrl != null) OpenUrl(newUrl);
                 });
             });

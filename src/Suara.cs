@@ -86,8 +86,8 @@ namespace Tepi
             string keyName = settings.Get("dictate.key", "rctrl") == "ralt" ? Lang.T("Alt kanan") : Lang.T("Ctrl kanan");
             string missing = DictOn ? DictMissing() : null;
             VoiceTile(new RectangleF(16, y, tw, VoiceTileH), "vDict", Ink.IcoMic, Lang.T("Dikte"),
-                !DictOn ? Lang.T("Nyalakan di Pengaturan") : missing ?? Lang.F("Tahan {0}", keyName), false,
-                delegate { if (!DictOn) OpenPrefs("dikte"); else if (missing != null) OpenPrefs("ai"); else BeginDictate(true); });
+                !DictOn ? Lang.T("Nyalakan") : missing ?? Lang.F("Tahan {0}", keyName), false,
+                delegate { if (!DictOn) OpenPrefs("dikte"); else if (missing != null) OpenPrefs("ai"); else BeginDictate(true); }, !DictOn);
             string rec = RapatOn ? Lang.F("Merekam {0}", Clock((DateTime.UtcNow - rapatStartUtc).TotalSeconds)) : rapatWriting ? Lang.T("Menulis transkrip") : HotkeyText(RapatHotkey).Length > 0 ? HotkeyText(RapatHotkey) : Lang.T("Mulai rekam");
             VoiceTile(new RectangleF(16 + tw + gap, y, tw, VoiceTileH), "vRec", '', RapatOn ? Lang.T("Hentikan") : Lang.T("Rekam rapat"), rec, RapatOn,
                 delegate { if (!rapatWriting) ToggleRapat(); });
@@ -95,7 +95,7 @@ namespace Tepi
             DrawVoiceList(w, h);
         }
 
-        void VoiceTile(RectangleF r, string id, char glyph, string title, string sub, bool live, Action act)
+        void VoiceTile(RectangleF r, string id, char glyph, string title, string sub, bool live, Action act, bool cta = false)
         {
             AddHit(r, id, act);
             bool hover = Hover(id), down = Pressed(id);
@@ -104,9 +104,21 @@ namespace Tepi
             // Centred: mark, name, hint
             float cx = r.X + r.Width / 2;
             // Recording: a red dot, not the glyph
-            if (live) p.FillRound(new RectangleF(cx - 6, r.Y + 14, 12, 12), 6, p.T.Negative);
-            else p.Icon(glyph, 16f, p.T.Text, cx, r.Y + 20);
-            p.Text(title, Ink.Semi(13f), p.T.Text, cx, r.Y + 43, r.Width - 16, StringAlignment.Center);
+            // With a setup button below, everything sits a little higher
+            float up = cta ? 6 : 0;
+            if (live) p.FillRound(new RectangleF(cx - 6, r.Y + 14 - up, 12, 12), 6, p.T.Negative);
+            else p.Icon(glyph, 16f, p.T.Text, cx, r.Y + 20 - up);
+            p.Text(title, Ink.Semi(13f), p.T.Text, cx, r.Y + 43 - up, r.Width - 16, StringAlignment.Center);
+            if (cta)
+            {
+                // Needs setup: the hint is a real button
+                var f = Ink.Semi(11f);
+                float bw = Math.Min(r.Width - 16, p.Measure(sub, f) + 22);
+                var b = new RectangleF(cx - bw / 2, r.Y + 49, bw, 19);
+                p.FillRound(b, 10, Pressed(id) ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.2f) : Ink.Mix(p.T.Accent, p.T.OnAccent, 0.1f * HoverK(id)));
+                p.TextCenter(sub, f, p.T.OnAccent, cx, b.Y + 10);
+                return;
+            }
             p.Text(sub, Ink.Small(11f), p.T.Sub, cx, r.Y + 59, r.Width - 16, StringAlignment.Center);
         }
 
@@ -143,7 +155,7 @@ namespace Tepi
             var items = VoiceItems();
             if (items.Count == 0)
             {
-                p.Text(Lang.T("Dikte, perintah, pengingat, dan transkrip rapat muncul di sini"), Ink.Text(12.5f), p.T.Faint, 24, top + 36, w - 48, StringAlignment.Near);
+                p.Text(Lang.T("Dikte, perintah, pengingat, dan transkrip rapat muncul di sini"), Ink.Text(12.5f), p.T.Hint, 24, top + 36, w - 48, StringAlignment.Near);
                 return;
             }
             var area = new RectangleF(10, top + 22, w - 20, VoiceListView(h));
@@ -178,12 +190,12 @@ namespace Tepi
                 p.Cross(del0.X + 14, del0.Y + 14, 10, p.T.Sub);
                 right = del0.X - 6;
             }
-            else if (!open) p.TextRight(Fmt.Ago(e.Utc), Ink.Small(11f), p.T.Faint, right, rcy - 8);
+            else if (!open) p.TextRight(Fmt.Ago(e.Utc), Ink.Small(11f), p.T.Hint, right, rcy - 8);
             float titleRight = hover || open ? right : right - 64;
             // Open: the full text replaces the one-line detail
             string title = open && e.Kind == "dikte" ? VoiceDetail(e) : e.Text;
             p.Text(title, Ink.Semi(12.5f), p.T.Text, tx, rcy - 8, titleRight - tx, StringAlignment.Near);
-            if (!open) p.Text(VoiceDetail(e), Ink.Small(11f), e.Kind == "suruh" ? p.T.Sub : p.T.Faint, tx, rcy + 9, right - tx, StringAlignment.Near);
+            if (!open) p.Text(VoiceDetail(e), Ink.Small(11f), e.Kind == "suruh" ? p.T.Sub : p.T.Hint, tx, rcy + 9, right - tx, StringAlignment.Near);
             var pick = e;
             bool whole = row.Top >= area.Top && row.Bottom <= area.Bottom;
             if (open)
@@ -196,7 +208,7 @@ namespace Tepi
                 var rm = new RectangleF(copy.Right + 6, by, 70, 24);
                 VoiceAction(copy, "voiceCopy" + i, Lang.T("Salin"), delegate { VoiceCopy(pick); });
                 VoiceAction(rm, "voiceRm" + i, Lang.T("Hapus"), delegate { VoiceDelete(pick, row); });
-                p.TextRight(Fmt.Ago(e.Utc), Ink.Small(11f), p.T.Faint, row.Right - 14, by + 12);
+                p.TextRight(Fmt.Ago(e.Utc), Ink.Small(11f), p.T.Hint, row.Right - 14, by + 12);
             }
             if (!whole) return;
             AddHit(row, id, delegate { VoiceOpen(pick); }, null, delegate { VoiceMenu(pick); });
@@ -245,7 +257,7 @@ namespace Tepi
         {
             try { Clipboard.SetText(VoiceFull(e)); }
             catch (Exception) { return; }
-            ShowInfo('', Lang.T("Disalin"), "", true);
+            ShowOk('', Lang.T("Disalin"), "", true);
         }
 
         // Log rows go; reminders cancel; transcripts to the Recycle Bin
@@ -254,7 +266,7 @@ namespace Tepi
             if (e.Kind == "nanti") { CancelOneShot(e.Reminder); return; }
             if (e.Kind == "rapat")
             {
-                if (!Recycle(e.Path)) { ShowInfo('', Lang.T("Transkrip tidak bisa dihapus"), Path.GetFileName(e.Path), true); return; }
+                if (!Recycle(e.Path)) { ShowFail('', Lang.T("Transkrip tidak bisa dihapus"), Path.GetFileName(e.Path), true); return; }
                 transcriptsReadUtc = DateTime.MinValue;
             }
             else voiceLog.Remove(e);

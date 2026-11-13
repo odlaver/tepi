@@ -240,11 +240,11 @@ namespace Tepi
         // The toast says how it went
         void CopyRead(string text)
         {
-            if (string.IsNullOrEmpty(text)) { ShowInfo('\uE8C8', Lang.T("Tidak ada teks terbaca"), "", true); return; }
+            if (string.IsNullOrEmpty(text)) { ShowWarn('\uE8C8', Lang.T("Tidak ada teks terbaca"), "", true); return; }
             try { Clipboard.SetText(text); }
             catch (Exception ex) { Log.Write("ocr copy: " + ex.Message); return; }
             int lines = text.Split('\n').Length;
-            ShowInfo('\uE8C8', Lang.T("Teks disalin"), Lang.F("{0} baris", lines), true);
+            ShowOk('\uE8C8', Lang.T("Teks disalin"), Lang.F("{0} baris", lines), true);
         }
 
         void ShelveShot()
@@ -253,7 +253,7 @@ namespace Tepi
             if (s == null || s.Path == null) return;
             AddToShelf(new[] { s.Path });
             DismissToast();
-            ShowInfo(IcoShelf, Lang.T("Ditaruh di rak"), System.IO.Path.GetFileName(s.Path), true);
+            ShowOk(IcoShelf, Lang.T("Ditaruh di rak"), System.IO.Path.GetFileName(s.Path), true);
         }
 
         void OpenShot()

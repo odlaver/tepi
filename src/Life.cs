@@ -221,6 +221,13 @@ namespace Tepi
             if (prev.Playing && !m.Playing) pausedSinceUtc = DateTime.UtcNow;
             bool shortClip = m.DurationMs > 0 && m.DurationMs < 31000;
             if (m.Present && m.Key != prev.Key && mediaSeen && m.Title.Length > 0 && !shortClip) pendingTrack = m.Key;
+            // Next song on the pill: old one fades out
+            if (m.Key != prev.Key && prev.Title.Length > 0 && (current == View.Media || current == View.Lyric) && !Anim.Reduced)
+            {
+                snapWanted = true;
+                previous = current;
+                switchedUtc = DateTime.UtcNow;
+            }
             mediaInfo = m;
             // Free old artwork now, not at finalization
             if (prev.Cover != null && !ReferenceEquals(prev.Cover, m.Cover)) prev.Cover.Dispose();
@@ -340,7 +347,8 @@ namespace Tepi
         {
             notifAccess = access;
             if (list == null || !NotifOn) { Kick(); return; }
-            var visible = list.FindAll(n => n.Chat);
+            // Removed but still undoable: keep out
+            var visible = list.FindAll(n => n.Chat && !notifHidden.Contains(n.Id));
             // Toasts Windows doesn't keep stay here
             var live = new HashSet<uint>();
             foreach (var n in visible) live.Add(n.Id);
@@ -481,7 +489,7 @@ namespace Tepi
                 // Truncated requests are never allowed remotely
                 if (a != null && !(d == "allow" && a.Truncated)) Decide(a, d);
             });
-            phone.Paired += () => Post(() => { ShowInfo(IcoPhone, Lang.T("HP tersambung"), phone.Device, true); PublishPhone(); });
+            phone.Paired += () => Post(() => { ShowOk(IcoPhone, Lang.T("HP tersambung"), phone.Device, true); PublishPhone(); });
             WirePhone();
             phone.Start(settings.GetInt("phone.port", 0));
             if (phone.Port > 0 && settings.GetInt("phone.port", 0) != phone.Port) { settings.Set("phone.port", phone.Port); settings.Save(); }
@@ -558,13 +566,13 @@ namespace Tepi
                 string err = HookSetup.Install(hub.Port, settings.Get("agent.token", ""));
                 if (err == null) QuotaFollowHooks(true);
                 HooksInstalled();
-                if (err != null) ShowInfo(Ink.IcoTerminal, Lang.T("Belum terhubung"), err, true);
-                else ShowInfo(Ink.IcoTerminal, Lang.T("Claude Code terhubung"), hookProfiles + Lang.T(" profil · berlaku di sesi baru"), true);
+                if (err != null) ShowFail(Ink.IcoTerminal, Lang.T("Belum terhubung"), err, true);
+                else ShowOk(Ink.IcoTerminal, Lang.T("Claude Code terhubung"), hookProfiles + Lang.T(" profil · berlaku di sesi baru"), true);
             }
             catch (Exception ex)
             {
                 Log.Write("hook setup: " + ex);
-                ShowInfo(Ink.IcoTerminal, Lang.T("Belum terhubung"), Fmt.OneLine(ex.Message, 60), true);
+                ShowFail(Ink.IcoTerminal, Lang.T("Belum terhubung"), Fmt.OneLine(ex.Message, 60), true);
             }
             CheckLinks();
         }
@@ -598,14 +606,14 @@ namespace Tepi
                 else
                 {
                     string err = AgentSetup.Install(id);
-                    if (err != null) ShowInfo(Ink.IcoTerminal, Lang.T("Belum terhubung"), err, true);
-                    else ShowInfo(Ink.IcoTerminal, Lang.F("{0} terhubung", name), id == "codex" ? Lang.T("percayai lewat /hooks di Codex") : Lang.T("pantau saja · berlaku di sesi baru"), true);
+                    if (err != null) ShowFail(Ink.IcoTerminal, Lang.T("Belum terhubung"), err, true);
+                    else ShowOk(Ink.IcoTerminal, Lang.F("{0} terhubung", name), id == "codex" ? Lang.T("percayai lewat /hooks di Codex") : Lang.T("pantau saja · berlaku di sesi baru"), true);
                 }
             }
             catch (Exception ex)
             {
                 Log.Write("agent setup: " + ex);
-                ShowInfo(Ink.IcoTerminal, Lang.T("Belum terhubung"), Fmt.OneLine(ex.Message, 60), true);
+                ShowFail(Ink.IcoTerminal, Lang.T("Belum terhubung"), Fmt.OneLine(ex.Message, 60), true);
             }
             CheckLinks();
         }
@@ -718,13 +726,14 @@ namespace Tepi
                     s.Tool = tool;
                     s.Activity = AgentHub.Describe(tool, input);
                     expanded = false;
-                    topGap.Velocity += 90;
+                    if (!Anim.Reduced) topGap.Velocity += 90;
                     break;
                 case "Notification":
                     if (Json.Str(ev.Data, "notification_type") == "permission_prompt" && !HasApproval(s.Id))
                     {
                         s.State = AgentState.Waiting;
                         s.Activity = Lang.T("Menunggu izin di terminal");
+                        PulseAgents(2);
                     }
                     break;
                 case "Stop":
@@ -735,6 +744,7 @@ namespace Tepi
                     s.Failed = ev.Name == "StopFailure";
                     s.LastMessage = Fmt.OneLine(Json.Str(ev.Data, "last_assistant_message"), 600);
                     SoundCue(s.Failed ? CueFail : CueDone);
+                    PulseAgents(s.Failed ? 3 : 1);
                     var t = ShowToast(View.Done, 6, 2, false);
                     if (t != null) t.Data = s;
                     break;
@@ -763,7 +773,9 @@ namespace Tepi
         {
             var parts = new List<string>();
             int min = Math.Max(0, (int)(now - s.StartedUtc).TotalMinutes);
-            parts.Add(min < 1 ? Lang.T("baru") : min < 60 ? min + Lang.T(" mnt") : (min / 60) + Lang.T(" j ") + (min % 60) + Lang.T(" mnt"));
+            // Working already says how long: no second clock
+            if (s.State != AgentState.Working)
+                parts.Add(Lang.T("sesi ") + (min < 1 ? Lang.T("baru") : min < 60 ? min + Lang.T(" mnt") : (min / 60) + Lang.T(" j ") + (min % 60) + Lang.T(" mnt")));
             if (s.Files.Count > 0) parts.Add(s.Files.Count + Lang.T(" berkas"));
             if (s.Commands > 0) parts.Add(s.Commands + Lang.T(" perintah"));
             return string.Join(" · ", parts);
@@ -987,7 +999,7 @@ namespace Tepi
         {
             if (kulia == null || !kulia.Configured)
             {
-                ShowInfo(Ink.IcoLock, Lang.T("Kulia belum diatur"), Lang.T("kulia.url / kulia.key kosong"), true);
+                ShowWarn(Ink.IcoLock, Lang.T("Kulia belum diatur"), Lang.T("kulia.url / kulia.key kosong"), true);
                 return;
             }
             expanded = false;
@@ -1001,7 +1013,7 @@ namespace Tepi
             tasksError = null;
             MergeSources();
             RefreshTasks(false);
-            ShowInfo('\0', Lang.T("Kulia tersambung"), kulia.Email, true);
+            ShowOk('\0', Lang.T("Kulia tersambung"), kulia.Email, true);
         }
 
         void SignOutKulia()
@@ -1039,7 +1051,7 @@ namespace Tepi
                     else
                     {
                         task.Status = old;
-                        ShowInfo(Ink.IcoLock, Lang.T("Gagal tersimpan di Kulia"), task.Title, true);
+                        ShowFail(Ink.IcoLock, Lang.T("Gagal tersimpan di Kulia"), task.Title, true);
                         RefreshTasks(false);
                     }
                 });

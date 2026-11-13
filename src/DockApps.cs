@@ -28,7 +28,10 @@ namespace Tepi
         public bool Pinned, Packaged, Attention, Leaving;
         public readonly List<DockWin> Wins = new List<DockWin>();
         public DateTime LaunchUtc = DateTime.MinValue;
-        public int Badge;
+        public int Badge, BadgeShown;
+        // Dropped here: glide in from the ghost's x
+        public float LandX = float.NaN;
+        public DateTime BadgeUtc = DateTime.MinValue;
         // Slot, size, presence, indicator: kept while on the dock
         public readonly Spring X = new Spring(0, 1, 1, 0.05f), Grow = new Spring(1, 1, 1, 0.0005f), Show = new Spring(0, 1, 1, 0.002f), Dot = new Spring(0, 1, 1, 0.003f);
         // Bounce clock in seconds; below zero means still

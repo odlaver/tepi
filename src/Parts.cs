@@ -32,9 +32,88 @@ namespace Tepi
             return w;
         }
 
+        // Hover fade: current id in, previous out
+        readonly Spring hoverIn = new Spring(0, 900, 60, 0.004f), hoverOut = new Spring(0, 900, 60, 0.004f);
+        string hoverInId, hoverOutId;
+
+        void TrackHover()
+        {
+            if (hoverId == hoverInId) return;
+            float back = hoverId != null && hoverId == hoverOutId ? hoverOut.Value : 0;
+            if (hoverInId != null)
+            {
+                hoverOutId = hoverInId;
+                hoverOut.Value = hoverIn.Value;
+                hoverOut.Velocity = 0;
+                Springs.Tune(hoverOut, 0.22f, 1f);
+                hoverOut.Target = 0;
+            }
+            else if (back > 0) hoverOutId = null;
+            hoverInId = hoverId;
+            hoverIn.Value = back;
+            hoverIn.Velocity = 0;
+            Springs.Tune(hoverIn, 0.12f, 1f);
+            hoverIn.Target = hoverId != null ? 1 : 0;
+        }
+
+        // 0..1 hover weight for an id
+        float HoverK(string id)
+        {
+            if (id == null) return 0;
+            if (Anim.Reduced) return Hover(id) ? 1 : 0;
+            if (id == hoverInId) return Ease.Clamp01(hoverIn.Value);
+            if (id == hoverOutId) return Ease.Clamp01(hoverOut.Value);
+            return 0;
+        }
+
+        // Hover fill faded in from nothing
+        Color HoverFill(string id) { return Ink.A(Pressed(id) ? p.T.FillPressed : p.T.FillHover, Pressed(id) ? 1 : HoverK(id)); }
+
+        // Toolbar step: hover Fill, press FillHover
+        Color SoftFill(string id) { return Pressed(id) ? p.T.FillHover : Ink.A(p.T.Fill, HoverK(id)); }
+
+        Color SoftInk(string id) { return Ink.Mix(p.T.Sub, p.T.Text, HoverK(id)); }
+
+        // Repeated within 120 ms: a drag in flight
+        static bool Streaming(ref long last)
+        {
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            bool hot = now - last < System.Diagnostics.Stopwatch.Frequency * 12 / 100;
+            last = now;
+            return hot;
+        }
+
+        long volSetAt, brightSetAt;
+        // Mute drains the bar instead of blinking
+        readonly Spring muteFade = new Spring(0, 900, 60, 0.004f);
+
+        float VolShown()
+        {
+            float m = muted ? 1 : 0;
+            if (muteFade.Target != m) { Springs.Interactive(muteFade); muteFade.Target = m; if (Anim.Reduced) muteFade.Snap(m); }
+            return volBar.Value * (1 - Ease.Clamp01(muteFade.Value));
+        }
+
+        // Prompter controls fade with the pointer
+        readonly Spring prompterHover = new Spring(0, 900, 60, 0.004f);
+
+        float PrompterHoverK()
+        {
+            float want = pointerInside && prompterSizing == 0 ? 1 : 0;
+            if (prompterHover.Target != want) { Springs.Tune(prompterHover, 0.16f, 1f); prompterHover.Target = want; if (Anim.Reduced) prompterHover.Snap(want); }
+            return Ease.Clamp01(prompterHover.Value);
+        }
+
+        // Slide distance multiplier; 0 when reduced
+        static float Moves { get { return Anim.Reduced ? 0 : 1; } }
+
+        // Squish depth 0..1 for a held id
+        float PressK(string id) { return id != null && id == squishId && !Anim.Reduced ? squish.Value : 0; }
+
         // Per frame, before views draw
         void TrackPress()
         {
+            TrackHover();
             sliderCount = 0;
             string held = pressedId != null && pressedId == hoverId && dragId == null ? pressedId : null;
             if (held != null && held != squishId)
@@ -56,6 +135,16 @@ namespace Tepi
         {
             squish.Step(dt);
             scrubGrow.Step(dt);
+            hoverIn.Step(dt);
+            muteFade.Step(dt);
+            StepHome(dt);
+            StepPlan(dt);
+            prompterHover.Step(dt);
+            StepShelf(dt);
+            StepRing(dt);
+            StepSwipe(dt);
+            hoverOut.Step(dt);
+            if (hoverOutId != null && hoverOut.Settled) hoverOutId = null;
             bool silent = true;
             for (int i = 0; i < wave.Length; i++)
             {
@@ -67,7 +156,7 @@ namespace Tepi
             if (silent && !mediaInfo.Playing) for (int i = 0; i < wave.Length; i++) wave[i].Snap(0);
         }
 
-        bool PartsMoving() { return !squish.Settled || !scrubGrow.Settled || ToneMoving(); }
+        bool PartsMoving() { return !squish.Settled || !scrubGrow.Settled || !hoverIn.Settled || (hoverOutId != null && !hoverOut.Settled) || !muteFade.Settled || HomeMoving() || PlanMoving() || BackdropMoving() || !prompterHover.Settled || ShelfMoving() || CountMoving() || CallPulsing() || UndoArriving() || !swipe.Settled || AgentPulsing() || TabTipWaiting() || RingMoving() || TitleMoving() || ToneMoving(); }
 
         // Held control's scale, 1 at rest
         float PressScale(string id, float depth)
@@ -100,7 +189,7 @@ namespace Tepi
         // Module fill for a control's state
         Color FillFor(string id)
         {
-            return Pressed(id) ? p.T.FillPressed : Hover(id) ? p.T.FillHover : p.T.Fill;
+            return Pressed(id) ? p.T.FillPressed : Ink.Mix(p.T.Fill, p.T.FillHover, HoverK(id));
         }
 
         void Module(RectangleF r, float radius) { p.Module(r, radius, p.T.Fill); }
@@ -146,18 +235,20 @@ namespace Tepi
             bool hover = dragId == id || Hover(id) || (iconId != null && Hover(iconId));
             float radius = Math.Min(Ink.RadiusModule, r.Height / 2), cy = r.Y + r.Height / 2;
             float at = r.X + r.Width * value, ix = r.X + 25;
-            p.Module(r, radius, hover ? p.T.FillHover : p.T.Fill);
+            float hk = dragId == id ? 1 : Math.Max(HoverK(id), HoverK(iconId));
+            p.Module(r, radius, Ink.Mix(p.T.Fill, p.T.FillHover, hk));
             if (value > 0.001f) p.FillRound(r, radius, p.Split(r.X, r.Width, at, p.T.Accent, Color.Transparent));
             // Icon button over the drag area
             if (iconId != null)
             {
                 AddHit(new RectangleF(r.X + 3, r.Y + 3, 44, r.Height - 6), iconId, iconAct);
-                if (Hover(iconId)) p.Circle(ix, cy, 16, Pressed(iconId) ? Ink.A(p.T.Text, 0.1f) : Ink.A(p.T.Text, 0.14f));
+                float ik = HoverK(iconId);
+                if (ik > 0) p.Circle(ix, cy, 16, Pressed(iconId) ? Ink.A(p.T.Text, 0.1f) : Ink.A(p.T.Text, 0.14f * ik));
             }
             // Ink flips over the level
             p.Icon(glyph, 17f, p.Split(r.X, r.Width, at, p.T.OnAccent, p.T.Text), ix, cy);
-            if (label != null) p.Text(label, Ink.Semi(13.5f), p.Split(r.X, r.Width, at, p.T.OnAccent, p.T.Text), r.X + 46, cy, r.Width - 110, StringAlignment.Near);
-            if (tail != null) p.Text(tail, Ink.Semi(12.5f), p.Split(r.X, r.Width, at, Ink.A(p.T.OnAccent, 0.72f), p.T.Sub), r.Right - 16, cy, 60, StringAlignment.Far);
+            if (label != null) p.SplitText(label, Ink.Semi(13.5f), r.X + 46, cy, r.Width - 110, StringAlignment.Near, at, p.T.OnAccent, p.T.Text);
+            if (tail != null) p.SplitText(tail, Ink.Semi(12.5f), r.Right - 16, cy, 60, StringAlignment.Far, at, Ink.A(p.T.OnAccent, 0.72f), p.T.Sub);
         }
 
         // Round toggle with caption below
@@ -165,11 +256,12 @@ namespace Tepi
         {
             float r = d / 2, hw = Math.Max(d + 4, hitW);
             if (available) AddHit(new RectangleF(cx - hw / 2, cy - r - 6, hw, d + 32), id, act, null, menu);
-            bool hover = available && Hover(id), down = available && Pressed(id);
+            float hk = available ? HoverK(id) : 0;
+            bool down = available && Pressed(id);
             var circle = new RectangleF(cx - r, cy - r, d, d);
             float s = Squish(id, circle, 0.92f);
-            Color fill = on ? (down ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.22f) : hover ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.1f) : p.T.Accent)
-                            : down ? p.T.FillPressed : hover ? p.T.FillHover : p.T.Fill;
+            Color fill = on ? (down ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.22f) : Ink.Mix(p.T.Accent, p.T.OnAccent, 0.1f * hk))
+                            : down ? p.T.FillPressed : Ink.Mix(p.T.Fill, p.T.FillHover, hk);
             // Accent stays solid; off gets module light
             if (on) p.Circle(cx, cy, r, fill);
             else p.Module(circle, r, fill);
@@ -184,24 +276,25 @@ namespace Tepi
         void Pill(RectangleF r, string id, string label, PillKind kind, Action act, bool enabled)
         {
             if (enabled) AddHit(r, id, act);
-            bool hover = enabled && Hover(id), down = enabled && Pressed(id);
+            float hk = enabled ? HoverK(id) : 0;
+            bool down = enabled && Pressed(id);
             float s = Squish(id, r, 0.94f), radius = r.Height / 2;
             Color ink;
             if (kind == PillKind.Primary)
             {
-                Color fill = !enabled ? p.T.Quaternary : down ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.2f) : hover ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.1f) : p.T.Accent;
+                Color fill = !enabled ? p.T.Quaternary : down ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.2f) : Ink.Mix(p.T.Accent, p.T.OnAccent, 0.1f * hk);
                 p.FillRound(r, radius, fill);
                 ink = enabled ? p.T.OnAccent : p.T.Faint;
             }
             else if (kind == PillKind.Secondary)
             {
-                p.Module(r, radius, down ? p.T.FillPressed : hover ? p.T.FillHover : p.T.Fill);
+                p.Module(r, radius, down ? p.T.FillPressed : Ink.Mix(p.T.Fill, p.T.FillHover, hk));
                 ink = enabled ? p.T.Text : p.T.Faint;
             }
             else
             {
                 if (down) p.FillRound(r, radius, p.T.FillPressed);
-                ink = !enabled ? p.T.Faint : hover ? p.T.Text : p.T.Sub;
+                ink = !enabled ? p.T.Faint : Ink.Mix(p.T.Sub, p.T.Text, hk);
             }
             p.TextCenter(label, Ink.Semi(13f), ink, r.X + r.Width / 2, r.Y + r.Height / 2);
             Unsquish(r, s);
@@ -212,7 +305,7 @@ namespace Tepi
         {
             float s;
             var r = IconButtonFace(cx, cy, d, id, act, tinted, out s);
-            p.Icon(glyph, d * 0.38f, tinted ? p.T.Accent : Hover(id) ? p.T.Text : p.T.Sub, cx, cy);
+            p.Icon(glyph, d * 0.38f, tinted ? p.T.Accent : Ink.Mix(p.T.Sub, p.T.Text, HoverK(id)), cx, cy);
             Unsquish(r, s);
         }
 
@@ -220,7 +313,7 @@ namespace Tepi
         {
             float s;
             var r = IconButtonFace(cx, cy, d, id, act, tinted, out s);
-            p.Symbol(sym, cx, cy, d * 0.42f, tinted ? p.T.Accent : Hover(id) ? p.T.Text : p.T.Sub);
+            p.Symbol(sym, cx, cy, d * 0.42f, tinted ? p.T.Accent : Ink.Mix(p.T.Sub, p.T.Text, HoverK(id)));
             Unsquish(r, s);
         }
 
@@ -229,9 +322,10 @@ namespace Tepi
             var r = new RectangleF(cx - d / 2, cy - d / 2, d, d);
             AddHit(r, id, act);
             s = Squish(id, r, 0.92f);
-            bool hover = Hover(id), down = Pressed(id);
-            if (tinted) p.Circle(cx, cy, d / 2, Ink.A(p.T.Accent, down ? 0.14f : hover ? 0.3f : 0.22f));
-            else if (hover) p.Circle(cx, cy, d / 2, down ? p.T.FillPressed : p.T.FillHover);
+            float hk = HoverK(id);
+            bool down = Pressed(id);
+            if (tinted) p.Circle(cx, cy, d / 2, Ink.A(p.T.Accent, down ? 0.14f : 0.22f + 0.08f * hk));
+            else if (hk > 0 || down) p.Circle(cx, cy, d / 2, HoverFill(id));
             return r;
         }
 
@@ -331,8 +425,8 @@ namespace Tepi
         void ListRow(RectangleF r, char icon, string title, string subtitle, string trailing, bool check, string id, Action act, bool separator)
         {
             if (act != null) AddHit(r, id, act);
-            bool hover = act != null && Hover(id), down = act != null && Pressed(id);
-            if (hover) p.FillRound(r, Ink.RadiusControl, down ? p.T.FillPressed : p.T.FillHover);
+            bool hover = act != null && Hover(id);
+            if (act != null && (HoverK(id) > 0 || Pressed(id))) p.FillRound(r, Ink.RadiusControl, HoverFill(id));
             float cy = r.Y + r.Height / 2, tx = r.X + 12;
             if (icon != '\0')
             {

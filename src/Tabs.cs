@@ -131,7 +131,7 @@ namespace Tepi
         {
             if (!NotifOn || notifs.Count == 0) return 214;
             if (notifAccess != Windows.UI.Notifications.Management.UserNotificationListenerAccessStatus.Allowed) return 252;
-            return Clamp(PanelTop + 14 + notifs.Count * 50, 150, 372);
+            return Clamp(PanelTop + 14 + NotifChipsH() + ShownNotifs().Count * 50, 150, 372);
         }
 
         int DefaultPage(bool hover)
@@ -235,7 +235,7 @@ namespace Tepi
             else if (page == PageAgents) { s = agentScroll; content = AgentsContentH() + QuotaBlockH(); step = 84; }
             else if (page == PageClass && classSeg == 0) { s = taskScroll; content = (tasks != null ? tasks.Count : 0) * 54 + TaskFoot(); step = 81; }
             else if (page == PageClass) { s = scheduleScroll; content = ScheduleContentH() + EventFoot(); step = ClassRowH * 1.5f; }
-            else if (page == PageMessages) { s = notifScroll; content = notifs.Count * 50; step = 75; }
+            else if (page == PageMessages) { s = notifScroll; content = ShownNotifs().Count * 50 + NotifChipsH(); step = 75; }
             else if (page == PageShelf && shelfSeg == 1) { s = clipScroll; content = clips.Count * ClipRowH; step = ClipRowH * 1.5f; }
             else if (page == PageShelf) { s = shelfScroll; content = ShelfContentH(); step = 60; }
             else if (page == PageVoice) { s = voiceScroll; content = VoiceContentH(VoiceItems(), PanelW); view = VoiceListView(PanelHeight()); step = VoiceRowH * 1.5f; }
@@ -278,7 +278,7 @@ namespace Tepi
         void DrawPanel(float w, float h, DateTime now)
         {
             float k = Ease.OutCubic((float)((now - pageSwitchUtc).TotalSeconds / 0.34));
-            float musicVis = BackdropShown(now) ? 1 : 0;
+            float musicVis = BackdropVis(now);
             double t0 = Prof.T();
             if (mediaInfo.Present) DrawBackdrop(musicVis);
             Prof.Add("backdrop", t0);
@@ -297,7 +297,7 @@ namespace Tepi
             {
                 p.Alpha = outAlpha;
                 var s1 = g.Save();
-                g.TranslateTransform(-dir * k * 30, 0);
+                g.TranslateTransform(-dir * k * 30 * Moves, 0);
                 bool hold = hitsOn;
                 hitsOn = false;
                 DrawPage(prevPage, w, h, now);
@@ -306,14 +306,29 @@ namespace Tepi
             }
             p.Alpha = alpha * Ease.Clamp01(k * 1.3f);
             var s2 = g.Save();
-            g.TranslateTransform(dir * (1 - k) * 30, 0);
+            g.TranslateTransform(dir * (1 - k) * 30 * Moves, 0);
             if (k < 0.85f) hitsOn = false;
             DrawPage(page, w, h, now);
             g.Restore(s2);
             p.Alpha = alpha;
             g.Restore(st);
+            DrawUndoBar(w, h);
+            DrawTabTip(w);
             Prof.Add("page", t0);
         }
+
+        // Cover backdrop follows the page fade
+        float BackdropVis(DateTime now)
+        {
+            float k = Ease.OutCubic((float)((now - pageSwitchUtc).TotalSeconds / 0.34));
+            float v = page == PageMusic ? (prevPage == PageMusic ? 1 : k) : prevPage == PageMusic ? 1 - k : 0;
+            return v * Ease.OutCubic((float)(now - backdropUtc).TotalSeconds / 0.3f);
+        }
+
+        // First bake fades in, not pops
+        DateTime backdropUtc = DateTime.MinValue;
+
+        bool BackdropMoving() { return (DateTime.UtcNow - backdropUtc).TotalSeconds < 0.32; }
 
         // Cover backdrop swaps mid-fade
         bool BackdropShown(DateTime now)
@@ -359,14 +374,14 @@ namespace Tepi
             {
                 p.Alpha = alpha * (1 - Ease.Clamp01(k * 2.2f));
                 var s1 = g.Save();
-                g.TranslateTransform(-dir * k * 24, SegTop);
+                g.TranslateTransform(-dir * k * 24 * Moves, SegTop);
                 hitsOn = false;
                 DrawSub(pg, prevSeg, w, h - SegTop, now);
                 g.Restore(s1);
             }
             p.Alpha = alpha * Ease.Clamp01(k * 1.3f);
             var s2 = g.Save();
-            g.TranslateTransform(dir * (1 - k) * 24, SegTop);
+            g.TranslateTransform(dir * (1 - k) * 24 * Moves, SegTop);
             hitsOn = hold && k >= 0.85f;
             hitDy = keepDy + SegTop;
             DrawSub(pg, seg, w, h - SegTop, now);
@@ -399,7 +414,7 @@ namespace Tepi
                 string id = "seg" + pg + "_" + i;
                 int to = i;
                 AddHit(r, id, delegate { SetSegment(pg, to, false); });
-                p.TextCenter(i == 0 ? a : b, Ink.Semi(12f), i == seg || Hover(id) ? p.T.Text : p.T.Sub, r.X + r.Width / 2, r.Y + r.Height / 2);
+                p.TextCenter(i == 0 ? a : b, Ink.Semi(12f), Ink.Mix(SoftInk(id), p.T.Text, 1 - Math.Abs(sx.Value - i)), r.X + r.Width / 2, r.Y + r.Height / 2);
             }
         }
 
@@ -487,7 +502,7 @@ namespace Tepi
                 tabLayoutW = w;
             }
             float k = tabMorph.Value;
-            var rects = new RectangleF[n];
+            var rects = tabRects.Length == n ? tabRects : (tabRects = new RectangleF[n]);
             float nudge = tabNudge.Value;
             if (tabDotsDrawn)
             {
@@ -502,8 +517,9 @@ namespace Tepi
                 int to = tabs[i];
                 var hit = new RectangleF(tabToX[i], TabY, tabToW[i], TabH);
                 AddHit(hit, "tab" + to, delegate { SetPage(to, false); });
-                if (Hover("tab" + to) && to != page) p.FillRound(rects[i], TabH / 2, Pressed("tab" + to) ? p.T.FillHover : p.T.Fill);
-                DrawTabIconFast(to, rects[i].X + TabIcon / 2, TabY + TabH / 2, Hover("tab" + to) ? p.T.Text : p.T.Sub, to != page);
+                string tid = "tab" + to;
+                if (to != page && (HoverK(tid) > 0 || Pressed(tid))) p.FillRound(rects[i], TabH / 2, SoftFill(tid));
+                DrawTabIconFast(to, rects[i].X + TabIcon / 2, TabY + TabH / 2, SoftInk(tid), to != page);
             }
             // Hidden tab via link: no pill
             if (at >= 0)
@@ -516,6 +532,8 @@ namespace Tepi
                     if (rects[i].IntersectsWith(pill)) DrawTabIconFast(tabs[i], rects[i].X + TabIcon / 2, TabY + TabH / 2, p.T.OnAccent, true);
                 // Name fades in as the pill opens
                 float la = Ease.Clamp01((Math.Min(1, k) - 0.35f) / 0.65f);
+                // Once named, the pill keeps its name through relayouts
+                if (tabLabelPage == page) la = 1; else if (la >= 0.999f) tabLabelPage = page;
                 if (la > 0.01f && tabToW[at] > TabIcon + 1)
                 {
                     float keep = p.Alpha;
@@ -529,13 +547,92 @@ namespace Tepi
             {
                 int pg = tabs[i];
                 bool dot = (pg == PageMessages && unread > 0) || (pg == PageAgents && approvals.Count + BusyCount() > 0 && page != PageAgents);
-                if (!dot) continue;
                 float dx = rects[i].X + TabIcon - 9;
+                if (pg == PageAgents) AgentRing(dx, rects[i].Y + 6, 3f);
+                if (!dot) continue;
                 p.Circle(dx, rects[i].Y + 6, 4.2f, p.T.Bg);
-                p.Circle(dx, rects[i].Y + 6, 3f, p.T.Text);
+                p.Circle(dx, rects[i].Y + 6, 3f, NewsInk(pg));
             }
             DrawTabAction(w);
         }
+
+        // Agent news: one ring leaves the Agents dot
+        DateTime agentPulseUtc = DateTime.MinValue;
+        int agentPulseKind;
+
+        void PulseAgents(int kind)
+        {
+            if (Anim.Reduced || page == PageAgents) return;
+            agentPulseUtc = DateTime.UtcNow;
+            agentPulseKind = kind;
+        }
+
+        bool AgentPulsing() { return (DateTime.UtcNow - agentPulseUtc).TotalSeconds < 0.9; }
+
+        void AgentRing(float cx, float cy, float r0)
+        {
+            float t = (float)(DateTime.UtcNow - agentPulseUtc).TotalSeconds / 0.9f;
+            if (t >= 1) return;
+            var c = agentPulseKind == 1 ? p.T.Positive : agentPulseKind == 2 ? p.T.Warning : p.T.Negative;
+            float k = Ease.OutCubic(t), r = r0 + 9 * k;
+            g.DrawEllipse(p.P(Ink.A(c, 0.8f * (1 - t)), 1.6f), cx - r, cy - r, r * 2, r * 2);
+        }
+
+        // Unread dot takes the newest message's app colour
+        Color NewsInk(int pg)
+        {
+            if (pg != PageMessages || notifs == null || notifs.Count == 0) return p.T.Text;
+            var c = BrandInk(notifs[0]);
+            return c.IsEmpty ? p.T.Text : c;
+        }
+
+        RectangleF[] tabRects = new RectangleF[0];
+        int tabLabelPage = -1, tipTab = -1;
+        DateTime tipSince;
+
+        // Icon tabs: the name of the tab under the pointer, after a beat
+        void DrawTabTip(float w)
+        {
+            int hv = -1;
+            if (!tabDotsDrawn && tabRects.Length == tabs.Length)
+                for (int i = 0; i < tabs.Length; i++) if (tabs[i] != page && hoverId == "tab" + tabs[i]) hv = i;
+            if (hv < 0) { tipTab = -1; return; }
+            if (tipTab != tabs[hv]) { tipTab = tabs[hv]; tipSince = DateTime.UtcNow; }
+            float t = ((float)(DateTime.UtcNow - tipSince).TotalSeconds - 0.4f) / 0.12f;
+            if (t <= 0) return;
+            t = Anim.Reduced ? 1 : Ease.OutCubic(t);
+            var f = Ink.Semi(11.5f);
+            string name = TabLabel(tabs[hv]);
+            float tw = p.Measure(name, f) + 18, cx = Math.Max(tw / 2 + 6, Math.Min(w - tw / 2 - 6, tabRects[hv].X + tabRects[hv].Width / 2));
+            var r = new RectangleF(cx - tw / 2, TabY + TabH + 4 + 3 * (1 - t) * Moves, tw, 22);
+            float keep = p.Alpha;
+            p.Alpha = keep * t;
+            p.FillRound(r, 11, Ink.Mix(p.T.Bg, p.T.Text, 0.14f));
+            p.StrokeRound(r, 11, p.T.Line, 1f);
+            p.TextCenter(name, f, p.T.Text, cx, r.Y + 11);
+            p.Alpha = keep;
+        }
+
+        bool TabTipWaiting() { return tipTab >= 0 && (DateTime.UtcNow - tipSince).TotalSeconds < 0.56; }
+
+        // Dots title crossfades on change
+        string titleNow, titlePrev;
+        Color titleNowInk, titlePrevInk;
+        DateTime titleSwapUtc;
+
+        void SwapTitle(string text, Color ink)
+        {
+            if (text == titleNow) { titleNowInk = ink; return; }
+            titlePrev = titleNow;
+            titlePrevInk = titleNowInk;
+            titleNow = text;
+            titleNowInk = ink;
+            titleSwapUtc = titlePrev == null || Anim.Reduced ? DateTime.MinValue : DateTime.UtcNow;
+        }
+
+        float TitleK() { return Ease.OutCubic((float)(DateTime.UtcNow - titleSwapUtc).TotalSeconds / 0.18f); }
+
+        bool TitleMoving() { return (DateTime.UtcNow - titleSwapUtc).TotalSeconds < 0.2; }
 
         // Dots: active stretches; hover names page
         void DrawDots(float w, int at, RectangleF[] rects)
@@ -553,14 +650,18 @@ namespace Tepi
                 if (i == at) p.FillRound(new RectangleF(r.X, cy - 4, r.Width, 8), 4, p.T.Accent);
                 else
                 {
-                    float rad = Hover("tab" + to) ? 4.5f : news ? 4f : 3.2f;
-                    p.Circle(r.X + r.Width / 2, cy, rad, Hover("tab" + to) || news ? p.T.Text : p.T.Faint);
+                    if (to == PageAgents) AgentRing(r.X + r.Width / 2, cy, 4f);
+                    float hk = HoverK("tab" + to), rest = news ? 4f : 3.2f;
+                    p.Circle(r.X + r.Width / 2, cy, rest + (4.5f - rest) * hk, Ink.Mix(news ? NewsInk(to) : p.T.Faint, p.T.Text, hk));
                 }
             }
             // Title: current or hovered page
             float titleRight = (n > 0 ? rects[0].X : w / 2) - 14;
             int named = hover >= 0 ? tabs[hover] : page;
-            p.Text(TabLabel(named), Ink.Display(15f), hover >= 0 && tabs[hover] != page ? p.T.Sub : p.T.Text, 62, cy, titleRight - 62, StringAlignment.Near);
+            SwapTitle(TabLabel(named), hover >= 0 && tabs[hover] != page ? p.T.Sub : p.T.Text);
+            float tk = TitleK();
+            if (tk < 1 && titlePrev != null) p.Text(titlePrev, Ink.Display(15f), Ink.A(titlePrevInk, 1 - tk), 62, cy - 4 * tk, titleRight - 62, StringAlignment.Near);
+            p.Text(titleNow, Ink.Display(15f), Ink.A(titleNowInk, tk), 62, cy + 4 * (1 - tk), titleRight - 62, StringAlignment.Near);
             DrawTabAction(w);
         }
 
@@ -728,8 +829,8 @@ namespace Tepi
         {
             var r = new RectangleF(18, TabY, 34, TabH);
             AddHit(r, "toMini", delegate { GoMini(); });
-            if (Hover("toMini")) p.FillRound(r, TabH / 2, Pressed("toMini") ? p.T.FillHover : p.T.Fill);
-            Color c = Hover("toMini") ? p.T.Text : p.T.Sub;
+            if (HoverK("toMini") > 0 || Pressed("toMini")) p.FillRound(r, TabH / 2, SoftFill("toMini"));
+            Color c = SoftInk("toMini");
             float cx = r.X + 17, cy = r.Y + TabH / 2;
             int at = PlaceNow;
             // Points toward the edge it tucks into
@@ -750,8 +851,8 @@ namespace Tepi
         {
             var r = new RectangleF(w - 52, TabY, 34, TabH);
             AddHit(r, "prefsOpen", openPrefsAct ?? (openPrefsAct = delegate { BeginInvoke(new Action(OpenPrefs)); }));
-            if (Hover("prefsOpen")) p.FillRound(r, TabH / 2, Pressed("prefsOpen") ? p.T.FillHover : p.T.Fill);
-            p.Icon('', 13f, Hover("prefsOpen") ? p.T.Text : p.T.Sub, r.X + 17, r.Y + TabH / 2);
+            if (HoverK("prefsOpen") > 0 || Pressed("prefsOpen")) p.FillRound(r, TabH / 2, SoftFill("prefsOpen"));
+            p.Icon('', 13f, SoftInk("prefsOpen"), r.X + 17, r.Y + TabH / 2);
         }
 
         Action openPrefsAct;
@@ -768,10 +869,10 @@ namespace Tepi
         {
             var r = new RectangleF(tabLayoutW - 88, TabY, 34, TabH);
             AddHit(r, id, act);
-            if (Hover(id)) p.FillRound(r, TabH / 2, Pressed(id) ? p.T.FillHover : p.T.Fill);
+            if (HoverK(id) > 0 || Pressed(id)) p.FillRound(r, TabH / 2, SoftFill(id));
             if (trash) { var c = CanvasRect(r); trashPt = new PointF(c.X + c.Width / 2, c.Y + c.Height / 2); }
             float s = trash ? TrashScale(DateTime.UtcNow) : 1;
-            p.Icon(glyph, 13f * s, Hover(id) || s > 1.01f ? p.T.Text : p.T.Sub, r.X + 17, r.Y + TabH / 2);
+            p.Icon(glyph, 13f * s, s > 1.01f ? p.T.Text : SoftInk(id), r.X + 17, r.Y + TabH / 2);
         }
 
         // Contextual action right of tabs
@@ -784,8 +885,8 @@ namespace Tepi
             {
                 bool album = AlbumMode();
                 AddHit(r, "musicView", delegate { ToggleMusicView(); });
-                if (Hover("musicView")) p.FillRound(r, TabH / 2, Pressed("musicView") ? p.T.FillHover : p.T.Fill);
-                Color c = Hover("musicView") ? p.T.Text : p.T.Sub;
+                if (HoverK("musicView") > 0 || Pressed("musicView")) p.FillRound(r, TabH / 2, SoftFill("musicView"));
+                Color c = SoftInk("musicView");
                 float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2;
                 if (album)
                 {
@@ -810,11 +911,11 @@ namespace Tepi
                 else TabButton("refresh", Ink.IcoRefresh, delegate { if (!tasksLoading) RefreshAll(what); }, false);
             }
             else if (page == PageMessages && notifs.Count > 0)
-                TabButton("clearAll", '', delegate { Vanish(RowRects("notif", "notifDel"), true); notifScroll.Snap(0); RemoveNotifs(new List<NotifItem>(notifs)); }, true);
+                TabButton("clearAll", '', delegate { Vanish(RowRects("notif", "notifDel"), true); notifScroll.Snap(0); RemoveNotifsLater(new List<NotifItem>(ShownNotifs()), Lang.T("Semua pesan dihapus")); }, true);
             else if (page == PageShelf && shelfSeg == 1 && clips.Count > 0)
-                TabButton("clearClips", '', delegate { Vanish(RowRects("clip", null), true); clipScroll.Snap(0); clips.Clear(); Kick(); }, true);
+                TabButton("clearClips", '', delegate { Vanish(RowRects("clip", null), true); clipScroll.Snap(0); ClearClipsLater(); }, true);
             else if (page == PageShelf && shelfSeg == 0 && shelf.Count > 0)
-                TabButton("clearShelf", '', delegate { Vanish(new List<RectangleF>(shelfCells.Values), true); shelfScroll.Snap(0); ClearShelf(); }, true);
+                TabButton("clearShelf", '', delegate { Vanish(new List<RectangleF>(shelfCells.Values), true); shelfScroll.Snap(0); RemoveShelfLater(new List<ShelfItem>(shelf), Lang.T("Rak dikosongkan")); }, true);
             else if (page == PageVoice)
                 TabButton("voiceFolder", '\uE8B7', OpenRapatFolder, false);
             else if (page == PageConvert && ConvertSetting && convHistory.Count > 0)

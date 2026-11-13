@@ -21,7 +21,7 @@ namespace Tepi
                 string hex = HexOf(c);
                 try { Clipboard.SetText(hex); }
                 catch (Exception ex) { Log.Write("picker copy: " + ex.Message); return; }
-                ShowInfo('\uE790', Lang.T("Warna disalin"), hex, true);
+                ShowOk('\uE790', Lang.T("Warna disalin"), hex, true);
             };
             picker.Show();
             picker.Activate();

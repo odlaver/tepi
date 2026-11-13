@@ -120,10 +120,11 @@ namespace Tepi
                 Refresh(true);
                 tick.Start();
                 // Entrance: the dock rises, then icons arrive one after another
-                reveal.Snap(0);
+                reveal.Snap(Anim.Reduced ? 1 : 0);
                 reveal.Target = 1;
                 float delay = 0.12f;
-                foreach (var a in apps) { a.Show.Snap(0); a.Show.Target = 1; a.Delay = delay; delay += 0.035f; }
+                // Reduced: no staggered arrival
+                if (!Anim.Reduced) foreach (var a in apps) { a.Show.Snap(0); a.Show.Target = 1; a.Delay = delay; delay += 0.035f; }
                 Animate();
             }
 
@@ -208,6 +209,11 @@ namespace Tepi
                 else StopKeys();
                 if (Glass) frost.Start(); else { frost.Stop(); if (plate != null) { plate.Dispose(); plate = null; } }
                 foreach (var a in apps) TuneApp(a);
+                // motion.feel may have changed
+                Tune(reveal, 170, 0.86f);
+                Tune(hover, 260, 0.9f);
+                Tune(labelShow, 520, 0.9f);
+                Tune(rightGlide, 240, 1f);
                 Refresh(false);
                 Place();
                 drawnSig = "";
@@ -405,8 +411,8 @@ namespace Tepi
 
             bool Moving()
             {
-                if (!reveal.Settled || !hover.Settled || WidgetsMoving()) return true;
-                foreach (var a in apps) if (!a.Show.Settled || !a.Grow.Settled || !a.Dot.Settled || a.Hop >= 0) return true;
+                if (!reveal.Settled || !hover.Settled || HotMoving() || !rightGlide.Settled || WidgetsMoving()) return true;
+                foreach (var a in apps) if (!a.Show.Settled || !a.Grow.Settled || !a.Dot.Settled || a.Hop >= 0 || !a.X.Settled || BadgePopping(a)) return true;
                 return false;
             }
 
@@ -494,6 +500,8 @@ namespace Tepi
             {
                 if (closing) return;
                 tickN++;
+                // Land just after each second turns
+                tick.Interval = Math.Max(200, 1000 - DateTime.Now.Millisecond + 20);
                 // Fullscreen or locked: out of the way
                 bool want = !isle.fullscreen && !isle.dormant && !isle.hiddenByUser;
                 if (want != shown)

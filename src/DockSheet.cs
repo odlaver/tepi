@@ -22,6 +22,18 @@ namespace Tepi
             protected string hotId, pressId;
             string tipText;
             RectangleF tipAt;
+            // Tips wait a beat, then fade in
+            DateTime tipSince = DateTime.MaxValue;
+            bool tipShown;
+            readonly System.Windows.Forms.Timer tipWait = new System.Windows.Forms.Timer { Interval = 460 };
+            const double TipDelay = 0.45;
+
+            float TipK()
+            {
+                double t = (DateTime.UtcNow - tipSince).TotalSeconds - TipDelay;
+                if (t < 0) return 0;
+                return Anim.Reduced ? 1 : Ease.OutCubic((float)(t / 0.12));
+            }
             protected bool menuOpen;
             protected Graphics g;
             protected readonly List<KeyValuePair<RectangleF, string>> hits = new List<KeyValuePair<RectangleF, string>>();
@@ -32,8 +44,8 @@ namespace Tepi
             DockFrost frost;
             DockPlate plate;
             bool allowClose, leaving;
-            readonly System.Windows.Forms.Timer frames = new System.Windows.Forms.Timer { Interval = 15 };
-            DateTime lastStep;
+            readonly PacedTimer frames = new PacedTimer();
+            long lastStep;
 
             // Fading out: no more input
             protected bool Leaving { get { return leaving; } }
@@ -57,6 +69,7 @@ namespace Tepi
                 Bounds = new Rectangle(-32000, -32000, 10, 10);
                 Tune(open, 420, 0.86f);
                 frames.Tick += delegate { Step(); };
+                tipWait.Tick += delegate { tipWait.Stop(); if (!IsDisposed) Animate(); };
             }
 
             protected override CreateParams CreateParams
@@ -92,7 +105,7 @@ namespace Tepi
                 leaving = true;
                 Tune(open, 2600, 1f);
                 open.Target = 0;
-                lastStep = DateTime.UtcNow;
+                lastStep = System.Diagnostics.Stopwatch.GetTimestamp();
                 frames.Start();
             }
 
@@ -112,6 +125,7 @@ namespace Tepi
             protected override void OnFormClosed(FormClosedEventArgs e)
             {
                 frames.Stop();
+                tipWait.Dispose();
                 if (frost != null) frost.Stop();
                 Teardown();
                 Free();
@@ -140,7 +154,7 @@ namespace Tepi
             protected void Animate()
             {
                 if (frames.Enabled) return;
-                lastStep = DateTime.UtcNow;
+                lastStep = System.Diagnostics.Stopwatch.GetTimestamp();
                 frames.Start();
             }
 
@@ -167,7 +181,7 @@ namespace Tepi
                 }
                 open.Snap(0);
                 open.Target = 1;
-                lastStep = DateTime.UtcNow;
+                lastStep = System.Diagnostics.Stopwatch.GetTimestamp();
                 Render();
                 Show();
                 frames.Start();
@@ -178,18 +192,23 @@ namespace Tepi
                 Activate();
             }
 
-            int Rise() { return (int)Math.Round((1 - open.Value) * 8 * scale); }
+            int Rise() { return Anim.Reduced ? 0 : (int)Math.Round((1 - open.Value) * 8 * scale); }
 
             void Step()
             {
-                var now = DateTime.UtcNow;
-                float dt = (float)Math.Min(0.05, (now - lastStep).TotalSeconds);
-                lastStep = now;
+                float dt = Math.Min(0.05f, Anim.Dt(ref lastStep));
                 open.Step(dt);
                 if (leaving && open.Value < 0.03f) { frames.Stop(); Finish(); return; }
-                bool more = !leaving && Animating(dt);
+                bool more = !leaving && (Animating(dt) | StepHot(dt));
                 Location = new Point(Location.X, baseY + Rise());
                 Render();
+                // Content moved under a still cursor
+                if (!leaving && more)
+                {
+                    var at = PointToClient(Cursor.Position);
+                    string id = ClientRectangle.Contains(at) ? HitAt(at) : null;
+                    if (id != hotId) { hotId = id; HoverMoved(id); Render(); }
+                }
                 if (open.Settled && !more) frames.Stop();
             }
 
@@ -255,12 +274,25 @@ namespace Tepi
                     {
                         var inner = g.Save();
                         g.ResetTransform();
-                        using (var ia = new ImageAttributes())
+                        var o = Location;
+                        var dst = new Rectangle(plate.Rect.X - o.X, plate.Rect.Y - o.Y + Rise(), plate.Rect.Width, plate.Rect.Height);
+                        if (fade >= 0.999f && dst.Width == plate.Text.Width && dst.Height == plate.Text.Height)
                         {
-                            ia.SetColorMatrix(new ColorMatrix { Matrix33 = fade });
-                            var o = Location;
-                            g.DrawImage(plate.Text, new Rectangle(plate.Rect.X - o.X, plate.Rect.Y - o.Y + Rise(), plate.Rect.Width, plate.Rect.Height), 0, 0, plate.Text.Width, plate.Text.Height, GraphicsUnit.Pixel, ia);
+                            // Settled: plain copy, no matrix
+                            var im = g.InterpolationMode;
+                            var po = g.PixelOffsetMode;
+                            g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                            g.PixelOffsetMode = PixelOffsetMode.Half;
+                            g.DrawImage(plate.Text, dst);
+                            g.InterpolationMode = im;
+                            g.PixelOffsetMode = po;
                         }
+                        else
+                            using (var ia = new ImageAttributes())
+                            {
+                                ia.SetColorMatrix(new ColorMatrix { Matrix33 = fade });
+                                g.DrawImage(plate.Text, dst, 0, 0, plate.Text.Width, plate.Text.Height, GraphicsUnit.Pixel, ia);
+                            }
                         g.Restore(inner);
                     }
                     g.FillPath(p.B(Ink.A(Ink.Base.Bg, glass ? 0.34f : 0.95f)), path);
@@ -276,7 +308,9 @@ namespace Tepi
                 }
                 tipText = null;
                 Draw();
-                if (tipText != null) DrawTip();
+                float tk = tipText != null ? TipK() : 0;
+                tipShown = tk > 0 && tk < 1;
+                if (tk > 0) { p.Alpha = tk; DrawTip(); }
                 p.Alpha = 1;
                 g.Flush(FlushIntention.Sync);
                 if (!IsHandleCreated) return;
@@ -325,6 +359,7 @@ namespace Tepi
                 if (id == hotId) return;
                 hotId = id;
                 Render();
+                Animate();
             }
 
             protected override void OnMouseLeave(EventArgs e)
@@ -334,6 +369,7 @@ namespace Tepi
                 hotId = null;
                 HoverMoved(null);
                 Render();
+                Animate();
             }
 
             protected override void OnMouseDown(MouseEventArgs e)
@@ -395,19 +431,78 @@ namespace Tepi
 
             protected void Done() { dock.SheetDone(this); }
 
+            // Hover fades: current in, previous out
+            readonly Spring hotIn = new Spring(0, 1, 1, 0.004f), hotOut = new Spring(0, 1, 1, 0.004f);
+            string hotInId, hotOutId;
+            // Toggle on/off blends, per id
+            readonly Dictionary<string, Spring> onK = new Dictionary<string, Spring>();
+
+            bool StepHot(float dt)
+            {
+                if (hotId != hotInId)
+                {
+                    tipSince = DateTime.UtcNow;
+                    tipWait.Stop();
+                    if (hotId != null) tipWait.Start();
+                    float back = hotId != null && hotId == hotOutId ? hotOut.Value : 0;
+                    if (hotInId != null)
+                    {
+                        hotOutId = hotInId;
+                        hotOut.Value = hotIn.Value;
+                        hotOut.Velocity = 0;
+                        Springs.Tune(hotOut, 0.2f, 1f);
+                        hotOut.Target = 0;
+                    }
+                    else if (back > 0) hotOutId = null;
+                    hotInId = hotId;
+                    hotIn.Value = back;
+                    hotIn.Velocity = 0;
+                    Springs.Tune(hotIn, 0.1f, 1f);
+                    hotIn.Target = hotId != null ? 1 : 0;
+                }
+                hotIn.Step(dt);
+                hotOut.Step(dt);
+                if (hotOutId != null && hotOut.Settled) hotOutId = null;
+                bool moving = !hotIn.Settled || hotOutId != null || tipShown;
+                foreach (var s in onK.Values) { s.Step(dt); moving |= !s.Settled; }
+                return moving;
+            }
+
+            protected float HotK(string id)
+            {
+                if (id == null) return 0;
+                if (Anim.Reduced) return hotId == id ? 1 : 0;
+                if (id == hotInId) return Ease.Clamp01(hotIn.Value);
+                if (id == hotOutId) return Ease.Clamp01(hotOut.Value);
+                return 0;
+            }
+
+            protected float OnK(string id, bool on)
+            {
+                Spring s;
+                float want = on ? 1 : 0;
+                if (!onK.TryGetValue(id, out s)) { s = new Spring(want, 1, 1, 0.004f); Springs.Tune(s, 0.18f, 1f); onK[id] = s; }
+                if (s.Target != want) { s.Target = want; if (Anim.Reduced) s.Snap(want); else Animate(); }
+                return Ease.Clamp01(s.Value);
+            }
+
             // Tepi's controls, in the island's look
             // More: the label opens a list
             protected void Toggle(float cx, float cy, float d, char glyph, bool on, bool available, string label, string id, string more = null)
             {
                 float r = d / 2;
                 if (available) Hit(new RectangleF(cx - 44, cy - r - 6, 88, more != null ? d + 10 : d + 32), id);
-                bool hover = available && hotId == id, down = available && pressId == id;
+                float hk = available ? HotK(id) : 0, ok = OnK(id, on);
+                bool down = available && pressId == id;
                 var circle = new RectangleF(cx - r, cy - r, d, d);
-                Color fill = on ? (down ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.22f) : hover ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.1f) : p.T.Accent)
-                                : down ? p.T.FillPressed : hover ? p.T.FillHover : p.T.Fill;
-                if (on) p.Circle(cx, cy, r, fill);
-                else p.Module(circle, r, fill);
-                p.Icon(glyph, 17f, on ? p.T.OnAccent : available ? p.T.Text : p.T.Quaternary, cx, cy);
+                Color onFill = down ? Ink.Mix(p.T.Accent, p.T.OnAccent, 0.22f) : Ink.Mix(p.T.Accent, p.T.OnAccent, 0.1f * hk);
+                Color offFill = down ? p.T.FillPressed : Ink.Mix(p.T.Fill, p.T.FillHover, hk);
+                // Held: the disc sinks
+                if (down) { r *= 0.94f; circle = RectangleF.Inflate(circle, -d * 0.03f, -d * 0.03f); }
+                if (ok < 1) p.Module(circle, r, offFill);
+                if (ok > 0) p.Circle(cx, cy, r, Ink.A(onFill, ok));
+                p.Icon(glyph, 17f, available ? Ink.Mix(p.T.Text, p.T.OnAccent, ok) : p.T.Quaternary, cx, cy);
+                r = d / 2;
                 if (more == null || !available)
                 {
                     p.TextCenter(label, Ink.Caption, available ? p.T.Sub : p.T.Faint, cx, cy + r + 13);
@@ -416,8 +511,9 @@ namespace Tepi
                 float tw = p.Measure(label, Ink.Caption);
                 var chip = new RectangleF(cx - tw / 2 - 10, cy + r + 3, tw + 30, 21);
                 Hit(chip, more);
-                if (hotId == more) p.FillRound(chip, 10.5f, pressId == more ? p.T.FillPressed : p.T.FillHover);
-                p.TextCenter(label, Ink.Caption, hotId == more ? p.T.Text : p.T.Sub, cx - 5, cy + r + 13);
+                float mk = HotK(more);
+                if (mk > 0 || pressId == more) p.FillRound(chip, 10.5f, pressId == more ? p.T.FillPressed : Ink.A(p.T.FillHover, mk));
+                p.TextCenter(label, Ink.Caption, Ink.Mix(p.T.Sub, p.T.Text, mk), cx - 5, cy + r + 13);
                 p.Icon((char)0xE70D, 8f, p.T.Sub, cx + tw / 2 + 7, cy + r + 13.5f);
             }
 
@@ -425,19 +521,20 @@ namespace Tepi
             {
                 value = Ease.Clamp01(value);
                 Hit(r, id);
-                bool hover = pressId == id || hotId == id || (iconId != null && hotId == iconId);
+                float hk = pressId == id ? 1 : Math.Max(HotK(id), HotK(iconId));
                 float radius = Math.Min(Ink.RadiusModule, r.Height / 2), cy = r.Y + r.Height / 2;
                 float at = r.X + r.Width * value, ix = r.X + 25;
-                p.Module(r, radius, hover ? p.T.FillHover : p.T.Fill);
+                p.Module(r, radius, Ink.Mix(p.T.Fill, p.T.FillHover, hk));
                 if (value > 0.001f) p.FillRound(r, radius, p.Split(r.X, r.Width, at, p.T.Accent, Color.Transparent));
                 if (iconId != null)
                 {
                     Hit(new RectangleF(r.X + 3, r.Y + 3, 44, r.Height - 6), iconId);
-                    if (hotId == iconId) p.Circle(ix, cy, 16, pressId == iconId ? Ink.A(p.T.Text, 0.1f) : Ink.A(p.T.Text, 0.14f));
+                    float ik = HotK(iconId);
+                    if (ik > 0) p.Circle(ix, cy, 16, pressId == iconId ? Ink.A(p.T.Text, 0.1f) : Ink.A(p.T.Text, 0.14f * ik));
                 }
                 p.Icon(glyph, 17f, p.Split(r.X, r.Width, at, p.T.OnAccent, p.T.Text), ix, cy);
-                if (label != null) p.Text(label, Ink.Semi(13.5f), p.Split(r.X, r.Width, at, p.T.OnAccent, p.T.Text), r.X + 46, cy, r.Width - 110, StringAlignment.Near);
-                if (tail != null) p.Text(tail, Ink.Semi(12.5f), p.Split(r.X, r.Width, at, Ink.A(p.T.OnAccent, 0.72f), p.T.Sub), r.Right - 16, cy, 60, StringAlignment.Far);
+                if (label != null) p.SplitText(label, Ink.Semi(13.5f), r.X + 46, cy, r.Width - 110, StringAlignment.Near, at, p.T.OnAccent, p.T.Text);
+                if (tail != null) p.SplitText(tail, Ink.Semi(12.5f), r.Right - 16, cy, 60, StringAlignment.Far, at, Ink.A(p.T.OnAccent, 0.72f), p.T.Sub);
             }
 
             protected static float SliderValue(RectangleF r, PointF at) { return Ease.Clamp01((at.X - r.X) / r.Width); }
@@ -466,8 +563,9 @@ namespace Tepi
             {
                 Hit(r, id);
                 if (tip != null && hotId == id) Tip(r, tip);
-                if (hotId == id) p.FillRound(r, 10, pressId == id ? p.T.FillPressed : p.T.FillHover);
-                p.Icon(glyph, 15f, hotId == id ? p.T.Text : p.T.Sub, r.X + r.Width / 2, r.Y + r.Height / 2);
+                float hk = HotK(id);
+                if (hk > 0 || pressId == id) p.FillRound(r, 10, pressId == id ? p.T.FillPressed : Ink.A(p.T.FillHover, hk));
+                p.Icon(glyph, 15f, Ink.Mix(p.T.Sub, p.T.Text, hk), r.X + r.Width / 2, r.Y + r.Height / 2);
             }
 
             protected void Caption(string text, float x, float cy)

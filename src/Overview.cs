@@ -276,12 +276,17 @@ namespace Tepi
             var st = g.Save();
             g.IntersectClip(homeClip);
             float off = top - homeScroll.Value;
+            // Not drawn a moment ago: land in place
+            bool snap = (now - homeDrawnUtc).TotalSeconds > 0.2;
+            homeDrawnUtc = now;
+            DropGone();
             for (int i = 0; i < homeSlots.Count; i++)
             {
-                var r = homeSlots[i].Value;
+                float born;
+                var r = GlideCard(homeSlots[i].Key, homeSlots[i].Value, snap, now, out born);
                 r.Offset(x0, off);
                 if (r.Bottom < homeClip.Top || r.Top > homeClip.Bottom) continue;
-                float dy, a = RowIn(i, now, out dy), keep = p.Alpha;
+                float dy, a = RowIn(i, now, out dy) * born, keep = p.Alpha;
                 p.Alpha = keep * a;
                 r.Offset(0, dy);
                 if (homeSlots[i].Key == HomeCard.Quota) DrawQuotaGlance(r.X, r.Y, r.Width);
@@ -290,6 +295,61 @@ namespace Tepi
             }
             g.Restore(st);
             homeClip = RectangleF.Empty;
+        }
+
+        // Cards glide to new slots when ranks change
+        sealed class CardGlide
+        {
+            public readonly Spring X = new Spring(0, 1, 1, 0.05f), Y = new Spring(0, 1, 1, 0.05f), W = new Spring(0, 1, 1, 0.05f), H = new Spring(0, 1, 1, 0.05f);
+            public DateTime Born;
+            public bool Settled { get { return X.Settled && Y.Settled && W.Settled && H.Settled; } }
+        }
+
+        readonly Dictionary<HomeCard, CardGlide> homeGlide = new Dictionary<HomeCard, CardGlide>();
+        DateTime homeDrawnUtc;
+
+        RectangleF GlideCard(HomeCard c, RectangleF to, bool snap, DateTime now, out float born)
+        {
+            CardGlide m;
+            if (!homeGlide.TryGetValue(c, out m))
+            {
+                m = new CardGlide();
+                foreach (var s in new[] { m.X, m.Y, m.W, m.H }) Springs.Tune(s, 0.34f, 0.9f);
+                // A card that turns up later fades in
+                m.Born = snap ? DateTime.MinValue : now;
+                homeGlide[c] = m;
+                snap = true;
+            }
+            m.X.Target = to.X; m.Y.Target = to.Y; m.W.Target = to.Width; m.H.Target = to.Height;
+            if (snap || Anim.Reduced) { m.X.Snap(to.X); m.Y.Snap(to.Y); m.W.Snap(to.Width); m.H.Snap(to.Height); }
+            born = Anim.Reduced ? 1 : Ease.OutCubic((float)(now - m.Born).TotalSeconds / 0.28f);
+            return new RectangleF(m.X.Value, m.Y.Value, m.W.Value, m.H.Value);
+        }
+
+        // Gone cards start fresh if they return
+        void DropGone()
+        {
+            if (homeGlide.Count == 0) return;
+            List<HomeCard> gone = null;
+            foreach (var c in homeGlide.Keys)
+            {
+                bool shown = false;
+                foreach (var s in homeSlots) if (s.Key == c) { shown = true; break; }
+                if (!shown) (gone ?? (gone = new List<HomeCard>())).Add(c);
+            }
+            if (gone != null) foreach (var c in gone) homeGlide.Remove(c);
+        }
+
+        void StepHome(float dt)
+        {
+            foreach (var m in homeGlide.Values) { m.X.Step(dt); m.Y.Step(dt); m.W.Step(dt); m.H.Step(dt); }
+        }
+
+        bool HomeMoving()
+        {
+            var now = DateTime.UtcNow;
+            foreach (var m in homeGlide.Values) if (!m.Settled || (now - m.Born).TotalSeconds < 0.3) return true;
+            return false;
         }
 
         // Nothing going on: the eyes, the time, today
@@ -305,7 +365,7 @@ namespace Tepi
             p.TextCenter(Fmt.Clock(local), Ink.Display(34f), p.T.Text, w / 2, cy);
             string wl = WeatherLine(), day = local.ToString("dddd, d MMMM", Fmt.Id);
             p.TextCenter(wl == null ? day : day + "  ·  " + wl, Ink.Text(13f), p.T.Sub, w / 2, cy + 34);
-            p.TextCenter(Lang.T("Tidak ada yang menunggu"), Ink.Small(11.5f), p.T.Faint, w / 2, cy + 56);
+            p.TextCenter(Lang.T("Tidak ada yang menunggu"), Ink.Small(11.5f), p.T.Hint, w / 2, cy + 56);
         }
 
         // Right click: hide it, or tune the list
@@ -335,8 +395,9 @@ namespace Tepi
             var hit = homeClip.IsEmpty ? r : RectangleF.Intersect(r, homeClip);
             if (hit.Height > 6) AddHit(hit, id, act ?? noAct, null, HomeMenuAct(card));
             bool live = act != null, down = live && Pressed(id);
-            if (down) r.Inflate(-1.5f, -1.5f);
-            p.FillRound(r, 20, down ? p.T.FillHover : live && Hover(id) ? Ink.Mix(p.T.Fill, p.T.FillHover, 0.6f) : p.T.Fill);
+            float sink = live ? PressK(id) : 0;
+            r.Inflate(-1.5f * sink, -1.5f * sink);
+            p.FillRound(r, 20, down ? p.T.FillHover : live ? Ink.Mix(p.T.Fill, p.T.FillHover, 0.6f * HoverK(id)) : p.T.Fill);
         }
 
         void DrawHomeMusic(RectangleF r, DateTime now)
@@ -353,8 +414,7 @@ namespace Tepi
             var next = new RectangleF(bx + 78, cy - 15, 30, 30);
             DrawControl(prev, "homePrev", delegate { media.Previous(); }, (b, c) => p.Skip(b.X + b.Width / 2, b.Y + b.Height / 2, 11, c, false));
             AddHit(play, "homePlay", delegate { media.TogglePlay(); });
-            bool down = Pressed("homePlay");
-            p.Circle(play.X + 18, play.Y + 18, down ? 15.5f : Hover("homePlay") ? 18 : 17, p.T.Text);
+            p.Circle(play.X + 18, play.Y + 18, 17 + HoverK("homePlay") - 2.5f * PressK("homePlay"), p.T.Text);
             if (mediaInfo.Playing) p.Pause(play.X + 18, play.Y + 18, 11.5f, p.T.Bg);
             else p.Play(play.X + 18, play.Y + 18, 12, p.T.Bg);
             DrawControl(next, "homeNext", delegate { media.Next(); }, (b, c) => p.Skip(b.X + b.Width / 2, b.Y + b.Height / 2, 11, c, true));
@@ -455,7 +515,32 @@ namespace Tepi
             var badge = new RectangleF(r.X + 14, r.Y + 38, 26, 26);
             DrawAppBadge(latest, badge);
             float tx = badge.Right + 10, right = r.Right - 14, cy = r.Y + 51;
-            if (senders.Count > 1)
+            var apps = ChipApps();
+            if (apps.Count >= 2)
+            {
+                // One dot and count per app; tap jumps to that app's messages
+                var cf = Ink.SmallSemi(11f);
+                for (int i = apps.Count - 1; i >= 0; i--)
+                {
+                    string app = apps[i];
+                    int n = 0;
+                    NotifItem first = null;
+                    foreach (var it in notifs) if (it.AppName == app) { n++; if (first == null) first = it; }
+                    string num = n.ToString();
+                    float cw = p.Measure(num, cf) + 20;
+                    var chip = new RectangleF(right - cw, cy - 11, cw, 22);
+                    string id = "homeApp" + i;
+                    float hk = HoverK(id);
+                    if (hk > 0) p.FillRound(chip, 11, Ink.A(p.T.Fill, hk));
+                    var brand = BrandInk(first);
+                    p.Circle(chip.X + 8, cy, 3.5f, brand.IsEmpty ? p.T.Sub : brand);
+                    p.Text(num, cf, p.T.Sub, chip.X + 15, cy, cw - 15, StringAlignment.Near);
+                    if (pointerInside || keyboardMode) AddHit(chip, id, delegate { notifApp = app; notifScroll.Snap(0); SetPage(PageMessages, false); });
+                    right -= cw + 2;
+                }
+                right -= 6;
+            }
+            else if (senders.Count > 1)
             {
                 string more = Lang.F("+{0} lainnya", senders.Count - 1);
                 var mf = Ink.Small(11f);
@@ -566,7 +651,7 @@ namespace Tepi
             CardCaption(r, '', Lang.T("Clipboard"));
             var c = clips[0];
             p.TextBox(Preview(c.Text, 160), Ink.Text(12.5f), p.T.Text, new RectangleF(r.X + 16, r.Y + 36, r.Width - 30, 36), StringAlignment.Near);
-            p.Text(Lang.F("{0} karakter", c.Text.Length) + " · " + Fmt.Ago(c.Utc), Ink.Small(11f), p.T.Faint, r.X + 16, r.Y + 78, r.Width - 30, StringAlignment.Near);
+            p.Text(Lang.F("{0} karakter", c.Text.Length) + " · " + Fmt.Ago(c.Utc), Ink.Small(11f), p.T.Hint, r.X + 16, r.Y + 78, r.Width - 30, StringAlignment.Near);
         }
 
         void DrawHomePray(RectangleF r)

@@ -43,7 +43,7 @@ namespace Tepi
             // Settings pages open by address; Target is only their icon
             public string Uri = "";
             public bool File, Asked;
-            public DateTime When;
+            public DateTime When, IconUtc;
             public Bitmap Icon;
         }
 
@@ -301,7 +301,15 @@ namespace Tepi
                     list.AddRange(added);
                     list.Sort((a, b) => b.When.CompareTo(a.When));
                     if (list.Count > 6) list.RemoveRange(6, list.Count - 6);
-                    Post(delegate { recent = list; Render(); });
+                    Post(delegate
+                    {
+                        recent = list;
+                        recentLoaded = true;
+                        // Room reserved at open shrinks or grows smoothly
+                        recentRows.Target = Math.Max(1, (list.Count + 1) / 2);
+                        if (Anim.Reduced) recentRows.Snap(recentRows.Target);
+                        Animate();
+                    });
                 });
             }
 
@@ -328,8 +336,9 @@ namespace Tepi
                         bmp = ShellApp.Icon(e.Target, iconPx);
                         lock (iconGate) if (bmp != null) iconCache[e.Target] = bmp;
                     }
-                    lock (iconGate) e.Icon = bmp;
-                    Post(Render);
+                    lock (iconGate) { e.Icon = bmp; e.IconUtc = Anim.Reduced ? DateTime.MinValue : DateTime.UtcNow; }
+                    iconUtc = DateTime.UtcNow;
+                    Post(Animate);
                 }
             }
 
@@ -370,6 +379,18 @@ namespace Tepi
             }
 
             float recentTop;
+            readonly Spring recentRows = MakeRows();
+            bool recentLoaded;
+            DateTime iconUtc;
+
+            static Spring MakeRows()
+            {
+                var s = new Spring(3, 1, 1, 0.01f);
+                Springs.Tune(s, 0.28f, 1f);
+                return s;
+            }
+
+            float IconK(AppEntry e) { return Ease.OutCubic((float)(DateTime.UtcNow - e.IconUtc).TotalSeconds / 0.16f); }
 
             // Where every tile sits, in content coordinates (before scrolling)
             float Arrange()
@@ -393,7 +414,7 @@ namespace Tepi
                 y = recentTop + Head;
                 for (int i = 0; i < recent.Count; i++)
                     tiles.Add(new Tile { Entry = recent[i], Rect = new RectangleF(x0 + (i % 2) * (Cols * CellW / 2), y + (i / 2) * RowH, Cols * CellW / 2, RowH), Row = true });
-                y += Math.Max(1, (recent.Count + 1) / 2) * RowH + 10;
+                y += recentRows.Value * RowH + 10;
                 allTop = y;
                 y += Head;
                 if (catalog != null) y = Grid(catalog, x0, y, false);
@@ -430,8 +451,10 @@ namespace Tepi
 
             protected override bool Animating(float dt)
             {
+                recentRows.Step(dt);
+                bool more = !recentRows.Settled || (DateTime.UtcNow - iconUtc).TotalSeconds < 0.18;
                 float d = scrollTo - scroll;
-                if (Math.Abs(d) < 0.5f) { scroll = scrollTo; return false; }
+                if (Math.Abs(d) < 0.5f) { scroll = scrollTo; return more; }
                 scroll += d * (1 - (float)Math.Exp(-dt * 18));
                 return true;
             }
@@ -481,7 +504,7 @@ namespace Tepi
                     Header(Lang.T("Disematkan"), Head, Lang.T("Semua aplikasi"), "toall");
                     if (pins.Count == 0) Note(importing ? Lang.T("Memuat…") : Lang.T("Klik kanan aplikasi, lalu Sematkan ke Start"), Head + 22);
                     Header(Lang.T("Terbaru"), recentTop + Head, null, null);
-                    if (recent.Count == 0) Note(Lang.T("Belum ada berkas terbaru"), recentTop + Head + RowH / 2);
+                    if (recentLoaded && recent.Count == 0) Note(Lang.T("Belum ada berkas terbaru"), recentTop + Head + RowH / 2);
                     Header(Lang.T("Semua aplikasi"), allTop + Head, null, null);
                     if (loading) Note(Lang.T("Memuat aplikasi…"), allTop + Head + 40);
                 }
@@ -491,20 +514,23 @@ namespace Tepi
                     var r = new RectangleF(t.Rect.X, t.Rect.Y + BodyTop - scroll, t.Rect.Width, t.Rect.Height);
                     if (r.Bottom < BodyTop || r.Top > H - Foot) continue;
                     hits.Add(new KeyValuePair<RectangleF, string>(r, "t" + i));
-                    bool on = hot == i || (hot < 0 && sel == i);
-                    if (on) p.FillRound(Inset(r, 3), 12, pressId == "t" + i ? p.T.FillPressed : hot == i ? p.T.FillHover : p.T.Fill);
+                    float hk = HotK("t" + i);
+                    bool selOn = hot < 0 && sel == i;
+                    if (pressId == "t" + i) p.FillRound(Inset(r, 3), 12, p.T.FillPressed);
+                    else if (hk > 0 || selOn) p.FillRound(Inset(r, 3), 12, Ink.Mix(selOn ? p.T.Fill : Ink.A(p.T.Fill, 0), p.T.FillHover, hk));
                     var icon = IconOf(t.Entry);
+                    float ik = icon != null ? IconK(t.Entry) : 0, keep = p.Alpha;
                     if (t.Row)
                     {
                         var ir = new RectangleF(r.X + 14, r.Y + (RowH - 32) / 2, 32, 32);
-                        if (icon != null) g.DrawImage(icon, ir); else p.FillRound(ir, 8, p.T.Fill);
+                        IconIn(icon, ir, 8, ik, keep);
                         p.Text(t.Entry.Name, Ink.Semi(12.5f), p.T.Text, r.X + 58, r.Y + RowH / 2 - 8, r.Width - 70, StringAlignment.Near);
                         p.Text(t.Entry.Sub, Ink.Small(11f), p.T.Sub, r.X + 58, r.Y + RowH / 2 + 9, r.Width - 70, StringAlignment.Near);
                     }
                     else
                     {
                         var ir = new RectangleF(r.X + (CellW - 40) / 2, r.Y + 12, 40, 40);
-                        if (icon != null) g.DrawImage(icon, ir); else p.FillRound(ir, 10, p.T.Fill);
+                        IconIn(icon, ir, 10, ik, keep);
                         p.Text(t.Entry.Name, Ink.Small(11.5f), p.T.Text, r.X + CellW / 2, r.Y + 68, CellW - 10, StringAlignment.Center);
                     }
                 }
@@ -514,6 +540,14 @@ namespace Tepi
                     float thumb = Math.Max(28, ViewH * ViewH / contentH), y = BodyTop + (ViewH - thumb) * scroll / Math.Max(1, contentH - ViewH);
                     p.FillRound(new RectangleF(W - 7, y, 3, thumb), 1.5f, p.T.Line);
                 }
+            }
+
+            // Placeholder hands over to the real icon
+            void IconIn(Bitmap icon, RectangleF ir, float radius, float k, float keep)
+            {
+                if (k < 1) { p.Alpha = keep * (1 - k); p.FillRound(ir, radius, p.T.Fill); }
+                if (icon != null && k > 0) { p.Alpha = keep * k; p.Picture(icon, ir); }
+                p.Alpha = keep;
             }
 
             void Note(string text, float y)
@@ -537,7 +571,7 @@ namespace Tepi
                         gp.AddEllipse(face);
                         var s = g.Save();
                         g.SetClip(gp, CombineMode.Intersect);
-                        g.DrawImage(avatar, face);
+                        p.Picture(avatar, face);
                         g.Restore(s);
                     }
                 else
@@ -595,8 +629,8 @@ namespace Tepi
 
             protected override void Wheel(string id, int delta)
             {
-                ScrollTo(scrollTo - Math.Sign(delta) * CellH);
-                hot = -1;
+                // Touchpads send small deltas: scale, don't step
+                ScrollTo(scrollTo - delta / 120f * CellH * 0.8f);
             }
 
             protected override bool ProcessCmdKey(ref Message msg, Keys key)

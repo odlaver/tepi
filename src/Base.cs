@@ -252,6 +252,15 @@ namespace Tepi
 
         public static float Response(float seconds) { return seconds * Pace; }
 
+        // Seconds since last call, sane after idle
+        public static float Dt(ref long last)
+        {
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            double s = (double)(now - last) / System.Diagnostics.Stopwatch.Frequency;
+            last = now;
+            return s > 0.1 || s <= 0 ? 0.016f : (float)s;
+        }
+
         // Calm never overshoots
         public static float Damping(float zeta)
         {
@@ -274,6 +283,9 @@ namespace Tepi
             float u = t - 1;
             return 1 + c3 * u * u * u + c1 * u * u;
         }
+
+        // Overshoot unless motion is reduced
+        public static float Pop(float t) { return Anim.Reduced ? OutCubic(t) : OutBack(t); }
 
         public static float Lerp(float a, float b, float t) { return a + (b - a) * t; }
     }

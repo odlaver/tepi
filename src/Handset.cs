@@ -45,7 +45,7 @@ namespace Tepi
                 AddToShelf(new[] { path });
                 ShowInfo(IcoPhone, Lang.T("Berkas dari HP"), name, true);
             });
-            phone.Sent += name => Post(() => { Finish(name, false, null); ShowInfo(IcoPhone, Lang.T("Terkirim ke HP"), name, true); });
+            phone.Sent += name => Post(() => { Finish(name, false, null); ShowOk(IcoPhone, Lang.T("Terkirim ke HP"), name, true); });
             phone.Dropped += name => Post(() =>
             {
                 var t = transfers.Find(x => x.Name == name && x.Incoming && !x.Done);
@@ -238,10 +238,10 @@ namespace Tepi
             if (!PhonePaired) return;
             long size = 0;
             try { size = new FileInfo(path).Length; } catch (Exception) { }
-            if (size > PhoneLink.FileMax) { ShowInfo(IcoPhone, Lang.T("Berkas lebih dari 500 MB"), Path.GetFileName(path), true); return; }
-            if (!phone.OfferFile(path)) { ShowInfo(IcoPhone, Lang.T("Berkas tidak bisa dikirim"), Path.GetFileName(path), true); return; }
+            if (size > PhoneLink.FileMax) { ShowFail(IcoPhone, Lang.T("Berkas lebih dari 500 MB"), Path.GetFileName(path), true); return; }
+            if (!phone.OfferFile(path)) { ShowFail(IcoPhone, Lang.T("Berkas tidak bisa dikirim"), Path.GetFileName(path), true); return; }
             Moved(Path.GetFileName(path), 0, Math.Max(1, size), false, path);
-            if (!phone.Online) ShowInfo(IcoPhone, Lang.T("Menunggu HP"), Path.GetFileName(path), true);
+            if (!phone.Online) ShowWarn(IcoPhone, Lang.T("Menunggu HP"), Path.GetFileName(path), true);
         }
 
         void PickForPhone()

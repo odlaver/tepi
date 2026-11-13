@@ -88,7 +88,7 @@ namespace Tepi
         {
             try { System.Windows.Forms.Clipboard.SetText(c.Text); }
             catch (ExternalException ex) { Log.Write("clipboard set: " + ex.Message); return; }
-            ShowInfo('', Lang.T("Disalin lagi"), Preview(c.Text, 60), true);
+            ShowOk('', Lang.T("Disalin lagi"), Preview(c.Text, 60), true);
         }
 
         static string Preview(string text, int max)
@@ -134,11 +134,11 @@ namespace Tepi
                 var c = clips[i];
                 var row = new RectangleF(area.X + 4, y + 2, area.Width - 8, ClipRowH - 4);
                 string id = "clip" + c.Utc.Ticks;
-                if (Hover(id)) p.FillRound(row, 14, p.T.Fill);
+                if (HoverK(id) > 0) p.FillRound(row, 14, Ink.A(p.T.Fill, HoverK(id)));
                 float rcy = row.Y + row.Height / 2;
                 p.Text(Preview(c.Text, 140), Ink.Semi(12.5f), p.T.Text, row.X + 14, rcy - 8, row.Width - 28, StringAlignment.Near);
                 string meta = Lang.F("{0} karakter", c.Text.Length) + " · " + Fmt.Ago(c.Utc);
-                p.Text(meta, Ink.Small(11f), p.T.Faint, row.X + 14, rcy + 9, row.Width - 28, StringAlignment.Near);
+                p.Text(meta, Ink.Small(11f), p.T.Hint, row.X + 14, rcy + 9, row.Width - 28, StringAlignment.Near);
                 var pick = c;
                 if (row.Top >= area.Top && row.Bottom <= area.Bottom) AddHit(row, id, delegate { CopyClip(pick); });
             }

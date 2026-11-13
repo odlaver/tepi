@@ -19,6 +19,10 @@ namespace Tepi
         public DateTime Time;
         public bool Chat, Held;
         public Bitmap Logo;
+        // Colour work done once per item and theme
+        public Color Brand, BrandInk;
+        public bool BrandSet;
+        public int InkKey;
     }
 
     // Notification centre; change key gates re-listing
@@ -136,13 +140,37 @@ namespace Tepi
                             reader.ReadBytes(bytes);
                             using (var ms = new MemoryStream(bytes))
                             using (var src = Image.FromStream(ms))
-                                logo = Ink.Grayscale(src, 48);
+                                logo = Ink.Square(src, 48);
                         }
                 }
             }
             catch (Exception) { logo = null; }
+            // No logo from Windows: the icon the Dock shows
+            if (logo == null && appId.Length > 0)
+            {
+                try
+                {
+                    using (var icon = ShellApp.Icon(ShellApp.AppsFolderOf(appId), 64))
+                        if (icon != null) logo = Ink.Square(icon, 48);
+                }
+                catch (Exception) { logo = null; }
+            }
             lock (logos) logos[appId] = logo;
             return logo;
+        }
+
+        static readonly Dictionary<Bitmap, Bitmap> drained = new Dictionary<Bitmap, Bitmap>();
+
+        // Monochrome copy, for when app colours are off
+        public static Bitmap Drained(Bitmap logo)
+        {
+            if (logo == null) return null;
+            lock (drained)
+            {
+                Bitmap d;
+                if (!drained.TryGetValue(logo, out d)) { d = Ink.Drain(logo); drained[logo] = d; }
+                return d;
+            }
         }
 
         [DllImport("winsqlite3.dll")] static extern int sqlite3_open_v2(byte[] filename, out IntPtr db, int flags, IntPtr vfs);
