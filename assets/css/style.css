@@ -455,7 +455,10 @@ kbd { display: inline-block; margin-top: 10px; padding: 3px 10px; border-radius:
 .news-list li { padding-block: 12px; border-top: 1px solid var(--line); }
 .news-list b { display: block; font-family: var(--display); font-size: 17px; font-weight: 600; }
 .news-list span { display: block; margin-top: 3px; font-size: 15px; line-height: 1.45; color: var(--sub); text-wrap: pretty; }
+.news-list .news-sub { margin-top: 14px; padding-block: 16px 4px; font-family: var(--display); font-size: 14px; font-weight: 600; color: var(--sub); }
+.news-sub + li { border-top: 0; }
 .news-all { margin-top: 12px; font-size: 14px; }
+.news-all + .news-all { margin-top: 6px; }
 .kicker-new { display: inline-flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: none; font: inherit; color: inherit; cursor: pointer; transition: color 0.12s ease, border-color 0.12s ease; }
 .kicker-cue { color: var(--text); font-weight: 600; }
 .kicker-new:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text); }

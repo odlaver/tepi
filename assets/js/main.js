@@ -16,7 +16,7 @@
     "meta.free": "Free",
     "meta.os": "Windows 10 and 11",
     "meta.dl": "downloads",
-    "note.platform": "Tepi is available for Windows 10 and 11, and Android 10 or later.",
+    "note.platform": "Tepi is available for Windows 10 and 11, and Android 8 or later.",
     "cta.android": "Download for Android",
     "hero.source": "Source code",
     "hero.update": "New in 2.6.2: Always listening without pressing a key, device commands by voice, and a page that sets up dictation and AI.",
@@ -42,6 +42,18 @@
     "news.8.d": "Draw freely on a screenshot with a choice of colour and thickness, and undo step by step. Contributed by movlution.",
     "news.6": "Smoother",
     "news.6.d": "Toggles and Settings move more smoothly, sender circles use the app's colour, and removed items can be undone for 5 seconds.",
+    "news.android": "Tepi Android 2.6.0",
+    "news.a1": "Fits sideways and on tablets",
+    "news.a1.d": "The island floats exactly at the top centre instead of missing the camera.",
+    "news.a2": "Gone in fullscreen",
+    "news.a2.d": "During videos and games the island disappears completely and lets your touches through. Messages wait and show afterwards, incoming calls still appear.",
+    "news.a3": "Your own colours and Liquid glass",
+    "news.a3.d": "Pick any island and accent colour, Liquid glass gets a light along its edge, and the island responds to your touch.",
+    "news.a4": "On time while the phone sleeps",
+    "news.a4.d": "Timers and prayer reminders ring on time, and verification codes appear in the island with a Copy button.",
+    "news.a5": "Lite and Full",
+    "news.a5.d": "Lite is under 1 MB for Android 8 or later on any processor. Full adds on-device translation. Also new: Ask Tepi, a power saving mode, and update checks.",
+    "news.all.android": "Android release notes",
     "news.dl": "Download Tepi 2.6.2",
     "news.close": "Close",
     "news.all": "Full release notes on GitHub",
@@ -141,7 +153,7 @@
     "priv.restore": "Windows settings put back",
     "priv.restore.d": "Replacing the taskbar and taking over banners note your original Windows settings, then restore them when turned off or when Tepi quits.",
     "droid.title": "The island is on your phone too.",
-    "droid.body": "For Android 10 and up, around the front camera. Pairs with your laptop by scanning a QR code.",
+    "droid.body": "For Android 8 and up, around the front camera, and it steps away during fullscreen video. Pairs with your laptop by scanning a QR code.",
     "droid.cta": "Download APK",
     "droid.s1": "Home",
     "droid.s2": "Music and lyrics",
@@ -151,7 +163,7 @@
     "droid.f3": "No server, just the same Wi-Fi",
     "droid.alt": "Tepi Android on a phone: Home, Music with lyrics, and Agents",
     "dl.apk": "Tepi Android",
-    "dl.apk.d": "APK for Android 10 or later on arm64. On Android 13 or later, open App info › ⋮ › Allow restricted settings before granting notification access.",
+    "dl.apk.d": "Lite APK for Android 8 or later, any processor. The Full variant adds on-device translation and needs arm64. On Android 13 or later, open App info › ⋮ › Allow restricted settings before granting notification access.",
     "alt.hero": "Tepi Overview panel: the song playing, a working agent, the next class, and messages",
     "live.title": "Alive when it matters.",
     "live.body": "Nineteen activities, from lyrics that sweep word by word to OTP codes from your phone. The island grows for a moment, then settles back.",
@@ -893,7 +905,7 @@
   if (location.hash === "#kopi") setTimeout(openCoffee, 0);
 
   // What's new: once per version, then from the kicker
-  var NEWS_V = "2.6.2";
+  var NEWS_V = "2.6.2+a2.6.0";
   var news = $("#news");
   var fresh = new TI.Island($("#isle-n"));
   fresh.eyes.base = "happy";
@@ -1028,7 +1040,7 @@
         showDownloads(list, ".js-dl-apk");
         var rel = newest(list);
         if (!rel) return;
-        var apk = (rel.assets || []).filter(function (a) { return /\.apk$/i.test(a.name); })[0];
+        var apk = (rel.assets || []).filter(function (a) { return /\.apk$/i.test(a.name) && !/full/i.test(a.name); })[0];
         if (!apk) return;
         $$(".js-apk").forEach(function (a) { a.href = apk.browser_download_url; });
         var ver = String(rel.tag_name || "").replace(/^v/, "");
