@@ -447,6 +447,19 @@ kbd { display: inline-block; margin-top: 10px; padding: 3px 10px; border-radius:
 .qris-note { margin-top: 14px; font-size: 14px; color: var(--faint); text-align: center; text-wrap: pretty; }
 .qris-actions { margin-top: 16px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .btn-md { height: 44px; padding: 0 20px; font-size: 15px; }
+/* What's new: the QRIS card, with a list */
+.news { width: min(520px, calc(100vw - 32px)); }
+.news-count { margin-top: 8px; font-size: 15px; color: var(--sub); text-align: center; text-wrap: pretty; }
+.news-count b { font-family: var(--display); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.news-list { list-style: none; margin-top: 18px; width: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
+.news-list li { padding-block: 12px; border-top: 1px solid var(--line); }
+.news-list b { display: block; font-family: var(--display); font-size: 17px; font-weight: 600; }
+.news-list span { display: block; margin-top: 3px; font-size: 15px; line-height: 1.45; color: var(--sub); text-wrap: pretty; }
+.news-all { margin-top: 12px; font-size: 14px; }
+.kicker-new { display: inline-flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: none; font: inherit; color: inherit; cursor: pointer; transition: color 0.12s ease, border-color 0.12s ease; }
+.kicker-cue { color: var(--text); font-weight: 600; }
+.kicker-new:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text); }
+@media (hover: hover) { .kicker-new:hover { border-color: rgba(255, 255, 255, 0.28); } }
 /* Floating coffee, glass like the nav */
 .fab {
   position: fixed; z-index: 55; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom));

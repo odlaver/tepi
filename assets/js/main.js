@@ -19,7 +19,32 @@
     "note.platform": "Tepi is available for Windows 10 and 11, and Android 10 or later.",
     "cta.android": "Download for Android",
     "hero.source": "Source code",
-    "hero.update": "New in 2.6.1: the island in a corner or on a side, a Dock that replaces the taskbar, chats with Tepi, and PDF to Word.",
+    "hero.update": "New in 2.6.2: Always listening without pressing a key, device commands by voice, and a page that sets up dictation and AI.",
+    "news.open": "See what's new",
+    "news.title": "What's new in Tepi",
+    "news.count.a": "Downloaded",
+    "news.count.b": "times, across every Windows release",
+    "news.1": "Voice and AI setup",
+    "news.1.d": "A new Settings page checks the microphone, dictation engine, text service, and speech recognizer, then walks you through what's missing: a free Groq key, an offline model, Ollama, or another service.",
+    "news.2": "Always listening",
+    "news.2.d": "Say \"Tepi, pause\", \"Tepi, open Spotify\", or \"Tepi, turn on wifi\" without pressing a key. Recognized offline, in English.",
+    "news.3": "Device commands and songs",
+    "news.3.d": "Ask Tepi to turn Wi-Fi and Bluetooth on, set the brightness, open apps, and play a song by its title.",
+    "news.4": "Favorite music",
+    "news.4.d": "Paste a YouTube link in Settings › Music, then say \"play my usual song\".",
+    "news.5": "Messages that point the way",
+    "news.5.d": "When dictation, meetings, or Always listening can't run, the notice says why. Click it to open the place to fix it.",
+    "news.9": "A fuller Dock",
+    "news.9.d": "Windows 11 style quick settings, Start search that understands short words like \"wa\" for WhatsApp and finds files, and windows that shrink into their icon when minimized.",
+    "news.7": "From user reports",
+    "news.7.d": "Send feedback works again, the Dock stays above other windows, menus close when you click outside, clicking the app in front minimizes it, and the Wi-Fi tile names the network.",
+    "news.8": "Draw in Edit picture",
+    "news.8.d": "Draw freely on a screenshot with a choice of colour and thickness, and undo step by step. Contributed by movlution.",
+    "news.6": "Smoother",
+    "news.6.d": "Toggles and Settings move more smoothly, sender circles use the app's colour, and removed items can be undone for 5 seconds.",
+    "news.dl": "Download Tepi 2.6.2",
+    "news.close": "Close",
+    "news.all": "Full release notes on GitHub",
     "dock.title": "The bottom edge, too.",
     "dock.body": "Pinned and open apps, window previews, then music, timer, weather, and CPU widgets in one bar. Icons grow under the cursor and can be dragged to reorder.",
     "dock.f1": "Live window previews",
@@ -39,14 +64,14 @@
     "alt.place4": "Island standing upright on the right side of the screen",
     "dock.swap": "Replace the Windows taskbar",
     "dock.swap.d": "One switch in Settings › Dock moves Start, the tray, and the clock into the Dock, and the Windows key opens Tepi's own cards. Turn it off and the taskbar comes back as it was.",
-    "dock.start.d": "Pinned apps, recent ones, and every app. Its search box also finds Windows and Tepi settings pages.",
+    "dock.start.d": "Pinned apps, recent ones, and every app. Type \"wa\" for WhatsApp: results are grouped into apps, files, and settings.",
     "dock.start.k": "Windows key",
     "dock.quick": "Quick settings",
-    "dock.quick.d": "Wi-Fi with a network list, Bluetooth, Quiet, Dark, Awake, sound, display, and the audio device.",
+    "dock.quick.d": "Windows 11 style buttons with arrows to the Wi-Fi and Bluetooth lists, display and sound sliders, and the battery.",
     "dock.cal": "Notifications and calendar",
     "dock.cal.d": "Windows notifications you can clear one by one, a month calendar, and Quiet.",
-    "alt.start": "Tepi Start: pinned apps, recent, and all apps",
-    "alt.quick": "Quick settings: Wi-Fi, Bluetooth, Quiet, Dark, Awake, microphone, sound, and display",
+    "alt.start": "Tepi Start searching \"wa\": WhatsApp as the best match, then files and settings",
+    "alt.quick": "Windows 11 style quick settings: Wi-Fi, Bluetooth, Quiet, Dark, Awake, microphone, display, and sound",
     "alt.cal": "Notifications and a month calendar",
     "dock.f5": "Win+T picks apps with the keyboard",
     "talk.eyebrow": "Voice and AI",
@@ -208,21 +233,21 @@
     "perf.eyebrow": "Performance",
     "perf.title": "Light as cotton.",
     "perf.body": "The island draws nothing while nothing moves. The glass reads the screen only when the backdrop changes.",
-    "perf.idle.n": "0.2%",
+    "perf.idle.n": "0.6%",
     "perf.idle": "CPU at idle",
-    "perf.idle.a": "1.7.0: 1.9%. Now: 0.2%.",
+    "perf.idle.a": "1.7.0: 1.9%. Now: 0.6%.",
     "perf.idle.o": "1.9%",
-    "perf.timer.n": "1.8%",
+    "perf.timer.n": "2.7%",
     "perf.timer": "CPU with a timer running on the island",
-    "perf.panel.n": "0.4%",
+    "perf.panel.n": "1.2%",
     "perf.panel": "CPU with the panel open, averaged over every tab",
-    "perf.panel.a": "1.7.0: 7.3%. Now: 0.4%.",
+    "perf.panel.a": "1.7.0: 7.3%. Now: 1.2%.",
     "perf.panel.o": "7.3%",
-    "perf.mem.n": "13 MB",
-    "perf.mem": "Memory in Task Manager",
+    "perf.mem.n": "6 MB",
+    "perf.mem": "Memory in Task Manager at idle",
     "perf.exe": "one exe, no installer.",
-    "perf.frame": "Opening the panel and switching tabs take 4 to 7 ms per frame on average, 14 ms at most, under the 16.7 ms a frame has at 60 fps.",
-    "perf.note": "Measured on 5 November 2026 on an Intel Core i3-1115G4 laptop with real data: each condition settles for 4 seconds, then is measured for 8. CPU percent is relative to one core.",
+    "perf.frame": "Opening the panel and switching tabs take 3 to 6 ms per frame on average. Switching tabs in a row, the slowest frame took 14 ms, under the 16.7 ms a frame has at 60 fps; the first draw of a page can take up to 39 ms.",
+    "perf.note": "Measured on 17 November 2026 on an Intel Core i3-1115G4 laptop that was busy with other work: each condition settles for 4 seconds, then is measured for 8, median of 3 runs. CPU percent is relative to one core. With the panel open, memory rises to about 18 to 27 MB, then drops again after the panel closes.",
     "style.eyebrow": "Appearance",
     "style.title": "Make it yours.",
     "style.body": "Liquid Glass that reads the backdrop behind it, the hazier Frost, or Black, which saves the most power. Dark, light, or following Windows, an accent from the album cover or your own colors, and theme packs with their own emblem, mascot, and sounds.",
@@ -266,7 +291,7 @@
     "dl.req": "Requirements",
     "dl.req.d": "Windows 10 version 2004 or later, or Windows 11, 64-bit. .NET Framework 4.8 ships with Windows.",
     "dl.ss.d": "The exe is not signed yet, so Windows SmartScreen may show a warning. Choose More info, then Run anyway.",
-    "dl.again": "Already have Tepi? Right-click the Tepi icon, then Update to Tepi 2.6.1. After that, Settings › About › Check for updates is enough.",
+    "dl.again": "Already have Tepi? Right-click the Tepi icon, then Update to Tepi 2.6.2. After that, Settings › About › Check for updates is enough.",
     "dl.copy": "Copy",
     "dl.copied": "Copied",
     "dl.releases": "All releases",
@@ -866,6 +891,29 @@
   $$(".js-coffee").forEach(function (b) { on(b, "click", openCoffee); });
   // Settings link from the app: tepi/#kopi
   if (location.hash === "#kopi") setTimeout(openCoffee, 0);
+
+  // What's new: once per version, then from the kicker
+  var NEWS_V = "2.6.2";
+  var news = $("#news");
+  var fresh = new TI.Island($("#isle-n"));
+  fresh.eyes.base = "happy";
+  fresh.eyes.rest();
+  function openNews() {
+    if (news.open) return;
+    try { localStorage.setItem("tepi.news", NEWS_V); } catch (e) { }
+    if (news.showModal) news.showModal(); else news.setAttribute("open", "");
+    fabSync();
+  }
+  $$(".js-news").forEach(function (b) { on(b, "click", openNews); });
+  on(news, "close", function () { fabSync(); });
+  on(news, "click", function (e) {
+    var r = news.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) news.close();
+  });
+  var seenNews = null;
+  try { seenNews = localStorage.getItem("tepi.news"); } catch (e) { seenNews = NEWS_V; }
+  // Deep links and the QRIS link skip it
+  if (seenNews !== NEWS_V && !location.hash) setTimeout(function () { if (!qris.open) openNews(); }, still.matches ? 400 : 1600);
   // Floating button steps aside when redundant
   var fab = $("#fab");
   var F = { near: {}, ready: false };
@@ -888,7 +936,7 @@
   // Hide or show the floating button
   function fabSync() {
     if (!fab) return;
-    var away = !F.ready || qris.open || F.near.coffee || F.near.foot || (sc.on && narrow.matches);
+    var away = !F.ready || qris.open || news.open || F.near.coffee || F.near.foot || (sc.on && narrow.matches);
     fab.classList.toggle("away", !!away);
   }
 
@@ -928,12 +976,22 @@
   });
 
   // Total downloads across all releases
+  var counts = {};
   function showDownloads(list, sel) {
     var n = 0;
     list.forEach(function (rel) { (rel.assets || []).forEach(function (a) { n += a.download_count || 0; }); });
     if (!n) return;
-    $$(sel).forEach(function (el) { $(".js-n", el).textContent = n; el.hidden = false; });
+    counts[sel] = n;
+    paintCounts();
   }
+  // Grouped digits follow the page language
+  function paintCounts() {
+    Object.keys(counts).forEach(function (sel) {
+      var text = counts[sel].toLocaleString(lang === "en" ? "en-US" : "id-ID");
+      $$(sel).forEach(function (el) { $(".js-n", el).textContent = text; el.hidden = false; });
+    });
+  }
+  hooks.push(paintCounts);
   function newest(list) {
     return list.filter(function (rel) { return !rel.draft && !rel.prerelease; })[0];
   }
