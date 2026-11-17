@@ -20,9 +20,9 @@ namespace Tepi
         readonly NotifWatcher notifWatcher = new NotifWatcher();
 
         MediaInfo mediaInfo = MediaInfo.None;
-        DateTime pausedSinceUtc = DateTime.MinValue;
-        bool mediaSeen;
-        string pendingTrack;
+        DateTime pauseStartUtc = DateTime.MinValue;
+        bool heardMedia;
+        string trackToAnnounce;
         Lyrics lyrics;
         int lyricIndex = -1, lyricPrev = -1;
         DateTime lyricSwitchUtc = DateTime.MinValue;
@@ -34,13 +34,14 @@ namespace Tepi
         bool hasBattery, onAc = true, powerKnown;
         int battery = 100;
         readonly Spring batteryFill = new Spring(0, 90, 12, 0.002f);
-        string[] micApps = new string[0], camApps = new string[0];
+        string[] micHolders = new string[0], camHolders = new string[0];
 
         List<NotifItem> notifs = new List<NotifItem>();
-        readonly HashSet<uint> seenNotifs = new HashSet<uint>();
+        // Ids in the centre at the last read
+        HashSet<uint> knownToastIds = new HashSet<uint>();
         bool notifPrimed;
         int unread, notifBurst;
-        UserNotificationListenerAccessStatus notifAccess = UserNotificationListenerAccessStatus.Allowed;
+        UserNotificationListenerAccessStatus toastAccess = UserNotificationListenerAccessStatus.Allowed;
 
         AgentHub hub;
         readonly Dictionary<string, AgentSession> sessions = new Dictionary<string, AgentSession>();
@@ -57,15 +58,15 @@ namespace Tepi
         void StartFeeds()
         {
             Ai.Bind(settings);
-            media.Changed += m => Post(() => OnMedia(m));
+            media.Changed += m => Post(() => MediaChanged(m));
             lyricsSvc.Ready += l => Post(() => OnLyrics(l));
-            volume.Changed += (level, mute, first) => Post(() => OnVolume(level, mute, first));
+            volume.Changed += (level, mute, first) => Post(() => VolumeChanged(level, mute, first));
             volume.DeviceChanged += () => spectrum.Restart();
             volume.MicChanged += (m, present, first) => Post(() => OnMic(m, present, first));
             volume.AppsChanged += l => Post(() => OnApps(l));
             net.Changed += (a, b) => Post(() => OnNet(a, b));
-            privacy.Changed += (m, c) => Post(() => OnPrivacy(m, c));
-            notifWatcher.Updated += (access, list) => Post(() => OnNotifs(access, list));
+            privacy.Changed += (m, c) => Post(() => PrivacyChanged(m, c));
+            notifWatcher.Updated += (access, list) => Post(() => ToastsRead(access, list));
             media.Start();
             volume.Start();
             net.Start();
@@ -83,7 +84,7 @@ namespace Tepi
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "2.6.1";
+        public const string AppVersion = "2.6.2";
         string newVersion, newUrl;
         bool newRebuild, checking, checkFailed;
         DateTime checkedUtc;
@@ -206,7 +207,7 @@ namespace Tepi
 
         bool MediaVisible()
         {
-            return mediaInfo.Present && mediaInfo.Title.Length > 0 && (mediaInfo.Playing || (DateTime.UtcNow - pausedSinceUtc).TotalSeconds < 90);
+            return mediaInfo.Present && mediaInfo.Title.Length > 0 && (mediaInfo.Playing || (DateTime.UtcNow - pauseStartUtc).TotalSeconds < 90);
         }
 
         bool VisualizerVisible()
@@ -215,29 +216,32 @@ namespace Tepi
             return current == View.Media || current == View.Lyric || current == View.Track || (current == View.Panel && page == PageMusic);
         }
 
-        void OnMedia(MediaInfo m)
+        void MediaChanged(MediaInfo m)
         {
             var prev = mediaInfo;
-            if (prev.Playing && !m.Playing) pausedSinceUtc = DateTime.UtcNow;
-            bool shortClip = m.DurationMs > 0 && m.DurationMs < 31000;
-            if (m.Present && m.Key != prev.Key && mediaSeen && m.Title.Length > 0 && !shortClip) pendingTrack = m.Key;
+            if (prev.Playing && !m.Playing) pauseStartUtc = DateTime.UtcNow;
+            // Ads and previews: no song toast
+            bool clip = m.DurationMs > 0 && m.DurationMs < 31000;
+            bool announce = heardMedia && m.Present && !clip && m.Title.Length > 0 && m.Key != prev.Key;
+            if (announce) trackToAnnounce = m.Key;
             // Next song on the pill: old one fades out
             if (m.Key != prev.Key && prev.Title.Length > 0 && (current == View.Media || current == View.Lyric) && !Anim.Reduced)
             {
                 snapWanted = true;
                 previous = current;
-                switchedUtc = DateTime.UtcNow;
+                viewSinceUtc = DateTime.UtcNow;
             }
             mediaInfo = m;
             // Free old artwork now, not at finalization
             if (prev.Cover != null && !ReferenceEquals(prev.Cover, m.Cover)) prev.Cover.Dispose();
             if (m.Cover != null && !ReferenceEquals(prev.Cover, m.Cover)) PrewarmArt();
             AlbumAccent();
-            if (m.Present) mediaSeen = true;
+            heardMedia |= m.Present;
             SyncLyrics();
-            if (pendingTrack != null && pendingTrack == m.Key && m.Playing)
+            // Announced once it actually plays
+            if (m.Playing && trackToAnnounce == m.Key)
             {
-                pendingTrack = null;
+                trackToAnnounce = null;
                 if (!expanded) ShowToast(View.Track, 3.2, 1, false);
             }
             Kick();
@@ -283,13 +287,20 @@ namespace Tepi
 
         // System
 
-        void OnVolume(float level, bool mute, bool first)
+        void VolumeChanged(float level, bool mute, bool first)
         {
             vol = level;
             muted = mute;
             volBar.Target = level;
             volRoller.Set(mute ? "0" : ((int)Math.Round(level * 100)).ToString());
-            if (first || !volKnown) { volKnown = true; volBar.Snap(level); return; }
+            // Startup reading: no toast
+            bool silent = first || !volKnown;
+            volKnown = true;
+            if (silent)
+            {
+                volBar.Snap(level);
+                return;
+            }
             if (!expanded) ShowToast(View.Volume, 1.5, 1, false, true);
             Kick();
         }
@@ -325,27 +336,31 @@ namespace Tepi
             Kick();
         }
 
-        void OnPrivacy(string[] mic, string[] cam)
+        // First app in now that wasn't before
+        static string Newcomer(string[] now, string[] before) { return Array.Find(now, app => Array.IndexOf(before, app) < 0); }
+
+        void PrivacyChanged(string[] mic, string[] cam)
         {
-            string newMic = null, newCam = null;
-            foreach (var x in mic) if (Array.IndexOf(micApps, x) < 0) { newMic = x; break; }
-            foreach (var x in cam) if (Array.IndexOf(camApps, x) < 0) { newCam = x; break; }
-            micApps = mic;
-            camApps = cam;
+            string joinedMic = Newcomer(mic, micHolders), joinedCam = Newcomer(cam, camHolders);
+            micHolders = mic;
+            camHolders = cam;
             TrackMeeting();
-            if (newCam != null || newMic != null)
+            // Camera news outranks the mic
+            string who = joinedCam ?? joinedMic;
+            var t = who != null ? ShowToast(View.Privacy, 3, 2, false) : null;
+            if (t != null)
             {
-                var t = ShowToast(View.Privacy, 3, 2, false);
-                if (t != null) { t.Flag = newCam != null; t.Title = newCam ?? newMic; }
+                t.Title = who;
+                t.Flag = joinedCam != null;
             }
             Kick();
         }
 
         // Messages
 
-        void OnNotifs(UserNotificationListenerAccessStatus access, List<NotifItem> list)
+        void ToastsRead(UserNotificationListenerAccessStatus access, List<NotifItem> list)
         {
-            notifAccess = access;
+            toastAccess = access;
             if (list == null || !NotifOn) { Kick(); return; }
             // Removed but still undoable: keep out
             var visible = list.FindAll(n => n.Chat && !notifHidden.Contains(n.Id));
@@ -365,12 +380,10 @@ namespace Tepi
             var keys = new HashSet<string>();
             visible.RemoveAll(n => !keys.Add(NotifKey(n)));
             if (visible.Count > 40) visible.RemoveRange(40, visible.Count - 40);
-            var fresh = new List<NotifItem>();
-            if (notifPrimed)
-                foreach (var n in visible)
-                    if (!n.Held && !seenNotifs.Contains(n.Id) && !known.Contains(NotifKey(n)) && (DateTime.UtcNow - n.Time).TotalMinutes < 3) fresh.Add(n);
-            seenNotifs.Clear();
-            foreach (var n in list) seenNotifs.Add(n.Id);
+            // First read is history, not news
+            var before = knownToastIds;
+            var fresh = notifPrimed ? visible.FindAll(n => !n.Held && !before.Contains(n.Id) && !known.Contains(NotifKey(n)) && (DateTime.UtcNow - n.Time).TotalMinutes < 3) : new List<NotifItem>();
+            knownToastIds = new HashSet<uint>(list.ConvertAll(n => n.Id));
             notifPrimed = true;
             // Phone copy of this message: pop once
             var pops = new List<NotifItem>();
@@ -389,31 +402,32 @@ namespace Tepi
                 if (ShouldPop(n)) pops.Add(n);
             }
             notifs = visible;
-            unread = Math.Min(unread, visible.Count);
-            if (added > 0)
-            {
-                if (expanded && page == PageMessages) unread = 0;
-                else unread += added;
-            }
-            if (pops.Count > 0 && !Native.DoNotDisturb())
-            {
-                bool burst = toast != null && toast.View == View.Notif;
-                var vip = pops.Find(IsVip);
-                // A call rings longer and passes quiet hours
-                var call = pops.Find(IsCall);
-                var t = ShowToast(View.Notif, call != null ? 25 : 5.5, vip != null || call != null ? 3 : 2, true);
-                if (t != null)
-                {
-                    notifBurst = burst ? notifBurst + pops.Count : pops.Count;
-                    t.Data = call ?? vip ?? pops[0];
-                }
-            }
+            // Read on the phone: badge shrinks too
+            bool reading = expanded && page == PageMessages;
+            unread = added > 0 && reading ? 0 : Math.Min(unread, visible.Count) + added;
+            if (pops.Count > 0 && !Native.DoNotDisturb()) PopNotifs(pops);
             Kick();
+        }
+
+        bool NotifShowing { get { return toast != null && toast.View == View.Notif; } }
+
+        void PopNotifs(List<NotifItem> pops)
+        {
+            // Count on while the toast stays
+            int stacked = NotifShowing ? notifBurst : 0;
+            var vip = pops.Find(IsVip);
+            // A call rings longer and passes quiet hours
+            var call = pops.Find(IsCall);
+            bool urgent = vip != null || call != null;
+            var t = ShowToast(View.Notif, call != null ? 25 : 5.5, urgent ? 3 : 2, true);
+            if (t == null) return;
+            notifBurst = stacked + pops.Count;
+            t.Data = call ?? vip ?? pops[0];
         }
 
         static string NotifKey(NotifItem n) { return n.AppId + "\n" + n.Title + "\n" + n.Body; }
 
-        void OpenNotifApp(NotifItem item)
+        void OpenSender(NotifItem item)
         {
             // Phone items: nothing to launch here
             if (item.AppId.Length > 0 && !item.AppId.StartsWith("phone:") && item.AppId.IndexOfAny(new[] { '"', '\r', '\n' }) < 0)
@@ -431,26 +445,31 @@ namespace Tepi
                 });
             }
             notifs.RemoveAll(n => n.Held && n.AppId == item.AppId);
-            unread = 0;
             expanded = false;
-            if (toast != null && toast.View == View.Notif) DismissToast();
+            unread = 0;
+            if (NotifShowing) DismissToast();
             Kick();
         }
 
-        void RemoveNotifs(List<NotifItem> items)
+        // Gone here and from the Windows centre
+        void DropNotifs(List<NotifItem> items)
         {
-            foreach (var n in items) notifs.Remove(n);
+            notifs.RemoveAll(items.Contains);
             unread = Math.Min(unread, notifs.Count);
             Kick();
+            // Held copies live only in Tepi
             var ids = items.FindAll(n => !n.Held).ConvertAll(n => n.Id);
-            ThreadPool.QueueUserWorkItem(delegate
+            System.Threading.Tasks.Task.Run(() =>
             {
-                foreach (var id in ids)
-                {
-                    try { NotifSource.Remove(id); } catch (Exception ex) { Log.Write("notif remove: " + ex.Message); }
-                }
+                ids.ForEach(DropFromCentre);
                 notifWatcher.Refresh();
             });
+        }
+
+        static void DropFromCentre(uint id)
+        {
+            try { NotifSource.Remove(id); }
+            catch (Exception ex) { Log.Write("notif remove: " + ex.Message); }
         }
 
         // Agents

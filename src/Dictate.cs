@@ -45,14 +45,16 @@ namespace Tepi
         }
 
         // User-triggered: shows even in calls
-        void DictSay(string title, string detail, bool force = true)
+        void DictSay(string title, string detail, bool force = true, Action fix = null)
         {
-            var t = ShowToast(View.Info, 2.8, 3, false, force);
+            // Fixable: stays long enough to click
+            var t = ShowToast(View.Info, fix != null ? 5 : 2.8, 3, false, force);
             if (t == null) return;
             t.Glyph = Ink.IcoMic;
             t.Title = title;
             t.Detail = detail;
             t.Page = PageVoice;
+            t.Data = fix;
         }
 
         string DictLang()
@@ -173,6 +175,15 @@ namespace Tepi
             if (dictState == DictState.Listening && !dictHandsFree && (now - dictStartUtc).TotalSeconds < 1.0) CancelDictate();
         }
 
+        // The invisible window that holds the focus on an empty desktop
+        bool IsParkKeeper(IntPtr h)
+        {
+            if (h == IntPtr.Zero) return false;
+            var park = dictPark;
+            var dock = dockWin;
+            return (park != null && park.KeeperHandle == h) || (dock != null && dock.WinKeeper == h);
+        }
+
         void CancelByEsc()
         {
             if (dictState != DictState.Listening) return;
@@ -214,9 +225,10 @@ namespace Tepi
         void BeginDictate(bool handsFree)
         {
             string missing = DictMissing();
-            if (missing != null) { DictSay(missing, Lang.T("Atur di Pengaturan › AI"), true); return; }
+            if (missing != null) { DictSay(missing, Lang.T("Klik untuk menyiapkan"), true, OpenSiap); return; }
             if (!micPresent) { DictSay(Lang.T("Tidak ada mikrofon"), "", true); return; }
             if (micMuted) { DictSay(Lang.T("Mikrofon mati"), Lang.T("Nyalakan dulu untuk dikte"), true); return; }
+            if (Needs.MicDenied()) { MicFailSay(); return; }
             dictTarget = GetAncestor(GetForegroundWindow(), 3);
             dictApp = ProcessOf(dictTarget);
             dictHandsFree = handsFree;
@@ -243,7 +255,7 @@ namespace Tepi
                 {
                     if (dictRec != rec) return;
                     CancelDictate();
-                    DictSay(Lang.T("Mikrofon tidak bisa dibuka"), Lang.T("Cek izin mikrofon di Windows"), true);
+                    MicFailSay();
                 });
             });
         }
@@ -322,7 +334,7 @@ namespace Tepi
             dictState = DictState.Off;
             Kick();
             if (error == "") return;
-            if (error != null) { DictSay(error, "", true); return; }
+            if (error != null) { var fix = SpeechFix(error); DictSay(error, fix != null ? Lang.T("Klik untuk menyiapkan") : "", true, fix); return; }
             if (dictCommand && !string.IsNullOrEmpty(text)) { RunSuruh(text); return; }
             if (string.IsNullOrEmpty(text)) { DictSay(Lang.T("Tidak ada kata yang terdengar"), "", true); return; }
             // Next dictation continues the sentence
@@ -413,7 +425,7 @@ namespace Tepi
             bool gone = target == IntPtr.Zero || !IsWindow(target);
             bool blocked = !gone && !selfElevated && Elevated(target);
             // Empty desktop: no text field to type into
-            if (!gone && dictPark != null && target == dictPark.KeeperHandle)
+            if (!gone && IsParkKeeper(target))
             {
                 try { Clipboard.SetText(text); } catch (Exception) { }
                 DictSay(Lang.T("Teks disalin"), Lang.T("Tidak ada kolom teks, tempel dengan Ctrl+V"), true);

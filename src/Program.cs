@@ -51,6 +51,7 @@ namespace Tepi
                     Log.Write("fatal: " + e.ExceptionObject);
                     // Never leave the user without a taskbar
                     try { Taskbar.Restore(new Settings()); } catch (Exception) { }
+                    try { WinFly.ReleaseNative(); } catch (Exception) { }
                 };
                 Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
                 // Opt in to .NET 4.8 accessibility, for screen reader notifications

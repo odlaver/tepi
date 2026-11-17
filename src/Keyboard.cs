@@ -33,7 +33,7 @@ namespace Tepi
             if (!keyboardMode) return;
             keyboardMode = false;
             focusId = null;
-            if (expanded && !pointerInside) expanded = false;
+            if (expanded && !pointerOver) expanded = false;
             if (keyboardReturn != IntPtr.Zero) SetForegroundWindow(keyboardReturn);
             keyboardReturn = IntPtr.Zero;
             Kick();
@@ -117,12 +117,8 @@ namespace Tepi
         void Press(string id)
         {
             if (id == null) return;
-            foreach (var h in hits)
-            {
-                if (h.Id != id) continue;
-                try { h.Act(); } catch (Exception ex) { Log.Write("action " + id + ": " + ex.Message); }
-                break;
-            }
+            var hit = hits.Find(h => h.Id == id);
+            if (hit != null) RunHit(hit);
             Kick();
         }
 

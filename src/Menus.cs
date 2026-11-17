@@ -1,10 +1,107 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace Tepi
 {
+    // Closes menus that never got focus
+    static class MenuGuard
+    {
+        const int WH_MOUSE_LL = 14;
+        const int WM_LBUTTONDOWN = 0x201, WM_RBUTTONDOWN = 0x204, WM_MBUTTONDOWN = 0x207, WM_NCLBUTTONDOWN = 0xA1;
+
+        delegate IntPtr HookProc(int code, IntPtr msg, IntPtr info);
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct MSLLHOOKSTRUCT { public int X, Y, MouseData, Flags, Time; public IntPtr Extra; }
+
+        [DllImport("user32.dll", SetLastError = true)] static extern IntPtr SetWindowsHookEx(int id, HookProc fn, IntPtr mod, uint thread);
+        [DllImport("user32.dll")] static extern bool UnhookWindowsHookEx(IntPtr hook);
+        [DllImport("user32.dll")] static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr msg, IntPtr info);
+        [DllImport("kernel32.dll")] static extern IntPtr GetModuleHandle(string name);
+
+        static IntPtr hook = IntPtr.Zero;
+        static HookProc proc;
+        static ToolStripDropDown watched;
+        static bool closing;
+
+        // Hook lives only while the menu shows
+        internal static void Watch(ToolStripDropDown menu)
+        {
+            Stop();
+            if (menu == null) return;
+            watched = menu;
+            menu.Closed += delegate { if (ReferenceEquals(watched, menu)) Stop(); };
+            proc = Callback;
+            hook = SetWindowsHookEx(WH_MOUSE_LL, proc, GetModuleHandle(null), 0);
+            if (hook == IntPtr.Zero) Log.Write("menu guard: hook gagal");
+        }
+
+        static void Stop()
+        {
+            watched = null;
+            closing = false;
+            proc = null;
+            if (hook == IntPtr.Zero) return;
+            UnhookWindowsHookEx(hook);
+            hook = IntPtr.Zero;
+        }
+
+        static IntPtr Callback(int code, IntPtr msg, IntPtr info)
+        {
+            if (code >= 0 && watched != null)
+            {
+                int id = msg.ToInt32();
+                if (id == WM_LBUTTONDOWN || id == WM_RBUTTONDOWN || id == WM_MBUTTONDOWN || id == WM_NCLBUTTONDOWN)
+                {
+                    var data = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(info, typeof(MSLLHOOKSTRUCT));
+                    Down(new Point(data.X, data.Y));
+                }
+            }
+            return CallNextHookEx(hook, code, msg, info);
+        }
+
+        // Menu or any open submenu
+        static bool Inside(ToolStripDropDown m, Point at)
+        {
+            if (m.Bounds.Contains(at)) return true;
+            foreach (ToolStripItem it in m.Items)
+            {
+                var mi = it as ToolStripDropDownItem;
+                if (mi != null && mi.HasDropDownItems && mi.DropDown.Visible && Inside(mi.DropDown, at)) return true;
+            }
+            return false;
+        }
+
+        // Click passes through; the menu just closes
+        static void Down(Point at)
+        {
+            var m = watched;
+            if (m == null || closing || m.IsDisposed || !m.Visible || Inside(m, at)) return;
+            closing = true;
+            try
+            {
+                m.BeginInvoke(new Action(delegate
+                {
+                    try { if (!m.IsDisposed) m.Close(ToolStripDropDownCloseReason.AppClicked); }
+                    catch (Exception ex) { Log.Write("menu guard: " + ex.Message); }
+                }));
+            }
+            catch (Exception ex) { closing = false; Log.Write("menu guard: " + ex.Message); }
+        }
+
+        internal static bool Showing { get { var m = watched; return m != null && !m.IsDisposed && m.Visible; } }
+
+        // Dock hid: its menu goes too
+        internal static void CloseOpen()
+        {
+            var m = watched;
+            if (m != null && !m.IsDisposed && m.Visible) m.Close(ToolStripDropDownCloseReason.CloseCalled);
+        }
+    }
+
     // Menus in island colours, rounded corners
     class MenuLook : ToolStripProfessionalRenderer
     {

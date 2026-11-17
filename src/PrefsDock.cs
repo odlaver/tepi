@@ -72,6 +72,16 @@ namespace Tepi
                 var previewRow = Row(Lang.T("Pratinjau jendela"), Lang.T("Isi jendela langsung, saat kursor di atas aplikasi yang terbuka"), previews);
                 previewRow.Glyph = (char)0xE7C4;
                 add(previewRow);
+                var clickMin = Switch("dockbar.clickmin", true, null);
+                clickMin.Enabled = on;
+                var clickMinRow = Row(Lang.T("Klik lagi untuk meminimalkan"), Lang.T("Ikon aplikasi yang sedang di depan, seperti taskbar Windows"), clickMin);
+                clickMinRow.Glyph = (char)0xE921;
+                add(clickMinRow);
+                var fly = Switch("dockbar.fly", true, null);
+                fly.Enabled = on;
+                var flyRow = Row(Lang.T("Animasi minimize"), Lang.T("Jendela mengecil masuk ke ikonnya di Dock, dan tumbuh lagi saat dibuka"), fly);
+                flyRow.Glyph = (char)0xE7C4;
+                add(flyRow);
                 var badges = Switch("dockbar.badges", true, null);
                 badges.Enabled = on;
                 var badgeRow = Row(Lang.T("Angka notifikasi"), Lang.T("Jumlah notifikasi Windows di ikon aplikasinya"), badges);

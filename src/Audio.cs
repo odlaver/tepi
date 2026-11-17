@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -11,99 +11,112 @@ namespace Tepi
         public event Action<float, bool, bool> Changed; // level, muted, first reading
         public event Action DeviceChanged;
 
-        readonly Queue<Action> work = new Queue<Action>();
-        readonly AutoResetEvent signal = new AutoResetEvent(false);
-        IMMDeviceEnumerator enumerator;
-        IAudioEndpointVolume endpoint;
+        // Core Audio work stays on one MTA thread
+        readonly BlockingCollection<Action> jobs = new BlockingCollection<Action>();
+        IMMDeviceEnumerator deviceEnum;
+        IAudioEndpointVolume output;
         Guid ctx = Guid.NewGuid();
+
+        // Render flow, multimedia role
+        const int Render = 0, Capture = 1, Multimedia = 1, AllContexts = 23;
 
         public void Start()
         {
-            var t = new Thread(Prof.Wrap(Run)) { IsBackground = true, Name = "volume" };
-            t.SetApartmentState(ApartmentState.MTA);
-            t.Start();
+            var worker = new Thread(Prof.Wrap(Serve)) { IsBackground = true, Name = "volume" };
+            worker.SetApartmentState(ApartmentState.MTA);
+            worker.Start();
         }
 
-        public void Set(float level) { Do(delegate { if (endpoint != null) endpoint.SetMasterVolumeLevelScalar(Ease.Clamp01(level), ref ctx); }); }
-
-        void Do(Action a)
+        public void Set(float level)
         {
-            lock (work) work.Enqueue(a);
-            signal.Set();
+            float v = Ease.Clamp01(level);
+            Do(delegate { if (output != null) output.SetMasterVolumeLevelScalar(v, ref ctx); });
         }
 
-        void Run()
+        void Do(Action job) { jobs.Add(job); }
+
+        void Serve()
         {
             try
             {
-                enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
-                enumerator.RegisterEndpointNotificationCallback(this);
+                deviceEnum = (IMMDeviceEnumerator)new MMDeviceEnumerator();
+                deviceEnum.RegisterEndpointNotificationCallback(this);
                 Attach();
                 AttachMic();
                 PublishDevices();
             }
             catch (Exception ex) { Log.Write("volume: " + ex.Message); return; }
-            while (true)
+            foreach (var job in jobs.GetConsumingEnumerable())
             {
-                signal.WaitOne();
-                while (true)
-                {
-                    Action a;
-                    lock (work)
-                    {
-                        if (work.Count == 0) break;
-                        a = work.Dequeue();
-                    }
-                    try { a(); } catch (Exception ex) { Log.Write("volume work: " + ex.Message); }
-                }
+                try { job(); }
+                catch (Exception ex) { Log.Write("volume work: " + ex.Message); }
             }
         }
 
+        // Follow the default output device
         void Attach()
         {
-            if (endpoint != null)
-            {
-                try { endpoint.UnregisterControlChangeNotify(this); } catch (Exception) { }
-                Marshal.ReleaseComObject(endpoint);
-                endpoint = null;
-            }
+            Detach();
             IMMDevice dev;
-            if (enumerator.GetDefaultAudioEndpoint(0, 1, out dev) != 0 || dev == null) return;
+            if (deviceEnum.GetDefaultAudioEndpoint(Render, Multimedia, out dev) != 0 || dev == null) return;
+            object activated;
             var iid = typeof(IAudioEndpointVolume).GUID;
-            object o;
-            if (dev.Activate(ref iid, 23, IntPtr.Zero, out o) != 0) return;
-            endpoint = (IAudioEndpointVolume)o;
-            endpoint.RegisterControlChangeNotify(this);
-            float level; bool mute;
-            endpoint.GetMasterVolumeLevelScalar(out level);
-            endpoint.GetMute(out mute);
-            var h = Changed;
-            if (h != null) h(level, mute, true);
+            if (dev.Activate(ref iid, AllContexts, IntPtr.Zero, out activated) != 0) return;
+            output = (IAudioEndpointVolume)activated;
+            output.RegisterControlChangeNotify(this);
+            float level;
+            bool mute;
+            output.GetMasterVolumeLevelScalar(out level);
+            output.GetMute(out mute);
+            Report(level, mute, true);
+        }
+
+        void Detach()
+        {
+            if (output == null) return;
+            try { output.UnregisterControlChangeNotify(this); }
+            catch (Exception) { }
+            Marshal.ReleaseComObject(output);
+            output = null;
+        }
+
+        void Report(float level, bool mute, bool first)
+        {
+            var handler = Changed;
+            if (handler != null) handler(level, mute, first);
+        }
+
+        // AUDIO_VOLUME_NOTIFICATION_DATA head
+        [StructLayout(LayoutKind.Sequential)]
+        struct VolumeNote
+        {
+            public Guid EventContext;
+            public int Muted;
+            public float MasterVolume;
         }
 
         public int OnNotify(IntPtr data)
         {
-            bool muted = Marshal.ReadInt32(data, 16) != 0;
-            float level = BitConverter.ToSingle(BitConverter.GetBytes(Marshal.ReadInt32(data, 20)), 0);
-            var h = Changed;
-            if (h != null) h(level, muted, false);
+            var note = (VolumeNote)Marshal.PtrToStructure(data, typeof(VolumeNote));
+            Report(note.MasterVolume, note.Muted != 0, false);
             return 0;
         }
 
         // Multimedia role: the one Attach reads
         public int OnDefaultDeviceChanged(int flow, int role, string id)
         {
-            if (flow == 1) { Do(AttachMic); return 0; }
-            if (flow != 0 || role != 1) return 0;
-            Do(delegate
-            {
-                Attach();
-                var h = DeviceChanged;
-                if (h != null) h();
-                AnnounceDefault(id);
-                PublishDevices();
-            });
+            if (flow == Capture) Do(AttachMic);
+            else if (flow == Render && role == Multimedia) Do(() => SwitchOutput(id));
             return 0;
+        }
+
+        void SwitchOutput(string id)
+        {
+            Attach();
+            var handler = DeviceChanged;
+            if (handler != null) handler();
+            AnnounceDefault(id);
+            PublishDevices();
         }
 
         public int OnDeviceStateChanged(string id, int state) { Do(PublishDevices); return 0; }
@@ -116,17 +129,25 @@ namespace Tepi
     class Spectrum
     {
         public const int Bands = 16;
-        const int N = 2048;
+        const int N = 2048, Mask = N - 1;
 
-        readonly float[] bands = new float[Bands];
-        readonly float[] ring = new float[N];
-        int ringPos;
-        volatile bool wanted, restart;
-        Thread thread;
+        readonly float[] levels = new float[Bands];
+        // Last N mono samples, oldest at head
+        readonly float[] history = new float[N];
+        int head;
+        volatile bool want, reopen;
+        Thread worker;
         long failedTicks;
 
         // Failure pauses capture one minute
-        public bool Failed { get { long t = Interlocked.Read(ref failedTicks); return t != 0 && DateTime.UtcNow.Ticks - t < TimeSpan.TicksPerMinute; } }
+        public bool Failed
+        {
+            get
+            {
+                long at = Interlocked.Read(ref failedTicks);
+                return at != 0 && DateTime.UtcNow.Ticks - at < TimeSpan.TicksPerMinute;
+            }
+        }
 
         void Fail() { Interlocked.Exchange(ref failedTicks, DateTime.UtcNow.Ticks); }
 
@@ -136,173 +157,215 @@ namespace Tepi
         {
             lock (gate)
             {
-                wanted = on;
-                if (on && thread == null) Spawn();
+                want = on;
+                if (on && worker == null) Launch();
             }
         }
 
-        void Spawn()
+        void Launch()
         {
-            thread = new Thread(Prof.Wrap(Run)) { IsBackground = true, Name = "spectrum" };
-            thread.SetApartmentState(ApartmentState.MTA);
-            thread.Start();
+            worker = new Thread(Prof.Wrap(Capture)) { IsBackground = true, Name = "spectrum" };
+            worker.SetApartmentState(ApartmentState.MTA);
+            worker.Start();
         }
 
-        public bool Active { get { return thread != null; } }
+        public bool Active { get { return worker != null; } }
 
-        public void Restart() { restart = true; Interlocked.Exchange(ref failedTicks, 0); }
+        public void Restart()
+        {
+            reopen = true;
+            Interlocked.Exchange(ref failedTicks, 0);
+        }
 
         public void CopyBands(float[] dst)
         {
-            lock (bands) Array.Copy(bands, dst, Math.Min(dst.Length, Bands));
+            int n = dst.Length < Bands ? dst.Length : Bands;
+            lock (levels)
+                for (int i = 0; i < n; i++) dst[i] = levels[i];
         }
+
+        void Silence() { lock (levels) Array.Clear(levels, 0, Bands); }
 
         [DllImport("ole32.dll")] static extern void CoTaskMemFree(IntPtr p);
 
-        void Run()
+        // Loopback stream and its mix format
+        class Tap
         {
-            IAudioClient client = null;
-            IAudioCaptureClient capture = null;
-            int channels = 2, rate = 48000;
-            bool isFloat = true;
+            public IAudioClient Client;
+            public IAudioCaptureClient Reader;
+            public int Channels = 2, Rate = 48000;
+            public bool Float = true;
+
+            public void Close()
+            {
+                try { if (Client != null) Client.Stop(); }
+                catch (Exception) { }
+                if (Reader != null) Marshal.ReleaseComObject(Reader);
+                if (Client != null) Marshal.ReleaseComObject(Client);
+                Reader = null;
+                Client = null;
+            }
+        }
+
+        void Capture()
+        {
+            Tap tap = null;
             var re = new float[N];
             var im = new float[N];
-            DateTime nextFft = DateTime.UtcNow, heardUtc = DateTime.MinValue;
-            bool cleared = false;
-            int failures = 0;
+            DateTime fftDueUtc = DateTime.UtcNow, soundUtc = DateTime.MinValue;
+            bool zeroed = false;
+            int misses = 0;
             try
             {
-                while (wanted)
+                while (want)
                 {
-                    if (client == null || restart)
+                    if (tap == null || reopen)
                     {
-                        restart = false;
-                        Release(ref client, ref capture);
-                        if (!Open(out client, out capture, out channels, out rate, out isFloat))
+                        reopen = false;
+                        if (tap != null) tap.Close();
+                        tap = new Tap();
+                        if (!Open(tap))
                         {
-                            if (++failures > 3) { Fail(); break; }
+                            // Half-open client is kept, as before
+                            if (tap.Client == null) tap = null;
+                            if (++misses > 3) { Fail(); break; }
                             Thread.Sleep(1000);
                             continue;
                         }
-                        failures = 0;
+                        misses = 0;
                     }
-                    uint packet;
-                    if (capture.GetNextPacketSize(out packet) != 0) { restart = true; continue; }
-                    while (packet > 0)
-                    {
-                        IntPtr data; uint frames, flags; ulong dp, qp;
-                        if (capture.GetBuffer(out data, out frames, out flags, out dp, out qp) != 0) break;
-                        bool silent = (flags & 2) != 0;
-                        Feed(data, (int)frames, channels, isFloat, silent);
-                        if (!silent && frames > 0) heardUtc = DateTime.UtcNow;
-                        capture.ReleaseBuffer(frames);
-                        if (capture.GetNextPacketSize(out packet) != 0) break;
-                    }
+                    if (!Pump(tap, ref soundUtc)) { reopen = true; continue; }
                     var now = DateTime.UtcNow;
-                    if (now >= nextFft)
+                    if (now >= fftDueUtc)
                     {
-                        nextFft = now.AddMilliseconds(42);
+                        fftDueUtc = now.AddMilliseconds(42);
                         // Silent window: zero bands, no FFT
-                        if ((now - heardUtc).TotalMilliseconds < 80) { Analyse(re, im, rate); cleared = false; }
-                        else if (!cleared) { lock (bands) Array.Clear(bands, 0, Bands); cleared = true; }
+                        bool hearing = (now - soundUtc).TotalMilliseconds < 80;
+                        if (hearing) Analyse(re, im, tap.Rate);
+                        else if (!zeroed) Silence();
+                        zeroed = !hearing;
                     }
                     // Wake once per FFT; buffer holds 200 ms
-                    Thread.Sleep(Math.Max(5, (int)(nextFft - DateTime.UtcNow).TotalMilliseconds));
+                    Thread.Sleep(Math.Max(5, (int)(fftDueUtc - DateTime.UtcNow).TotalMilliseconds));
                 }
             }
             catch (Exception ex) { Log.Write("spectrum: " + ex.Message); Fail(); }
             finally
             {
-                Release(ref client, ref capture);
-                lock (bands) Array.Clear(bands, 0, Bands);
+                if (tap != null) tap.Close();
+                Silence();
                 // Switched back on while stopping: run again
                 lock (gate)
                 {
-                    thread = null;
-                    if (wanted && !Failed) Spawn();
+                    worker = null;
+                    if (want && !Failed) Launch();
                 }
             }
         }
 
-        bool Open(out IAudioClient client, out IAudioCaptureClient capture, out int channels, out int rate, out bool isFloat)
+        // Drain queued packets; false if the stream broke
+        bool Pump(Tap tap, ref DateTime soundUtc)
         {
-            client = null; capture = null; channels = 2; rate = 48000; isFloat = true;
+            uint waiting;
+            if (tap.Reader.GetNextPacketSize(out waiting) != 0) return false;
+            for (; waiting > 0; )
+            {
+                IntPtr data;
+                uint frames, flags;
+                ulong devicePos, qpcPos;
+                if (tap.Reader.GetBuffer(out data, out frames, out flags, out devicePos, out qpcPos) != 0) break;
+                // AUDCLNT_BUFFERFLAGS_SILENT
+                bool silent = (flags & 2) != 0;
+                Mix(data, (int)frames, tap, silent);
+                if (!silent && frames > 0) soundUtc = DateTime.UtcNow;
+                tap.Reader.ReleaseBuffer(frames);
+                if (tap.Reader.GetNextPacketSize(out waiting) != 0) break;
+            }
+            return true;
+        }
+
+        // Default output in loopback; false on any failure
+        bool Open(Tap tap)
+        {
             try
             {
-                var en = (IMMDeviceEnumerator)new MMDeviceEnumerator();
+                var devs = (IMMDeviceEnumerator)new MMDeviceEnumerator();
                 IMMDevice dev;
-                if (en.GetDefaultAudioEndpoint(0, 1, out dev) != 0 || dev == null) return false;
-                var iid = typeof(IAudioClient).GUID;
-                object o;
-                if (dev.Activate(ref iid, 23, IntPtr.Zero, out o) != 0) return false;
-                client = (IAudioClient)o;
+                if (devs.GetDefaultAudioEndpoint(0, 1, out dev) != 0 || dev == null) return false;
+                object activated;
+                var clientId = typeof(IAudioClient).GUID;
+                if (dev.Activate(ref clientId, 23, IntPtr.Zero, out activated) != 0) return false;
+                tap.Client = (IAudioClient)activated;
                 IntPtr fmt;
-                if (client.GetMixFormat(out fmt) != 0) return false;
+                if (tap.Client.GetMixFormat(out fmt) != 0) return false;
                 try
                 {
-                    int tag = Marshal.ReadInt16(fmt, 0) & 0xFFFF;
-                    channels = Marshal.ReadInt16(fmt, 2);
-                    rate = Marshal.ReadInt32(fmt, 4);
-                    int bits = Marshal.ReadInt16(fmt, 14);
-                    isFloat = tag == 3 || (tag == 0xFFFE && Marshal.ReadInt32(fmt, 24) == 3);
-                    if (!isFloat && bits != 16) return false;
-                    if (client.Initialize(0, 0x00020000, 2000000, 0, fmt, IntPtr.Zero) != 0) return false;
+                    if (!ReadFormat(fmt, tap)) return false;
+                    // Shared loopback, 200 ms buffer
+                    const int Loopback = 0x00020000;
+                    if (tap.Client.Initialize(0, Loopback, 2000000, 0, fmt, IntPtr.Zero) != 0) return false;
                 }
                 finally { CoTaskMemFree(fmt); }
-                var cid = typeof(IAudioCaptureClient).GUID;
-                object c;
-                if (client.GetService(ref cid, out c) != 0) return false;
-                capture = (IAudioCaptureClient)c;
-                return client.Start() == 0;
+                var readerId = typeof(IAudioCaptureClient).GUID;
+                object reader;
+                if (tap.Client.GetService(ref readerId, out reader) != 0) return false;
+                tap.Reader = (IAudioCaptureClient)reader;
+                return tap.Client.Start() == 0;
             }
-            catch (Exception ex) { Log.Write("loopback open: " + ex.Message); return false; }
+            catch (Exception ex)
+            {
+                Log.Write("loopback open: " + ex.Message);
+                return false;
+            }
         }
 
-        static void Release(ref IAudioClient client, ref IAudioCaptureClient capture)
+        // WAVEFORMATEX(TENSIBLE): float, or 16-bit PCM
+        static bool ReadFormat(IntPtr fmt, Tap tap)
         {
-            try { if (client != null) client.Stop(); } catch (Exception) { }
-            if (capture != null) { Marshal.ReleaseComObject(capture); capture = null; }
-            if (client != null) { Marshal.ReleaseComObject(client); client = null; }
+            const int IeeeFloat = 3, Extensible = 0xFFFE;
+            int tag = (ushort)Marshal.ReadInt16(fmt, 0);
+            tap.Channels = Marshal.ReadInt16(fmt, 2);
+            tap.Rate = Marshal.ReadInt32(fmt, 4);
+            int bits = Marshal.ReadInt16(fmt, 14);
+            // Extensible: SubFormat GUID's first field at 24
+            tap.Float = tag == IeeeFloat || (tag == Extensible && Marshal.ReadInt32(fmt, 24) == IeeeFloat);
+            return tap.Float || bits == 16;
         }
 
         float[] floats = new float[0];
         short[] shorts = new short[0];
 
-        // Bulk copy, then mono downmix
-        void Feed(IntPtr data, int frames, int channels, bool isFloat, bool silent)
+        // Bulk copy, then first two channels averaged
+        void Mix(IntPtr data, int frames, Tap tap, bool silent)
         {
-            int n = frames * channels, used = Math.Min(2, channels);
-            if (!silent)
+            int stride = tap.Channels, total = frames * stride, take = stride < 2 ? stride : 2;
+            if (!silent && tap.Float)
             {
-                if (isFloat)
-                {
-                    if (floats.Length < n) floats = new float[n];
-                    Marshal.Copy(data, floats, 0, n);
-                }
-                else
-                {
-                    if (shorts.Length < n) shorts = new short[n];
-                    Marshal.Copy(data, shorts, 0, n);
-                }
+                if (floats.Length < total) floats = new float[total];
+                Marshal.Copy(data, floats, 0, total);
             }
-            for (int f = 0; f < frames; f++)
+            else if (!silent)
             {
-                float v = 0;
+                if (shorts.Length < total) shorts = new short[total];
+                Marshal.Copy(data, shorts, 0, total);
+            }
+            for (int f = 0, at = 0; f < frames; f++, at += stride)
+            {
+                float sum = 0;
                 if (!silent)
                 {
-                    int i = f * channels;
-                    for (int ch = 0; ch < used; ch++) v += isFloat ? floats[i + ch] : shorts[i + ch] / 32768f;
-                    v /= used;
+                    for (int c = 0; c < take; c++) sum += tap.Float ? floats[at + c] : shorts[at + c] / 32768f;
+                    sum /= take;
                 }
-                ring[ringPos] = v;
-                ringPos = (ringPos + 1) & (N - 1);
+                history[head] = sum;
+                if (++head == N) head = 0;
             }
         }
 
         readonly float[] window = Hann();
-        readonly float[] next = new float[Bands];
-        int[] binLo, binHi;
-        int binRate;
+        readonly float[] fresh = new float[Bands];
+        int[] firstBin, endBin;
+        int binsForRate;
 
         static float[] Hann()
         {
@@ -311,37 +374,42 @@ namespace Tepi
             return w;
         }
 
+        // 55 Hz to 13 kHz, log spaced
+        void MapBins(int rate)
+        {
+            binsForRate = rate;
+            firstBin = new int[Bands];
+            endBin = new int[Bands];
+            double lo = Math.Log(55), span = Math.Log(13000) - lo;
+            for (int b = 0; b < Bands; b++)
+            {
+                double from = Math.Exp(lo + span * b / Bands), to = Math.Exp(lo + span * (b + 1) / Bands);
+                firstBin[b] = Math.Max(1, (int)(from * N / rate));
+                endBin[b] = Math.Min(N / 2, Math.Max(firstBin[b] + 1, (int)(to * N / rate)));
+            }
+        }
+
         void Analyse(float[] re, float[] im, int rate)
         {
             for (int i = 0; i < N; i++)
             {
-                re[i] = ring[(ringPos + i) & (N - 1)] * window[i];
+                re[i] = history[(head + i) & Mask] * window[i];
                 im[i] = 0;
             }
             Fft(re, im);
-            if (binRate != rate)
-            {
-                binRate = rate;
-                binLo = new int[Bands];
-                binHi = new int[Bands];
-                double lo = Math.Log(55), hi = Math.Log(13000);
-                for (int b = 0; b < Bands; b++)
-                {
-                    double f0 = Math.Exp(lo + (hi - lo) * b / Bands), f1 = Math.Exp(lo + (hi - lo) * (b + 1) / Bands);
-                    binLo[b] = Math.Max(1, (int)(f0 * N / rate));
-                    binHi[b] = Math.Min(N / 2, Math.Max(binLo[b] + 1, (int)(f1 * N / rate)));
-                }
-            }
+            if (binsForRate != rate) MapBins(rate);
             for (int b = 0; b < Bands; b++)
             {
-                float peak = 0;
-                for (int i = binLo[b]; i < binHi[b]; i++) peak = Math.Max(peak, re[i] * re[i] + im[i] * im[i]);
-                double db = 10 * Math.Log10(peak * 16.0 / ((double)N * N) + 1e-18);
-                next[b] = Ease.Clamp01((float)((db + 66) / 54)) * (0.82f + 0.18f * b / Bands);
+                float power = 0;
+                for (int k = firstBin[b]; k < endBin[b]; k++) power = Math.Max(power, re[k] * re[k] + im[k] * im[k]);
+                // -66..-12 dB to 0..1, treble lifted
+                double db = 10 * Math.Log10(power * 16.0 / ((double)N * N) + 1e-18);
+                fresh[b] = Ease.Clamp01((float)((db + 66) / 54)) * (0.82f + 0.18f * b / Bands);
             }
-            lock (bands) Array.Copy(next, bands, Bands);
+            lock (levels) Array.Copy(fresh, levels, Bands);
         }
 
+        // In-place radix-2 Cooley-Tukey
         static void Fft(float[] re, float[] im)
         {
             int n = re.Length;

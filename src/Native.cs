@@ -169,52 +169,100 @@ namespace Tepi
             return PeekMessage(out m, IntPtr.Zero, 0, 0, 0);
         }
 
-        // Fullscreen app on the primary monitor
         // Foreground app covering the island's monitor
         public static bool IsFullscreenOn(IntPtr monitor)
         {
-            int quns;
-            if (SHQueryUserNotificationState(out quns) == 0 && (quns == 3 || quns == 4)) return true;
-
-            IntPtr hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero) return false;
-            var cls = new StringBuilder(256);
-            GetClassName(hwnd, cls, 256);
-            string c = cls.ToString();
-            if (c == "Progman" || c == "WorkerW" || c == "Shell_TrayWnd" || c == "Shell_SecondaryTrayWnd") return false;
-            const int WS_CAPTION = 0x00C00000;
-            if ((GetWindowLong(hwnd, -16) & WS_CAPTION) == WS_CAPTION) return false;
-
-            RECT r;
-            if (!GetWindowRect(hwnd, out r)) return false;
-            var mi = new MONITORINFO();
-            mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
-            IntPtr on = MonitorFromWindow(hwnd, 2);
-            if (on != monitor || !GetMonitorInfo(on, ref mi)) return false;
-            return r.Left <= mi.rcMonitor.Left && r.Top <= mi.rcMonitor.Top && r.Right >= mi.rcMonitor.Right && r.Bottom >= mi.rcMonitor.Bottom;
+            int state;
+            // Direct3D fullscreen or presentation mode
+            if (SHQueryUserNotificationState(out state) == 0 && (state == 3 || state == 4)) return true;
+            IntPtr front = GetForegroundWindow();
+            return front != IntPtr.Zero && !IsShellSurface(front) && !HasCaption(front) && Covers(front, monitor);
         }
 
+        // Desktop and taskbar never count
+        static readonly string[] ShellClasses = { "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd" };
+
+        static bool IsShellSurface(IntPtr hwnd)
+        {
+            var name = new StringBuilder(256);
+            GetClassName(hwnd, name, name.Capacity);
+            return Array.IndexOf(ShellClasses, name.ToString()) >= 0;
+        }
+
+        static bool HasCaption(IntPtr hwnd)
+        {
+            const int Caption = 0x00C00000, StyleIndex = -16;
+            return (GetWindowLong(hwnd, StyleIndex) & Caption) == Caption;
+        }
+
+        static bool Covers(IntPtr hwnd, IntPtr monitor)
+        {
+            RECT win;
+            if (!GetWindowRect(hwnd, out win)) return false;
+            IntPtr host = MonitorFromWindow(hwnd, 2);
+            if (host != monitor) return false;
+            var info = new MONITORINFO { cbSize = Marshal.SizeOf(typeof(MONITORINFO)) };
+            if (!GetMonitorInfo(host, ref info)) return false;
+            var screen = info.rcMonitor;
+            return win.Left <= screen.Left && win.Top <= screen.Top && win.Right >= screen.Right && win.Bottom >= screen.Bottom;
+        }
+
+        // No status: desktop on mains, full
         public static void ReadPower(out bool hasBattery, out bool onAc, out int level)
         {
+            const byte NoBattery = 128, Unknown = 255;
             SYSTEM_POWER_STATUS s;
-            if (!GetSystemPowerStatus(out s)) { hasBattery = false; onAc = true; level = 100; return; }
-            hasBattery = (s.BatteryFlag & 128) == 0 && s.BatteryLifePercent != 255;
-            onAc = s.ACLineStatus == 1;
-            level = s.BatteryLifePercent == 255 ? 100 : s.BatteryLifePercent;
+            bool known = GetSystemPowerStatus(out s);
+            hasBattery = known && (s.BatteryFlag & NoBattery) == 0 && s.BatteryLifePercent != Unknown;
+            onAc = !known || s.ACLineStatus == 1;
+            level = !known || s.BatteryLifePercent == Unknown ? 100 : s.BatteryLifePercent;
         }
 
-        // Do not disturb via WNF state
+        // Focus assist profile in WNF; 0 is off
+        const ulong QuietHoursState = 0x0D83063EA3BF1C75;
+
         public static bool DoNotDisturb()
         {
+            var state = new byte[8];
+            uint got = (uint)state.Length, stamp;
+            ulong id = QuietHoursState;
             try
             {
-                ulong name = 0x0D83063EA3BF1C75;
-                var buffer = new byte[8];
-                uint size = (uint)buffer.Length, stamp;
-                if (NtQueryWnfStateData(ref name, IntPtr.Zero, IntPtr.Zero, out stamp, buffer, ref size) != 0 || size < 4) return false;
-                return BitConverter.ToInt32(buffer, 0) != 0;
+                return NtQueryWnfStateData(ref id, IntPtr.Zero, IntPtr.Zero, out stamp, state, ref got) == 0 && got >= 4 && BitConverter.ToInt32(state, 0) != 0;
             }
             catch (Exception) { return false; }
+        }
+    }
+
+    // Top-down 32-bit DIB selected into its own DC
+    sealed class DibCanvas : IDisposable
+    {
+        public readonly IntPtr Dc, Bits;
+        public readonly int Width, Height;
+        readonly IntPtr section, displaced;
+
+        public DibCanvas(int width, int height)
+        {
+            Width = width;
+            Height = height;
+            var head = new Native.BITMAPINFOHEADER { biSize = Marshal.SizeOf(typeof(Native.BITMAPINFOHEADER)), biWidth = width, biHeight = -height, biPlanes = 1, biBitCount = 32 };
+            // Null DC: compatible with the screen
+            Dc = Native.CreateCompatibleDC(IntPtr.Zero);
+            section = Native.CreateDIBSection(Dc, ref head, 0, out Bits, IntPtr.Zero, 0);
+            displaced = Native.SelectObject(Dc, section);
+        }
+
+        // GDI+ view over the same pixels
+        public System.Drawing.Bitmap Wrap()
+        {
+            return new System.Drawing.Bitmap(Width, Height, Width * 4, System.Drawing.Imaging.PixelFormat.Format32bppPArgb, Bits);
+        }
+
+        public void Dispose()
+        {
+            Native.SelectObject(Dc, displaced);
+            Native.DeleteObject(section);
+            Native.DeleteDC(Dc);
         }
     }
 

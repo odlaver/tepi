@@ -15,7 +15,7 @@ namespace Tepi
     partial class Island
     {
         // Glass dock along the bottom edge; can stand in for the taskbar
-        sealed partial class DockWindow : Form
+        sealed partial class DockWindow : Form, IAlwaysUsable
         {
             readonly Island isle;
             readonly Painter p = new Painter();
@@ -23,7 +23,7 @@ namespace Tepi
             List<DockApp> apps = new List<DockApp>();
             readonly Dictionary<string, Bitmap> icons = new Dictionary<string, Bitmap>(StringComparer.OrdinalIgnoreCase);
             float scale = 1;
-            IntPtr memDC, dib, oldBmp;
+            DibCanvas surface;
             Bitmap canvas;
             Graphics g;
             int cw, ch;
@@ -52,6 +52,9 @@ namespace Tepi
             [DllImport("user32.dll")] static extern bool RegisterShellHookWindow(IntPtr h);
             [DllImport("user32.dll")] static extern bool DeregisterShellHookWindow(IntPtr h);
             [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+            [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr h, int flags);
+            [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, int cmd);
+            [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
             [DllImport("kernel32.dll")] static extern IntPtr VirtualQuery(IntPtr address, out MemInfo info, IntPtr size);
 
             [StructLayout(LayoutKind.Sequential)]
@@ -70,6 +73,8 @@ namespace Tepi
             {
                 get
                 {
+                    // User-hidden: bottom edge reveals it
+                    if (isle.hiddenByUser) return "auto";
                     string m = S.Get("dockbar.hide", "never");
                     return m == "auto" || m == "smart" ? m : "never";
                 }
@@ -84,7 +89,7 @@ namespace Tepi
                 AutoScaleMode = AutoScaleMode.None;
                 AllowDrop = true;
                 Text = "Tepi Dock";
-                Bounds = new Rectangle(-32000, -32000, 1, 1);
+                SetBounds(-32000, -32000, 1, 1);
                 Tune(reveal, 170, 0.86f);
                 Tune(hover, 260, 0.9f);
                 tick.Tick += delegate { Tick(); };
@@ -193,6 +198,16 @@ namespace Tepi
             public bool Glass { get { return isle.GlassOn && !S.GetBool("dockbar.capture", false); } }
 
             // Settings, pins or monitor changed
+            // Island hidden or back: the dock follows
+            public void FollowHidden()
+            {
+                if (!IsHandleCreated || closing) return;
+                CloseCard();
+                MenuGuard.CloseOpen();
+                Reserve(Reserving && !Dry);
+                Reveal(!isle.hiddenByUser && HideMode == "never");
+            }
+
             public void Changed()
             {
                 if (!IsHandleCreated || closing) return;
@@ -487,9 +502,44 @@ namespace Tepi
                 Render();
             }
 
+            [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out int pid);
+            static readonly int ownPid = System.Diagnostics.Process.GetCurrentProcess().Id;
+            static readonly string[] ShellFlyouts = { "ShellExperienceHost", "StartMenuExperienceHost", "SearchHost", "ShellHost", "LockApp" };
+
+            // Buried: back on top, like the island
+            void KeepOnTop()
+            {
+                if (Dry || closing || card != null || sheet != null) return;
+                for (IntPtr h = GetWindow(Handle, 3); h != IntPtr.Zero; h = GetWindow(h, 3))
+                {
+                    if (!IsWindowVisible(h)) continue;
+                    if ((Native.GetWindowLong(h, -20) & Native.WS_EX_TOPMOST) != 0 && !TopmostOver(h)) continue;
+                    Native.SetWindowPos(Handle, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
+                    return;
+                }
+            }
+
+            // Other app's topmost window over the bar
+            bool TopmostOver(IntPtr h)
+            {
+                int pid;
+                GetWindowThreadProcessId(h, out pid);
+                if (pid == ownPid) return false;
+                Native.RECT r;
+                if (!Native.GetWindowRect(h, out r) || r.Right <= Left || r.Left >= Right || r.Bottom <= Top || r.Top >= Bottom) return false;
+                try
+                {
+                    using (var p = System.Diagnostics.Process.GetProcessById(pid))
+                        foreach (var s in ShellFlyouts) if (string.Equals(p.ProcessName, s, StringComparison.OrdinalIgnoreCase)) return false;
+                }
+                catch (Exception) { return false; }
+                return true;
+            }
+
             // Windows moved behind: the glass looks again
             public void Nudge()
             {
+                KeepOnTop();
                 if (frost != null) frost.Nudge();
                 if (HideMode == "smart") SmartHide();
                 // Focus moved elsewhere: the tray grid has done its job
@@ -503,15 +553,16 @@ namespace Tepi
                 // Land just after each second turns
                 tick.Interval = Math.Max(200, 1000 - DateTime.Now.Millisecond + 20);
                 // Fullscreen or locked: out of the way
-                bool want = !isle.fullscreen && !isle.dormant && !isle.hiddenByUser;
+                bool want = !isle.fullscreen && !isle.dormant;
                 if (want != shown)
                 {
                     shown = want;
                     Native.ShowWindow(Handle, want ? Native.SW_SHOWNOACTIVATE : Native.SW_HIDE);
                     if (want) { drawnSig = ""; Render(); }
-                    else CloseCard();
+                    else { CloseCard(); MenuGuard.CloseOpen(); }
                 }
                 if (!shown) return;
+                KeepOnTop();
                 if (HideMode == "auto" && StayOnDesktop && !wantShown && DesktopFront()) Reveal(true);
                 if (Replacing && !Dry && Taskbar.Showing()) Taskbar.Rehide();
                 if (tickN % 3 == 0) ReadSystem();
@@ -525,7 +576,7 @@ namespace Tepi
             string Signature()
             {
                 var sb = new StringBuilder();
-                sb.Append(Fmt.Clock(DateTime.Now)).Append('|').Append(hoverId).Append('|').Append(pressId).Append('|').Append(FocusKey());
+                sb.Append(Fmt.Clock(DateTime.Now)).Append('|').Append(hoverKey).Append('|').Append(pressId).Append('|').Append(FocusKey());
                 foreach (var a in apps) sb.Append(a.Key.Length).Append(a.Wins.Count).Append(a.Badge).Append(a.Attention ? '!' : '.');
                 var mi = isle.mediaInfo;
                 if (mi.Present) sb.Append(mi.Title).Append(mi.Playing);
@@ -572,7 +623,7 @@ namespace Tepi
 
             void AutoHide()
             {
-                if (HideMode == "never" || inside || card != null || sheet != null || keyMode || dragging) return;
+                if (HideMode == "never" || inside || card != null || sheet != null || keyMode || dragging || MenuGuard.Showing) return;
                 if (HideMode == "auto" && StayOnDesktop && DesktopFront()) return;
                 if (HideMode == "smart" && !Covered()) return;
                 Reveal(false);

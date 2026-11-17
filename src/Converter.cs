@@ -440,23 +440,22 @@ namespace Tepi
         // WinRT awaits without Windows.winmd
         internal static T W<T>(Windows.Foundation.IAsyncOperation<T> op)
         {
-            using (var done = new ManualResetEvent(false))
-            {
-                op.Completed = delegate { try { done.Set(); } catch (ObjectDisposedException) { } };
-                if (op.Status == AsyncStatus.Started && !done.WaitOne(120000)) { op.Cancel(); throw new TimeoutException("WinRT"); }
-            }
-            if (op.Status != AsyncStatus.Completed) throw op.ErrorCode ?? new InvalidOperationException("WinRT " + op.Status);
+            Within(op, WinRt.Settle(op, 120000));
             return op.GetResults();
         }
 
-        internal static void W(IAsyncAction op)
+        internal static void W(IAsyncAction op) { Within(op, WinRt.Settle(op, 120000)); }
+
+        // Two minutes, then cancel
+        static void Within(Windows.Foundation.IAsyncInfo op, bool settled)
         {
-            using (var done = new ManualResetEvent(false))
+            if (!settled)
             {
-                op.Completed = delegate { try { done.Set(); } catch (ObjectDisposedException) { } };
-                if (op.Status == AsyncStatus.Started && !done.WaitOne(120000)) { op.Cancel(); throw new TimeoutException("WinRT"); }
+                op.Cancel();
+                throw new TimeoutException("WinRT");
             }
-            if (op.Status != AsyncStatus.Completed) throw op.ErrorCode ?? new InvalidOperationException("WinRT " + op.Status);
+            if (op.Status == AsyncStatus.Completed) return;
+            throw op.ErrorCode ?? new InvalidOperationException("WinRT " + op.Status);
         }
 
         static byte[] ReadAll(InMemoryRandomAccessStream ms)

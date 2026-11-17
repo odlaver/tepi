@@ -500,7 +500,7 @@ namespace Tepi
                 Button(new RectangleF(w / 2 - 70, oy, 140, 34), "notifOn", Lang.T("Nyalakan"), true, delegate { SetFlag("notif", true); });
                 return;
             }
-            if (notifAccess != Windows.UI.Notifications.Management.UserNotificationListenerAccessStatus.Allowed)
+            if (toastAccess != Windows.UI.Notifications.Management.UserNotificationListenerAccessStatus.Allowed)
             {
                 float ny = Empty(w, Ink.IcoLock, Lang.T("Akses notifikasi ditolak"), Lang.T("Pengaturan Windows > Privasi > Notifikasi"));
                 Button(new RectangleF(w / 2 - 80, ny, 160, 34), "notifPerm", Lang.T("Buka pengaturan"), false, delegate
@@ -544,7 +544,7 @@ namespace Tepi
                     p.Cross(xc, x.Y + 14, 10, Ink.A(p.T.Sub, rowK));
                 }
                 var open = item;
-                AddHit(row, id, delegate { OpenNotifApp(open); });
+                AddHit(row, id, delegate { OpenSender(open); });
                 // Added last: wins over the row
                 var victim = item;
                 int at = i;

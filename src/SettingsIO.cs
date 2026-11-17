@@ -17,7 +17,7 @@ namespace Tepi
             "agent.wait", "agent.quota", "update.check", "accent", "monitor", "focus.break", "dock", "position", "panel.width", "panel.tabs",
             "place", "place.inset", "place.y", "home.cards", "home.sort", "tabs.trigger",
             "dockbar.on", "dockbar.replace", "dockbar.reserve", "dockbar.magnify", "dockbar.pins",
-            "dockbar.w.clock", "dockbar.w.media", "dockbar.w.ai", "dockbar.w.timer", "dockbar.w.weather", "dockbar.w.battery", "dockbar.w.system", "dockbar.style", "dockbar.size", "dockbar.mag", "dockbar.hide", "dockbar.previews", "dockbar.badges", "dockbar.search", "dockbar.taskview", "dockbar.capture",
+            "dockbar.w.clock", "dockbar.w.media", "dockbar.w.ai", "dockbar.w.timer", "dockbar.w.weather", "dockbar.w.battery", "dockbar.w.system", "dockbar.style", "dockbar.size", "dockbar.mag", "dockbar.hide", "dockbar.previews", "dockbar.clickmin", "dockbar.fly", "dockbar.badges", "dockbar.search", "dockbar.taskview", "dockbar.capture",
             "panel.first", "panel.open", "panel.delay", "tabs.style", "mini", "mini.notif", "island.eyes", "island.follow", "idle.face", "island.except",
             "prompter.wpm", "prompter.size", "prompter.mirror", "prompter.width", "prompter.height", "prompter.bg", "lang", "capture.show",
             "a11y.announce", "clipboard", "downloads", "class.island", "shelf", "shelf.keep", "shelf.expire", "convert", "shots", "drives",
@@ -26,6 +26,8 @@ namespace Tepi
             "theme.voice", "weather", "clock.24", "look.custom", "look.bg", "look.text", "look.accent", "sound.agent", "phone.notifs", "phone.otp",
             "sound.drink", "sound.eyes", "sound.stretch", "sound.pray", "sound.pray.before", "ibadah.count",
             "notif.banner", "share.mode", "idle.left", "idle.right", "tidy", "tidy.layout", "tidy.nudge", "ai.text", "ai.stt",
+            "dictate", "dictate.key", "dictate.lang", "dictate.model", "dictate.engine", "dictate.fillers", "dictate.commands", "dictate.style", "dictate.duck",
+            "listen", "listen.free", "listen.wake", "listen.aec", "fav.music", "rapat.summary",
         };
 
         // Kept on reset: identity, links, internal state
@@ -57,10 +59,8 @@ namespace Tepi
             int n = 0;
             foreach (var raw in File.ReadAllLines(path, Encoding.UTF8))
             {
-                string line = raw.Trim().TrimStart('\uFEFF');
-                int eq = line.IndexOf('=');
-                if (line.Length == 0 || line[0] == '#' || eq <= 0) continue;
-                string key = line.Substring(0, eq).Trim(), value = line.Substring(eq + 1).Trim();
+                string key, value;
+                if (!Settings.ParseLine(raw, out key, out value)) continue;
                 if (!IsPortable(key) || value.Length > 2000) continue;
                 var clean = new StringBuilder();
                 foreach (char c in value) if (!char.IsControl(c)) clean.Append(c);

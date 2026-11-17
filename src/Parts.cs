@@ -38,8 +38,8 @@ namespace Tepi
 
         void TrackHover()
         {
-            if (hoverId == hoverInId) return;
-            float back = hoverId != null && hoverId == hoverOutId ? hoverOut.Value : 0;
+            if (hoverKey == hoverInId) return;
+            float back = hoverKey != null && hoverKey == hoverOutId ? hoverOut.Value : 0;
             if (hoverInId != null)
             {
                 hoverOutId = hoverInId;
@@ -49,11 +49,11 @@ namespace Tepi
                 hoverOut.Target = 0;
             }
             else if (back > 0) hoverOutId = null;
-            hoverInId = hoverId;
+            hoverInId = hoverKey;
             hoverIn.Value = back;
             hoverIn.Velocity = 0;
             Springs.Tune(hoverIn, 0.12f, 1f);
-            hoverIn.Target = hoverId != null ? 1 : 0;
+            hoverIn.Target = hoverKey != null ? 1 : 0;
         }
 
         // 0..1 hover weight for an id
@@ -99,7 +99,7 @@ namespace Tepi
 
         float PrompterHoverK()
         {
-            float want = pointerInside && prompterSizing == 0 ? 1 : 0;
+            float want = pointerOver && prompterSizing == 0 ? 1 : 0;
             if (prompterHover.Target != want) { Springs.Tune(prompterHover, 0.16f, 1f); prompterHover.Target = want; if (Anim.Reduced) prompterHover.Snap(want); }
             return Ease.Clamp01(prompterHover.Value);
         }
@@ -129,7 +129,7 @@ namespace Tepi
         {
             TrackHover();
             sliderCount = 0;
-            string held = pressedId != null && pressedId == hoverId && dragId == null ? pressedId : null;
+            string held = pressKey != null && pressKey == hoverKey && dragId == null ? pressKey : null;
             if (held != null && held != squishId)
             {
                 squishId = held;

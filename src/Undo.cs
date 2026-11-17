@@ -67,7 +67,7 @@ namespace Tepi
             Undoable(text, delegate
             {
                 foreach (var n in items) notifHidden.Remove(n.Id);
-                RemoveNotifs(items);
+                DropNotifs(items);
             }, delegate
             {
                 for (int i = 0; i < items.Count; i++)

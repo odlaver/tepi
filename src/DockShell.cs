@@ -445,5 +445,11 @@ namespace Tepi
         }
 
         public static void Close(IntPtr h) { PostMessage(h, 0x10, IntPtr.Zero, IntPtr.Zero); }
+
+        // SC_MINIMIZE; admin windows block posts
+        public static void Minimize(IntPtr h)
+        {
+            if (!PostMessage(h, 0x112, new IntPtr(0xF020), IntPtr.Zero)) ShowWindowAsync(h, 6);
+        }
     }
 }

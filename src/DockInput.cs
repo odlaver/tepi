@@ -12,7 +12,7 @@ namespace Tepi
     {
         sealed partial class DockWindow
         {
-            string hoverId, pressId;
+            string hoverKey, pressId;
             Point downAt;
             // Plate fades: hovered id in, previous out, held id sinks
             readonly Spring hotIn = new Spring(0, 1, 1, 0.004f), hotOut = new Spring(0, 1, 1, 0.004f), held = new Spring(0, 1, 1, 0.003f);
@@ -20,7 +20,7 @@ namespace Tepi
 
             void StepHot(float dt)
             {
-                string h = dragApp == null ? hoverId : null;
+                string h = dragApp == null ? hoverKey : null;
                 if (h != hotInId)
                 {
                     float back = h != null && h == hotOutId ? hotOut.Value : 0;
@@ -39,7 +39,7 @@ namespace Tepi
                     Springs.Tune(hotIn, 0.1f, 1f);
                     hotIn.Target = h != null ? 1 : 0;
                 }
-                string down = pressId != null && pressId == hoverId && dragApp == null ? pressId : null;
+                string down = pressId != null && pressId == hoverKey && dragApp == null ? pressId : null;
                 if (down != null && down != heldId) { heldId = down; heldSince = DateTime.UtcNow; Springs.Tune(held, 0.1f, 1f); held.Target = 1; }
                 // Held still on an app: it lifts, ready to drag
                 else if (down != null && held.Target == 1 && AppById(down) != null && (DateTime.UtcNow - heldSince).TotalSeconds > 0.32 && !Anim.Reduced)
@@ -66,7 +66,7 @@ namespace Tepi
             float HotK(string id)
             {
                 if (id == null || dragApp != null) return 0;
-                if (Anim.Reduced) return hoverId == id ? 1 : 0;
+                if (Anim.Reduced) return hoverKey == id ? 1 : 0;
                 if (id == hotInId) return Ease.Clamp01(hotIn.Value);
                 if (id == hotOutId) return Ease.Clamp01(hotOut.Value);
                 return 0;
@@ -75,7 +75,7 @@ namespace Tepi
             float HeldK(string id)
             {
                 if (id == null || dragApp != null) return 0;
-                if (Anim.Reduced) return pressId == id && hoverId == id ? 1 : 0;
+                if (Anim.Reduced) return pressId == id && hoverKey == id ? 1 : 0;
                 return id == heldId ? held.Value : 0;
             }
             // Reorder: the dragged app, its grab point, and the gaps it opens
@@ -133,7 +133,7 @@ namespace Tepi
                 if (pressId != null && e.Button == MouseButtons.Left && dragApp == null && AppById(pressId) != null && Far(e.Location, downAt)) BeginDrag(AppById(pressId), pt);
                 if (dragApp != null) { DragMove(pt); Animate(); return; }
                 string id = HitAt(pt);
-                if (id != hoverId) SetHover(id);
+                if (id != hoverKey) SetHover(id);
                 TrayMove(id);
                 Animate();
             }
@@ -142,7 +142,7 @@ namespace Tepi
 
             void SetHover(string id)
             {
-                hoverId = id;
+                hoverKey = id;
                 bool label = id != null && (id.StartsWith("app:", StringComparison.Ordinal) || id.StartsWith("sys:", StringComparison.Ordinal) || id.StartsWith("tray:", StringComparison.Ordinal));
                 var app = AppById(id);
                 bool previewing = card != null && card.Kind == DockCard.WindowsKind && app != null && card.App == app;
@@ -159,7 +159,7 @@ namespace Tepi
 
             void Dwell()
             {
-                var app = AppById(hoverId);
+                var app = AppById(hoverKey);
                 if (app != null && app.Running && inside && dragApp == null) ShowPreview(app);
             }
 
@@ -219,7 +219,7 @@ namespace Tepi
             protected override void OnMouseWheel(MouseEventArgs e)
             {
                 base.OnMouseWheel(e);
-                if (hoverId != "status") return;
+                if (hoverKey != "status") return;
                 float step = 0.02f * e.Delta / 120f;
                 isle.volume.Set(Ease.Clamp01(isle.vol + step));
                 Render();
@@ -231,10 +231,25 @@ namespace Tepi
             {
                 bool shift = (ModifierKeys & Keys.Shift) != 0, ctrl = (ModifierKeys & Keys.Control) != 0;
                 if (!a.Running || shift) { Launch(a, shift && ctrl); return; }
-                IntPtr fg = GetForegroundWindow();
-                int at = a.Wins.FindIndex(w => w.H == fg);
+                IntPtr fg = GetForegroundWindow(), owner = GetAncestor(fg, 3);
+                // A dialog in front counts for its window
+                int at = a.Wins.FindIndex(w => w.H == fg || w.H == owner);
+                // Already in front: minimize, as the taskbar does
+                bool fly = isle.settings.GetBool("dockbar.fly", true);
+                if (at >= 0 && !fromCard && isle.settings.GetBool("dockbar.clickmin", true))
+                {
+                    var h = a.Wins[at].H;
+                    if (!fly || !WinFly.Minimize(h, IconScreenRect(a), delegate { ShellApp.Minimize(h); })) ShellApp.Minimize(h);
+                    CloseCard();
+                    return;
+                }
                 var next = at >= 0 && a.Wins.Count > 1 ? a.Wins[(at + 1) % a.Wins.Count] : at >= 0 ? a.Wins[at] : a.Recent();
-                if (next != null) ShellApp.Activate(next.H);
+                if (next != null)
+                {
+                    var nh = next.H;
+                    // Minimized: grows out of its icon first
+                    if (!fly || fromCard || !WinFly.Restore(nh, IconScreenRect(a), delegate { ShellApp.Activate(nh); })) ShellApp.Activate(nh);
+                }
                 if (!fromCard) CloseCard();
             }
 
@@ -321,6 +336,7 @@ namespace Tepi
                 labelShow.Target = 0;
                 MenuLook.Apply(m);
                 m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
+                MenuGuard.Watch(m);
                 m.Show(Cursor.Position);
             }
 
@@ -431,6 +447,7 @@ namespace Tepi
 
             // The dock's Win key hook already parks the focus on an empty desktop
             public bool WinKeyOn { get { return startKey != null; } }
+            public IntPtr WinKeeper { get { var k = startKey; return k != null ? k.KeeperHandle : IntPtr.Zero; } }
 
             void StartKeys()
             {
@@ -598,6 +615,7 @@ namespace Tepi
                 MenuLook.Apply(m);
                 m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
                 var at = HitScreenRect("sys:start");
+                MenuGuard.Watch(m);
                 m.Show(new Point(at.X, at.Top - (int)(6 * scale)), ToolStripDropDownDirection.AboveRight);
             }
 

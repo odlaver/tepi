@@ -14,21 +14,22 @@
 
 # Tepi
 
-Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 1.626 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
+Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 1.869 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
 
 Sekarang juga ada [Tepi Android](https://github.com/odlaver/tepi-android): island di sekitar kamera depan HP, yang nyambung ke laptop cukup dengan memindai QR.
 
-## Baru di 2.6.1
+## Baru di 2.6.2
 
-- **Island di mana saja**: atas tengah, pojok atas, atau berdiri tegak di sisi kiri dan kanan layar.
-- **Dock**: bar kaca berisi aplikasi, pratinjau jendela, dan widget, yang bisa menggantikan taskbar Windows sepenuhnya.
-- **Ngobrol dengan Tepi**: Suruh Tepi punya jendela obrolan yang ingat percakapannya, dengan layanan AI pilihanmu.
-- **Ringkasan pilihanmu**: pilih dan urutkan kartunya, termasuk cuaca, baterai, clipboard, dan sholat.
-- **Perbaiki dan terjemahkan** teks yang kamu blok di aplikasi apa pun.
-- **Ubah format lebih lengkap**: PDF ke Word, OCR untuk foto dan hasil scan, kompres PDF, gambar, video, dan audio, serta gabung PDF dan gambar jadi satu.
-- **Notifikasi lebih rapi**: Tepi bisa jadi penerima utama banner chat, panggilan, dan screenshot, dan isi pesan disamarkan saat berbagi layar.
-- **Edit screenshot** (samarkan, potong, putar, balik) dan **Rapikan Downloads** yang bisa diurungkan.
-- **Agent lebih hati-hati**, dan **Pengaturan** yang dikelompokkan per kategori.
+- **Siapkan suara dan AI**: halaman baru di Pengaturan yang mengecek mikrofon, mesin dikte, layanan teks, dan pengenal ucapan, lalu memandu yang kurang: key Groq gratis, model offline, Ollama, atau layanan lain.
+- **Dengarkan terus**: ucapkan "Tepi, pause", "Tepi, open Spotify", atau "Tepi, turn on wifi" tanpa menekan tombol. Dikenali offline, dalam bahasa Inggris.
+- **Perintah perangkat dan lagu**: Suruh Tepi menyalakan Wi-Fi dan Bluetooth, mengatur kecerahan, membuka aplikasi, dan memutar lagu dari judulnya.
+- **Lagu favorit**: tempel tautan YouTube di Pengaturan › Musik, lalu bilang "putar lagu biasa".
+- **Pesan yang menunjukkan jalan**: saat dikte, rapat, atau Dengarkan terus belum bisa jalan, notifikasinya menyebut sebabnya. Klik untuk membuka tempat memperbaikinya, misalnya izin mikrofon Windows.
+- **Lebih halus**: toast bisa digeser, dan pesan, isi rak, serta tugas yang dihapus atau ditandai selesai bisa diurungkan selama 5 detik.
+- **Dock lebih lengkap**: pengaturan cepat bergaya Windows 11, pencarian Start yang paham singkatan seperti "wa" untuk WhatsApp dan bisa mencari berkas, serta jendela yang mengecil masuk ke ikonnya saat diminimalkan.
+- **Dari laporan pengguna**: Kirim saran terkirim lagi, Dock tetap di atas jendela lain, menu tertutup saat diklik di luar, klik ikon aplikasi yang di depan untuk meminimalkannya, tile Wi-Fi menyebut nama jaringan, dan alat **Coret** di Edit gambar.
+
+Sejak 2.6.1: **island di mana saja**, **Dock** yang bisa menggantikan taskbar, **Ngobrol dengan Tepi**, serta **perbaiki dan terjemahkan** teks.
 
 Sejak 2.6: **Dikte** tanpa tangan, **Suruh Tepi** yang jalan tanpa internet, dan **Transkrip rapat** tanpa bot.
 
@@ -42,7 +43,7 @@ Catatan lengkapnya ada di [halaman rilis](https://github.com/odlaver/tepi/releas
 | **Agent coding** | Claude Code, Codex, Antigravity, dan Copilot CLI, tiap sesi bertanda agentnya. Status sesi, rencana kerja, kuota tiap agent, dan izin yang bisa dijawab dari island. [Selengkapnya](docs/agen.md) |
 | **Kuliah** | Tugas dan jadwal dari [Kulia](https://kulia.live), Notion, Todoist, dan kalender iCal. [Selengkapnya](docs/integrasi.md) |
 | **Pesan** | WhatsApp, Telegram, Discord, Teams, Slack, dan email dari pusat notifikasi Windows. Satu pesan, satu banner: tidak dobel dengan banner Windows atau HP. |
-| **Dikte dan rapat** | Tahan Ctrl kanan, bicara, lepas: teksnya ditempel di aplikasi mana pun, dalam bahasa Indonesia yang bercampur istilah Inggris. Kamus istilah, snippet, lewat layanan AI pilihanmu (Groq, OpenAI, Claude, Gemini, Ollama, dan lainnya) atau offline. Rekam panggilan tanpa bot jadi transkrip Kamu dan Lawan bicara, plus ringkasan dan to-do. Suruh Tepi memasang pengingat, timer, dan catatan dari kalimat biasa. [Selengkapnya](docs/fitur.md) |
+| **Dikte dan rapat** | Tahan Ctrl kanan, bicara, lepas: teksnya ditempel di aplikasi mana pun, dalam bahasa Indonesia yang bercampur istilah Inggris. Kamus istilah dan snippet; suaranya diubah jadi teks oleh Groq, OpenAI, server kustom, atau offline di laptop ini. Rekam panggilan tanpa bot jadi transkrip Kamu dan Lawan bicara, plus ringkasan dan to-do. Suruh Tepi memasang pengingat, timer, dan catatan dari kalimat biasa, dan meneruskan perintah lain ke layanan teks pilihanmu (Groq, OpenAI, Claude, Gemini, Ollama, dan lainnya). [Selengkapnya](docs/fitur.md) |
 | **HP** | Kode OTP, notifikasi, baterai, dan kirim berkas dua arah dengan Tepi Android. [Selengkapnya](docs/hp.md) |
 | **Rak dan Ubah format** | Seret berkas ke island untuk disimpan sementara, atau ubah ke JPG, PDF, MP3, DOCX, dan lainnya. Rapikan Downloads dengan Urungkan. |
 | **Kontrol** | Volume per aplikasi, kecerahan, Wi-Fi, Bluetooth, mikrofon, mode gelap, laptop tetap terjaga, dan timer. |

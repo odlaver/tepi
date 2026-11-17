@@ -214,18 +214,22 @@ namespace Tepi
 
         int logged;
 
-        static bool IsModifier(int vk) { return (vk >= 0x10 && vk <= 0x12) || (vk >= 0xA0 && vk <= 0xA5) || vk == 0x5B || vk == 0x5C || vk == 0x14; }
+        // Shift and the right Ctrl/Alt start dictation, so they stay here
+        static bool Stays(int vk, bool ext) { return vk == 0x10 || (ext && (vk == 0x11 || vk == 0x12)) || vk == 0x5B || vk == 0x5C || vk == 0x14; }
 
         // Typing on the desktop: it gets the focus back, and the key
         bool OnKeeperKey(int msg, IntPtr w, IntPtr l)
         {
             int vk = w.ToInt32();
-            if (!parked || IsModifier(vk)) return false;
+            bool ext = ((l.ToInt64() >> 24) & 1) != 0;
+            if (!parked || Stays(vk, ext)) return false;
             parked = false;
             handedBack = true;
             if (!IsWindow(desk)) return false;
             SetForegroundWindow(desk);
             keeper.Rest();
+            // Left Ctrl/Alt alone: nothing to forward
+            if (vk == 0x11 || vk == 0x12) return true;
             uint pid, tid = GetWindowThreadProcessId(desk, out pid);
             var gi = new GuiInfo { Size = Marshal.SizeOf(typeof(GuiInfo)) };
             IntPtr target = GetGUIThreadInfo(tid, ref gi) && gi.Focus != IntPtr.Zero ? gi.Focus : DesktopList(desk);

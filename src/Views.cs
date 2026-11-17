@@ -139,20 +139,22 @@ namespace Tepi
                 float rate = target > bands[i] ? 22f : 6f;
                 bands[i] += (target - bands[i]) * Math.Min(1f, rate * dt);
             }
-            if (LyricsReady)
-            {
-                int idx = lyrics.IndexAt(mediaInfo.Position(now));
-                if (idx != lyricIndex)
-                {
-                    lyricPrev = lyricIndex;
-                    lyricIndex = idx;
-                    lyricSwitchUtc = now;
-                    lyricScroll.Target = Math.Max(0, idx) * LyricLineH;
-                    // Redraw only where lines show
-                    if (current == View.Lyric || (current == View.Panel && page == PageMusic)) Kick();
-                }
-            }
+            if (LyricsReady) FollowLyric(now);
             if (DesiredView() != current) Kick();
+        }
+
+        // New line under the playhead: old one rolls out
+        void FollowLyric(DateTime now)
+        {
+            int at = lyrics.IndexAt(mediaInfo.Position(now));
+            if (at == lyricIndex) return;
+            lyricPrev = lyricIndex;
+            lyricIndex = at;
+            lyricSwitchUtc = now;
+            lyricScroll.Target = LyricLineH * Math.Max(0, at);
+            // Redraw only where lines show
+            bool shown = current == View.Lyric || (current == View.Panel && page == PageMusic);
+            if (shown) Kick();
         }
 
         // Lyric motion runs in live areas
@@ -188,7 +190,7 @@ namespace Tepi
 
         // Idle
 
-        bool PrivacyOn { get { return micApps.Length + camApps.Length > 0; } }
+        bool PrivacyOn { get { return micHolders.Length + camHolders.Length > 0; } }
 
         // Eyes and their gap before the clock
         // Keycaps plus the awake cup
@@ -230,8 +232,8 @@ namespace Tepi
             else clockRoller.Draw(p, Ink.Display(15.5f), p.T.Text, clockX, cy, StringAlignment.Center, now);
             if (PrivacyOn)
             {
-                bool off = MicSilenced && camApps.Length == 0;
-                p.Icon(camApps.Length > 0 ? Ink.IcoCam : off ? IcoMicOff : Ink.IcoMic, 12f, off ? p.T.Negative : p.T.Sub, 22 + shift * 2, cy);
+                bool off = MicSilenced && camHolders.Length == 0;
+                p.Icon(camHolders.Length > 0 ? Ink.IcoCam : off ? IcoMicOff : Ink.IcoMic, 12f, off ? p.T.Negative : p.T.Sub, 22 + shift * 2, cy);
             }
             if (unread > 0) DrawCount(w - 22, cy, unread);
             else countShown = 0;
@@ -820,7 +822,7 @@ namespace Tepi
             p.TextRight(meta, Ink.Small(11f), ink.IsEmpty || AppTint.Mode == "lembut" ? p.T.Sub : AppTint.Readable(ink, p.T.Bg, 4.5), w - 22, cy - 10);
             p.Text(NotifTitle(item), Ink.Semi(13.5f), p.T.Text, 66, cy - 10, w - 66 - 32 - mw, StringAlignment.Near);
             p.Text(NotifBody(item), Ink.Text(12.5f), p.T.Sub, 66, cy + 10, w - 66 - 22, StringAlignment.Near);
-            AddHit(new RectangleF(0, 0, w, h), "notifOpen", delegate { OpenNotifApp(item); });
+            AddHit(new RectangleF(0, 0, w, h), "notifOpen", delegate { OpenSender(item); });
         }
 
         // System

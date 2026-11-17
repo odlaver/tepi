@@ -7,80 +7,108 @@ using System.Windows.Forms;
 
 namespace Tepi
 {
-    // Prayer times computed locally, nothing fetched
+    // Prayer times from solar altitude, computed locally
     static class PrayTimes
     {
         public static readonly string[] Names = { "Subuh", "Terbit", "Dzuhur", "Ashar", "Maghrib", "Isya" };
 
-        // Kemenag: Fajr 20°, Isha 18°, Asr 1x
+        // Kemenag: Subuh 20°, Isya 18°, Ashar shadow 1x
+        const double SubuhDip = 20, IsyaDip = 18, HorizonDip = 0.833, AsharShadow = 1;
+        static readonly int[] Ihtiyat = { 2, -2, 2, 2, 2, 2 };
+
         public static DateTime[] For(DateTime day, double lat, double lng, double tz)
         {
-            double jd = Julian(day.Year, day.Month, day.Day) - lng / (15 * 24.0);
-            double fajr = AngleTime(jd, 20, 5 / 24.0, true, lat);
-            double sunrise = AngleTime(jd, 0.833, 6 / 24.0, true, lat);
-            double dhuhr = MidDay(jd, 12 / 24.0);
-            double asr = AsrTime(jd, 1, 13 / 24.0, lat);
-            double sunset = AngleTime(jd, 0.833, 18 / 24.0, false, lat);
-            double isha = AngleTime(jd, 18, 18 / 24.0, false, lat);
-            double[] hours = { fajr, sunrise, dhuhr, asr, sunset, isha };
-            int[] safety = { 2, -2, 2, 2, 2, 2 };
-            var result = new DateTime[6];
+            double jd0 = DayNumber(day) - lng / 360.0;
+            double noon = Transit(jd0, 0.5);
+            double[] local =
+            {
+                Cross(jd0, lat, -SubuhDip, -1),
+                Cross(jd0, lat, -HorizonDip, -1),
+                noon,
+                Ashar(jd0, lat),
+                Cross(jd0, lat, -HorizonDip, 1),
+                Cross(jd0, lat, -IsyaDip, 1),
+            };
+            var times = new DateTime[6];
             for (int i = 0; i < 6; i++)
             {
-                double h = hours[i] + tz - lng / 15;
-                result[i] = day.Date.AddHours(h).AddMinutes(safety[i]);
-                // Round up, like printed schedules
-                if (result[i].Second > 0 || result[i].Millisecond > 0) result[i] = result[i].AddSeconds(60 - result[i].Second).AddMilliseconds(-result[i].Millisecond);
+                var t = day.Date.AddHours(local[i] + tz - lng / 15).AddMinutes(Ihtiyat[i]);
+                // Next whole minute, like printed schedules
+                long rest = t.Ticks % TimeSpan.TicksPerMinute;
+                times[i] = rest == 0 ? t : t.AddTicks(TimeSpan.TicksPerMinute - rest);
             }
-            return result;
+            return times;
         }
 
-        static double Julian(int y, int m, int d)
+        // Julian day at 0h UT, Meeus chapter 7
+        static double DayNumber(DateTime d)
         {
-            if (m <= 2) { y -= 1; m += 12; }
-            double a = Math.Floor(y / 100.0), b = 2 - a + Math.Floor(a / 4);
-            return Math.Floor(365.25 * (y + 4716)) + Math.Floor(30.6001 * (m + 1)) + d + b - 1524.5;
+            int y = d.Year, m = d.Month;
+            if (m < 3) { y--; m += 12; }
+            int century = y / 100;
+            int gregorian = 2 - century + century / 4;
+            return Math.Floor(365.25 * (y + 4716)) + Math.Floor(30.6001 * (m + 1)) + d.Day + gregorian - 1524.5;
         }
 
-        static double Rad(double d) { return d * Math.PI / 180; }
-        static double Deg(double r) { return r * 180 / Math.PI; }
-        static double Fix(double a, double b) { a = a - b * Math.Floor(a / b); return a < 0 ? a + b : a; }
+        const double ToRad = Math.PI / 180;
 
-        // Declination and equation of time
-        static void Sun(double jd, out double decl, out double eqt)
+        static double Wrap(double v, double range)
         {
-            double d = jd - 2451545.0;
-            double g = Fix(357.529 + 0.98560028 * d, 360), q = Fix(280.459 + 0.98564736 * d, 360);
-            double l = Fix(q + 1.915 * Math.Sin(Rad(g)) + 0.020 * Math.Sin(Rad(2 * g)), 360);
-            double e = 23.439 - 0.00000036 * d;
-            double ra = Deg(Math.Atan2(Math.Cos(Rad(e)) * Math.Sin(Rad(l)), Math.Cos(Rad(l)))) / 15;
-            eqt = q / 15 - Fix(ra, 24);
-            decl = Deg(Math.Asin(Math.Sin(Rad(e)) * Math.Sin(Rad(l))));
+            double r = v % range;
+            return r < 0 ? r + range : r;
         }
 
-        static double MidDay(double jd, double t)
+        // USNO approximate solar coordinates
+        struct SunState { public double Decl, EqHours; }
+
+        static SunState Sun(double jd)
         {
-            double decl, eqt;
-            Sun(jd + t, out decl, out eqt);
-            return Fix(12 - eqt, 24);
+            double n = jd - 2451545.0;
+            double anomaly = Wrap(357.529 + 0.98560028 * n, 360) * ToRad;
+            double meanLong = Wrap(280.459 + 0.98564736 * n, 360);
+            double eclLong = Wrap(meanLong + 1.915 * Math.Sin(anomaly) + 0.020 * Math.Sin(2 * anomaly), 360) * ToRad;
+            double tilt = (23.439 - 0.00000036 * n) * ToRad;
+            double rightAsc = Math.Atan2(Math.Cos(tilt) * Math.Sin(eclLong), Math.Cos(eclLong)) / ToRad / 15;
+            return new SunState
+            {
+                Decl = Math.Asin(Math.Sin(tilt) * Math.Sin(eclLong)) / ToRad,
+                EqHours = meanLong / 15 - Wrap(rightAsc, 24),
+            };
         }
 
-        static double AngleTime(double jd, double angle, double t, bool before, double lat)
+        // Local mean hour of solar noon
+        static double Transit(double jd0, double fraction) { return Wrap(12 - Sun(jd0 + fraction).EqHours, 24); }
+
+        // Hours from noon to that altitude
+        static double HalfArc(double lat, double decl, double altitude)
         {
-            double decl, eqt;
-            Sun(jd + t, out decl, out eqt);
-            double noon = MidDay(jd, t);
-            double cos = (-Math.Sin(Rad(angle)) - Math.Sin(Rad(decl)) * Math.Sin(Rad(lat))) / (Math.Cos(Rad(decl)) * Math.Cos(Rad(lat)));
-            double span = Deg(Math.Acos(Math.Max(-1, Math.Min(1, cos)))) / 15;
-            return noon + (before ? -span : span);
+            double c = (Math.Sin(altitude * ToRad) - Math.Sin(decl * ToRad) * Math.Sin(lat * ToRad)) / (Math.Cos(decl * ToRad) * Math.Cos(lat * ToRad));
+            return Math.Acos(Math.Max(-1, Math.Min(1, c))) / ToRad / 15;
         }
 
-        static double AsrTime(double jd, double factor, double t, double lat)
+        // Refined from noon until the time settles
+        static double Cross(double jd0, double lat, double altitude, int side)
         {
-            double decl, eqt;
-            Sun(jd + t, out decl, out eqt);
-            double angle = -Deg(Math.Atan(1 / (factor + Math.Tan(Rad(Math.Abs(lat - decl))))));
-            return AngleTime(jd, angle, t, false, lat);
+            double hour = 12;
+            for (int pass = 0; pass < 4; pass++)
+            {
+                var s = Sun(jd0 + hour / 24);
+                hour = Transit(jd0, hour / 24) + side * HalfArc(lat, s.Decl, altitude);
+            }
+            return hour;
+        }
+
+        // Shadow equals object plus its noon shadow
+        static double Ashar(double jd0, double lat)
+        {
+            double hour = 15;
+            for (int pass = 0; pass < 4; pass++)
+            {
+                var s = Sun(jd0 + hour / 24);
+                double altitude = Math.Atan(1 / (AsharShadow + Math.Tan(Math.Abs(lat - s.Decl) * ToRad))) / ToRad;
+                hour = Transit(jd0, hour / 24) + HalfArc(lat, s.Decl, altitude);
+            }
+            return hour;
         }
     }
 

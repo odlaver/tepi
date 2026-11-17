@@ -171,7 +171,7 @@ namespace Tepi
             dragItem = null;
             if (!File.Exists(item.Path) && !Directory.Exists(item.Path)) { RemoveFromShelf(item); return true; }
             draggingOut = true;
-            pressedId = null;
+            pressKey = null;
             try
             {
                 var data = new DataObject(DataFormats.FileDrop, ShelfDragPaths(item));
@@ -204,7 +204,7 @@ namespace Tepi
             string ext = Path.GetExtension(item.Path).ToLowerInvariant();
             bool picture = ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".gif" || ext == ".tif" || ext == ".tiff";
             if (picture && OcrNow()) m.Items.Add(Lang.T("Salin teks"), null, delegate { CopyText(item.Path); });
-            if (picture && File.Exists(item.Path)) m.Items.Add(Lang.T("Samarkan…"), null, delegate { OpenRedact(item.Path); });
+            if (picture && File.Exists(item.Path)) m.Items.Add(Lang.T("Edit gambar…"), null, delegate { OpenRedact(item.Path); });
             if (PhonePaired && File.Exists(item.Path)) m.Items.Add(Lang.T("Kirim ke HP"), null, delegate { SendToPhone(item.Path); });
             m.Items.Add(new ToolStripSeparator());
             m.Items.Add(Lang.T("Keluarkan dari rak"), null, delegate { Vanish(new[] { ShelfCellRect(item) }, false); RemoveShelfLater(new List<ShelfItem> { item }, Lang.T("Dikeluarkan dari rak")); });

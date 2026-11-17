@@ -12,8 +12,8 @@ namespace Tepi
     {
         // Form's formResponse address and its field ids
         const string FormUrl = "https://docs.google.com/forms/d/e/1FAIpQLSdDsBrxC6LIIlq4Itbab9WwW416oyCjpZDQu5JySwDmBdVrUg/formResponse";
-        const string EntryKind = "entry.467859773", EntryText = "entry.617759107", EntryContact = "entry.263767280",
-            EntryVersion = "entry.1329022008", EntryWindows = "entry.1141987323";
+        // Form asks only platform, message, contact
+        const string EntryPlatform = "entry.467859773", EntryText = "entry.617759107", EntryContact = "entry.263767280";
 
         public static bool Ready { get { return FormUrl.Length > 0 && EntryText.Length > 0; } }
 
@@ -37,13 +37,14 @@ namespace Tepi
         // Worker: null when sent, else why not
         public static string Send(string kind, string text, string contact, bool withSystem)
         {
+            // Kind and system ride inside the message
+            string message = "[" + kind + "] " + text;
+            if (withSystem) message += "\n\nTepi " + Island.AppVersion + (Lang.English ? " · en" : " · id") + " · " + Windows();
             var fields = new List<KeyValuePair<string, string>>
             {
-                new KeyValuePair<string, string>(EntryKind, kind),
-                new KeyValuePair<string, string>(EntryText, text),
+                new KeyValuePair<string, string>(EntryPlatform, "Windows"),
+                new KeyValuePair<string, string>(EntryText, message),
                 new KeyValuePair<string, string>(EntryContact, contact),
-                new KeyValuePair<string, string>(EntryVersion, withSystem ? Island.AppVersion + (Lang.English ? " · en" : " · id") : ""),
-                new KeyValuePair<string, string>(EntryWindows, withSystem ? Windows() : ""),
             };
             var body = new StringBuilder();
             foreach (var f in fields)
@@ -54,7 +55,7 @@ namespace Tepi
             }
             var r = Web.Send("POST", FormUrl, new Dictionary<string, string> { { "Content-Type", "application/x-www-form-urlencoded" } }, body.ToString(), 20000);
             if (r.Ok) return null;
-            Log.Write("saran: " + r.Status);
+            Log.Write("saran: " + r.Status + " " + (r.Body.Length > 200 ? r.Body.Substring(0, 200) : r.Body));
             return r.Status == 0 ? Lang.T("Gagal terkirim, cek internet") : Lang.F("Formulir menolak ({0})", r.Status);
         }
     }

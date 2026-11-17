@@ -214,9 +214,9 @@ namespace Tepi
 
         public static void Init()
         {
-            var have = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            using (var fc = new InstalledFontCollection())
-                foreach (var f in fc.Families) have.Add(f.Name);
+            HashSet<string> have;
+            using (var installed = new InstalledFontCollection())
+                have = new HashSet<string>(Array.ConvertAll(installed.Families, fam => fam.Name), StringComparer.OrdinalIgnoreCase);
             families[FDisplay] = Pick(have, "Segoe UI Variable Display Semib", "Segoe UI Semibold", "Segoe UI");
             families[FText] = Pick(have, "Segoe UI Variable Text", "Segoe UI");
             families[FSemi] = Pick(have, "Segoe UI Variable Text Semibold", "Segoe UI Semibold", "Segoe UI");
@@ -226,10 +226,11 @@ namespace Tepi
             families[FSmallSemi] = Pick(have, "Segoe UI Variable Small Semibol", "Segoe UI Semibold", "Segoe UI");
         }
 
+        // First installed, else the system UI font
         static string Pick(HashSet<string> have, params string[] names)
         {
-            foreach (var n in names) if (have.Contains(n)) return n;
-            return System.Drawing.SystemFonts.MessageBoxFont.FontFamily.Name;
+            int i = Array.FindIndex(names, have.Contains);
+            return i >= 0 ? names[i] : System.Drawing.SystemFonts.MessageBoxFont.FontFamily.Name;
         }
 
         public static Font Display(float px) { return Get(FDisplay, px); }
@@ -252,13 +253,11 @@ namespace Tepi
         static Font Get(int family, float px)
         {
             int key = family * 100000 + (int)Math.Round(px * 10);
-            Font f;
-            if (!fonts.TryGetValue(key, out f))
-            {
-                f = new Font(families[family] ?? "Segoe UI", px, FontStyle.Regular, GraphicsUnit.Pixel);
-                fonts[key] = f;
-            }
-            return f;
+            Font made;
+            if (fonts.TryGetValue(key, out made)) return made;
+            made = new Font(families[family] ?? "Segoe UI", px, FontStyle.Regular, GraphicsUnit.Pixel);
+            fonts.Add(key, made);
+            return made;
         }
 
         // One-char strings, made once
@@ -346,16 +345,23 @@ namespace Tepi
             return percents[v] ?? (percents[v] = v + "%");
         }
 
+        // Alpha scaled by a, RGB kept
         public static Color A(Color c, float a)
         {
-            return Color.FromArgb(Math.Max(0, Math.Min(255, (int)(c.A * a))), c.R, c.G, c.B);
+            int alpha = (int)(c.A * a);
+            if (alpha > 255) alpha = 255;
+            if (alpha < 0) alpha = 0;
+            return Color.FromArgb(alpha, c);
         }
 
+        // Channel-wise blend, t clamped
         public static Color Mix(Color a, Color b, float t)
         {
-            t = Ease.Clamp01(t);
-            return Color.FromArgb((int)(a.A + (b.A - a.A) * t), (int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
+            float k = Ease.Clamp01(t);
+            return Color.FromArgb(Toward(a.A, b.A, k), Toward(a.R, b.R, k), Toward(a.G, b.G, k), Toward(a.B, b.B, k));
         }
+
+        static int Toward(int from, int to, float k) { return (int)(from + (to - from) * k); }
 
         // Top over under, straight alpha
         public static Color Over(Color top, Color under)
@@ -693,6 +699,47 @@ namespace Tepi
         }
     }
 
+    // One-image .ico, premultiplied like GetHicon
+    static class IconFile
+    {
+        public static Icon From(Bitmap art)
+        {
+            int w = art.Width, h = art.Height, maskRow = ((w + 31) / 32) * 4;
+            var argb = new byte[w * h * 4];
+            var data = art.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.ReadOnly, PixelFormat.Format32bppPArgb);
+            try
+            {
+                for (int y = 0; y < h; y++) Marshal.Copy(new IntPtr(data.Scan0.ToInt64() + (long)y * data.Stride), argb, y * w * 4, w * 4);
+            }
+            finally { art.UnlockBits(data); }
+            int image = 40 + argb.Length + maskRow * h;
+            using (var ms = new System.IO.MemoryStream())
+            using (var o = new System.IO.BinaryWriter(ms))
+            {
+                // ICONDIR, one ICONDIRENTRY
+                o.Write((short)0); o.Write((short)1); o.Write((short)1);
+                o.Write((byte)w); o.Write((byte)h); o.Write((byte)0); o.Write((byte)0);
+                o.Write((short)1); o.Write((short)32); o.Write(image); o.Write(6 + 16);
+                // BITMAPINFOHEADER; height counts the mask
+                o.Write(40); o.Write(w); o.Write(h * 2); o.Write((short)1); o.Write((short)32);
+                o.Write(0); o.Write(argb.Length + maskRow * h); o.Write(0); o.Write(0); o.Write(0); o.Write(0);
+                // Rows bottom-up: colour, then AND mask
+                for (int y = h - 1; y >= 0; y--) o.Write(argb, y * w * 4, w * 4);
+                var mask = new byte[maskRow];
+                for (int y = h - 1; y >= 0; y--)
+                {
+                    Array.Clear(mask, 0, maskRow);
+                    for (int x = 0; x < w; x++)
+                        if (argb[(y * w + x) * 4 + 3] == 0) mask[x >> 3] |= (byte)(0x80 >> (x & 7));
+                    o.Write(mask);
+                }
+                o.Flush();
+                ms.Position = 0;
+                return new Icon(ms);
+            }
+        }
+    }
+
     // Spring presets: response seconds, damping ratio
     static class Springs
     {
@@ -737,11 +784,12 @@ namespace Tepi
         public float Alpha = 1f;
         public Tone T = Ink.Base;
         public bool Shadow; // legibility on see-through glass
-        readonly SolidBrush brush = new SolidBrush(Color.White);
-        readonly Pen pen = new Pen(Color.White, 1f);
-        readonly StringFormat line, wrap;
-        readonly ImageAttributes imageAttr = new ImageAttributes();
-        readonly ColorMatrix matrix = new ColorMatrix();
+        // Reused per call: no per-frame allocations
+        readonly SolidBrush fill = new SolidBrush(Color.White);
+        readonly Pen stroke = new Pen(Color.White, 1f);
+        readonly StringFormat line = Format(StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces), wrap = Format(StringFormatFlags.LineLimit);
+        readonly ImageAttributes fade = new ImageAttributes();
+        readonly ColorMatrix fadeMatrix = new ColorMatrix();
         // One path reset per shape
         readonly GraphicsPath shape = new GraphicsPath();
         // Gradients remapped per use, never rebuilt
@@ -755,29 +803,31 @@ namespace Tepi
 
         public void Dispose()
         {
-            brush.Dispose();
-            pen.Dispose();
+            fill.Dispose();
+            stroke.Dispose();
             line.Dispose();
             wrap.Dispose();
-            imageAttr.Dispose();
+            fade.Dispose();
             shape.Dispose();
             glow.Dispose();
             lip.Dispose();
             split.Dispose();
         }
 
+        // Typographic layout, ellipsis trimming
+        static StringFormat Format(StringFormatFlags extra)
+        {
+            var f = (StringFormat)StringFormat.GenericTypographic.Clone();
+            f.FormatFlags |= extra;
+            f.Trimming = StringTrimming.EllipsisCharacter;
+            return f;
+        }
+
         public Painter()
         {
-            pen.StartCap = LineCap.Round;
-            pen.EndCap = LineCap.Round;
-            pen.LineJoin = LineJoin.Round;
-            line = (StringFormat)StringFormat.GenericTypographic.Clone();
-            line.FormatFlags |= StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces;
-            line.Trimming = StringTrimming.EllipsisCharacter;
+            stroke.SetLineCap(LineCap.Round, LineCap.Round, DashCap.Flat);
+            stroke.LineJoin = LineJoin.Round;
             line.LineAlignment = StringAlignment.Center;
-            wrap = (StringFormat)StringFormat.GenericTypographic.Clone();
-            wrap.FormatFlags |= StringFormatFlags.LineLimit;
-            wrap.Trimming = StringTrimming.EllipsisCharacter;
             var unit = new RectangleF(0, 0, Ink.GradientSpan, Ink.GradientSpan);
             glow = new LinearGradientBrush(unit, Color.White, Color.White, LinearGradientMode.Horizontal) { WrapMode = WrapMode.TileFlipXY };
             lip = new LinearGradientBrush(unit, Color.White, Color.White, LinearGradientMode.Horizontal) { WrapMode = WrapMode.TileFlipXY };
@@ -792,13 +842,17 @@ namespace Tepi
             splitBlend.Factors = new[] { 0f, 0f, 1f, 1f };
         }
 
-        public Brush B(Color c) { brush.Color = Ink.A(c, Alpha); return brush; }
+        public Brush B(Color c)
+        {
+            fill.Color = Ink.A(c, Alpha);
+            return fill;
+        }
 
         public Pen P(Color c, float width)
         {
-            pen.Color = Ink.A(c, Alpha);
-            pen.Width = width;
-            return pen;
+            stroke.Width = width;
+            stroke.Color = Ink.A(c, Alpha);
+            return stroke;
         }
 
         public void FillRound(RectangleF r, float radius, Color c)
@@ -893,9 +947,10 @@ namespace Tepi
         // Capital height centred on cy
         RectangleF LineBox(Font f, float x, float cy, float maxWidth, StringAlignment align)
         {
-            float h = f.Size * 2f;
-            float left = align == StringAlignment.Near ? x : align == StringAlignment.Far ? x - maxWidth : x - maxWidth / 2;
-            return new RectangleF(left + HalfPx, cy - h / 2 + Ink.CapShift(f) + HalfPx, maxWidth, h);
+            float tall = 2f * f.Size, left = x;
+            if (align == StringAlignment.Far) left -= maxWidth;
+            else if (align == StringAlignment.Center) left -= maxWidth / 2;
+            return new RectangleF(left + HalfPx, cy - tall / 2 + Ink.CapShift(f) + HalfPx, maxWidth, tall);
         }
 
         // One line, centred on cy, ellipsized
@@ -994,24 +1049,29 @@ namespace Tepi
         {
             if (Alpha >= 0.999f) { G.DrawImage(img, r); return; }
             if (Alpha <= 0.004f) return;
-            matrix.Matrix33 = Alpha;
-            imageAttr.SetColorMatrix(matrix);
+            Fade();
             picPts[0] = new PointF(r.Left, r.Top); picPts[1] = new PointF(r.Right, r.Top); picPts[2] = new PointF(r.Left, r.Bottom);
-            G.DrawImage(img, picPts, new RectangleF(0, 0, img.Width, img.Height), GraphicsUnit.Pixel, imageAttr);
+            G.DrawImage(img, picPts, new RectangleF(0, 0, img.Width, img.Height), GraphicsUnit.Pixel, fade);
         }
 
+        // Image attributes carrying Alpha
+        void Fade()
+        {
+            fadeMatrix.Matrix33 = Alpha;
+            fade.SetColorMatrix(fadeMatrix);
+        }
+
+        // Image stretched into r, clipped to a squircle
         public void Image(Image img, RectangleF r, float radius)
         {
-            matrix.Matrix33 = Alpha;
-            imageAttr.SetColorMatrix(matrix);
+            Fade();
             shape.Reset();
             Ink.AddRound(shape, r, radius);
-            using (var tb = new TextureBrush(img, new Rectangle(0, 0, img.Width, img.Height), imageAttr))
+            using (var texture = new TextureBrush(img, new Rectangle(0, 0, img.Width, img.Height), fade) { WrapMode = WrapMode.Clamp })
+            using (var place = new Matrix(r.Width / img.Width, 0, 0, r.Height / img.Height, r.X, r.Y))
             {
-                tb.WrapMode = WrapMode.Clamp;
-                tb.TranslateTransform(r.X, r.Y);
-                tb.ScaleTransform(r.Width / img.Width, r.Height / img.Height);
-                G.FillPath(tb, shape);
+                texture.Transform = place;
+                G.FillPath(texture, shape);
             }
         }
 

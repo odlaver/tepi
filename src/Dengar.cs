@@ -22,7 +22,7 @@ namespace Tepi
         bool HearFree { get { return settings.GetBool("listen.free", false) && DictMissing() == null; } }
 
         // Quiet whenever something else holds the mic
-        bool HearWanted { get { return HearOn && micPresent && !micMuted && (dictState == DictState.Off || hearTurn) && !RapatOn && micApps.Length == 0; } }
+        bool HearWanted { get { return HearOn && micPresent && !micMuted && (dictState == DictState.Off || hearTurn) && !RapatOn && micHolders.Length == 0; } }
 
         void StartHear()
         {
@@ -30,9 +30,15 @@ namespace Tepi
             ApplyHear();
         }
 
+        // Each problem warned once per setting change
+        string hearWarned;
+        bool hearFreeWarned;
+
         public void ApplyHear()
         {
             hearStale = true;
+            hearWarned = null;
+            hearFreeWarned = false;
             if (HearOn) { hearTick.Start(); HearCheck(); }
             else { hearTick.Stop(); StopHear(); }
         }
@@ -51,6 +57,7 @@ namespace Tepi
             if (hearTurn && dictState == DictState.Listening && (DateTime.UtcNow - hearTurnUtc).TotalSeconds > 15) EndHearTurn();
             if (hearStale) { hearStale = false; StopHear(); }
             if (!HearWanted) { StopHear(); return; }
+            if (Needs.MicDenied()) { StopHear(); HearWarn(Hear.NoMic); return; }
             if (hear != null && settings.GetBool("listen.debug", false)) Log.Write("dengar level " + hear.Level.ToString("0.00"));
             if (hear != null || hearBusy || DateTime.UtcNow < hearRetryUtc) return;
             hearBusy = true;
@@ -68,11 +75,31 @@ namespace Tepi
                 Post(delegate
                 {
                     hearBusy = false;
-                    if (error == null && HearWanted && !hearStale) { hear = h; return; }
-                    if (error != null) { Log.Write("dengar: " + error); hearRetryUtc = DateTime.UtcNow.AddSeconds(30); }
+                    if (error == null && HearWanted && !hearStale) { hear = h; hearWarned = null; HearFreeCheck(); return; }
+                    if (error != null) { Log.Write("dengar: " + error); hearRetryUtc = DateTime.UtcNow.AddSeconds(30); HearWarn(error); }
                     ThreadPool.QueueUserWorkItem(delegate { h.Dispose(); });
                 });
             });
+        }
+
+        // Retried every 30 s; said once
+        void HearWarn(string error)
+        {
+            if (error == hearWarned) return;
+            hearWarned = error;
+            if (error == Hear.NoEnglish) DictSay(Lang.T("Pengenal ucapan Inggris belum ada"), Lang.T("Klik untuk memasang"), false, OpenSiap);
+            else if (error == Hear.NoMic) { if (Needs.MicDenied()) DictSay(Lang.T("Windows menolak akses mikrofon"), Lang.T("Klik untuk membuka izinnya"), false, OpenMicPrivacy); }
+            else DictSay(Lang.T("Dengarkan terus gagal mulai"), Lang.T("Dicoba lagi tiap 30 detik"), false);
+        }
+
+        // Switched on, yet nothing can transcribe
+        void HearFreeCheck()
+        {
+            if (hearFreeWarned || !settings.GetBool("listen.free", false)) return;
+            string missing = DictMissing();
+            if (missing == null) return;
+            hearFreeWarned = true;
+            DictSay(Lang.T("Perintah bebas belum jalan"), Lang.T("Klik untuk menyiapkan"), false, OpenSiap);
         }
 
         // Likely commands need less certainty
@@ -135,6 +162,7 @@ namespace Tepi
             t.Title = d.Text;
             t.Detail = d.Detail;
             t.Page = PageVoice;
+            t.Data = d.Fix;
         }
 
         // "Tepi" heard: record the sentence
@@ -203,7 +231,7 @@ namespace Tepi
             dictCommand = false;
             dictState = DictState.Off;
             Kick();
-            if (error != null) { DictSay(error, "", true); return; }
+            if (error != null) { var fix = SpeechFix(error); DictSay(error, fix != null ? Lang.T("Klik untuk menyiapkan") : "", true, fix); return; }
             string rest;
             if (!ForTepi(text, out rest)) { Log.Write("dengar: bukan untuk Tepi"); return; }
             if (rest.Length == 0 || Words.Phantom(rest)) { DictSay(Lang.T("Ucapkan perintahnya sekalian"), Lang.T("Misalnya \"Tepi, buka Spotify\""), true); return; }

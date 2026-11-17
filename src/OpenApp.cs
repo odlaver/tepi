@@ -53,24 +53,9 @@ namespace Tepi
 
         static string Squash(string s) { return Regex.Replace((s ?? "").ToLowerInvariant(), @"[^\p{L}\p{Nd}]", ""); }
 
-        static int Distance(string a, string b)
-        {
-            if (Math.Abs(a.Length - b.Length) > 2) return 9;
-            var row = new int[b.Length + 1];
-            for (int j = 0; j <= b.Length; j++) row[j] = j;
-            for (int i = 1; i <= a.Length; i++)
-            {
-                int prev = row[0];
-                row[0] = i;
-                for (int j = 1; j <= b.Length; j++)
-                {
-                    int keep = row[j];
-                    row[j] = Math.Min(Math.Min(row[j] + 1, row[j - 1] + 1), prev + (a[i - 1] == b[j - 1] ? 0 : 1));
-                    prev = keep;
-                }
-            }
-            return row[b.Length];
-        }
+        // Shared with Start search; past 2 means far
+        static int Distance(string a, string b) { return AppMatch.Distance(a, b, 2); }
+
 
         // Exact, prefix, contains, then near typos
         static KeyValuePair<string, string>? FindApp(string spoken)

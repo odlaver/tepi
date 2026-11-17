@@ -60,13 +60,25 @@ namespace Tepi
 
                 var sp = Ai.Stt;
                 string engine = Ai.SttId == Ai.Offline ? Lang.T("Offline") : sp != null ? Ai.Label(sp) : "?";
-                add(Row(Lang.T("Mesin dikte"), Lang.F("{0} · diatur di halaman AI", engine), Button(Lang.T("Buka AI"), false, delegate { Go("ai"); })));
+                bool engineReady = island.DictMissing() == null;
+                add(Row(Lang.T("Mesin dikte"), Lang.F("{0} · diatur di halaman AI", engine),
+                    engineReady ? Button(Lang.T("Buka AI"), false, delegate { Go("ai"); }) : Button(Lang.T("Siapkan"), true, delegate { Go("siap"); })));
 
                 cap(Lang.T("Perintah suara"));
-                add(Row(Lang.T("Dengarkan terus"), Hear.Available ? Lang.T("Ucapkan \"Tepi, pause\", \"Tepi, open Spotify\", atau \"Tepi, turn on wifi\". Dikenali offline di laptop ini, bahasa Inggris.") : Lang.T("Windows tidak punya pengenal ucapan Inggris"), Switch("listen", false, on => { settings.Set("listen", on); settings.Save(); island.ApplyHear(); Rebuild(); })));
+                bool canHear = Hear.Available;
+                var listen = Switch("listen", false, on => { settings.Set("listen", on); settings.Save(); island.ApplyHear(); Rebuild(); });
+                // Stays switchable so it can turn off
+                listen.Enabled = canHear || listen.Checked;
+                add(Row(Lang.T("Dengarkan terus"), canHear ? Lang.T("Ucapkan \"Tepi, pause\", \"Tepi, open Spotify\", atau \"Tepi, turn on wifi\". Dikenali offline di laptop ini, bahasa Inggris.") : Lang.T("Butuh pengenal ucapan Inggris dari Windows"), listen));
+                if (!canHear)
+                {
+                    var get = Row(Lang.T("Pasang pengenal ucapan"), Lang.T("Sekali pasang, lalu Dengarkan terus bisa dinyalakan"), Button(Lang.T("Siapkan"), true, delegate { Go("siap"); }));
+                    get.Glyph = '';
+                    add(get);
+                }
                 // Off by default: audio may leave
                 string freeMissing = island.DictMissing();
-                string freeNote = freeMissing != null ? freeMissing + ". " + Lang.T("Atur di Pengaturan › AI")
+                string freeNote = freeMissing != null ? freeMissing + ". " + Lang.T("Siapkan dulu di halaman Siapkan suara dan AI.")
                     : Ai.SttId == Ai.Offline ? Lang.T("Kalimat biasa setelah \"Tepi\", bahasa Indonesia juga: \"Tepi, buka Brave\", \"Tepi, ingetin minum jam 4\". Ditranskrip offline di laptop ini.")
                     : Lang.F("Kalimat biasa setelah \"Tepi\", bahasa Indonesia juga: \"Tepi, buka Brave\", \"Tepi, ingetin minum jam 4\". Potongan suara sesudah \"Tepi\" dikirim ke {0}.", engine);
                 add(Row(Lang.T("Perintah bebas setelah Tepi"), freeNote, Switch("listen.free", false, on => { settings.Set("listen.free", on); settings.Save(); island.ApplyHear(); })));
@@ -107,7 +119,7 @@ namespace Tepi
 
             System.Windows.Forms.Timer fetchTick;
 
-            void OfflineRows(Action<KitRow> add, bool remote)
+            void OfflineRows(Action<KitRow> add, bool remote, Action fetching = null)
             {
                 var m = Speech.Model(settings.Get("dictate.model", "seimbang"));
                 string[] names = new string[Speech.Models.Length];
@@ -139,12 +151,18 @@ namespace Tepi
                 }
                 if (Speech.LocalReady(m))
                 {
+                    // Setup page: downloaded, but dictation still elsewhere
+                    if (fetching != null && Ai.SttId != Ai.Offline)
+                    {
+                        add(Row(Lang.T("Model sudah diunduh"), Lang.F("{0} di laptop ini", Mb(Speech.LocalBytes())), Button(Lang.T("Pakai untuk dikte"), true, delegate { fetching(); Rebuild(); })));
+                        return;
+                    }
                     add(Row(Lang.T("Siap dipakai"), remote ? Lang.F("{0} di laptop ini, dipakai saat internet putus", Mb(Speech.LocalBytes())) : Lang.F("{0} di laptop ini", Mb(Speech.LocalBytes())),
                         Button(Lang.T("Hapus"), false, delegate { Speech.RemoveLocal(); Rebuild(); })));
                     return;
                 }
                 string note = f != null && f.Error != null && !f.Cancel && f.Model == m.Id ? f.Error : Lang.T("whisper.cpp dan model dari Hugging Face, dicek SHA-256");
-                add(Row(Lang.T("Unduh model"), Mb(Speech.Missing(m)) + " · " + note, Button(Lang.T("Unduh"), !remote, delegate { island.FetchModel(m); Rebuild(); })));
+                add(Row(Lang.T("Unduh model"), Mb(Speech.Missing(m)) + " · " + note, Button(Lang.T("Unduh"), !remote, delegate { if (fetching != null) fetching(); island.FetchModel(m); Rebuild(); })));
             }
 
             KitRow fetchRow;

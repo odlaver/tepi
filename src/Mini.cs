@@ -74,7 +74,7 @@ namespace Tepi
         // In use: the island stays out
         bool MiniHeld()
         {
-            return expanded || pointerInside || keyboardMode || dragId != null || draggingOut || (menu != null && menu.Visible);
+            return expanded || pointerOver || keyboardMode || dragId != null || draggingOut || (menu != null && menu.Visible);
         }
 
         bool MiniOn() { return MiniWanted() && !miniPeek && !MiniHeld(); }
@@ -247,11 +247,11 @@ namespace Tepi
             if (!miniPeek) return;
             bool over = ShellOnScreen(0).Contains(c.X, c.Y);
             // Still pointer under reveal: start hover
-            if (over && !pointerInside && !clickThrough) OnMouseMove(new MouseEventArgs(MouseButtons.None, 0, c.X - lastLeft, c.Y - lastTop, 0));
+            if (over && !pointerOver && !clickThrough) OnMouseMove(new MouseEventArgs(MouseButtons.None, 0, c.X - lastLeft, c.Y - lastTop, 0));
             var near = ShellOnScreen((int)(8 * scale));
             bool close = near.Contains(c.X, c.Y);
             // Left before any real mouse message
-            if (pointerInside && !close) PointerLeave();
+            if (pointerOver && !close) PointerLeave();
             if (MiniHeld() || close) { miniNearUtc = now; return; }
             if ((now - miniNearUtc).TotalMilliseconds < MiniAwayMs) return;
             miniPeek = false;

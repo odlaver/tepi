@@ -133,7 +133,7 @@ namespace Tepi
         void PreviewLayout(bool on)
         {
             if (on && !expanded) Expand(DefaultPage(false));
-            else if (!on && expanded && !pointerInside) { expanded = false; Kick(); }
+            else if (!on && expanded && !pointerOver) { expanded = false; Kick(); }
         }
 
         void PreviewPage(int pg)
@@ -241,7 +241,7 @@ namespace Tepi
 
             static readonly string[][] Sections =
             {
-                new[] { "general", "Dasar", "", "0" }, new[] { "ai", "AI", "", "0" }, new[] { "phone", "HP", "", "0" }, new[] { "integrasi", "Integrasi", "", "0" },
+                new[] { "general", "Dasar", "", "0" }, new[] { "siap", "Siapkan suara dan AI", "", "0" }, new[] { "ai", "AI","", "0" }, new[] { "phone", "HP", "", "0" }, new[] { "integrasi", "Integrasi", "", "0" },
                 new[] { "look", "Tema dan warna", "", "1" }, new[] { "packs", "Paket tema", "", "1" },
                 new[] { "island", "Letak dan bentuk", "", "2" }, new[] { "behave", "Perilaku", "", "2" }, new[] { "idle", "Saat diam", "", "2" }, new[] { "home", "Ringkasan", "", "2" }, new[] { "tabs", "Tab panel", "", "2" },
                 new[] { "dock", "Dock dan taskbar", "", "3" },
@@ -253,7 +253,8 @@ namespace Tepi
             // One line under each page title
             static readonly Dictionary<string, string> SectionNotes = new Dictionary<string, string>
             {
-                { "general", "Bahasa, jam, pembaruan, dan data Tepi" }, { "ai", "Layanan AI untuk dikte, ringkasan, dan Suruh Tepi" },
+                { "general", "Bahasa, jam, pembaruan, dan data Tepi" }, { "siap", "Cek dan lengkapi yang dibutuhkan dikte, perintah suara, dan Suruh Tepi" },
+                { "ai", "Layanan AI untuk dikte, ringkasan, dan Suruh Tepi" },
                 { "phone", "Notifikasi, kode OTP, dan berkas dari HP" }, { "integrasi", "Tugas dan jadwal dari Kulia, Notion, Todoist, dan iCal" },
                 { "look", "Tema, material kaca, dan warna aksen" }, { "packs", "Gambar, sapaan, dan suara dari paket tema" },
                 { "island", "Di mana island tinggal dan bagaimana ia menempel" }, { "behave", "Kapan island menyingkir dan bagaimana panel terbuka" },
@@ -316,6 +317,13 @@ namespace Tepi
             {
                 base.OnShown(e);
                 BeginInvoke(new Action(delegate { island.OfferWhatsNew(this); }));
+            }
+
+            // Back from Windows settings: recheck
+            protected override void OnActivated(EventArgs e)
+            {
+                base.OnActivated(e);
+                if (section == "siap" && IsHandleCreated && SiapSig() != siapSig) Rebuild();
             }
 
             public void Go(string id)
@@ -1307,6 +1315,9 @@ namespace Tepi
                         break;
                     case "ai":
                         AiRows(add, cap);
+                        break;
+                    case "siap":
+                        SiapRows(add, cap);
                         break;
                     case "phone":
                         var phoneSw = Switch("phone", false, on =>

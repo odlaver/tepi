@@ -16,8 +16,8 @@ Sesi login disimpan terenkripsi dengan DPAPI Windows dan hanya bisa dibuka oleh 
 
 Buka **Pengaturan > Integrasi**:
 
-- **Notion**: buat integrasi internal di [notion.so/my-integrations](https://www.notion.so/my-integrations), salin tokennya, lalu bagikan database tugasmu ke integrasi itu (di Notion: **••• > Koneksi**). Pilih database, kolom tanggal, dan kolom selesai. Tugas bisa ditandai selesai dari Tepi kalau integrasinya diberi izin mengubah isi.
-- **Todoist**: tempel token API dari **Pengaturan > Integrasi > Developer** di Todoist. Tugas aktif yang punya tenggat ikut tampil dan bisa ditutup dari Tepi.
+- **Notion**: buat integrasi internal di [notion.so/my-integrations](https://www.notion.so/my-integrations) (tombol **Buat token Notion** di Tepi membukanya), salin tokennya, lalu bagikan database tugasmu ke integrasi itu (di Notion: **••• > Koneksi**). Pilih database, kolom tanggal, dan kolom selesai. Tugas bisa ditandai selesai dari Tepi kalau integrasinya diberi izin mengubah isi.
+- **Todoist**: tempel token API dari **Pengaturan > Integrasi > Developer** di Todoist (**Ambil token Todoist** di Tepi membuka halaman itu). Tugas aktif yang punya tenggat ikut tampil dan bisa ditutup dari Tepi.
 - **Kalender**: tempel tautan iCal (`https` atau `webcal`). Di Google Calendar, pakai **Secret address in iCal format** dari pengaturan kalender. Outlook, iCloud, dan aplikasi lain yang punya tautan iCal juga bisa. Paling banyak 12 kalender.
 
 Data diperbarui tiap 10 menit, dan saat tab Tugas atau Jadwal dibuka. Token dan tautan kalender disimpan terenkripsi dengan DPAPI Windows dan tidak pernah ditulis ke log.

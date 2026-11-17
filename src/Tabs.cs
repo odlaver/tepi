@@ -112,9 +112,10 @@ namespace Tepi
 
         float AgentsHeight()
         {
-            if (hub != null && hub.Error != null) return 214;
+            // A button needs room below, as Kuliah
+            if (hub != null && hub.Error != null) return 252;
             float qh = QuotaBlockH();
-            if (sessions.Count == 0) return 214 + Math.Max(0, qh - 8);
+            if (sessions.Count == 0) return (linked.Length == 0 ? 252 : 214) + Math.Max(0, qh - 8);
             return Clamp(PanelTop + 14 + qh + AgentsContentH(), 150, 360);
         }
 
@@ -129,8 +130,9 @@ namespace Tepi
 
         float MessagesHeight()
         {
-            if (!NotifOn || notifs.Count == 0) return 214;
-            if (notifAccess != Windows.UI.Notifications.Management.UserNotificationListenerAccessStatus.Allowed) return 252;
+            if (!NotifOn) return 252;
+            if (notifs.Count == 0) return 214;
+            if (toastAccess != Windows.UI.Notifications.Management.UserNotificationListenerAccessStatus.Allowed) return 252;
             return Clamp(PanelTop + 14 + NotifChipsH() + ShownNotifs().Count * 50, 150, 372);
         }
 
@@ -595,7 +597,7 @@ namespace Tepi
         {
             int hv = -1;
             if (!tabDotsDrawn && tabRects.Length == tabs.Length)
-                for (int i = 0; i < tabs.Length; i++) if (tabs[i] != page && hoverId == "tab" + tabs[i]) hv = i;
+                for (int i = 0; i < tabs.Length; i++) if (tabs[i] != page && hoverKey == "tab" + tabs[i]) hv = i;
             if (hv < 0) { tipTab = -1; return; }
             if (tipTab != tabs[hv]) { tipTab = tabs[hv]; tipSince = DateTime.UtcNow; }
             float t = ((float)(DateTime.UtcNow - tipSince).TotalSeconds - 0.4f) / 0.12f;
@@ -818,7 +820,7 @@ namespace Tepi
                 {
                     tabHover.Stop();
                     int pg;
-                    if (hoverId != null && hoverId.StartsWith("tab", StringComparison.Ordinal) && int.TryParse(hoverId.Substring(3), out pg) && pg != page) SetPage(pg, false);
+                    if (hoverKey != null && hoverKey.StartsWith("tab", StringComparison.Ordinal) && int.TryParse(hoverKey.Substring(3), out pg) && pg != page) SetPage(pg, false);
                 };
             }
             tabHover.Start();

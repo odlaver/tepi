@@ -129,7 +129,7 @@ namespace Tepi
         {
             if (convItems == null) return;
             var now = DateTime.UtcNow;
-            if (pointerInside) { convSeenUtc = now; return; }
+            if (pointerOver) { convSeenUtc = now; return; }
             if (ConvRunning) return;
             bool done = convJob != null && convJob.Finished;
             if (done) { if ((now - convDoneUtc).TotalSeconds > 4 && (now - convSeenUtc).TotalSeconds > 1.5) CloseConvert(); return; }

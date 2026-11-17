@@ -54,7 +54,7 @@ namespace Tepi
         void DockLeaveTick()
         {
             dockLeave.Stop();
-            if (expanded && !pointerInside) { expanded = false; Kick(); }
+            if (expanded && !pointerOver) { expanded = false; Kick(); }
         }
 
         List<string> DockPins()

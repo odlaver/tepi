@@ -90,8 +90,8 @@ namespace Tepi
             if (unread > 0) DrawCount(cx, face + 6, unread);
             else if (PrivacyOn)
             {
-                bool off = MicSilenced && camApps.Length == 0;
-                p.Icon(camApps.Length > 0 ? Ink.IcoCam : off ? IcoMicOff : Ink.IcoMic, 12f, off ? p.T.Negative : p.T.Sub, cx, face + 6);
+                bool off = MicSilenced && camHolders.Length == 0;
+                p.Icon(camHolders.Length > 0 ? Ink.IcoCam : off ? IcoMicOff : Ink.IcoMic, 12f, off ? p.T.Negative : p.T.Sub, cx, face + 6);
             }
         }
 

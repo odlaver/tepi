@@ -75,6 +75,7 @@ namespace Tepi
             put("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"dikte.wav\"\r\nContent-Type: audio/wav\r\n\r\n");
             body.Write(wav, 0, wav.Length);
             put("\r\n--" + boundary + "--\r\n");
+            Web.Tls();
             var result = new WebResult();
             var req = (HttpWebRequest)WebRequest.Create(url);
             req.Method = "POST";
@@ -190,6 +191,7 @@ namespace Tepi
         static string Download(string url, string path, string sha, Action<long> progress, Func<bool> cancelled)
         {
             string part = path + ".part";
+            Web.Tls();
             try
             {
                 var req = (HttpWebRequest)WebRequest.Create(url);
@@ -234,10 +236,44 @@ namespace Tepi
 
         static readonly Regex Stamp = new Regex(@"^\[(\d+):(\d+):(\d+)[.,](\d+) --> (\d+):(\d+):(\d+)[.,](\d+)\]\s*(.*)$");
 
+        // Windows status codes whisper-cli dies with
+        const int DllNotFound = unchecked((int)0xC0000135), DllInitFailed = unchecked((int)0xC0000142), IllegalInstruction = unchecked((int)0xC000001D);
+
+        static readonly string[] SetupErrors =
+        {
+            "Model offline belum diunduh", "Butuh Visual C++ runtime dari Microsoft", "Windows memblokir whisper.cpp", "Prosesor ini tidak didukung whisper.cpp", "whisper.cpp tidak bisa dijalankan",
+        };
+
+        // Blocked or unsupported: retrying will not help
+        public static volatile string LastSetupError;
+
+        // Fixed on the setup page
+        public static bool IsSetupError(string error)
+        {
+            foreach (var e in SetupErrors) if (Lang.T(e) == error) return true;
+            return false;
+        }
+
+        static string ExitError(int code)
+        {
+            if (code == DllNotFound || code == DllInitFailed) return Lang.T("Butuh Visual C++ runtime dari Microsoft");
+            if (code == IllegalInstruction) return Lang.T("Prosesor ini tidak didukung whisper.cpp");
+            return Lang.T("whisper.cpp gagal membaca rekaman");
+        }
+
+        // Smart App Control, antivirus, or policy
+        static string StartError(System.ComponentModel.Win32Exception ex)
+        {
+            int n = ex.NativeErrorCode;
+            if (n == 1260 || n == 4551 || n == 225 || n == 2 || n == 5) return Lang.T("Windows memblokir whisper.cpp");
+            return Lang.T("whisper.cpp tidak bisa dijalankan");
+        }
+
         public static SpeechResult Local(LocalModel m, byte[] wav, string lang, string prompt)
         {
             var res = new SpeechResult();
             if (!LocalReady(m)) { res.Error = Lang.T("Model offline belum diunduh"); return res; }
+            if (Needs.VcMissing()) { res.Error = Lang.T("Butuh Visual C++ runtime dari Microsoft"); return res; }
             string tmp = Path.Combine(Path.GetTempPath(), "tepi-dikte-" + Guid.NewGuid().ToString("N") + ".wav");
             try
             {
@@ -258,12 +294,20 @@ namespace Tepi
                     StandardOutputEncoding = Encoding.UTF8,
                     WorkingDirectory = LocalDir,
                 };
+                if (Sim.Has("wblock")) throw new System.ComponentModel.Win32Exception(4551);
                 using (var p = Process.Start(psi))
                 {
                     p.BeginErrorReadLine();
                     string output = p.StandardOutput.ReadToEnd();
                     if (!p.WaitForExit(600000)) { try { p.Kill(); } catch (Exception) { } res.Error = Lang.T("whisper.cpp terlalu lama"); return res; }
-                    if (p.ExitCode != 0) { Log.Write("whisper-cli keluar " + p.ExitCode); res.Error = Lang.T("whisper.cpp gagal membaca rekaman"); return res; }
+                    if (p.ExitCode != 0)
+                    {
+                        Log.Write("whisper-cli keluar " + p.ExitCode.ToString("X8"));
+                        res.Error = ExitError(p.ExitCode);
+                        if (IsSetupError(res.Error)) LastSetupError = res.Error;
+                        return res;
+                    }
+                    LastSetupError = null;
                     var text = new StringBuilder();
                     foreach (var raw in output.Split('\n'))
                     {
@@ -278,6 +322,7 @@ namespace Tepi
                     res.Text = text.ToString();
                 }
             }
+            catch (System.ComponentModel.Win32Exception ex) { Log.Write("whisper lokal: " + ex.NativeErrorCode + " " + ex.Message); res.Error = LastSetupError = StartError(ex); }
             catch (Exception ex) { Log.Write("whisper lokal: " + ex.Message); res.Error = Lang.T("whisper.cpp tidak bisa dijalankan"); }
             finally { try { File.Delete(tmp); } catch (Exception) { } }
             return res;

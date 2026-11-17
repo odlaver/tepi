@@ -33,7 +33,7 @@ namespace Tepi
             {
                 MediaFrameSourceGroup group = null;
                 MediaFrameSourceInfo info = null;
-                foreach (var g in MediaService.Await(MediaFrameSourceGroup.FindAllAsync()))
+                foreach (var g in WinRt.Get(MediaFrameSourceGroup.FindAllAsync()))
                 {
                     foreach (var s in g.SourceInfos)
                         if (s.SourceKind == MediaFrameSourceKind.Color) { group = g; info = s; break; }
@@ -46,9 +46,9 @@ namespace Tepi
                 var source = cap.FrameSources[info.Id];
                 PickSmall(source, width);
                 // Windows scales in the pipeline, not us
-                reader = MediaService.Await(cap.CreateFrameReaderAsync(source, MediaEncodingSubtypes.Bgra8, new BitmapSize { Width = (uint)width, Height = (uint)height }));
+                reader = WinRt.Get(cap.CreateFrameReaderAsync(source, MediaEncodingSubtypes.Bgra8, new BitmapSize { Width = (uint)width, Height = (uint)height }));
                 reader.FrameArrived += OnFrame;
-                if (MediaService.Await(reader.StartAsync()) != MediaFrameReaderStartStatus.Success) { Failed = true; Stop(); }
+                if (WinRt.Get(reader.StartAsync()) != MediaFrameReaderStartStatus.Success) { Failed = true; Stop(); }
             }
             catch (Exception ex) { Log.Write("mirror: " + ex.Message); Failed = true; Stop(); }
         }
@@ -88,11 +88,7 @@ namespace Tepi
 
         static void Wait(IAsyncAction op)
         {
-            using (var done = new ManualResetEvent(false))
-            {
-                op.Completed = delegate { try { done.Set(); } catch (ObjectDisposedException) { } };
-                if (op.Status == AsyncStatus.Started && !done.WaitOne(10000)) throw new TimeoutException("camera timeout");
-            }
+            if (!WinRt.Settle(op, 10000)) throw new TimeoutException("camera timeout");
             if (op.Status != AsyncStatus.Completed) throw new InvalidOperationException("camera " + op.Status);
         }
 

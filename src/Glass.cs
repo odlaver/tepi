@@ -246,7 +246,7 @@ namespace Tepi
                 var job = Volatile.Read(ref frostJob);
                 if (!frostRun || job == null) continue;
                 // Unseen: hidden, locked or screen off
-                if (!windowShown || dormant) { wait = 2000; continue; }
+                if (!onScreen || dormant) { wait = 2000; continue; }
                 if (Interlocked.Exchange(ref frostHint, 0) != 0) still = 0;
                 bool outgrown = last == null || !last.Covers(job);
                 // Mid-motion: the music wash waits too
@@ -690,7 +690,7 @@ namespace Tepi
         bool SurfaceSteady()
         {
             return flip < 0.001f && sw.Settled && sr.Settled && topGap.Settled &&
-                   (DateTime.UtcNow - switchedUtc).TotalSeconds > 0.5 && (current == View.Panel || sh.Settled);
+                   (DateTime.UtcNow - viewSinceUtc).TotalSeconds > 0.5 && (current == View.Panel || sh.Settled);
         }
 
         // TEPI_DUMP: frames, since glass skips screenshots

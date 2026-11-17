@@ -70,7 +70,7 @@ namespace Tepi
                 var size = new Native.SIZE(cw, ch);
                 var src = new Native.POINT(0, 0);
                 var blend = new Native.BLENDFUNCTION { SourceConstantAlpha = 255, AlphaFormat = 1 };
-                Native.UpdateLayeredWindow(Handle, IntPtr.Zero, ref dst, ref size, memDC, ref src, 0, ref blend, Native.ULW_ALPHA);
+                Native.UpdateLayeredWindow(Handle, IntPtr.Zero, ref dst, ref size, surface.Dc, ref src, 0, ref blend, Native.ULW_ALPHA);
                 if (dumpDir != null) DumpDock();
             }
 
@@ -592,7 +592,7 @@ namespace Tepi
                 // Hover weights, so fading plates redraw
                 if (hotInId != null && Owns(hotInId, left)) sb.Append('h').Append(hotInId).Append((int)(HotK(hotInId) * 24));
                 if (hotOutId != null && Owns(hotOutId, left)) sb.Append('o').Append(hotOutId).Append((int)(HotK(hotOutId) * 24));
-                if (hoverId != null && Owns(hoverId, left)) sb.Append('v').Append(hoverId);
+                if (hoverKey != null && Owns(hoverKey, left)) sb.Append('v').Append(hoverKey);
                 if (pressId != null && Owns(pressId, left)) sb.Append('p').Append(pressId);
                 var now = DateTime.Now;
                 if (left)
@@ -677,7 +677,7 @@ namespace Tepi
             void DrawTop()
             {
                 RectangleF anchor;
-                string id = keyMode ? keySel : hoverId;
+                string id = keyMode ? keySel : hoverKey;
                 string text = LabelFor(id, out anchor);
                 float t = labelShow.Value;
                 if (text.Length > 0 && !anchor.IsEmpty) AimLabel(id, text, anchor, t);
@@ -803,7 +803,7 @@ namespace Tepi
             // Hover plate faded by weight, press solid
             void SpanPlate(RectangleF r, string id, float hk)
             {
-                if (pressId == id && hoverId == id) p.FillRound(r, PlateR, p.T.FillPressed);
+                if (pressId == id && hoverKey == id) p.FillRound(r, PlateR, p.T.FillPressed);
                 else if (hk > 0) p.FillRound(r, PlateR, Ink.A(p.T.FillHover, hk));
             }
 
@@ -961,7 +961,7 @@ namespace Tepi
                     case "system": open = delegate { Open("taskmgr.exe"); }; break;
                 }
                 Hit(r, hid, open, null);
-                if (open != null && pressId == hid && hoverId == hid) p.FillRound(r, 12, p.T.FillPressed);
+                if (open != null && pressId == hid && hoverKey == hid) p.FillRound(r, 12, p.T.FillPressed);
                 else if (open != null && hk > 0) p.FillRound(r, 12, Ink.A(p.T.Fill, hk));
                 float cy = r.Y + r.Height / 2;
                 switch (id)

@@ -27,6 +27,8 @@ namespace Tepi
         public bool Ok = true;
         // The volume HUD already answers
         public bool Quiet;
+        // Toast click opens the fix
+        public Action Fix;
     }
 
     // Every command Tepi runs without the AI
@@ -249,7 +251,13 @@ namespace Tepi
         CmdDone Radio(bool wifi, bool on)
         {
             if (wifi ? !radios.HasWifi : !radios.HasBluetooth) return Failed(wifi ? Lang.T("Tidak ada Wi-Fi") : Lang.T("Tidak ada Bluetooth"));
-            if (radios.Denied) return Failed(Lang.T("Windows tidak mengizinkan Tepi mengatur radio"));
+            if (radios.Denied)
+            {
+                var no = Failed(Lang.T("Windows tidak mengizinkan Tepi mengatur radio"));
+                no.Detail = Lang.T("Klik untuk membuka izinnya");
+                no.Fix = delegate { OpenSettings("ms-settings:privacy-radios"); };
+                return no;
+            }
             radios.Set(wifi, on);
             return Done(wifi ? Ink.IcoWifi : Ink.IcoBluetooth, wifi ? (on ? Lang.T("Wi-Fi dinyalakan") : Lang.T("Wi-Fi dimatikan")) : (on ? Lang.T("Bluetooth dinyalakan") : Lang.T("Bluetooth dimatikan")));
         }

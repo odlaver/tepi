@@ -30,11 +30,11 @@ namespace Tepi
             Do(delegate
             {
                 int v = Interlocked.Exchange(ref pendingLevel, -1);
-                if (v >= 0 && endpoint != null) endpoint.SetMasterVolumeLevelScalar(v / 1000f, ref ctx);
+                if (v >= 0 && output != null) output.SetMasterVolumeLevelScalar(v / 1000f, ref ctx);
             });
         }
 
-        public void SetMute(bool mute) { Do(delegate { if (endpoint != null) endpoint.SetMute(mute, ref ctx); }); }
+        public void SetMute(bool mute) { Do(delegate { if (output != null) output.SetMute(mute, ref ctx); }); }
 
         public void RefreshDevices() { Do(PublishDevices); }
 
@@ -61,7 +61,7 @@ namespace Tepi
             try
             {
                 IntPtr raw;
-                if (enumerator.EnumAudioEndpoints(0, 1, out raw) == 0 && raw != IntPtr.Zero)
+                if (deviceEnum.EnumAudioEndpoints(0, 1, out raw) == 0 && raw != IntPtr.Zero)
                 {
                     var col = (IMMDeviceCollection)Marshal.GetObjectForIUnknown(raw);
                     Marshal.Release(raw);
@@ -77,7 +77,7 @@ namespace Tepi
                     Marshal.ReleaseComObject(col);
                 }
                 IMMDevice cur;
-                if (enumerator.GetDefaultAudioEndpoint(0, 1, out cur) == 0 && cur != null) cur.GetId(out def);
+                if (deviceEnum.GetDefaultAudioEndpoint(0, 1, out cur) == 0 && cur != null) cur.GetId(out def);
             }
             catch (Exception ex) { Log.Write("audio devices: " + ex.Message); }
             var h = DevicesChanged;
@@ -124,7 +124,7 @@ namespace Tepi
             var h = DefaultChanged;
             if (h == null || string.IsNullOrEmpty(id)) return;
             IMMDevice dev;
-            if (enumerator.GetDevice(id, out dev) != 0 || dev == null) return;
+            if (deviceEnum.GetDevice(id, out dev) != 0 || dev == null) return;
             var d = Describe(dev);
             if (d != null) h(d);
         }
@@ -271,12 +271,12 @@ namespace Tepi
         {
             lock (work) work.Enqueue(delegate
             {
-                if (MediaService.Await(Radio.RequestAccessAsync()) != RadioAccessStatus.Allowed) { Denied = true; Raise(); return; }
+                if (WinRt.Get(Radio.RequestAccessAsync()) != RadioAccessStatus.Allowed) { Denied = true; Raise(); return; }
                 var r = isWifi ? wifi : bluetooth;
                 if (r == null) return;
                 bool want = on ?? r.State != RadioState.On;
                 if ((r.State == RadioState.On) == want) return;
-                if (MediaService.Await(r.SetStateAsync(want ? RadioState.On : RadioState.Off)) != RadioAccessStatus.Allowed) Denied = true;
+                if (WinRt.Get(r.SetStateAsync(want ? RadioState.On : RadioState.Off)) != RadioAccessStatus.Allowed) Denied = true;
                 Read();
             });
             signal.Set();
@@ -286,7 +286,7 @@ namespace Tepi
         {
             try
             {
-                foreach (var r in MediaService.Await(Radio.GetRadiosAsync()))
+                foreach (var r in WinRt.Get(Radio.GetRadiosAsync()))
                 {
                     if (r.Kind == RadioKind.WiFi && wifi == null) wifi = r;
                     else if (r.Kind == RadioKind.Bluetooth && bluetooth == null) bluetooth = r;

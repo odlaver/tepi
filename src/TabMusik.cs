@@ -79,15 +79,15 @@ namespace Tepi
             var mayReplace = new List<string>();
             try
             {
-                var mgr = MediaService.Await(GlobalSystemMediaTransportControlsSessionManager.RequestAsync());
+                var mgr = WinRt.Get(GlobalSystemMediaTransportControlsSessionManager.RequestAsync());
                 foreach (var s in mgr.GetSessions())
                 {
                     bool playing = s.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
                     string t = "";
-                    try { t = MediaService.Await(s.TryGetMediaPropertiesAsync()).Title ?? ""; } catch (Exception) { }
+                    try { t = WinRt.Get(s.TryGetMediaPropertiesAsync()).Title ?? ""; } catch (Exception) { }
                     // Someone's paused tutorial tab stays untouched
                     if (t.Length > 0 && (playing || OpenedByTepi(t))) mayReplace.Add(t);
-                    if (playing) { try { MediaService.Await(s.TryPauseAsync()); } catch (Exception) { } }
+                    if (playing) { try { WinRt.Get(s.TryPauseAsync()); } catch (Exception) { } }
                 }
             }
             catch (Exception ex) { Log.Write("media jeda: " + ex.Message); }
@@ -124,12 +124,12 @@ namespace Tepi
             {
                 try
                 {
-                    var mgr = MediaService.Await(GlobalSystemMediaTransportControlsSessionManager.RequestAsync());
+                    var mgr = WinRt.Get(GlobalSystemMediaTransportControlsSessionManager.RequestAsync());
                     foreach (var s in mgr.GetSessions())
                     {
                         if (s.GetPlaybackInfo().PlaybackStatus != GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing) continue;
                         string t = "";
-                        try { t = MediaService.Await(s.TryGetMediaPropertiesAsync()).Title ?? ""; } catch (Exception) { }
+                        try { t = WinRt.Get(s.TryGetMediaPropertiesAsync()).Title ?? ""; } catch (Exception) { }
                         // An ad plays first; that's started too
                         if (string.IsNullOrEmpty(title) || t.Length > 0) return true;
                     }

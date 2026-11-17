@@ -45,7 +45,7 @@ namespace Tepi
         {
             id = null;
             IMMDevice dev;
-            if (enumerator.GetDefaultAudioEndpoint(1, role, out dev) != 0 || dev == null) return null;
+            if (deviceEnum.GetDefaultAudioEndpoint(1, role, out dev) != 0 || dev == null) return null;
             dev.GetId(out id);
             var iid = typeof(IAudioEndpointVolume).GUID;
             object o;
@@ -105,7 +105,7 @@ namespace Tepi
         }
 
         // Muted while an app listens: say so
-        bool MicSilenced { get { return micMuted && micApps.Length > 0; } }
+        bool MicSilenced { get { return micMuted && micHolders.Length > 0; } }
 
         string MicTitle() { return toast != null && toast.Flag ? Lang.T("Mikrofon mati") : Lang.T("Mikrofon nyala"); }
 

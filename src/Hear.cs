@@ -346,8 +346,12 @@ namespace Tepi
             return new Grammar(gb) { Name = "panggil" };
         }
 
+        // Why Start failed, for the island's warnings
+        public const string NoEnglish = "no English recognizer", NoMic = "mic tidak bisa dibuka";
+
         static RecognizerInfo English()
         {
+            if (Sim.Has("noeng")) return null;
             RecognizerInfo any = null;
             foreach (var r in SpeechRecognitionEngine.InstalledRecognizers())
             {
@@ -390,7 +394,7 @@ namespace Tepi
             try
             {
                 var info = English();
-                if (info == null) return "no English recognizer";
+                if (info == null) return NoEnglish;
                 var e = new SpeechRecognitionEngine(info);
                 engine = e;
                 LoadCommands(e, wake, apps, Say);
@@ -410,7 +414,7 @@ namespace Tepi
                 tap = new Tap(new Agc(callPipe == null ? new Stream[] { pipe } : new Stream[] { pipe, callPipe }));
                 rec = new Recorder(false, tap, comms);
                 startUtc = DateTime.UtcNow;
-                if (!rec.Start()) { Dispose(); return "mic tidak bisa dibuka"; }
+                if (!rec.Start()) { Dispose(); return NoMic; }
                 e.SetInputToAudioStream(pipe, Pcm16k);
                 // "Tepi stop" may go on to "stop it": don't wait long to find out
                 e.EndSilenceTimeout = TimeSpan.FromMilliseconds(150);

@@ -13,9 +13,9 @@ namespace Tepi
 
         void TrackMeeting()
         {
-            if (micApps.Length == 0) { micSinceUtc = DateTime.MinValue; meetApp = ""; return; }
+            if (micHolders.Length == 0) { micSinceUtc = DateTime.MinValue; meetApp = ""; return; }
             if (micSinceUtc == DateTime.MinValue) micSinceUtc = DateTime.UtcNow;
-            if (Array.IndexOf(micApps, meetApp) < 0) meetApp = micApps[0];
+            if (Array.IndexOf(micHolders, meetApp) < 0) meetApp = micHolders[0];
         }
 
         bool MeetingOn

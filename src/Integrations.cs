@@ -99,6 +99,8 @@ namespace Tepi
                 row.Invalidate();
             }
 
+            const string NotionTokenUrl = "https://www.notion.so/my-integrations", TodoistTokenUrl = "https://app.todoist.com/app/settings/integrations/developer";
+
             Control Pair(Control a, Control b)
             {
                 var p = new Panel { BackColor = KitInk.Group };
@@ -181,6 +183,9 @@ namespace Tepi
                     field.Submit = delegate { go.PerformClick(); };
                     row = Row("Notion", Lang.T("Token integrasi atau token pribadi"), Pair(field, go));
                     add(row);
+                    var make = Row(Lang.T("Buat token Notion"), Lang.T("Buat integrasi internal, salin tokennya, lalu bagikan database tugasmu ke integrasi itu"), Button(Lang.T("Buka"), false, delegate { OpenUrl(NotionTokenUrl); }));
+                    make.Glyph = '';
+                    add(make);
                     return;
                 }
                 var status = Row("Notion", Detail(n), Button(Lang.T("Lepas"), false, delegate { hub.DropNotion(); Rebuild(); }));
@@ -416,6 +421,9 @@ namespace Tepi
                 field.Submit = delegate { go.PerformClick(); };
                 row = Row("Todoist", Lang.T("Token dari Integrasi › Developer"), Pair(field, go));
                 add(row);
+                var make = Row(Lang.T("Ambil token Todoist"), Lang.T("Salin API token di halaman Developer"), Button(Lang.T("Buka"), false, delegate { OpenUrl(TodoistTokenUrl); }));
+                make.Glyph = '';
+                add(make);
             }
 
             void CalendarRows(SourceHub hub, Action<KitRow> add)
@@ -436,7 +444,7 @@ namespace Tepi
                 KitButton go = null;
                 go = Button(Lang.T("Tambah"), true, delegate { AddCalendar(field, go, addRow); });
                 field.Submit = delegate { go.PerformClick(); };
-                addRow = Row(Lang.T("Tambah kalender"), Lang.T("Tautan .ics atau webcal, disimpan terenkripsi"), Pair(field, go));
+                addRow = Row(Lang.T("Tambah kalender"), Lang.T("Tautan .ics atau webcal, misalnya alamat rahasia Google Calendar"), Pair(field, go));
                 add(addRow);
             }
 

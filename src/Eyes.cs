@@ -343,14 +343,16 @@ namespace Tepi
             if (r.Height < 0.5f) return;
             float bottom = Math.Min(r.Width, r.Height * 2) / 2, top = Math.Min(r.Height / 2, r.Width / 2 * (1 - lid));
             eyeShape.Reset();
-            if (top > 0.25f)
+            float lower = bottom * 2, upper = top * 2;
+            // Round underside, then the lid edge
+            eyeShape.AddArc(r.Right - lower, r.Bottom - lower, lower, lower, 0, 90);
+            eyeShape.AddArc(r.X, r.Bottom - lower, lower, lower, 90, 90);
+            if (top <= 0.25f) eyeShape.AddLine(r.X, r.Y, r.Right, r.Y);
+            else
             {
-                eyeShape.AddArc(r.X, r.Y, top * 2, top * 2, 180, 90);
-                eyeShape.AddArc(r.Right - top * 2, r.Y, top * 2, top * 2, 270, 90);
+                eyeShape.AddArc(r.X, r.Y, upper, upper, 180, 90);
+                eyeShape.AddArc(r.Right - upper, r.Y, upper, upper, 270, 90);
             }
-            else eyeShape.AddLine(r.X, r.Y, r.Right, r.Y);
-            eyeShape.AddArc(r.Right - bottom * 2, r.Bottom - bottom * 2, bottom * 2, bottom * 2, 0, 90);
-            eyeShape.AddArc(r.X, r.Bottom - bottom * 2, bottom * 2, bottom * 2, 90, 90);
             eyeShape.CloseFigure();
             g.FillPath(p.B(c), eyeShape);
         }

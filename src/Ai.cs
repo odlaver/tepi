@@ -192,6 +192,13 @@ namespace Tepi
             return p.Models.Length > 0 ? p.Models[0] : "";
         }
 
+        // Local server closed, or no model
+        static string LocalMissing(AiProvider p)
+        {
+            var r = Web.Send("GET", BaseUrl(p) + "models", Auth(p, ""), null, 5000);
+            return r.Status == 0 ? Lang.F("{0} tidak jalan di laptop ini", Label(p)) : Lang.F("Belum ada model di {0}", Label(p));
+        }
+
         public static string DefaultModel(AiProvider p) { return p.Models.Length > 0 ? p.Models[0] : Lang.T("model pertama di server"); }
 
         // One reply: text, or tool calls
@@ -222,7 +229,7 @@ namespace Tepi
             if (!Ready(p)) { error = p.Id == "custom" && BaseUrl(p).Length == 0 ? Lang.T("Alamat server belum diisi") : Lang.F("Key {0} belum diisi", Label(p)); return null; }
             string key = Key(p);
             string model = Model(p, key);
-            if (model.Length == 0) { error = Lang.F("Model {0} belum dipilih", Label(p)); return null; }
+            if (model.Length == 0) { error = p.NoKey ? LocalMissing(p) : Lang.F("Model {0} belum dipilih", Label(p)); return null; }
             return p.Anthropic ? AskAnthropic(p, key, model, system, turns, tools, out error) : AskOpenAi(p, key, model, system, turns, tools, out error);
         }
 

@@ -319,7 +319,8 @@ namespace Tepi
             const int n = 8;
             float cx, cy, d = ToggleD(n), hw = r.Width / 4;
             ToggleSlot(r, 0, n, out cx, out cy);
-            CircleToggle(cx, cy, d, Ink.IcoWifi, radios.WifiOn, radios.HasWifi, Lang.T("Wi-Fi"), "tileWifi", actWifi, null, hw);
+            string wifi = WifiLabel();
+            CircleToggle(cx, cy, d, Ink.IcoWifi, radios.WifiOn, radios.HasWifi, wifi.Length > 11 ? wifi.Substring(0, 10) + "…" : wifi, "tileWifi", actWifi, delegate { OpenSettings("ms-availablenetworks:"); }, hw);
             ToggleSlot(r, 1, n, out cx, out cy);
             CircleToggle(cx, cy, d, Ink.IcoBluetooth, radios.BluetoothOn, radios.HasBluetooth, Lang.T("Bluetooth"), "tileBt", actBt, null, hw);
             // Long labels sit at row ends
@@ -350,6 +351,14 @@ namespace Tepi
             float start = r.X + (r.Width - inRow * d - (inRow - 1) * gx) / 2;
             cx = start + (i % cols) * (d + gx) + d / 2;
             cy = r.Y + gy * (row + 1) + block * row + d / 2;
+        }
+
+        // Joined but not online says so
+        internal string WifiLabel()
+        {
+            var n = net.Current;
+            return n.Wifi && n.Any && n.Captive ? Lang.T("Perlu login") : n.Wifi && n.Any && !n.Online ? Lang.T("Tanpa internet")
+                : n.Wifi && n.Name.Length > 0 ? n.Name : Lang.T("Wi-Fi");
         }
 
         void OpenSettings(string uri)

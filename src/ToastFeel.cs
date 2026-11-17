@@ -84,7 +84,7 @@ namespace Tepi
             float dx = mouse.X - swipeFrom;
             if (!swiping && Math.Abs(dx) < 6) return false;
             swiping = true;
-            pressedId = null;
+            pressKey = null;
             swipe.Snap(dx);
             Kick();
             return true;
@@ -95,7 +95,7 @@ namespace Tepi
             swipeFrom = float.NaN;
             if (!swiping) return false;
             swiping = false;
-            pressedId = null;
+            pressKey = null;
             float dx = swipe.Value;
             if (Math.Abs(dx) > Math.Max(60, shell.Width * 0.25f)) Fling(Math.Sign(dx));
             else { Springs.Tune(swipe, 0.3f, 0.8f); swipe.Target = 0; }

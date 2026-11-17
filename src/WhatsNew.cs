@@ -20,6 +20,22 @@ namespace Tepi
         {
             new Note
             {
+                Version = "2.6.2",
+                Items = new[]
+                {
+                    new[] { "Siapkan suara dan AI", "Halaman baru di Pengaturan yang mengecek mikrofon, mesin dikte, layanan teks, dan pengenal ucapan, lalu memandu yang kurang: key Groq gratis, model offline, Ollama, atau layanan lain.", "" },
+                    new[] { "Dengarkan terus", "Ucapkan \"Tepi, pause\", \"Tepi, open Spotify\", atau \"Tepi, turn on wifi\" tanpa menekan tombol. Dikenali offline, dalam bahasa Inggris. Nyalakan di Pengaturan › Dikte.", "" },
+                    new[] { "Perintah perangkat dan lagu", "Suruh Tepi menyalakan Wi-Fi dan Bluetooth, mengatur kecerahan, membuka aplikasi, dan memutar lagu dari judulnya, misalnya \"putar Evaluasi dari Hindia\".", "" },
+                    new[] { "Lagu favorit", "Tempel tautan YouTube di Pengaturan › Musik, lalu bilang \"putar lagu biasa\".", "" },
+                    new[] { "Pesan yang menunjukkan jalan", "Saat dikte, rapat, atau Dengarkan terus belum bisa jalan, notifikasinya menyebut sebabnya. Klik untuk membuka tempat memperbaikinya, misalnya izin mikrofon Windows.", "" },
+                    new[] { "Dock lebih lengkap", "Pengaturan cepat bergaya Windows 11, pencarian Start yang paham singkatan seperti \"wa\" untuk WhatsApp dan bisa mencari berkas, serta jendela yang mengecil masuk ke ikonnya saat diminimalkan.", "" },
+                    new[] { "Dari laporan pengguna", "Kirim saran terkirim lagi, Dock tetap di atas jendela lain, menu tertutup saat diklik di luar, klik ikon aplikasi yang di depan untuk meminimalkannya, dan tile Wi-Fi menyebut nama jaringan.", "" },
+                    new[] { "Coret di Edit gambar", "Coret bebas di atas screenshot dengan pilihan warna dan ketebalan, lalu urungkan per langkah. Kontribusi dari movlution.", "" },
+                    new[] { "Lebih halus", "Toggle dan Pengaturan bergerak lebih halus, lingkaran pengirim memakai warna aplikasinya, dan toast bisa digeser. Pesan, isi rak, dan tugas yang dihapus atau ditandai selesai bisa diurungkan selama 5 detik.", "" },
+                },
+            },
+            new Note
+            {
                 Version = "2.6.1",
                 Items = new[]
                 {

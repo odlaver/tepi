@@ -15,6 +15,12 @@ namespace Tepi
                 var text = Ai.Text;
                 var all = new List<AiProvider>(Ai.Providers);
                 var names = all.ConvertAll(Ai.Label).ToArray();
+                bool ready = Ai.Ready(text) && island.DictMissing() == null;
+                var guide = Row(ready ? Lang.T("Panduan langkah demi langkah") : Lang.T("Belum siap"),
+                    ready ? Lang.T("Cek mikrofon, mesin dikte, dan pengenal ucapan") : Lang.T("Key gratis, model offline, atau Ollama, dipandu satu per satu"),
+                    Button(Lang.T("Buka panduan"), !ready, delegate { Go("siap"); }));
+                guide.Glyph = ready ? '' : '';
+                add(guide);
                 cap(Lang.T("Teks"));
                 add(Row(Lang.T("Layanan teks"), Lang.T("Ringkasan rapat, Suruh Tepi, dan perbaiki teks terpilih"),
                     Popup(names, all.IndexOf(text), i => { settings.Set("ai.text", all[i].Id); settings.Save(); Rebuild(); })));
@@ -79,21 +85,22 @@ namespace Tepi
                     Say(row(), Lang.T("Memeriksa…"));
                     ThreadPool.QueueUserWorkItem(delegate
                     {
-                        string err;
-                        try { err = Ai.Check(p, Ai.Key(p)); }
+                        string err, model = "";
+                        try { err = Ai.Check(p, Ai.Key(p)); if (err == null) model = Ai.Model(p, Ai.Key(p)); }
                         catch (Exception ex) { err = Lang.F("Tidak tersambung ke {0}", Ai.Label(p)); Log.Write("ai tes: " + ex.GetType().Name); }
                         island.Post(delegate
                         {
                             if (b.IsDisposed) return;
                             b.Enabled = true;
-                            Say(row(), err ?? Lang.F("Tersambung, model {0}", Ai.Model(p, Ai.Key(p))));
+                            Say(row(), err ?? (model.Length > 0 ? Lang.F("Tersambung, model {0}", model) : Lang.T("Tersambung, tapi belum ada model")));
                         });
                     });
                 });
                 return b;
             }
 
-            void KeyRows(Action<KitRow> add, AiProvider p)
+            // Checked with the service before saving
+            KitRow KeyRow(AiProvider p, string title, string detail, Action saved)
             {
                 var field = new KitField(Ui, true, p.KeyHint ?? "…", 200);
                 KitRow row = null;
@@ -112,7 +119,13 @@ namespace Tepi
                         catch (Exception ex) { err = Lang.F("Tidak tersambung ke {0}", Ai.Label(p)); Log.Write("ai cek: " + ex.GetType().Name); }
                         island.Post(delegate
                         {
-                            if (err == null) { if (key.Length > 0) Ai.SaveKey(p, key); else Ai.DropKey(p); Rebuild(); return; }
+                            if (err == null)
+                            {
+                                if (key.Length > 0) Ai.SaveKey(p, key); else Ai.DropKey(p);
+                                if (saved != null) saved();
+                                Rebuild();
+                                return;
+                            }
                             if (go.IsDisposed) return;
                             go.Enabled = field.Enabled = true;
                             Say(row, err);
@@ -120,9 +133,14 @@ namespace Tepi
                     });
                 });
                 field.Submit = delegate { go.PerformClick(); };
-                row = Row(Lang.F("Key {0}", Ai.Label(p)), p.Id == "groq" ? Lang.T("Gratis dari console.groq.com") : Lang.T("Disimpan terenkripsi di laptop ini"), Pair(field, go));
+                row = Row(title, detail, Pair(field, go));
                 row.Glyph = '\uE8D7';
-                add(row);
+                return row;
+            }
+
+            void KeyRows(Action<KitRow> add, AiProvider p)
+            {
+                add(KeyRow(p, Lang.F("Key {0}", Ai.Label(p)), p.Id == "groq" ? Lang.T("Gratis dari console.groq.com") : Lang.T("Disimpan terenkripsi di laptop ini"), null));
                 if (!string.IsNullOrEmpty(p.KeyUrl))
                 {
                     var link = Row(Lang.F("Buat key {0}", Ai.Label(p)), new Uri(p.KeyUrl).Host, Button(Lang.T("Buka"), false, delegate { OpenUrl(p.KeyUrl); }));

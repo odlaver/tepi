@@ -303,6 +303,10 @@ namespace Tepi
         bool OnKeeperKey(int msg, IntPtr w, IntPtr l)
         {
             int vk = w.ToInt32();
+            // Shift and the right Ctrl/Alt stay here: they start dictation, and
+            // once the desktop has the focus back it hides their release
+            bool ext = ((l.ToInt64() >> 24) & 1) != 0;
+            if (parked && (vk == VkShift || (ext && (vk == VkCtrl || vk == VkAlt)))) return false;
             if (!parked || vk == VkLWin || vk == VkRWin || vk == Mask || Held(VkLWin) || Held(VkRWin)) return false;
             parked = false;
             handedBack = true;

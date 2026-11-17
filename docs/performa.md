@@ -12,6 +12,26 @@ Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian k
 
 Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan jumlah thread, jadi angka di sana lebih kecil. Sejak 2.2, bagian yang hidup digambar tepat pada refresh layar, tanpa frame kosong di antaranya, jadi musik sekitar sepertiga lebih ringan. Di 2.5, visualizer turun ke 24 kali per detik dan penangkap suaranya hanya bangun sekali per frame. Diukur 2 November 2026 dengan menghitung siklus CPU, 2.5 dan 2.4 berjalan berdampingan: musik dengan visualizer 7% lebih ringan, island diam dengan musik 10% lebih ringan, panel terbuka sama, memori selisih 1 MB. Sambungan HP mati sampai dinyalakan; selama menyala, Tepi hanya menunggu pesan dari HP.
 
+## 2.6.2
+
+Diukur 17 November 2026 di laptop yang sama, saat laptop juga menjalankan pekerjaan lain (terminal dan beberapa proses build), jadi angkanya lebih berisik daripada pengukuran sebelumnya. Tiap kondisi dibiarkan tenang 4 detik lalu diukur 8 detik; angka di bawah adalah median dari 3 putaran.
+
+| Kondisi | CPU |
+|---|---|
+| Island diam | 0,6% (putaran: 0,8 · 0,2 · 0,6) |
+| Timer fokus di island | 2,7% (1,4 · 2,9 · 2,7) |
+| Panel terbuka, rata-rata 11 tab | 1,2% (1,2 · 0,7 · 1,5) |
+
+| Memori (private working set) | MB |
+|---|---|
+| Diam, setelah panel ditutup | 6 |
+| Diam, sesaat setelah start | 18 |
+| Panel terbuka | 18–27 |
+
+Membuka panel dan pindah tab rata-rata 3–6 ms per frame (`TEPI_FPS=1`). Saat pindah tab beruntun, frame terlama 14 ms; gambar pertama sebuah halaman bisa sampai 39 ms.
+
+Di 2.6.2 island tidak lagi bereaksi pada gerakan kursor dan kursor teks di seluruh Windows: hanya perpindahan jendela utuh yang membangunkan kaca dan pemeriksaan Dock.
+
 ## Semua tampilan, keadaan tenang
 
 Diukur 5 November 2026 dengan data asli (Kulia, lirik, naskah prompter): tiap tampilan diberi 4 detik untuk tenang, lalu CPU dihitung selama 8 detik.

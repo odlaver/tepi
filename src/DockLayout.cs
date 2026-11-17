@@ -91,19 +91,13 @@ namespace Tepi
                 FreeCanvas();
                 cw = w;
                 ch = h;
-                var bmi = new Native.BITMAPINFOHEADER { biSize = Marshal.SizeOf(typeof(Native.BITMAPINFOHEADER)), biWidth = w, biHeight = -h, biPlanes = 1, biBitCount = 32 };
-                IntPtr screen = Native.GetDC(IntPtr.Zero);
-                memDC = Native.CreateCompatibleDC(screen);
-                Native.ReleaseDC(IntPtr.Zero, screen);
-                IntPtr bits;
-                dib = Native.CreateDIBSection(memDC, ref bmi, 0, out bits, IntPtr.Zero, 0);
-                oldBmp = Native.SelectObject(memDC, dib);
-                canvas = new Bitmap(w, h, w * 4, PixelFormat.Format32bppPArgb, bits);
+                surface = new DibCanvas(w, h);
+                canvas = surface.Wrap();
                 g = Graphics.FromImage(canvas);
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
-                g.InterpolationMode = InterpolationMode.HighQualityBilinear;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.InterpolationMode = InterpolationMode.HighQualityBilinear;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
                 p.G = g;
             }
 
@@ -112,9 +106,7 @@ namespace Tepi
                 if (g == null) return;
                 g.Dispose();
                 canvas.Dispose();
-                Native.SelectObject(memDC, oldBmp);
-                Native.DeleteObject(dib);
-                Native.DeleteDC(memDC);
+                surface.Dispose();
                 g = null;
             }
 

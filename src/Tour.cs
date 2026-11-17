@@ -42,7 +42,7 @@ namespace Tepi
             string voice = Lang.F("Tahan {0}, bicara, lalu lepas: teksnya ditempel di aplikasi yang sedang aktif.", dictKey) + " "
                 + (rapatKey.Length > 0 ? Lang.F("Tekan {0} untuk merekam rapat tanpa bot; suaramu dan lawan bicara dipisah di transkripnya.", rapatKey)
                     : Lang.T("Rekam rapat dari menu klik kanan, tanpa bot; suaramu dan lawan bicara dipisah di transkripnya."))
-                + (DictOn ? "" : " " + Lang.T("Siapkan dulu di Pengaturan › Dikte."));
+                + (DictOn && DictMissing() == null ? "" : " " + Lang.T("Pengaturan › Siapkan suara dan AI memandu key gratis atau model offline, satu langkah per baris."));
             string ask = (DictOn ? Lang.F("Tahan Shift+{0} lalu ucapkan perintahnya, atau ketik lewat Suruh Tepi… di menu klik kanan.", dictKey)
                     : Lang.T("Ketik perintah lewat Suruh Tepi… di menu klik kanan."))
                 + " " + Lang.T("Misalnya \"timer 25 menit\", \"ingetin minum 30 menit lagi\", atau \"catat beli galon\". Perintah seperti ini jalan tanpa internet.");

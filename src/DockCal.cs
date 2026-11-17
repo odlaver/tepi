@@ -218,11 +218,11 @@ namespace Tepi
                 if (button != MouseButtons.Left) return;
                 var list = isle.notifs;
                 int n = IndexOf(id, 'n'), x = IndexOf(id, 'x');
-                if (n >= 0 && n < list.Count) { var item = list[n]; Done(); isle.OpenNotifApp(item); return; }
-                if (x >= 0 && x < list.Count) { isle.RemoveNotifs(new List<NotifItem> { list[x] }); return; }
+                if (n >= 0 && n < list.Count) { var item = list[n]; Done(); isle.OpenSender(item); return; }
+                if (x >= 0 && x < list.Count) { isle.DropNotifs(new List<NotifItem> { list[x] }); return; }
                 switch (id)
                 {
-                    case "clear": isle.RemoveNotifs(new List<NotifItem>(list)); break;
+                    case "clear": isle.DropNotifs(new List<NotifItem>(list)); break;
                     case "prev": month--; break;
                     case "next": month++; break;
                     case "today": month = 0; break;

@@ -535,7 +535,7 @@ namespace Tepi
                     var brand = BrandInk(first);
                     p.Circle(chip.X + 8, cy, 3.5f, brand.IsEmpty ? p.T.Sub : brand);
                     p.Text(num, cf, p.T.Sub, chip.X + 15, cy, cw - 15, StringAlignment.Near);
-                    if (pointerInside || keyboardMode) AddHit(chip, id, delegate { notifApp = app; notifScroll.Snap(0); SetPage(PageMessages, false); });
+                    if (pointerOver || keyboardMode) AddHit(chip, id, delegate { notifApp = app; notifScroll.Snap(0); SetPage(PageMessages, false); });
                     right -= cw + 2;
                 }
                 right -= 6;

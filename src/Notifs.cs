@@ -28,54 +28,70 @@ namespace Tepi
     // Notification centre; change key gates re-listing
     static class NotifSource
     {
-        static readonly string[] ChatApps = { "whatsapp", "telegram", "teams", "discord", "slack", "signal", "messenger", "instagram",
-                                              "yourphone", "phone link", "outlook", "windowscommunicationsapps", "thunderbird", "zoom", "line" };
-        static readonly string[] Browsers = { "chrome", "msedge", "firefox", "brave", "opera", "vivaldi" };
-        static readonly string[] ChatSites = { "whatsapp", "telegram", "discord", "slack", "messenger", "instagram", "mail.google", "outlook" };
-        static readonly Dictionary<string, Bitmap> logos = new Dictionary<string, Bitmap>();
+        // Short names (4 or less) match whole words
+        static readonly string[] ChatApps = { "discord", "instagram", "line", "messenger", "outlook", "phone link", "signal", "slack", "teams",
+                                              "telegram", "thunderbird", "whatsapp", "windowscommunicationsapps", "yourphone", "zoom" };
+        static readonly string[] Browsers = { "brave", "chrome", "firefox", "msedge", "opera", "vivaldi" };
+        // Web apps that toast through a browser
+        static readonly string[] ChatSites = { "discord", "instagram", "mail.google", "messenger", "outlook", "slack", "telegram", "whatsapp" };
+        static readonly char[] WordBreaks = { ' ', '.', '_', '!', '-', '\\', '/' };
+        static readonly Dictionary<string, Bitmap> logoByApp = new Dictionary<string, Bitmap>();
         public static readonly string Dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\Windows\Notifications");
 
         public static UserNotificationListenerAccessStatus Access() { return UserNotificationListener.Current.GetAccessStatus(); }
 
         public static void RequestAccess(Action done)
         {
-            var op = UserNotificationListener.Current.RequestAccessAsync();
-            op.Completed = delegate { done(); };
+            UserNotificationListener.Current.RequestAccessAsync().Completed = (op, status) => done();
         }
 
+        // Toasts in the centre, newest first
         public static List<NotifItem> Read()
         {
-            var list = new List<NotifItem>();
-            foreach (var n in MediaService.Await(UserNotificationListener.Current.GetNotificationsAsync(NotificationKinds.Toast)))
+            var toasts = WinRt.Get(UserNotificationListener.Current.GetNotificationsAsync(NotificationKinds.Toast));
+            var items = new List<NotifItem>(toasts.Count);
+            foreach (var n in toasts) items.Add(Describe(n));
+            items.Sort(NewerFirst);
+            return items;
+        }
+
+        static int NewerFirst(NotifItem x, NotifItem y) { return y.Time.CompareTo(x.Time); }
+
+        static NotifItem Describe(UserNotification n)
+        {
+            var item = new NotifItem { Id = n.Id, Time = n.CreationTime.UtcDateTime };
+            // Some desktop apps carry no display info
+            try
             {
-                var item = new NotifItem { Id = n.Id, Time = n.CreationTime.UtcDateTime };
-                try
-                {
-                    item.AppId = n.AppInfo.AppUserModelId ?? "";
-                    item.AppName = n.AppInfo.DisplayInfo.DisplayName ?? "";
-                }
-                catch (Exception) { }
-                if (item.AppName.Length == 0) item.AppName = item.AppId;
-                var texts = new List<string>();
-                try
-                {
-                    var binding = n.Notification.Visual.GetBinding(KnownNotificationBindings.ToastGeneric);
-                    if (binding != null)
-                        foreach (var t in binding.GetTextElements())
-                        {
-                            string s = Fmt.OneLine(t.Text, 300);
-                            if (s.Length > 0) texts.Add(s);
-                        }
-                }
-                catch (Exception ex) { Log.Write("notif text: " + ex.Message); }
-                if (texts.Count > 0) item.Title = texts[0];
-                if (texts.Count > 1) item.Body = string.Join(" · ", texts.GetRange(1, texts.Count - 1));
-                item.Chat = IsChat(item.AppId + " " + item.AppName, string.Join(" ", texts));
-                item.Logo = LogoFor(item.AppId, n.AppInfo);
-                list.Add(item);
+                item.AppId = n.AppInfo.AppUserModelId ?? "";
+                item.AppName = n.AppInfo.DisplayInfo.DisplayName ?? "";
             }
-            list.Sort((a, b) => b.Time.CompareTo(a.Time));
-            return list;
+            catch (Exception) { }
+            if (item.AppName == "") item.AppName = item.AppId;
+            var lines = TextOf(n);
+            if (lines.Count > 0) item.Title = lines[0];
+            if (lines.Count > 1) item.Body = string.Join(" · ", lines.ToArray(), 1, lines.Count - 1);
+            item.Chat = IsChat(item.AppId + " " + item.AppName, string.Join(" ", lines));
+            item.Logo = LogoFor(item.AppId, n.AppInfo);
+            return item;
+        }
+
+        // Non-empty text elements, one line each
+        static List<string> TextOf(UserNotification n)
+        {
+            var lines = new List<string>();
+            try
+            {
+                var generic = n.Notification.Visual.GetBinding(KnownNotificationBindings.ToastGeneric);
+                if (generic == null) return lines;
+                foreach (var el in generic.GetTextElements())
+                {
+                    string one = Fmt.OneLine(el.Text, 300);
+                    if (one != "") lines.Add(one);
+                }
+            }
+            catch (Exception ex) { Log.Write("notif text: " + ex.Message); }
+            return lines;
         }
 
         public static void Remove(uint id) { UserNotificationListener.Current.RemoveNotification(id); }
@@ -97,66 +113,73 @@ namespace Tepi
         // Chat app by id alone; browsers carry more than chat
         public static bool ChatAppId(string appId)
         {
-            string low = appId.ToLowerInvariant();
-            foreach (var b in Browsers) if (low.Contains(b)) return false;
-            return IsChat(appId, "");
+            return !AnyIn(appId.ToLowerInvariant(), Browsers) && IsChat(appId, "");
         }
 
         static bool IsChat(string app, string text)
         {
-            app = app.ToLowerInvariant();
-            // Short names match whole words: "line" not "online"
-            var words = app.Split(new[] { ' ', '.', '_', '!', '-', '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var c in ChatApps)
-                if (c.Length <= 4 ? Array.IndexOf(words, c) >= 0 : app.Contains(c)) return true;
-            foreach (var c in ExtraApps) if (app.Contains(c)) return true;
-            bool browser = false;
-            foreach (var b in Browsers) if (app.Contains(b)) browser = true;
-            if (!browser) return false;
-            text = text.ToLowerInvariant();
-            foreach (var s in ChatSites) if (text.Contains(s)) return true;
+            string low = app.ToLowerInvariant();
+            if (NamesChatApp(low) || AnyIn(low, ExtraApps)) return true;
+            return AnyIn(low, Browsers) && AnyIn(text.ToLowerInvariant(), ChatSites);
+        }
+
+        // "line" must not match "online"
+        static bool NamesChatApp(string low)
+        {
+            string[] words = null;
+            foreach (var name in ChatApps)
+            {
+                if (name.Length > 4)
+                {
+                    if (low.Contains(name)) return true;
+                    continue;
+                }
+                if (words == null) words = low.Split(WordBreaks, StringSplitOptions.RemoveEmptyEntries);
+                if (Array.IndexOf(words, name) >= 0) return true;
+            }
             return false;
         }
 
+        static bool AnyIn(string s, string[] parts)
+        {
+            foreach (var part in parts)
+                if (s.Contains(part)) return true;
+            return false;
+        }
+
+        // Windows logo, else Dock icon; cached
         static Bitmap LogoFor(string appId, AppInfo info)
         {
-            lock (logos)
-            {
-                Bitmap cached;
-                if (logos.TryGetValue(appId, out cached)) return cached;
-            }
-            Bitmap logo = null;
+            Bitmap logo;
+            lock (logoByApp)
+                if (logoByApp.TryGetValue(appId, out logo)) return logo;
+            logo = StoreLogo(info) ?? ShellLogo(appId);
+            lock (logoByApp) logoByApp[appId] = logo;
+            return logo;
+        }
+
+        static Bitmap StoreLogo(AppInfo info)
+        {
             try
             {
-                var reference = info.DisplayInfo.GetLogo(new Windows.Foundation.Size(64, 64));
-                using (var stream = MediaService.Await(reference.OpenReadAsync()))
-                {
-                    ulong size = stream.Size;
-                    if (size > 0 && size < 2 * 1024 * 1024)
-                        using (var reader = new DataReader(stream.GetInputStreamAt(0)))
-                        {
-                            uint n = MediaService.Await(reader.LoadAsync((uint)size));
-                            var bytes = new byte[n];
-                            reader.ReadBytes(bytes);
-                            using (var ms = new MemoryStream(bytes))
-                            using (var src = Image.FromStream(ms))
-                                logo = Ink.Square(src, 48);
-                        }
-                }
+                var bytes = WinRt.ReadAll(info.DisplayInfo.GetLogo(new Windows.Foundation.Size(64, 64)), 2 * 1024 * 1024 - 1);
+                if (bytes == null) return null;
+                using (var ms = new MemoryStream(bytes))
+                using (var img = Image.FromStream(ms))
+                    return Ink.Square(img, 48);
             }
-            catch (Exception) { logo = null; }
-            // No logo from Windows: the icon the Dock shows
-            if (logo == null && appId.Length > 0)
+            catch (Exception) { return null; }
+        }
+
+        static Bitmap ShellLogo(string appId)
+        {
+            if (appId.Length == 0) return null;
+            try
             {
-                try
-                {
-                    using (var icon = ShellApp.Icon(ShellApp.AppsFolderOf(appId), 64))
-                        if (icon != null) logo = Ink.Square(icon, 48);
-                }
-                catch (Exception) { logo = null; }
+                using (var icon = ShellApp.Icon(ShellApp.AppsFolderOf(appId), 64))
+                    return icon != null ? Ink.Square(icon, 48) : null;
             }
-            lock (logos) logos[appId] = logo;
-            return logo;
+            catch (Exception) { return null; }
         }
 
         static readonly Dictionary<Bitmap, Bitmap> drained = new Dictionary<Bitmap, Bitmap>();
@@ -180,6 +203,8 @@ namespace Tepi
         [DllImport("winsqlite3.dll")] static extern int sqlite3_step(IntPtr stmt);
         [DllImport("winsqlite3.dll")] static extern long sqlite3_column_int64(IntPtr stmt, int col);
         [DllImport("winsqlite3.dll")] static extern int sqlite3_finalize(IntPtr stmt);
+        const int OpenReadOnly = 1, RowReady = 100;
+        const string ToastStats = "SELECT COUNT(Id), IFNULL(MAX(Id), 0) FROM Notification WHERE Type = 'toast'";
         static IntPtr db;
 
         // Changes on toast add/remove; null if unreadable
@@ -187,32 +212,37 @@ namespace Tepi
         {
             try
             {
-                if (db == IntPtr.Zero)
-                {
-                    IntPtr h;
-                    if (sqlite3_open_v2(Encoding.UTF8.GetBytes(Path.Combine(Dir, "wpndatabase.db") + "\0"), out h, 1, IntPtr.Zero) != 0)
-                    {
-                        if (h != IntPtr.Zero) sqlite3_close(h);
-                        return null;
-                    }
-                    sqlite3_busy_timeout(h, 300);
-                    db = h;
-                }
+                if (db == IntPtr.Zero) db = OpenDb();
+                if (db == IntPtr.Zero) return null;
                 IntPtr stmt;
-                if (sqlite3_prepare16_v2(db, "select count(*), coalesce(max(Id), 0) from Notification where Type = 'toast'", -1, out stmt, IntPtr.Zero) != 0)
+                if (sqlite3_prepare16_v2(db, ToastStats, -1, out stmt, IntPtr.Zero) != 0)
                 {
+                    // File replaced: reopen next time
                     sqlite3_close(db);
                     db = IntPtr.Zero;
                     return null;
                 }
                 try
                 {
-                    if (sqlite3_step(stmt) != 100) return null;
+                    if (sqlite3_step(stmt) != RowReady) return null;
                     return sqlite3_column_int64(stmt, 0) + ":" + sqlite3_column_int64(stmt, 1);
                 }
                 finally { sqlite3_finalize(stmt); }
             }
             catch (Exception ex) { Log.Write("notif key: " + ex.Message); return null; }
+        }
+
+        static IntPtr OpenDb()
+        {
+            IntPtr h;
+            var path = Encoding.UTF8.GetBytes(Path.Combine(Dir, "wpndatabase.db") + "\0");
+            if (sqlite3_open_v2(path, out h, OpenReadOnly, IntPtr.Zero) == 0)
+            {
+                sqlite3_busy_timeout(h, 300);
+                return h;
+            }
+            if (h != IntPtr.Zero) sqlite3_close(h);
+            return IntPtr.Zero;
         }
     }
 

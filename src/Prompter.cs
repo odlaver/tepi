@@ -234,8 +234,8 @@ namespace Tepi
             k = k * 31 + (cd > 0 && !prompterPaused ? cd : 0);
             k = k * 31 + (prompterPaused ? 1 : 2);
             k = k * 31 + LeftSeconds();
-            k = k * 31 + (pointerInside ? 1 : 2);
-            k = k * 31 + (hoverId == null ? 0 : hoverId.GetHashCode());
+            k = k * 31 + (pointerOver ? 1 : 2);
+            k = k * 31 + (hoverKey == null ? 0 : hoverKey.GetHashCode());
             k = k * 31 + prompterEdge * 16 + prompterSizing;
             return k;
         }
@@ -458,7 +458,7 @@ namespace Tepi
                 }
                 p.Alpha = keep;
             }
-            if (prompterPaused && (pointerInside || prompterSizing != 0)) DrawPrompterGrips(w, h);
+            if (prompterPaused && (pointerOver || prompterSizing != 0)) DrawPrompterGrips(w, h);
         }
 
         void DrawPrompterLines(float w, float h, Font f, float lh, float textW)
@@ -590,8 +590,8 @@ namespace Tepi
         // Running again: hover state from pause goes
         void PrompterThrough()
         {
-            pointerInside = false;
-            hoverId = null;
+            pointerOver = false;
+            hoverKey = null;
             prompterEdge = 0;
             PrompterCursor(0);
         }

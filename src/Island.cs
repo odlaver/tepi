@@ -46,17 +46,30 @@ namespace Tepi
         public Action Menu;
         // Drag released
         public Action DragEnd;
+
+        public Hit Fill(RectangleF rect, string id, Action act, Action<float> drag, Action menu, Action dragEnd)
+        {
+            Rect = rect;
+            Id = id;
+            Act = act;
+            Drag = drag;
+            Menu = menu;
+            DragEnd = dragEnd;
+            return this;
+        }
     }
 
-    partial class Island : Form
+    partial class Island : Form, IAlwaysUsable
     {
         const float Gap = 9f, Pad = 34f, MaxH = 380f, BubbleR = 17f, BubbleGap = 10f, BaseHalf = 330f;
         // Wide teleprompter widens the canvas
         float prompterHalf = BaseHalf, canvasHalf = BaseHalf;
         float WantHalf { get { return PrompterOn ? Math.Max(BaseHalf, prompterHalf) : BaseHalf; } }
-        const int AppBarMsg = Native.WM_APP + 0x31;
-        static readonly Guid PowerSourceGuid = new Guid("5D3E9A59-E9D5-4B00-A6BD-FF34FF516548");
-        static readonly Guid BatteryGuid = new Guid("A7AD8041-B45A-4CAE-87A3-EECBB468A9E1");
+        // Shell's appbar callbacks arrive as this
+        const int AppBarMsg = Native.WM_APP + 0x4A;
+        // GUID_ACDC_POWER_SOURCE, GUID_BATTERY_PERCENTAGE_REMAINING
+        static readonly Guid AcDcGuid = new Guid("5D3E9A59-E9D5-4B00-A6BD-FF34FF516548");
+        static readonly Guid PercentGuid = new Guid("A7AD8041-B45A-4CAE-87A3-EECBB468A9E1");
 
         readonly Settings settings = new Settings();
         readonly Painter p = new Painter();
@@ -68,7 +81,7 @@ namespace Tepi
         readonly Spring topGap = new Spring(Gap, 380, 24, 0.02f);
         float flipLinear, flip;
         View current = View.Idle, previous = View.Idle;
-        DateTime switchedUtc = DateTime.UtcNow;
+        DateTime viewSinceUtc = DateTime.UtcNow;
         double lastT;
         bool animating;
         int quickFlushes;
@@ -76,14 +89,15 @@ namespace Tepi
         // Window and canvas
         float scale = 1f;
         Rectangle monitorPx;
-        IntPtr memDC, dib, oldBitmap;
+        // Frame pixels, shared by GDI+ and UpdateLayeredWindow
+        DibCanvas surface;
         Bitmap canvas;
         Graphics g;
         int canvasW, canvasH;
         // Compact canvas until a tall view
         bool canvasTall;
         const float CompactH = 100;
-        bool windowShown = true, fullscreen;
+        bool onScreen = true, fullscreen;
         IntPtr winHook, powerSrc, powerPct;
         Native.WinEventProc winProc;
         RectangleF shell, bubbleRect;
@@ -92,10 +106,10 @@ namespace Tepi
 
         // Interaction
         readonly List<Hit> hits = new List<Hit>();
-        bool expanded, pointerInside;
+        bool expanded, pointerOver;
         int page;
         PointF mouse = new PointF(-100, -100);
-        string hoverId, pressedId;
+        string hoverKey, pressKey;
         readonly WinTimer clockTimer = new WinTimer { Interval = 1000 }, toastTimer = new WinTimer();
         readonly WinTimer hoverTimer = new WinTimer { Interval = 330 }, leaveTimer = new WinTimer { Interval = 420 }, fsTimer = new WinTimer { Interval = 350 };
         Toast toast;
@@ -106,12 +120,13 @@ namespace Tepi
 
         public Island()
         {
-            FormBorderStyle = FormBorderStyle.None;
-            ShowInTaskbar = false;
-            StartPosition = FormStartPosition.Manual;
-            AutoScaleMode = AutoScaleMode.None;
             Text = "Tepi";
-            Bounds = new Rectangle(-32000, -32000, 1, 1);
+            ShowInTaskbar = false;
+            FormBorderStyle = FormBorderStyle.None;
+            AutoScaleMode = AutoScaleMode.None;
+            StartPosition = FormStartPosition.Manual;
+            // Parked off-screen; frames place it
+            SetBounds(-32000, -32000, 1, 1);
 
             Ink.Init();
             Anim.Read(settings);
@@ -125,19 +140,11 @@ namespace Tepi
             {
                 toastTimer.Stop();
                 // Buttons under the pointer stay; gone soon after it leaves
-                if (toast != null && toast.Interactive && pointerInside) { ArmToast(1500); return; }
+                if (toast != null && toast.Interactive && pointerOver) { ArmToast(1500); return; }
                 DismissToast();
             };
-            hoverTimer.Tick += delegate
-            {
-                hoverTimer.Stop();
-                if (pointerInside && !expanded && CanExpand()) Expand(ToastPage(true));
-            };
-            leaveTimer.Tick += delegate
-            {
-                leaveTimer.Stop();
-                if (!pointerInside && expanded) { expanded = false; MiniLeft(); Kick(); }
-            };
+            hoverTimer.Tick += delegate { hoverTimer.Stop(); HoverOpen(); };
+            leaveTimer.Tick += delegate { leaveTimer.Stop(); LeaveClose(); };
             fsTimer.Tick += delegate { fsTimer.Stop(); CheckFullscreen(); CheckMiniAuto(); };
             ambientTimer.Tick += delegate { AmbientTick(); };
             spriteTimer.Tick += delegate { SpriteTick(); };
@@ -146,14 +153,32 @@ namespace Tepi
             Application.Idle += OnIdle;
         }
 
+        // Rested pointer opens the panel
+        void HoverOpen()
+        {
+            if (!pointerOver || expanded || !CanExpand()) return;
+            Expand(ToastPage(true));
+        }
+
+        void LeaveClose()
+        {
+            if (pointerOver || !expanded) return;
+            expanded = false;
+            MiniLeft();
+            Kick();
+        }
+
+        // Per-pixel alpha popup that never takes focus
+        const int IslandExStyle = Native.WS_EX_LAYERED | Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE | Native.WS_EX_TOPMOST;
+
         protected override CreateParams CreateParams
         {
             get
             {
-                var cp = base.CreateParams;
-                cp.Style = Native.WS_POPUP;
-                cp.ExStyle |= Native.WS_EX_LAYERED | Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE | Native.WS_EX_TOPMOST;
-                return cp;
+                var create = base.CreateParams;
+                create.ExStyle |= IslandExStyle;
+                create.Style = Native.WS_POPUP;
+                return create;
             }
         }
 
@@ -165,20 +190,33 @@ namespace Tepi
         {
             base.OnHandleCreated(e);
             UpdateMonitor();
-            var abd = new Native.APPBARDATA { cbSize = Marshal.SizeOf(typeof(Native.APPBARDATA)), hWnd = Handle, uCallbackMessage = AppBarMsg };
-            Native.SHAppBarMessage(0, ref abd);
-            winProc = delegate { fsTimer.Stop(); fsTimer.Start(); NudgeFrost(); NudgeDock(); };
+            AppBar(true);
+            winProc = (hook, evt, hwnd, idObject, idChild, thread, time) =>
+            {
+                // Cursor and caret moves: only whole windows count
+                if (evt == 0x0B && (idObject != 0 || idChild != 0 || hwnd == IntPtr.Zero)) return;
+                fsTimer.Stop(); fsTimer.Start(); NudgeFrost(); NudgeDock();
+            };
             winHook = Native.SetWinEventHook(3, 3, IntPtr.Zero, winProc, 0, 0, 0);
             // Windows moving behind the glass
             moveHook = Native.SetWinEventHook(0x0B, 0x0B, IntPtr.Zero, winProc, 0, 0, 0);
             minHook = Native.SetWinEventHook(0x16, 0x17, IntPtr.Zero, winProc, 0, 0, 0);
-            Guid a = PowerSourceGuid, b = BatteryGuid, d = DisplayGuid;
-            powerSrc = Native.RegisterPowerSettingNotification(Handle, ref a, 0);
-            powerPct = Native.RegisterPowerSettingNotification(Handle, ref b, 0);
-            powerDisplay = Native.RegisterPowerSettingNotification(Handle, ref d, 0);
+            powerSrc = PowerNotice(AcDcGuid);
+            powerPct = PowerNotice(PercentGuid);
+            powerDisplay = PowerNotice(DisplayGuid);
             SystemEvents.DisplaySettingsChanged += OnDisplaySettings;
             SystemEvents.SessionSwitch += OnSessionSwitch;
         }
+
+        // ABM_NEW / ABM_REMOVE: fullscreen news from the shell
+        void AppBar(bool join)
+        {
+            var bar = new Native.APPBARDATA { cbSize = Marshal.SizeOf(typeof(Native.APPBARDATA)), hWnd = Handle };
+            if (join) bar.uCallbackMessage = AppBarMsg;
+            Native.SHAppBarMessage(join ? 0 : 1, ref bar);
+        }
+
+        IntPtr PowerNotice(Guid setting) { return Native.RegisterPowerSettingNotification(Handle, ref setting, 0); }
 
         IntPtr moveHook, minHook, powerDisplay;
         static readonly Guid DisplayGuid = new Guid("6FE69556-704A-47A0-8F24-C28D936FDA47");
@@ -232,6 +270,9 @@ namespace Tepi
             // New installs: tour, not notes
             if (settings.Fresh) settings.Set("whatsnew.seen", AppVersion);
             TourOnFirstRun();
+            // Test copies: TEPI_OPEN opens a page
+            string openAt = Settings.TestMode ? Environment.GetEnvironmentVariable("TEPI_OPEN") : null;
+            if (!string.IsNullOrEmpty(openAt)) BeginInvoke(new Action(delegate { OpenPrefs(openAt); }));
             InitShelfDrop();
             LoadShelf();
             EnsureDisc(64);
@@ -263,8 +304,7 @@ namespace Tepi
             Application.Idle -= OnIdle;
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettings;
             SystemEvents.SessionSwitch -= OnSessionSwitch;
-            var abd = new Native.APPBARDATA { cbSize = Marshal.SizeOf(typeof(Native.APPBARDATA)), hWnd = Handle };
-            Native.SHAppBarMessage(1, ref abd);
+            AppBar(false);
             foreach (var hook in new[] { winHook, moveHook, minHook })
                 if (hook != IntPtr.Zero) Native.UnhookWinEvent(hook);
             foreach (var reg in new[] { powerSrc, powerPct, powerDisplay })
@@ -344,18 +384,22 @@ namespace Tepi
                     else if (m.LParam != IntPtr.Zero && Marshal.PtrToStringUni(m.LParam) == "ImmersiveColorSet") OnColorSetChanged();
                     break;
                 case Native.WM_DPICHANGED:
+                    // We scale ourselves: no default resize
+                    Post(OnDisplayChanged);
+                    return;
                 case Native.WM_DISPLAYCHANGE:
-                    BeginInvoke(new Action(OnDisplayChanged));
-                    if (m.Msg == Native.WM_DPICHANGED) return;
+                    Post(OnDisplayChanged);
                     break;
             }
             base.WndProc(ref m);
         }
 
+        // Later on UI thread, unless closed
         void Post(Action action)
         {
-            if (!IsHandleCreated || IsDisposed) return;
-            try { BeginInvoke(action); } catch (InvalidOperationException) { }
+            if (IsDisposed || !IsHandleCreated) return;
+            try { BeginInvoke(action); }
+            catch (InvalidOperationException) { }
         }
 
         void OnDisplaySettings(object sender, EventArgs e) { Post(OnDisplayChanged); }
@@ -394,24 +438,37 @@ namespace Tepi
 
         void UpdateMonitor()
         {
-            IntPtr mon = ChosenMonitor();
-            monitorHandle = mon;
-            var mi = new Native.MONITORINFO { cbSize = Marshal.SizeOf(typeof(Native.MONITORINFO)) };
-            Native.GetMonitorInfo(mon, ref mi);
-            monitorPx = Rectangle.FromLTRB(mi.rcMonitor.Left, mi.rcMonitor.Top, mi.rcMonitor.Right, mi.rcMonitor.Bottom);
-            float s = 1f;
-            try
-            {
-                uint dx, dy;
-                if (Native.GetDpiForMonitor(mon, 0, out dx, out dy) == 0) s = dx / 96f;
-            }
-            catch (Exception ex) { Log.Write("dpi: " + ex.Message); }
+            monitorHandle = ChosenMonitor();
+            monitorPx = MonitorBounds(monitorHandle);
+            float s = DpiScale(monitorHandle);
+            // TEPI_SCALE overrides, for test captures
             float forced;
             if (float.TryParse(Environment.GetEnvironmentVariable("TEPI_SCALE"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out forced) && forced > 0.5f) s = forced;
-            if (canvas == null || Math.Abs(s - scale) > 0.001f)
+            if (canvas != null && Math.Abs(s - scale) <= 0.001f) return;
+            scale = s;
+            CreateCanvas();
+        }
+
+        static Rectangle MonitorBounds(IntPtr mon)
+        {
+            var info = new Native.MONITORINFO { cbSize = Marshal.SizeOf(typeof(Native.MONITORINFO)) };
+            Native.GetMonitorInfo(mon, ref info);
+            var r = info.rcMonitor;
+            return new Rectangle(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
+        }
+
+        // Effective DPI over 96; 1 when unknown
+        static float DpiScale(IntPtr mon)
+        {
+            try
             {
-                scale = s;
-                CreateCanvas();
+                uint x, y;
+                return Native.GetDpiForMonitor(mon, 0, out x, out y) == 0 ? x / 96f : 1f;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("dpi: " + ex.Message);
+                return 1f;
             }
         }
 
@@ -437,29 +494,62 @@ namespace Tepi
 
         void CreateCanvas()
         {
-            if (g != null) { g.Dispose(); canvas.Dispose(); Native.SelectObject(memDC, oldBitmap); Native.DeleteObject(dib); Native.DeleteDC(memDC); }
+            if (g != null)
+            {
+                g.Dispose();
+                canvas.Dispose();
+                surface.Dispose();
+            }
             canvasHalf = WantHalf;
             canvasW = (int)Math.Ceiling(2 * (canvasHalf + Pad) * scale) + 4;
             canvasH = canvasTall ? TallPx() : (int)Math.Ceiling((Gap + CompactH + Pad + 20) * scale) + 4;
-            var bmi = new Native.BITMAPINFOHEADER { biSize = Marshal.SizeOf(typeof(Native.BITMAPINFOHEADER)), biWidth = canvasW, biHeight = -canvasH, biPlanes = 1, biBitCount = 32 };
-            IntPtr screen = Native.GetDC(IntPtr.Zero);
-            memDC = Native.CreateCompatibleDC(screen);
-            Native.ReleaseDC(IntPtr.Zero, screen);
-            IntPtr bits;
-            dib = Native.CreateDIBSection(memDC, ref bmi, 0, out bits, IntPtr.Zero, 0);
-            dibBits = bits;
+            surface = new DibCanvas(canvasW, canvasH);
+            dibBits = surface.Bits;
             slotCount = 0;
             liveReady = false;
-            oldBitmap = Native.SelectObject(memDC, dib);
-            canvas = new Bitmap(canvasW, canvasH, canvasW * 4, PixelFormat.Format32bppPArgb, bits);
+            canvas = surface.Wrap();
             g = Graphics.FromImage(canvas);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = TextRenderingHint.AntiAlias;
-            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            g.CompositingQuality = CompositingQuality.AssumeLinear;
+            HighQuality(g);
             p.G = g;
         }
+
+        // Linear compositing keeps translucent greys
+        static void HighQuality(Graphics gr)
+        {
+            gr.CompositingQuality = CompositingQuality.AssumeLinear;
+            gr.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            gr.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            gr.TextRenderingHint = TextRenderingHint.AntiAlias;
+            gr.SmoothingMode = SmoothingMode.AntiAlias;
+        }
+
+        // Canvas to screen at the current opacity
+        bool Present(int left, int top, int w, int h)
+        {
+            var at = new Native.POINT(left, top);
+            var from = new Native.POINT(0, 0);
+            var extent = new Native.SIZE(w, h);
+            // AC_SRC_ALPHA: premultiplied pixels
+            var mix = new Native.BLENDFUNCTION { AlphaFormat = 1, SourceConstantAlpha = (byte)(255 * Ease.Clamp01(opacity.Value)) };
+            return Native.UpdateLayeredWindow(Handle, IntPtr.Zero, ref at, ref extent, surface.Dc, ref from, 0, ref mix, Native.ULW_ALPHA);
+        }
+
+        // Hidden once faded out; on top when back
+        void SetOnScreen(bool show)
+        {
+            if (show == onScreen) return;
+            onScreen = show;
+            if (!show)
+            {
+                Native.ShowWindow(Handle, Native.SW_HIDE);
+                return;
+            }
+            Native.ShowWindow(Handle, Native.SW_SHOWNOACTIVATE);
+            KeepOnTop();
+            NudgeFrost();
+        }
+
+        void KeepOnTop() { Native.SetWindowPos(Handle, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE); }
 
         // State
 
@@ -522,10 +612,10 @@ namespace Tepi
                 previous = current;
                 current = want;
                 AnnounceView(want);
-                switchedUtc = DateTime.UtcNow;
+                viewSinceUtc = DateTime.UtcNow;
                 // Old view leaves as a picture
                 snapWanted = true;
-                if (want == View.Panel) panelOpenedUtc = switchedUtc;
+                if (want == View.Panel) panelOpenedUtc = viewSinceUtc;
                 else if (previous == View.Panel || previous == View.Prompter) TrimSoon();
                 if (want == View.Mini) EyesShown();
             }
@@ -564,7 +654,7 @@ namespace Tepi
         // Whole pill answers the pointer
         bool Swells()
         {
-            if (Anim.Reduced || expanded || !pointerInside || dragId != null) return false;
+            if (Anim.Reduced || expanded || !pointerOver || dragId != null) return false;
             switch (current)
             {
                 case View.Panel:
@@ -722,18 +812,12 @@ namespace Tepi
 
             if (opacity.Target == 0 && opacity.Value < 0.01f)
             {
-                if (windowShown) { Native.ShowWindow(Handle, Native.SW_HIDE); windowShown = false; }
+                SetOnScreen(false);
                 return Stopped;
             }
             // Locked or screen off: draw nothing
             if (dormant) { frameDirty = true; return Stopped; }
-            if (!windowShown)
-            {
-                Native.ShowWindow(Handle, Native.SW_SHOWNOACTIVATE);
-                Native.SetWindowPos(Handle, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
-                windowShown = true;
-                NudgeFrost();
-            }
+            SetOnScreen(true);
 
             GrowCanvas();
             // Shrink wide canvas once shell fits
@@ -781,7 +865,7 @@ namespace Tepi
         bool Moving(DateTime now)
         {
             return !sw.Settled || !sh.Settled || !sr.Settled || !bubble.Settled || !opacity.Settled || !topGap.Settled || PlaceMoving() ||
-                   (flipLinear != 0 && flipLinear != 1) || (now - switchedUtc).TotalSeconds < 0.5 || snapshot != null ||
+                   (flipLinear != 0 && flipLinear != 1) || (now - viewSinceUtc).TotalSeconds < 0.5 || snapshot != null ||
                    (toast != null && (now - toast.ShownUtc).TotalSeconds < 1.2) || PanelMoving() || ViewsMoving(now) || (current == View.Idle && clockRoller.Moving(now)) || ApproveArming(now) ||
                    ThemeMoving(now) ||
                    FlyersMoving(now) || SwitchesMoving() || prompterSizeMoved || !collapse.Settled || !tabNudge.Settled || brightRoller.Moving(now) || !brightBar.Settled || EdgeMoving(now);
@@ -794,7 +878,7 @@ namespace Tepi
             float jelly = Anim.Reduced ? 0 : 1;
             float W = Math.Max(10, sw.Value - jelly * Clamp(sh.Velocity * 0.012f, -6, 6));
             float H = Math.Max(6, sh.Value - jelly * Clamp(sw.Velocity * 0.005f, -3, 3));
-            float R = Math.Max(0, Math.Min(sr.Value, Math.Min(W, H) / 2));
+            float R = Clamp(sr.Value, 0, Math.Min(W, H) / 2);
             float pb = Math.Max(0, bubble.Value);
             bool side = OnSide;
             // On a side the arrival dip pushes outward instead
@@ -840,7 +924,7 @@ namespace Tepi
                 DrawShadow(shell, sr.Settled ? R : Math.Min(sr.Target, Math.Min(W, H) / 2), 1f);
                 if (!bubbleRect.IsEmpty) DrawShadow(bubbleRect, br, 0.7f);
             }
-            DrawGlow(now, shell, R);
+            DrawHalo(now, shell, R);
             Prof.Add("shadow", t0);
 
             ClearHits();
@@ -901,19 +985,15 @@ namespace Tepi
 
             t0 = Prof.T();
             g.Flush(FlushIntention.Sync);
-            var dst = new Native.POINT(frameLeft, frameTop);
-            var size = new Native.SIZE(pxW, pxH);
-            var src = new Native.POINT(0, 0);
-            var blend = new Native.BLENDFUNCTION { SourceConstantAlpha = (byte)(255 * Ease.Clamp01(opacity.Value)), AlphaFormat = 1 };
-            Native.UpdateLayeredWindow(Handle, IntPtr.Zero, ref dst, ref size, memDC, ref src, 0, ref blend, Native.ULW_ALPHA);
+            Present(frameLeft, frameTop, pxW, pxH);
             lastPresentTick = Environment.TickCount;
             presented.Set();
             Prof.Add("present", t0);
-            dumpAt = new Rectangle(dst.X, dst.Y, pxW, pxH);
+            dumpAt = new Rectangle(frameLeft, frameTop, pxW, pxH);
             lastShellPx = Rectangle.Round(new RectangleF(shell.X * scale, shell.Y * scale, shell.Width * scale, shell.Height * scale));
             lastRadius = R;
-            lastLeft = dst.X;
-            lastTop = dst.Y;
+            lastLeft = frameLeft;
+            lastTop = frameTop;
         }
 
         // Snapshot morph: last shell, half size
@@ -927,7 +1007,7 @@ namespace Tepi
         bool snapWanted;
         const double SnapSeconds = 0.14;
         // Snapshot DIB: BitBlt in, AlphaBlend out
-        IntPtr snapDC, snapDib, snapOld;
+        DibCanvas snapSurface;
         int snapW, snapH;
         [DllImport("gdi32.dll")] static extern bool BitBlt(IntPtr dst, int x, int y, int w, int h, IntPtr src, int sx, int sy, uint rop);
         [DllImport("gdi32.dll")] static extern int SelectClipRgn(IntPtr hdc, IntPtr rgn);
@@ -936,30 +1016,26 @@ namespace Tepi
         void FreeSnapshot()
         {
             if (snapshot != null) { snapshot.Dispose(); snapshot = null; }
-            if (snapDC != IntPtr.Zero) { Native.SelectObject(snapDC, snapOld); Native.DeleteObject(snapDib); Native.DeleteDC(snapDC); snapDC = IntPtr.Zero; }
+            if (snapSurface != null) { snapSurface.Dispose(); snapSurface = null; }
         }
 
         void TakeSnapshot()
         {
             snapWanted = false;
             var r = Rectangle.Intersect(lastShellPx, new Rectangle(0, 0, canvasW, canvasH));
-            if (!windowShown || opacity.Value < 0.5f || r.Width < 8 || r.Height < 8) return;
+            if (!onScreen || opacity.Value < 0.5f || r.Width < 8 || r.Height < 8) return;
             int w = r.Width, h = r.Height;
-            if (snapDC == IntPtr.Zero || snapW != w || snapH != h)
+            if (snapSurface == null || snapW != w || snapH != h)
             {
                 FreeSnapshot();
-                var bmi = new Native.BITMAPINFOHEADER { biSize = Marshal.SizeOf(typeof(Native.BITMAPINFOHEADER)), biWidth = w, biHeight = -h, biPlanes = 1, biBitCount = 32 };
-                IntPtr bits;
-                snapDC = Native.CreateCompatibleDC(memDC);
-                snapDib = Native.CreateDIBSection(memDC, ref bmi, 0, out bits, IntPtr.Zero, 0);
-                snapOld = Native.SelectObject(snapDC, snapDib);
-                snapshot = new Bitmap(w, h, w * 4, PixelFormat.Format32bppPArgb, bits);
+                snapSurface = new DibCanvas(w, h);
+                snapshot = snapSurface.Wrap();
                 snapW = w;
                 snapH = h;
             }
             // Plain memory copy, no resampling
             g.Flush(FlushIntention.Sync);
-            BitBlt(snapDC, 0, 0, w, h, memDC, r.X, r.Y, 0x00CC0020);
+            BitBlt(snapSurface.Dc, 0, 0, w, h, surface.Dc, r.X, r.Y, 0x00CC0020);
             snapScreen = new Rectangle(lastLeft + r.X, lastTop + r.Y, r.Width, r.Height);
             snapRadius = lastRadius;
             snapUtc = DateTime.UtcNow;
@@ -1017,9 +1093,9 @@ namespace Tepi
             {
                 IntPtr rgn = clip.IsInfinite(g) ? IntPtr.Zero : clip.GetHrgn(g);
                 g.Flush(FlushIntention.Sync);
-                SelectClipRgn(memDC, rgn);
-                AlphaBlend(memDC, dx, dy, dw, dh, snapDC, sx, 0, sw2, snapH, sca << 16 | 1 << 24);
-                SelectClipRgn(memDC, IntPtr.Zero);
+                SelectClipRgn(surface.Dc, rgn);
+                AlphaBlend(surface.Dc, dx, dy, dw, dh, snapSurface.Dc, sx, 0, sw2, snapH, sca << 16 | 1 << 24);
+                SelectClipRgn(surface.Dc, IntPtr.Zero);
                 if (rgn != IntPtr.Zero) Native.DeleteObject(rgn);
             }
         }
@@ -1157,7 +1233,7 @@ namespace Tepi
         const int GlowLayers = 16;
 
         // Halo while an approval waits
-        void DrawGlow(DateTime now, RectangleF r, float radius)
+        void DrawHalo(DateTime now, RectangleF r, float radius)
         {
             if (flip < 0.05f) return;
             float breath = 0.55f + 0.45f * (float)Math.Sin(clock.Elapsed.TotalSeconds * Math.PI * 1.3);
@@ -1166,8 +1242,7 @@ namespace Tepi
             for (int i = 0; i < GlowLayers; i++)
             {
                 float grow = 1f + i * 0.9f, fall = 1 - i / (float)GlowLayers;
-                var rr = new RectangleF(r.X - grow, r.Y - grow, r.Width + grow * 2, r.Height + grow * 2);
-                p.FillRound(rr, radius + grow, Color.FromArgb((int)(flip * breath * 36 * fall * (float)Math.Sqrt(fall)), c.R, c.G, c.B));
+                p.FillRound(RectangleF.Inflate(r, grow, grow), radius + grow, Color.FromArgb((int)(flip * breath * 36 * fall * (float)Math.Sqrt(fall)), c.R, c.G, c.B));
             }
         }
 
@@ -1264,7 +1339,7 @@ namespace Tepi
             // Text shadow on the pill only
             p.Shadow = GlassOn && !LiquidOn && tone.Bg.R < 128 && current != View.Panel;
             TrackPress();
-            float t = (float)(now - switchedUtc).TotalSeconds;
+            float t = (float)(now - viewSinceUtc).TotalSeconds;
             // New view follows 50 ms later
             if (tone == Ink.Base) DrawSnapshot(now);
             float inA = Ease.OutCubic((t - 0.05f) / 0.22f);
@@ -1313,18 +1388,12 @@ namespace Tepi
         {
             if (inSlot && fpsLog) Log.Write("live: hit " + id + " inside a live area is lost");
             // No pointer, no hits to allocate
-            if (!hitsOn || !(pointerInside || keyboardMode || dragId != null)) return;
+            if (!hitsOn || !(pointerOver || keyboardMode || dragId != null)) return;
             local.Offset(originX, originY + hitDy);
             Hit h;
             if (hitPool.Count > 0) { h = hitPool[hitPool.Count - 1]; hitPool.RemoveAt(hitPool.Count - 1); }
             else h = new Hit();
-            h.Rect = local;
-            h.Id = id;
-            h.Act = act;
-            h.Drag = drag;
-            h.Menu = menu;
-            h.DragEnd = dragEnd;
-            hits.Add(h);
+            hits.Add(h.Fill(local, id, act, drag, menu, dragEnd));
         }
 
         // Hits are reused frame to frame
@@ -1348,18 +1417,18 @@ namespace Tepi
         // Dragged slider; survives hit rebuilds
         string dragId;
 
-        bool Hover(string id) { return hoverId == id; }
+        bool Hover(string id) { return hoverKey == id; }
 
         // Held down under the pointer
-        bool Pressed(string id) { return pressedId == id && hoverId == id; }
+        bool Pressed(string id) { return pressKey == id && hoverKey == id; }
 
         // Input
 
+        // Pill with 2 px grace, or the bubble
         bool InShape(PointF pt)
         {
-            var s = shell;
-            s.Inflate(2, 2);
-            return s.Contains(pt) || (!bubbleRect.IsEmpty && bubbleRect.Contains(pt));
+            if (RectangleF.Inflate(shell, 2, 2).Contains(pt)) return true;
+            return !bubbleRect.IsEmpty && bubbleRect.Contains(pt);
         }
 
         bool CanExpand() { return !hiddenByUser && !PrompterOn && !ConvertOn && approvals.Count == 0 && (toast == null || !toast.Interactive); }
@@ -1403,11 +1472,11 @@ namespace Tepi
             Kick();
         }
 
+        // Later hits sit on top
         string HitAt(PointF pt)
         {
-            for (int i = hits.Count - 1; i >= 0; i--)
-                if (hits[i].Rect.Contains(pt)) return hits[i].Id;
-            return null;
+            int top = hits.FindLastIndex(h => h.Rect.Contains(pt));
+            return top < 0 ? null : hits[top].Id;
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
@@ -1426,9 +1495,15 @@ namespace Tepi
             if (ShelfDragCheck()) return;
             bool inside = InShape(mouse);
             if (current == View.Prompter) PrompterHover(mouse, inside);
-            if (inside && !pointerInside)
+            bool entered = inside && !pointerOver, left = !inside && pointerOver;
+            if (left)
             {
-                pointerInside = true;
+                PointerLeave();
+                return;
+            }
+            if (entered)
+            {
+                pointerOver = true;
                 PauseToast();
                 Kick();
                 leaveTimer.Stop();
@@ -1444,10 +1519,9 @@ namespace Tepi
                     PrefetchFrost();
                 }
             }
-            else if (!inside && pointerInside) { PointerLeave(); return; }
             string id = inside ? HitAt(mouse) : null;
             // Redraw only when the hovered control changes
-            if (id != hoverId) { hoverId = id; Kick(); if (expanded) TabHoverCheck(id); PointerShape(id); }
+            if (id != hoverKey) { hoverKey = id; Kick(); if (expanded) TabHoverCheck(id); PointerShape(id); }
         }
 
         // Hand over what acts; prompter edges set their own
@@ -1464,22 +1538,27 @@ namespace Tepi
             // Dragging slider or file: stay open
             if (dragId != null || draggingOut) return;
             if (prompterSizing != 0) return;
-            pointerInside = false;
+            pointerOver = false;
             shellDown = false;
             ResumeToast();
             PointerShape(null);
             hoverTimer.Stop();
-            leaveTimer.Stop();
-            leaveTimer.Start();
-            hoverId = null;
+            Rearm(leaveTimer);
+            hoverKey = null;
             Kick();
             PrompterHover(mouse, false);
+        }
+
+        static void Rearm(WinTimer t)
+        {
+            t.Enabled = false;
+            t.Enabled = true;
         }
 
         protected override void OnMouseLeave(EventArgs e)
         {
             base.OnMouseLeave(e);
-            if (pointerInside) PointerLeave();
+            if (pointerOver) PointerLeave();
         }
 
         // Capture lost mid-resize: keep what's there
@@ -1496,10 +1575,10 @@ namespace Tepi
             {
                 var pt = new PointF(e.X / scale, e.Y / scale);
                 if (current == View.Prompter && PrompterGrab(pt, Control.MousePosition)) return;
-                pressedId = HitAt(pt);
+                pressKey = HitAt(pt);
                 SwipeDown(pt);
-                var h = HitById(pressedId);
-                if (h != null && h.Drag != null) { dragId = pressedId; Capture = true; h.Drag(Fraction(h, pt)); }
+                var h = HitById(pressKey);
+                if (h != null && h.Drag != null) { dragId = pressKey; Capture = true; h.Drag(Fraction(h, pt)); }
                 // Bare pill or a pill-wide hit
                 shellDown = InShape(pt) && (h == null || h.Rect.Width >= shell.Width * 0.9f);
                 Kick();
@@ -1525,7 +1604,7 @@ namespace Tepi
                 if (dh != null && dh.DragEnd != null) dh.DragEnd();
                 dragId = null;
                 Capture = false;
-                pressedId = null;
+                pressKey = null;
                 Kick();
                 return;
             }
@@ -1533,20 +1612,14 @@ namespace Tepi
             {
                 var mh = HitById(HitAt(pt));
                 if (mh != null && mh.Menu != null) { mh.Menu(); return; }
-                menu.Show(Control.MousePosition);
+                MenuGuard.Watch(menu);
+                menu.Show(Cursor.Position);
                 return;
             }
             if (e.Button != MouseButtons.Left) return;
             string id = HitAt(pt);
-            if (id != null && id == pressedId)
-            {
-                foreach (var h in hits)
-                {
-                    if (h.Id != id) continue;
-                    try { h.Act(); } catch (Exception ex) { Log.Write("action " + id + ": " + ex.Message); }
-                    break;
-                }
-            }
+            // Click: released on what was pressed
+            if (id != null && id == pressKey) RunHit(hits.Find(h => h.Id == id));
             else if (id == null && current == View.Prompter && InShape(pt)) TogglePrompter();
             else if (id == null && !expanded && InShape(pt) && CanExpand())
             {
@@ -1556,8 +1629,14 @@ namespace Tepi
                 else if (onBubble && BubbleKind() == View.Timer) Expand(PageControl);
                 else Expand(onBubble && BubbleKind() == View.Agent ? PageAgents : ToastPage(false));
             }
-            pressedId = null;
+            pressKey = null;
             Kick();
+        }
+
+        void RunHit(Hit h)
+        {
+            try { h.Act(); }
+            catch (Exception ex) { Log.Write("action " + h.Id + ": " + ex.Message); }
         }
 
         protected override void OnMouseWheel(MouseEventArgs e)
@@ -1573,9 +1652,11 @@ namespace Tepi
                 return;
             }
             if (current == View.Approve) return;
-            vol = Ease.Clamp01(vol + e.Delta / 120f * 0.04f);
-            volBar.Target = vol;
+            // Each notch: 4% volume
+            float notches = e.Delta / 120f;
+            vol = Ease.Clamp01(vol + notches * 0.04f);
             volume.Set(vol);
+            volBar.Target = vol;
         }
 
         bool Docked { get { return settings.GetBool("dock", true); } }
@@ -1586,16 +1667,15 @@ namespace Tepi
 
         [DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr hWnd, int id, uint modifiers, uint vk);
 
-        bool hideTipShown;
 
         void ToggleHidden()
         {
             hiddenByUser = !hiddenByUser;
             if (hiddenByUser) expanded = false;
+            if (dockWin != null) dockWin.FollowHidden();
             // Hidden island can't say how to return, so the tray does
-            if (hiddenByUser && !hideTipShown && tray != null)
+            if (hiddenByUser && tray != null)
             {
-                hideTipShown = true;
                 tray.ShowBalloonTip(5000, Lang.T("Island disembunyikan"), HotkeyText(HideHotkey).Length > 0 ? Lang.F("Klik ikon Tepi di tray atau tekan {0} untuk memunculkannya lagi.", HotkeyText(HideHotkey)) : Lang.T("Klik ikon Tepi di tray untuk memunculkannya lagi."), ToolTipIcon.None);
             }
             Kick();
@@ -1621,40 +1701,40 @@ namespace Tepi
                 heldToasts.Add(w);
                 return w;
             }
-            if (toast != null && toast.Priority > priority) return null;
+            if (toast != null && priority < toast.Priority) return null;
             // Senyap: only what can't wait
             // Calls hold the same quiet news
             if ((Quiet || MeetingOn || ExceptQuieted() || FocusHold) && priority < 3 && (v == View.Notif || v == View.Track || v == View.Network || v == View.Privacy || v == View.Remind || v == View.Download || v == View.Info || v == View.Done)) return null;
             // Retracted: quiet news stays in the sliver
             if (MiniOn() && !MiniLets(v, priority)) return null;
+            // Open panel yields to urgent ones only
             if (expanded && !force)
             {
-                if (priority < 3) return null;
-                expanded = false;
+                if (priority >= 3) expanded = false;
+                else return null;
             }
             bool same = toast != null && toast.View == v;
-            var t = same ? toast : new Toast();
-            t.View = v;
-            t.Priority = priority;
-            t.Interactive = interactive;
-            t.Seconds = seconds;
-            // Callers set it again after
-            t.Page = -1;
-            if (!same) t.Hold = false;
             if (!same)
             {
-                t.ShownUtc = DateTime.UtcNow;
-                if (!Anim.Reduced) topGap.Velocity += 70; // arrival dip
+                toast = new Toast { ShownUtc = DateTime.UtcNow };
+                // Arrival dip
+                if (!Anim.Reduced) topGap.Velocity += 70;
             }
             else if (current == v && !Anim.Reduced && (v == View.Notif || v == View.Track || v == View.Info || v == View.Done))
             {
                 // New words in the same toast: crossfade
                 snapWanted = true;
                 previous = v;
-                switchedUtc = DateTime.UtcNow;
+                viewSinceUtc = DateTime.UtcNow;
                 topGap.Velocity += 35;
             }
-            toast = t;
+            var t = toast;
+            t.View = v;
+            t.Priority = priority;
+            t.Interactive = interactive;
+            t.Seconds = seconds;
+            // Callers set it again after
+            t.Page = -1;
             if (!same) EyesToast(v, t);
             ResetSwipe();
             ArmToast(seconds * 1000);
@@ -1722,11 +1802,14 @@ namespace Tepi
         void CheckFullscreen()
         {
             bool fs = Native.IsFullscreenOn(monitorHandle) || ExceptHidden();
-            if (!fs && windowShown) Native.SetWindowPos(Handle, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
-            if (fs == fullscreen) return;
-            fullscreen = fs;
-            if (fs) expanded = false;
-            Kick();
+            if (!fs && onScreen) KeepOnTop();
+            if (fs != fullscreen)
+            {
+                fullscreen = fs;
+                // Fullscreen app closes the panel
+                if (fs) expanded = false;
+                Kick();
+            }
         }
 
         void ClockTick()
@@ -1756,20 +1839,29 @@ namespace Tepi
 
         bool unplugWarned;
 
+        // Low battery steps that warn once each
+        static readonly int[] LowMarks = { 20, 10, 5 };
+
+        static bool CrossedLow(int before, int now)
+        {
+            foreach (int mark in LowMarks)
+                if (before > mark && now <= mark) return true;
+            return false;
+        }
+
         void ReadPower()
         {
-            bool hb, ac; int level;
+            bool hb, ac;
+            int level;
             Native.ReadPower(out hb, out ac, out level);
-            if (!powerKnown)
-            {
-                powerKnown = true;
-                hasBattery = hb; onAc = ac; battery = level;
-                return;
-            }
-            bool acChanged = ac != onAc;
+            // First reading sets the baseline only
+            bool baseline = !powerKnown, acChanged = ac != onAc;
             int prev = battery;
-            hasBattery = hb; onAc = ac; battery = level;
-            if (!hb) return;
+            powerKnown = true;
+            hasBattery = hb;
+            onAc = ac;
+            battery = level;
+            if (baseline || !hb) return;
             if (!ac) unplugWarned = false;
             // Battery care: unplug at the chosen level
             int unplugAt = settings.GetInt("battery.unplug", 0);
@@ -1778,7 +1870,7 @@ namespace Tepi
             if (acChanged) t = ShowToast(View.Power, 3.2, 2, false);
             else if (enough) { unplugWarned = true; t = ShowToast(View.Power, 6, 2, false); }
             else if (ac && level >= 100 && prev < 100) t = ShowToast(View.Power, 4, 2, false);
-            else if (!ac && ((prev > 20 && level <= 20) || (prev > 10 && level <= 10) || (prev > 5 && level <= 5))) t = ShowToast(View.Power, 5, 2, false);
+            else if (!ac && CrossedLow(prev, level)) t = ShowToast(View.Power, 5, 2, false);
             if (t != null)
             {
                 t.Flag = ac;
@@ -1926,25 +2018,21 @@ namespace Tepi
             catch (Exception ex) { Log.Write("app icon: " + ex.Message); return null; }
         }
 
+        // Black pill, light rim, white dot
         static Icon MakeTrayIcon()
         {
-            using (var bmp = new Bitmap(32, 32, PixelFormat.Format32bppArgb))
+            using (var art = new Bitmap(32, 32, PixelFormat.Format32bppArgb))
             {
-                using (var gr = Graphics.FromImage(bmp))
+                using (var gr = Graphics.FromImage(art))
+                using (var outline = Ink.Round(new RectangleF(2.5f, 9.5f, 27, 13), 6.5f))
+                using (var rim = new Pen(Color.FromArgb(255, 235, 235, 235), 1.4f))
                 {
                     gr.SmoothingMode = SmoothingMode.AntiAlias;
-                    var pill = new RectangleF(2.5f, 9.5f, 27, 13);
-                    using (var path = Ink.Round(pill, 6.5f))
-                    {
-                        gr.FillPath(Brushes.Black, path);
-                        using (var pen = new Pen(Color.FromArgb(255, 235, 235, 235), 1.4f)) gr.DrawPath(pen, path);
-                    }
+                    gr.FillPath(Brushes.Black, outline);
+                    gr.DrawPath(rim, outline);
                     gr.FillEllipse(Brushes.White, 20f, 13f, 6, 6);
                 }
-                IntPtr h = bmp.GetHicon();
-                var icon = (Icon)Icon.FromHandle(h).Clone();
-                Native.DestroyIcon(h);
-                return icon;
+                return IconFile.From(art);
             }
         }
     }

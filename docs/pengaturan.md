@@ -8,10 +8,11 @@ Bagian di samping dikelompokkan: **Umum**, **Tampilan**, **Dynamic Island**, **D
 
 ### Umum
 
-- **Dasar**: bahasa, format jam (24 jam, atau 12 jam dengan am/pm; jam besar di island tanpa am/pm), mulai bersama Windows, cek versi baru, folder data, ekspor dan impor pengaturan (token agent, port, pasangan HP, dan sesi Kulia tidak pernah ikut; impor hanya menerima kunci yang dikenal Tepi), serta setel ulang pengaturan dengan integrasi, agen, dan HP tetap tersambung.
-- **AI**: layanan teks untuk ringkasan rapat, Suruh Tepi, dan perbaiki atau terjemahkan teks; key, tombol Tes, dan model tiap layanan; alamat server kustom; mesin suara (Groq, OpenAI, kustom, atau offline) beserta unduhan model offline.
+- **Dasar**: bahasa, format jam (24 jam, atau 12 jam dengan am/pm; jam besar di island tanpa am/pm), mulai bersama Windows, cek versi baru, folder data, ekspor dan impor pengaturan (token agent, port, pasangan HP, dan sesi Kulia tidak pernah ikut; impor hanya menerima kunci yang dikenal Tepi; dikte, Dengarkan terus, dan lagu favorit ikut, hitungan kata tidak), serta setel ulang pengaturan dengan integrasi, agen, dan HP tetap tersambung.
+- **Siapkan suara dan AI**: status mikrofon (dengan **Buka izin** kalau izin mikrofon Windows mati, atau **Nyalakan** kalau mikrofon dimatikan), mesin dikte (dengan **Unduh runtime** kalau mesin offline butuh Visual C++ runtime), layanan teks, dan pengenal ucapan Inggris untuk Dengarkan terus (**Pasang** atau **Pengaturan Windows**). Selama dikte atau layanan teks belum siap, **Pilih cara** memandu langkah demi langkah lewat Groq, Offline, Ollama, atau Lainnya (OpenAI, Claude, Gemini, OpenRouter, DeepSeek, Mistral); setelah key disimpan, hanya bagian yang belum jalan yang dipindah ke layanan itu. Halaman ini dicek ulang setiap jendela Pengaturan kembali aktif.
+- **AI**: baris panduan ke Siapkan suara dan AI (**Belum siap** dan **Buka panduan** kalau ada yang kurang), layanan teks untuk ringkasan rapat, Suruh Tepi, dan perbaiki atau terjemahkan teks; key, tombol Tes, dan model tiap layanan; alamat server kustom; mesin suara (Groq, OpenAI, kustom, atau offline) beserta unduhan model offline.
 - **HP**: hubungkan HP lewat kode pasangan, ganti HP, serta pilih apakah notifikasi pesan dan kode OTP dari HP ditampilkan.
-- **Integrasi**: Kulia, Notion, Todoist, dan kalender iCal untuk tab Tugas dan Jadwal.
+- **Integrasi**: Kulia, Notion, Todoist, dan kalender iCal untuk tab Tugas dan Jadwal, dengan tautan **Buat token Notion** dan **Ambil token Todoist**; serta Spotify (Client ID dari **Dashboard Spotify**, butuh akun Premium) supaya lagu yang diminta lewat Suruh Tepi main di Spotify.
 
 ### Tampilan
 
@@ -32,12 +33,12 @@ Bagian di samping dikelompokkan: **Umum**, **Tampilan**, **Dynamic Island**, **D
 
 ### Fitur
 
-- **Musik**: lirik di island, lirik online, visualizer.
+- **Musik**: lirik di island, lirik online, visualizer, dan lagu favorit (tautan YouTube yang diputar saat kamu bilang "putar lagu biasa").
 - **Pesan**: notifikasi pesan dan isinya, aplikasi chat tambahan, pengirim prioritas (nama atau kata yang tetap muncul saat Senyap dan rapat). Banner pesan (Otomatis atau Tepi) dan mode berbagi layar (Otomatis, Nyala, Mati). **Tepi penerima utama** mematikan banner Windows untuk aplikasi chat, panggilan, dan Snipping Tool sekali klik (notifikasinya tetap di pusat notifikasi untuk dibaca Tepi), dan **Kembalikan banner Windows** membatalkannya.
 - **Sistem**: HUD Caps Lock, Num Lock dan Scroll Lock, bahasa input; pengingat cabut charger di 80, 85, atau 90%, flashdisk; kelas yang berlangsung, progres unduhan, mode rapat.
 - **Rak dan berkas**: rak berkas, simpan isi rak, kosongkan rak otomatis; ubah format, riwayat clipboard, preview screenshot.
 - **Agen**: hubungkan atau lepas tiap agent, satu sakelar **Kuota agent** untuk kuota semua agent, suara saat agen minta izin atau selesai dan saat `--run` selesai (suara bawaan Windows, diam saat Senyap atau layar penuh), port server hook (termasuk **Ganti port acak**), dan berapa lama izin ditahan.
-- **Dikte**: nyalakan dikte, tombol yang ditahan (Ctrl kanan atau Alt kanan), bahasa ucapan, mesin dikte (diatur di halaman AI), kamus dan snippet, buang kata pengisi, perintah baris baru, gaya per aplikasi, kecilkan musik, rekam rapat, ringkasan dan to-do, folder transkrip, serta hitungan kata.
+- **Dikte**: nyalakan dikte, tombol yang ditahan (Ctrl kanan atau Alt kanan), bahasa ucapan, mesin dikte (diatur di halaman AI; tombol **Siapkan** muncul kalau belum siap), perintah suara (**Dengarkan terus**, **Perintah bebas setelah Tepi**, **Wajib sebut Tepi**, **Peredam gema**; Dengarkan terus baru bisa dinyalakan kalau Windows punya pengenal ucapan Inggris, lewat baris **Pasang pengenal ucapan**), kamus dan snippet, buang kata pengisi, perintah baris baru, gaya per aplikasi, kecilkan musik, rekam rapat, ringkasan dan to-do, folder transkrip, serta hitungan kata.
 - **Pengingat**: sholat (kota dan menit sebelum), cuaca dan hujan, minum (selang dan target), istirahat mata, peregangan, lama istirahat fokus, tahan notifikasi saat fokus.
 
 ### Bantuan
@@ -83,10 +84,12 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `dockbar.reserve` | `1` | Jendela yang dimaksimalkan berhenti di atas dock |
 | `dockbar.magnify` | `1` | Ikon dock membesar saat disentuh kursor |
 | `dockbar.mag` | `150` | Besar ikon saat disorot, persen; `100` sama dengan mati |
-| `dockbar.style` | `float` | `float`: tiga kapsul mengambang; `full`: satu bar selebar layar |
+| `dockbar.style` | `float` | `float`: satu kapsul mengambang di tengah; `full`: satu bar selebar layar |
 | `dockbar.size` | `m` | Ukuran ikon dock: `s`, `m`, `l` |
 | `dockbar.hide` | `never` | `never`; `auto`: muncul saat kursor menyentuh tepi bawah; `smart`: menyingkir saat jendela menutupinya |
 | `dockbar.previews` | `1` | Pratinjau jendela saat kursor di atas aplikasi yang terbuka |
+| `dockbar.clickmin` | `1` | Klik ikon aplikasi yang sedang di depan untuk meminimalkan jendelanya; `0`: pindah ke jendela berikutnya |
+| `dockbar.fly` | `1` | Jendela mengecil masuk ke ikonnya saat diminimalkan lewat Dock, dan tumbuh lagi saat dibuka |
 | `dockbar.badges` | `1` | Angka notifikasi Windows di ikon aplikasi |
 | `dockbar.search`, `dockbar.taskview` | `1`, `0` | Tombol cari dan semua jendela saat menggantikan taskbar |
 | `dockbar.tray` | `1` | Ikon tray pindah ke dock saat menggantikan taskbar |
@@ -161,6 +164,12 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `dictate.model` | `seimbang` | Model offline: `cepat` (base), `seimbang` (small), `akurat` (large-v3-turbo) |
 | `dictate.fillers`, `dictate.commands`, `dictate.style`, `dictate.duck` | `1` | Buang kata pengisi, perintah baris baru, gaya per aplikasi, kecilkan musik |
 | `rapat.summary` | `1` | Ringkasan dan to-do di transkrip rapat, lewat layanan teks |
+| `listen` | `0` | Dengarkan terus, dengan pengenal ucapan Inggris dari Windows |
+| `listen.free` | `0` | Perintah bebas setelah Tepi; potongan suaranya ditranskrip mesin suara |
+| `listen.wake` | `1` | Wajib sebut Tepi untuk musik dan volume; perintah lain selalu butuh kata Tepi |
+| `listen.aec` | `1` | Peredam gema, supaya musik dari speaker tidak menutupi suaramu |
+| `listen.debug` | `0` | Catat lebih rinci apa yang didengar Dengarkan terus ke `tepi.log`, termasuk teks transkrip perintah bebas |
+| `fav.music` | kosong | Tautan YouTube untuk "putar lagu biasa" |
 | `edge.light` | `1` | Garis cahaya progres dan kilau pesan di tepi island |
 | `reserve.top` | `0` | Sisakan ruang di tepi atas; jendela yang dimaksimalkan mulai di bawah island |
 | `focus.hold` | `1` | Tahan notifikasi biasa selama sesi fokus, lalu rangkum |
@@ -176,4 +185,6 @@ Variabel lingkungan untuk pengembangan:
 - `TEPI_SCALE=<angka>` memaksa skala tampilan.
 - `TEPI_HOME=<folder>` memasang dan melepas hook di folder home lain, untuk menguji tanpa menyentuh konfigurasi agent yang asli.
 - `TEPI_DIR=<folder>` menjalankan salinan uji dengan data sendiri, berdampingan dengan Tepi yang sedang dipakai. Salinan uji tidak menulis registry autostart, tidak mengecek pembaruan, dan memasang hook di `<folder>\home`.
+- `TEPI_SIM=noeng,micdeny,novc,wblock` membuat Tepi bersikap seolah pengenal ucapan Inggris belum ada, izin mikrofon ditolak, Visual C++ runtime belum terpasang, atau whisper.cpp diblokir, untuk menguji pesan dan halaman Siapkan suara dan AI. Boleh dipakai sebagian, misalnya `TEPI_SIM=novc`.
+- `TEPI_OPEN=<id>` membuka halaman Pengaturan itu saat Tepi mulai, misalnya `TEPI_OPEN=siap`. Hanya berlaku di salinan uji `TEPI_DIR`.
 - `build.cmd <keluaran.exe>` membangun ke lokasi lain, supaya exe yang sedang berjalan tidak tersentuh.

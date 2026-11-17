@@ -71,7 +71,7 @@ namespace Tepi
             appRefs.Clear();
             var apps = new List<AppVolume>();
             IMMDevice dev;
-            if (enumerator == null || enumerator.GetDefaultAudioEndpoint(0, 1, out dev) != 0 || dev == null) { Publish(apps); return; }
+            if (deviceEnum == null || deviceEnum.GetDefaultAudioEndpoint(0, 1, out dev) != 0 || dev == null) { Publish(apps); return; }
             var iid = typeof(IAudioSessionManager2).GUID;
             object o;
             if (dev.Activate(ref iid, 23, IntPtr.Zero, out o) != 0) { Publish(apps); return; }
@@ -147,7 +147,7 @@ namespace Tepi
         {
             if (ducked.Count > 0) return;
             IMMDevice dev;
-            if (enumerator == null || enumerator.GetDefaultAudioEndpoint(0, 1, out dev) != 0 || dev == null) return;
+            if (deviceEnum == null || deviceEnum.GetDefaultAudioEndpoint(0, 1, out dev) != 0 || dev == null) return;
             var iid = typeof(IAudioSessionManager2).GUID;
             object o;
             if (dev.Activate(ref iid, 23, IntPtr.Zero, out o) != 0) return;

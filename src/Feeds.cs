@@ -133,7 +133,7 @@ namespace Tepi
     class PrivacyWatcher
     {
         public event Action<string[], string[]> Changed;
-        const string Base = @"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\";
+        const string Store = @"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\";
 
         public void Start()
         {
@@ -144,10 +144,38 @@ namespace Tepi
         // Restart after a failure instead of going quiet
         void Run()
         {
-            while (true)
+            for (;;)
             {
                 Watch();
                 Thread.Sleep(5000);
+            }
+        }
+
+        // One capability key and its change event
+        sealed class Consent : IDisposable
+        {
+            public readonly string Name;
+            public readonly RegistryKey Key;
+            public readonly AutoResetEvent Touched = new AutoResetEvent(false);
+            public bool Rearm = true;
+
+            public Consent(string name)
+            {
+                Name = name;
+                Key = Registry.CurrentUser.OpenSubKey(Store + name);
+            }
+
+            // Subkeys, name and last-write changes
+            public void Arm()
+            {
+                if (Rearm && Key != null) Native.RegNotifyChangeKeyValue(Key.Handle, true, 0x1 | 0x4, Touched.SafeWaitHandle, true);
+                Rearm = false;
+            }
+
+            public void Dispose()
+            {
+                if (Key != null) Key.Dispose();
+                Touched.Dispose();
             }
         }
 
@@ -155,33 +183,32 @@ namespace Tepi
         {
             try
             {
-                using (var mic = Registry.CurrentUser.OpenSubKey(Base + "microphone"))
-                using (var cam = Registry.CurrentUser.OpenSubKey(Base + "webcam"))
-                using (var micEvt = new AutoResetEvent(false))
-                using (var camEvt = new AutoResetEvent(false))
+                using (var mic = new Consent("microphone"))
+                using (var cam = new Consent("webcam"))
                 {
-                    string last = null;
-                    bool armMic = true, armCam = true;
-                    var waits = new WaitHandle[] { micEvt, camEvt };
-                    while (true)
+                    var both = new[] { mic, cam };
+                    var signals = new WaitHandle[] { mic.Touched, cam.Touched };
+                    string shown = null;
+                    for (;;)
                     {
-                        if (armMic && mic != null) Native.RegNotifyChangeKeyValue(mic.Handle, true, 0x5, micEvt.SafeWaitHandle, true);
-                        if (armCam && cam != null) Native.RegNotifyChangeKeyValue(cam.Handle, true, 0x5, camEvt.SafeWaitHandle, true);
-                        armMic = armCam = false;
-                        Procs procs = null;
-                        var m = Users("microphone", ref procs);
-                        var c = Users("webcam", ref procs);
-                        string sig = string.Join("|", m) + "#" + string.Join("|", c);
-                        if (sig != last)
+                        mic.Arm();
+                        cam.Arm();
+                        var running = new RunningApps();
+                        var micUsers = InUse(mic.Name, running);
+                        var camUsers = InUse(cam.Name, running);
+                        string now = string.Join("#", string.Join("|", micUsers), string.Join("|", camUsers));
+                        if (now != shown)
                         {
-                            last = sig;
-                            var h = Changed;
-                            if (h != null) h(m, c);
+                            shown = now;
+                            var handler = Changed;
+                            if (handler != null) handler(micUsers, camUsers);
                         }
                         // Crashed apps leave no registry trace
-                        int hit = WaitHandle.WaitAny(waits, m.Length + c.Length > 0 ? 3000 : Timeout.Infinite);
-                        if (hit == WaitHandle.WaitTimeout) continue;
-                        if (hit == 0) armMic = true; else armCam = true;
+                        bool anyone = micUsers.Length + camUsers.Length > 0;
+                        int which = WaitHandle.WaitAny(signals, anyone ? 3000 : Timeout.Infinite);
+                        if (which == WaitHandle.WaitTimeout) continue;
+                        both[which].Rearm = true;
+                        // Writes come in bursts
                         Thread.Sleep(250);
                     }
                 }
@@ -189,61 +216,76 @@ namespace Tepi
             catch (Exception ex) { Log.Write("privacy: " + ex.Message); }
         }
 
-        static string[] Users(string capability, ref Procs procs)
+        // Process list taken once, only when needed
+        sealed class RunningApps
+        {
+            Procs snapshot;
+            public Procs Get() { return snapshot ?? (snapshot = Procs.Take()); }
+        }
+
+        static string[] InUse(string capability, RunningApps running)
         {
             var names = new List<string>();
-            Collect(Base + capability, true, names, ref procs);
-            Collect(Base + capability + @"\NonPackaged", false, names, ref procs);
+            Scan(Store + capability, true, names, running);
+            Scan(Store + capability + @"\NonPackaged", false, names, running);
             return names.ToArray();
         }
 
-        static void Collect(string path, bool packaged, List<string> names, ref Procs procs)
+        static void Scan(string path, bool packaged, List<string> names, RunningApps running)
         {
-            using (var root = Registry.CurrentUser.OpenSubKey(path))
+            using (var parent = Registry.CurrentUser.OpenSubKey(path))
             {
-                if (root == null) return;
-                foreach (string sub in root.GetSubKeyNames())
+                if (parent == null) return;
+                foreach (var app in parent.GetSubKeyNames())
                 {
-                    if (sub == "NonPackaged") continue;
-                    // Dictation is Tepi itself: not a call
-                    if (!packaged && string.Equals(sub.Replace('#', '\\'), SelfPath, StringComparison.OrdinalIgnoreCase)) continue;
-                    using (var k = root.OpenSubKey(sub))
-                    {
-                        if (k == null) continue;
-                        object start = k.GetValue("LastUsedTimeStart"), stop = k.GetValue("LastUsedTimeStop");
-                        if (start == null || stop == null) continue;
-                        try
-                        {
-                            long since = Convert.ToInt64(start);
-                            if (since > 0 && Convert.ToInt64(stop) == 0)
-                            {
-                                if (procs == null) procs = Procs.Take();
-                                if (!procs.Holds(sub, packaged, since)) continue;
-                                string n = Friendly(sub);
-                                if (!names.Contains(n)) names.Add(n);
-                            }
-                        }
-                        catch (InvalidCastException) { }
-                    }
+                    if (app == "NonPackaged" || (!packaged && IsSelf(app))) continue;
+                    long since;
+                    if (!Recording(parent, app, out since)) continue;
+                    if (!running.Get().Holds(app, packaged, since)) continue;
+                    string label = Label(app);
+                    if (!names.Contains(label)) names.Add(label);
                 }
+            }
+        }
+
+        // Started, not stopped: in use now
+        static bool Recording(RegistryKey parent, string app, out long since)
+        {
+            since = 0;
+            using (var entry = parent.OpenSubKey(app))
+            {
+                if (entry == null) return false;
+                object started = entry.GetValue("LastUsedTimeStart"), stopped = entry.GetValue("LastUsedTimeStop");
+                if (started == null || stopped == null) return false;
+                try
+                {
+                    since = Convert.ToInt64(started);
+                    return since > 0 && Convert.ToInt64(stopped) == 0;
+                }
+                catch (InvalidCastException) { return false; }
             }
         }
 
         static readonly string SelfPath = System.Reflection.Assembly.GetEntryAssembly().Location;
 
-        static string Friendly(string key)
+        // Dictation is Tepi itself: not a call
+        static bool IsSelf(string app) { return string.Equals(app.Replace('#', '\\'), SelfPath, StringComparison.OrdinalIgnoreCase); }
+
+        // "C:#x#Zoom.exe" or "Pub.App_hash" to "Zoom", "App"
+        static string Label(string app)
         {
-            string n = key;
-            int hash = n.LastIndexOf('#');
-            if (hash >= 0) n = n.Substring(hash + 1);
+            int slash = app.LastIndexOf('#');
+            string name;
+            if (slash >= 0) name = app.Substring(slash + 1);
             else
             {
-                int us = n.IndexOf('_');
-                if (us > 0) n = n.Substring(0, us);
-                n = n.Substring(n.LastIndexOf('.') + 1);
+                int cut = app.IndexOf('_');
+                name = cut > 0 ? app.Remove(cut) : app;
+                name = name.Substring(name.LastIndexOf('.') + 1);
             }
-            if (n.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) n = n.Substring(0, n.Length - 4);
-            return n.Length > 0 ? char.ToUpperInvariant(n[0]) + n.Substring(1) : n;
+            if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) name = name.Remove(name.Length - 4);
+            if (name.Length == 0) return name;
+            return char.ToUpperInvariant(name[0]) + name.Substring(1);
         }
     }
 }

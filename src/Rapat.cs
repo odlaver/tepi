@@ -37,8 +37,9 @@ namespace Tepi
         {
             if (RapatOn || rapatWriting) { if (rapatWriting) DictSay(Lang.T("Transkrip sebelumnya masih ditulis"), "", true); return; }
             string missing = DictMissing();
-            if (missing != null) { DictSay(missing, Lang.T("Atur di Pengaturan › AI"), true); return; }
+            if (missing != null) { DictSay(missing, Lang.T("Klik untuk menyiapkan"), true, OpenSiap); return; }
             if (!micPresent) { DictSay(Lang.T("Tidak ada mikrofon"), "", true); return; }
+            if (Needs.MicDenied()) { MicFailSay(); return; }
             try
             {
                 // Leftovers from a crash
@@ -51,7 +52,7 @@ namespace Tepi
             rapatMic = new Recorder(false, rapatMicFile);
             rapatSys = new Recorder(true, rapatSysFile);
             rapatStartUtc = DateTime.UtcNow;
-            rapatApp = micApps.Length > 0 ? micApps[0] : "";
+            rapatApp = micHolders.Length > 0 ? micHolders[0] : "";
             var mic = rapatMic;
             var sys = rapatSys;
             ThreadPool.QueueUserWorkItem(delegate
@@ -60,8 +61,9 @@ namespace Tepi
                 Post(delegate
                 {
                     if (rapatMic != mic) return;
-                    if (!a) { AbortRapat(); DictSay(Lang.T("Mikrofon tidak bisa dibuka"), Lang.T("Cek izin mikrofon di Windows"), true); return; }
-                    if (!b) Log.Write("rapat: audio sistem tidak terbuka");
+                    if (!a) { AbortRapat(); MicFailSay(); return; }
+                    // Keeps the consent reminder
+                    if (!b) { Log.Write("rapat: audio sistem tidak terbuka"); DictSay(Lang.T("Rapat direkam, hanya suaramu"), Lang.T("Beri tahu peserta lain"), true); }
                 });
             });
             var t = ShowToast(View.Info, 4, 3, false, true);

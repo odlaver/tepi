@@ -15,18 +15,18 @@ namespace Tepi
             static readonly string[][] Pages =
             {
                 new[] { "Pengaturan Tepi", TepiPrefs, "tepi island dock pengaturan tepi preferensi" },
-                new[] { "Wi-Fi", "ms-settings:network-wifi", "wifi wi-fi jaringan network internet wlan nirkabel wireless" },
-                new[] { "Bluetooth dan perangkat", "ms-settings:bluetooth", "bluetooth perangkat devices headset earbuds tws mouse keyboard pairing sambung" },
-                new[] { "Layar", "ms-settings:display", "layar display monitor resolusi resolution kecerahan brightness skala scale hdr refresh" },
+                new[] { "Wi-Fi", "ms-settings:network-wifi", "wifi wi-fi jaringan network internet wlan nirkabel wireless sinyal signal" },
+                new[] { "Bluetooth dan perangkat", "ms-settings:bluetooth", "bluetooth bt perangkat devices headset earbuds tws airpods mouse keyboard pairing sambung controller" },
+                new[] { "Layar", "ms-settings:display", "layar display screen monitor resolusi resolution kecerahan brightness skala scale hdr refresh orientasi orientation proyeksi" },
                 new[] { "Lampu malam", "ms-settings:nightlight", "lampu malam night light cahaya biru blue light mata" },
-                new[] { "Suara", "ms-settings:sound", "suara sound audio speaker mikrofon microphone volume headphone output input" },
-                new[] { "Notifikasi", "ms-settings:notifications", "notifikasi notifications jangan ganggu do not disturb fokus focus" },
-                new[] { "Daya dan baterai", "ms-settings:powersleep", "baterai battery daya power tidur sleep hemat saver layar mati screen off" },
-                new[] { "Penyimpanan", "ms-settings:storagesense", "penyimpanan storage disk ruang space bersihkan cleanup" },
+                new[] { "Suara", "ms-settings:sound", "suara sound audio bunyi speaker mikrofon microphone mic volume headphone headset output input" },
+                new[] { "Notifikasi", "ms-settings:notifications", "notifikasi notif notifications jangan ganggu do not disturb fokus focus" },
+                new[] { "Daya dan baterai", "ms-settings:powersleep", "baterai battery daya power tidur sleep hemat saver layar mati screen off cas charging hibernate" },
+                new[] { "Penyimpanan", "ms-settings:storagesense", "penyimpanan storage disk ssd hdd ruang space bersihkan cleanup" },
                 new[] { "Latar belakang", "ms-settings:personalization-background", "latar wallpaper background personalisasi personalization" },
-                new[] { "Warna dan mode gelap", "ms-settings:colors", "warna colors gelap dark mode terang light aksen accent tema" },
+                new[] { "Warna dan mode gelap", "ms-settings:colors", "warna colors gelap dark darkmode mode terang light aksen accent tema transparan transparency" },
                 new[] { "Tema", "ms-settings:themes", "tema themes kursor cursor ikon desktop" },
-                new[] { "Taskbar", "ms-settings:taskbar", "taskbar bilah tugas tray" },
+                new[] { "Taskbar", "ms-settings:taskbar", "taskbar bilah tugas tray systray" },
                 new[] { "Aplikasi terpasang", "ms-settings:appsfeatures", "aplikasi apps terpasang installed uninstall hapus copot program" },
                 new[] { "Aplikasi bawaan", "ms-settings:defaultapps", "bawaan default browser pdf buka dengan open with" },
                 new[] { "Aplikasi saat startup", "ms-settings:startupapps", "startup mulai otomatis login masuk" },
@@ -43,44 +43,60 @@ namespace Tepi
                 new[] { "VPN", "ms-settings:network-vpn", "vpn" },
                 new[] { "Proxy", "ms-settings:network-proxy", "proxy proksi" },
                 new[] { "Ethernet", "ms-settings:network-ethernet", "ethernet lan kabel cable" },
-                new[] { "Windows Update", "ms-settings:windowsupdate", "update pembaruan perbarui upgrade" },
+                new[] { "Windows Update", "ms-settings:windowsupdate", "update pembaruan perbarui upgrade wu" },
                 new[] { "Privasi dan keamanan", "ms-settings:privacy", "privasi privacy keamanan security izin permission" },
                 new[] { "Kamera", "ms-settings:camera", "kamera camera webcam" },
                 new[] { "Lokasi", "ms-settings:privacy-location", "lokasi location gps" },
                 new[] { "Clipboard", "ms-settings:clipboard", "clipboard papan klip salin copy riwayat history" },
                 new[] { "Multitasking", "ms-settings:multitasking", "multitasking snap jendela window alt tab desktop virtual" },
-                new[] { "Aksesibilitas", "ms-settings:easeofaccess", "aksesibilitas accessibility narator narrator perbesar magnifier teks text size" },
+                new[] { "Aksesibilitas", "ms-settings:easeofaccess", "aksesibilitas accessibility a11y narator narrator perbesar magnifier teks text size" },
                 new[] { "Font", "ms-settings:fonts", "font huruf" },
                 new[] { "Mode game", "ms-settings:gaming-gamemode", "game gaming main" },
                 new[] { "Pemulihan", "ms-settings:recovery", "pemulihan recovery reset ulang setel" },
-                new[] { "Tentang perangkat", "ms-settings:about", "tentang about spesifikasi specs nama pc rename ram prosesor processor" },
+                new[] { "Tentang perangkat", "ms-settings:about", "tentang about spesifikasi spek specs nama pc rename ram prosesor processor winver versi windows" },
                 new[] { "Untuk pengembang", "ms-settings:developers", "pengembang developer dev" },
+                // Tepi's own pages, by section id
+                new[] { "Dasar", TepiPrefs + ":general", "umum general bahasa language mulai startup" },
+                new[] { "Siapkan suara dan AI", TepiPrefs + ":siap", "siap setup suara ai model" },
+                new[] { "HP", TepiPrefs + ":phone", "hp phone ponsel handphone android" },
+                new[] { "Integrasi", TepiPrefs + ":integrasi", "integrasi integrations notion todoist google" },
+                new[] { "Tema dan warna", TepiPrefs + ":look", "tema theme warna color aksen accent gelap dark terang light" },
+                new[] { "Letak dan bentuk", TepiPrefs + ":island", "island letak posisi bentuk" },
+                new[] { "Perilaku", TepiPrefs + ":behave", "perilaku behavior" },
+                new[] { "Dock dan taskbar", TepiPrefs + ":dock", "dock taskbar start" },
+                new[] { "Musik", TepiPrefs + ":music", "musik music lirik lyrics" },
+                new[] { "Rak dan berkas", TepiPrefs + ":files", "rak shelf berkas files" },
+                new[] { "Agen", TepiPrefs + ":agents", "agen agent claude codex" },
+                new[] { "Dikte", TepiPrefs + ":dikte", "dikte dictation voice ketik suara" },
+                new[] { "Pengingat", TepiPrefs + ":remind", "pengingat reminder alarm" },
+                new[] { "Pintasan", TepiPrefs + ":keys", "pintasan shortcut hotkey tombol keys" },
             };
 
-            public static List<AppEntry> Find(string query, int max)
+            static List<AppEntry> all;
+            static bool allEnglish;
+
+            // Prepared once per language
+            public static List<AppEntry> All()
             {
-                string q = query.Trim().ToLowerInvariant();
-                var ranked = new List<KeyValuePair<int, AppEntry>>();
-                if (q.Length == 0) return new List<AppEntry>();
+                if (all != null && allEnglish == Lang.English) return all;
+                var list = new List<AppEntry>();
                 foreach (var page in Pages)
                 {
-                    string name = Lang.T(page[0]), lower = name.ToLowerInvariant(), words = " " + page[2] + " " + page[0].ToLowerInvariant();
-                    // Name first, then a word that starts with it, then anywhere
-                    int rank = lower.StartsWith(q, StringComparison.Ordinal) ? 0 : words.Contains(" " + q) ? 1 : lower.Contains(q) || words.Contains(q) ? 2 : -1;
-                    if (rank < 0) continue;
-                    bool own = page[1] == TepiPrefs;
-                    ranked.Add(new KeyValuePair<int, AppEntry>(rank, new AppEntry
+                    bool own = page[1].StartsWith(TepiPrefs, StringComparison.Ordinal);
+                    string name = Lang.T(page[0]);
+                    list.Add(new AppEntry
                     {
                         Name = name,
                         Uri = page[1],
                         Sub = own ? "Tepi" : Lang.T("Pengaturan Windows"),
                         Target = own ? System.Windows.Forms.Application.ExecutablePath : ShellApp.AppsFolderOf(SettingsApp),
-                    }));
+                        // Both languages find the page
+                        Key = AppMatch.Prepare(name, page[2] + " " + page[0], false),
+                    });
                 }
-                ranked.Sort((a, b) => a.Key != b.Key ? a.Key.CompareTo(b.Key) : string.Compare(a.Value.Name, b.Value.Name, StringComparison.CurrentCultureIgnoreCase));
-                var list = new List<AppEntry>();
-                foreach (var r in ranked) { if (list.Count >= max) break; list.Add(r.Value); }
-                return list;
+                all = list;
+                allEnglish = Lang.English;
+                return all;
             }
         }
     }

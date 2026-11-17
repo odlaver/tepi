@@ -758,6 +758,9 @@ namespace Tepi
         static float Ascent(Font f) { return f.Size * f.FontFamily.GetCellAscent(f.Style) / f.FontFamily.GetEmHeight(f.Style); }
     }
 
+    // Not frozen by Tepi's own dialogs
+    interface IAlwaysUsable { }
+
     // Window: theme colours, dark caption, manual DPI
     class KitWindow : Form
     {
@@ -793,9 +796,13 @@ namespace Tepi
             base.OnLoad(e);
         }
 
+        [DllImport("user32.dll")] static extern bool EnableWindow(IntPtr hwnd, bool enable);
+
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            // ShowDialog froze them; island and Dock stay usable
+            if (Modal) foreach (Form f in Application.OpenForms) if (f is IAlwaysUsable && f.IsHandleCreated) EnableWindow(f.Handle, true);
             if (Opacity >= 1) return;
             var start = DateTime.UtcNow;
             var fade = new Timer { Interval = 15 };

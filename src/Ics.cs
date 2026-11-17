@@ -702,14 +702,19 @@ namespace Tepi
             // Last onset at or before t
             static int Last(List<KeyValuePair<DateTime, TimeSpan>> list, DateTime t)
             {
-                int lo = 0, hi = list.Count - 1, found = -1;
-                while (lo <= hi)
+                // Count of onsets not after t
+                int first = 0, count = list.Count;
+                while (count > 0)
                 {
-                    int mid = (lo + hi) / 2;
-                    if (list[mid].Key <= t) { found = mid; lo = mid + 1; }
-                    else hi = mid - 1;
+                    int half = count >> 1;
+                    if (t >= list[first + half].Key)
+                    {
+                        first += half + 1;
+                        count -= half + 1;
+                    }
+                    else count = half;
                 }
-                return found;
+                return first - 1;
             }
 
             public override DateTime ToUtc(DateTime wall)

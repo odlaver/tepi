@@ -13,42 +13,50 @@ namespace Tepi
 {
     static class Log
     {
-        static readonly object sync = new object();
+        static readonly object gate = new object();
+        const long RotateBytes = 512 * 1024;
 
         public static string FilePath { get { return Path.Combine(Settings.Dir, "tepi.log"); } }
 
-        static string lastMessage;
-        static DateTime lastUtc;
-        static int repeats;
+        // Repeats inside a minute are counted
+        static string previous;
+        static DateTime previousUtc;
+        static int skipped;
 
         public static void Write(string message)
         {
-            try
+            lock (gate)
             {
-                lock (sync)
+                try
                 {
-                    // Repeated lines log once a minute
-                    var now = DateTime.UtcNow;
-                    if (message == lastMessage && (now - lastUtc).TotalSeconds < 60) { repeats++; return; }
-                    Directory.CreateDirectory(Settings.Dir);
-                    var info = new FileInfo(FilePath);
-                    // Keep one older log file
-                    if (info.Exists && info.Length > 512 * 1024)
+                    var utc = DateTime.UtcNow;
+                    if (message == previous && (utc - previousUtc).TotalSeconds < 60)
                     {
-                        string old = FilePath + ".1";
-                        if (File.Exists(old)) File.Delete(old);
-                        File.Move(FilePath, old);
+                        skipped++;
+                        return;
                     }
-                    var sb = new StringBuilder();
-                    if (repeats > 0) sb.Append(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss ")).Append("(previous line ").Append(repeats).Append(" more times)").Append(Environment.NewLine);
-                    sb.Append(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss ")).Append(message).Append(Environment.NewLine);
-                    File.AppendAllText(FilePath, sb.ToString());
-                    lastMessage = message;
-                    lastUtc = now;
-                    repeats = 0;
+                    string stamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss ");
+                    string text = stamp + message + Environment.NewLine;
+                    if (skipped > 0) text = stamp + "(previous line " + skipped + " more times)" + Environment.NewLine + text;
+                    Directory.CreateDirectory(Settings.Dir);
+                    Rotate();
+                    File.AppendAllText(FilePath, text);
+                    previous = message;
+                    previousUtc = utc;
+                    skipped = 0;
                 }
+                catch (Exception) { }
             }
-            catch { }
+        }
+
+        // One older file, tepi.log.1
+        static void Rotate()
+        {
+            var current = new FileInfo(FilePath);
+            if (!current.Exists || current.Length <= RotateBytes) return;
+            string older = FilePath + ".1";
+            File.Delete(older);
+            current.MoveTo(older);
         }
     }
 
@@ -80,40 +88,55 @@ namespace Tepi
             get { return TestMode ? @"Local\TepiIsland-" + (Dir.ToLowerInvariant().GetHashCode() & 0x7fffffff) : @"Local\TepiIsland"; }
         }
 
-        readonly Dictionary<string, string> values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Sorted, so the file lists A-Z
+        readonly SortedDictionary<string, string> entries = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public readonly string FilePath = Path.Combine(Dir, "settings.ini");
 
         // No settings file yet: a first run
         public readonly bool Fresh;
 
-        public Settings() { Fresh = !File.Exists(FilePath); Load(); }
+        public Settings()
+        {
+            Fresh = !File.Exists(FilePath);
+            Load();
+        }
+
+        // One ini line; false for blanks and comments
+        public static bool ParseLine(string raw, out string key, out string value)
+        {
+            key = value = null;
+            string line = raw.Trim().TrimStart('﻿');
+            if (line.Length == 0 || line[0] == '#') return false;
+            var halves = line.Split(new[] { '=' }, 2);
+            if (halves.Length < 2 || halves[0].Length == 0) return false;
+            key = halves[0].Trim();
+            value = halves[1].Trim();
+            return true;
+        }
 
         public void Load()
         {
-            lock (values) LoadLocked();
-        }
-
-        void LoadLocked()
-        {
-            values.Clear();
+            var read = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                if (!File.Exists(FilePath)) return;
-                // Shared read; saves may replace it
-                using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-                using (var sr = new StreamReader(fs, Encoding.UTF8))
+                if (File.Exists(FilePath))
                 {
-                    string raw;
-                    while ((raw = sr.ReadLine()) != null)
+                    // Shared read; saves may replace it
+                    using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                    using (var reader = new StreamReader(fs, Encoding.UTF8))
                     {
-                        var line = raw.Trim().TrimStart('﻿');
-                        if (line.Length == 0 || line[0] == '#') continue;
-                        int eq = line.IndexOf('=');
-                        if (eq > 0) values[line.Substring(0, eq).Trim()] = line.Substring(eq + 1).Trim();
+                        string key, value;
+                        for (var raw = reader.ReadLine(); raw != null; raw = reader.ReadLine())
+                            if (ParseLine(raw, out key, out value)) read[key] = value;
                     }
                 }
             }
             catch (Exception ex) { Log.Write("settings load: " + ex.Message); }
+            lock (entries)
+            {
+                entries.Clear();
+                foreach (var kv in read) entries.Add(kv.Key, kv.Value);
+            }
         }
 
         public void Save()
@@ -121,50 +144,51 @@ namespace Tepi
             try
             {
                 Directory.CreateDirectory(Dir);
-                var sb = new StringBuilder();
-                lock (values)
-                {
-                    var keys = new List<string>(values.Keys);
-                    keys.Sort(StringComparer.OrdinalIgnoreCase);
-                    foreach (var k in keys) sb.Append(k).Append('=').Append(values[k]).Append("\r\n");
-                }
-                AtomicFile.Write(FilePath, new UTF8Encoding(false).GetBytes(sb.ToString()));
+                var text = new StringBuilder();
+                lock (entries)
+                    foreach (var kv in entries) text.Append(kv.Key).Append('=').Append(kv.Value).Append("\r\n");
+                AtomicFile.Write(FilePath, new UTF8Encoding(false).GetBytes(text.ToString()));
             }
             catch (Exception ex) { Log.Write("settings save: " + ex.Message); }
         }
 
-        public bool Has(string key) { string v; lock (values) return values.TryGetValue(key, out v) && v.Length > 0; }
+        public bool Has(string key) { return Get(key, "").Length > 0; }
 
         public string Get(string key, string fallback)
         {
             string v;
-            lock (values) return values.TryGetValue(key, out v) ? v : fallback;
+            lock (entries)
+                if (entries.TryGetValue(key, out v)) return v;
+            return fallback;
         }
 
         public int GetInt(string key, int fallback)
         {
-            int v;
-            return int.TryParse(Get(key, ""), NumberStyles.Integer, CultureInfo.InvariantCulture, out v) ? v : fallback;
+            int n;
+            if (!int.TryParse(Get(key, ""), NumberStyles.Integer, CultureInfo.InvariantCulture, out n)) n = fallback;
+            return n;
         }
+
+        static readonly HashSet<string> Yes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "1", "true" };
+        static readonly HashSet<string> No = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "0", "false" };
 
         public bool GetBool(string key, bool fallback)
         {
             string v = Get(key, "");
-            if (v == "1" || v.Equals("true", StringComparison.OrdinalIgnoreCase)) return true;
-            if (v == "0" || v.Equals("false", StringComparison.OrdinalIgnoreCase)) return false;
-            return fallback;
+            if (Yes.Contains(v)) return true;
+            return !No.Contains(v) && fallback;
         }
 
+        // Bools stored as 1/0, numbers invariant
         public void Set(string key, object value)
         {
-            if (value is bool) value = (bool)value ? "1" : "0";
-            string s = Convert.ToString(value, CultureInfo.InvariantCulture);
-            lock (values) values[key] = s;
+            string text = value is bool ? ((bool)value ? "1" : "0") : Convert.ToString(value, CultureInfo.InvariantCulture);
+            lock (entries) entries[key] = text;
         }
 
-        public void Remove(string key) { lock (values) values.Remove(key); }
+        public void Remove(string key) { lock (entries) entries.Remove(key); }
 
-        public List<string> Keys() { lock (values) return new List<string>(values.Keys); }
+        public List<string> Keys() { lock (entries) return new List<string>(entries.Keys); }
 
         public void Toggle(string key, bool fallback)
         {
@@ -173,24 +197,35 @@ namespace Tepi
         }
     }
 
+    // HKCU Run entry named Tepi
     static class AutoStart
     {
-        const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+        const string Entry = "Tepi";
+
+        static RegistryKey RunKey(bool write)
+        {
+            const string path = @"Software\Microsoft\Windows\CurrentVersion\Run";
+            return write ? Registry.CurrentUser.CreateSubKey(path) : Registry.CurrentUser.OpenSubKey(path);
+        }
 
         public static bool Enabled
         {
             get
             {
-                using (var k = Registry.CurrentUser.OpenSubKey(RunKey))
-                    return k != null && k.GetValue("Tepi") != null;
+                using (var run = RunKey(false))
+                    return run != null && run.GetValue(Entry) != null;
             }
             set
             {
-                if (Settings.TestMode) { Log.Write("test mode: autostart untouched"); return; }
-                using (var k = Registry.CurrentUser.CreateSubKey(RunKey))
+                if (Settings.TestMode)
                 {
-                    if (value) k.SetValue("Tepi", "\"" + System.Windows.Forms.Application.ExecutablePath + "\"");
-                    else k.DeleteValue("Tepi", false);
+                    Log.Write("test mode: autostart untouched");
+                    return;
+                }
+                using (var run = RunKey(true))
+                {
+                    if (!value) { run.DeleteValue(Entry, false); return; }
+                    run.SetValue(Entry, '"' + System.Windows.Forms.Application.ExecutablePath + '"');
                 }
             }
         }
@@ -201,6 +236,8 @@ namespace Tepi
     {
         public float Value, Velocity, Target, K, D;
         readonly float epsilon;
+        // Small fixed steps stay stable
+        const float MaxStep = 0.002f;
 
         public Spring(float value, float k, float d, float epsilon)
         {
@@ -212,19 +249,32 @@ namespace Tepi
 
         public void Step(float dt)
         {
-            if (Settled) { Value = Target; Velocity = 0; return; }
-            int steps = Math.Max(1, (int)Math.Ceiling(dt / 0.002f));
-            float h = dt / steps;
-            for (int i = 0; i < steps; i++)
+            if (Settled)
             {
-                Velocity += (-K * (Value - Target) - D * Velocity) * h;
+                Snap(Target);
+                return;
+            }
+            int n = (int)Math.Ceiling(dt / MaxStep);
+            if (n < 1) n = 1;
+            float h = dt / n;
+            while (n-- > 0)
+            {
+                float accel = K * (Target - Value) - D * Velocity;
+                Velocity += accel * h;
                 Value += Velocity * h;
             }
         }
 
-        public bool Settled { get { return Math.Abs(Value - Target) < epsilon && Math.Abs(Velocity) < epsilon * 6; } }
+        public bool Settled
+        {
+            get { return Math.Abs(Target - Value) < epsilon && Math.Abs(Velocity) < 6 * epsilon; }
+        }
 
-        public void Snap(float v) { Value = Target = v; Velocity = 0; }
+        public void Snap(float v)
+        {
+            Value = Target = v;
+            Velocity = 0;
+        }
     }
 
     // Reduced motion: Windows setting or Tepi's
@@ -271,17 +321,22 @@ namespace Tepi
 
     static class Ease
     {
-        public static float Clamp01(float t) { return t < 0 ? 0 : t > 1 ? 1 : t; }
-        public static float OutCubic(float t) { t = Clamp01(t); float u = 1 - t; return 1 - u * u * u; }
+        public static float Clamp01(float t) { return Math.Min(1f, Math.Max(0f, t)); }
+
+        public static float OutCubic(float t)
+        {
+            float rest = 1 - Clamp01(t);
+            return 1 - rest * rest * rest;
+        }
+
         public static float InOutCubic(float t) { t = Clamp01(t); return t < 0.5f ? 4 * t * t * t : 1 - (float)Math.Pow(-2 * t + 2, 3) / 2; }
         public static float OutExpo(float t) { t = Clamp01(t); return t >= 1 ? 1 : 1 - (float)Math.Pow(2, -10 * t); }
 
+        // Overshoots about 10% before settling
         public static float OutBack(float t)
         {
-            t = Clamp01(t);
-            const float c1 = 1.5f, c3 = c1 + 1;
-            float u = t - 1;
-            return 1 + c3 * u * u * u + c1 * u * u;
+            float back = Clamp01(t) - 1, sq = back * back;
+            return 1 + 2.5f * sq * back + 1.5f * sq;
         }
 
         // Overshoot unless motion is reduced
@@ -412,9 +467,11 @@ namespace Tepi
 
     static class Web
     {
-        static Web()
+        static Web() { Tls(); }
+
+        // TLS 1.2+; own HttpWebRequest calls this
+        public static void Tls()
         {
-            // TLS 1.2+ only, same as Fetch
             try { ServicePointManager.SecurityProtocol = (SecurityProtocolType)(3072 | 12288); }
             catch (Exception) { ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072; }
         }
@@ -666,12 +723,19 @@ namespace Tepi
                    (c >= 0x200B && c <= 0x200F) || (c >= 0x202A && c <= 0x202E) || (c >= 0x2060 && c <= 0x2069) || c == 0xFEFF;
         }
 
+        // Whitespace runs to single spaces, capped
         public static string OneLine(string s, int max)
         {
             if (string.IsNullOrEmpty(s)) return "";
-            s = s.Replace("\r", " ").Replace("\n", " ").Replace("\t", " ").Trim();
-            while (s.Contains("  ")) s = s.Replace("  ", " ");
-            return s.Length > max ? s.Substring(0, max) : s;
+            var flat = new StringBuilder(s.Length);
+            foreach (char c in s)
+            {
+                bool gap = c == ' ' || c == '\r' || c == '\n' || c == '\t';
+                if (!gap) flat.Append(c);
+                else if (flat.Length == 0 || flat[flat.Length - 1] != ' ') flat.Append(' ');
+            }
+            string one = flat.ToString().Trim();
+            return one.Length <= max ? one : one.Substring(0, max);
         }
     }
 }
