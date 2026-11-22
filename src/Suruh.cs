@@ -345,7 +345,7 @@ namespace Tepi
                 Fn("control_device", "Switch Wi-Fi, Bluetooth, dark mode, screen brightness, the microphone, do not disturb, keep awake, or lock the screen.", new Dictionary<string, object> { { "action", Pick("What to do", new List<string>(DeviceTools.Keys).ToArray()) }, { "percent", P("integer", "Brightness 0-100 for brightness_set, or the step for brightness_up and brightness_down") } }, new[] { "action" }),
                 Fn("reply", "Talk to the user: answers, follow-ups, or what the other tools cannot do.", new Dictionary<string, object> { { "text", P("string", "Plain text in the user's language") } }, new[] { "text" }),
             };
-            tools.Add(Fn("play_song", "Play a specific song by title: on Spotify when connected with Premium, else the top YouTube result in the browser. Use control_music for play, pause, or skip without a title.", new Dictionary<string, object> { { "query", P("string", "Song title, with the artist if the user named one") } }, new[] { "query" }));
+            tools.Add(Fn("play_song", "Play a specific song by title: on Spotify when connected with Premium, else the top result on YouTube Music in the browser. Use control_music for play, pause, or skip without a title.", new Dictionary<string, object> { { "query", P("string", "Song title, with the artist if the user named one") } }, new[] { "query" }));
             if (tasks) tools.Add(Fn("add_task", "Add a to-do item.", new Dictionary<string, object> { { "text", P("string", "Task text") } }, new[] { "text" }));
             string now = DateTime.Now.ToString("yyyy-MM-dd HH:mm dddd", CultureInfo.InvariantCulture);
             // Who made Tepi; the model vendor did not

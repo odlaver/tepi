@@ -261,7 +261,7 @@ namespace Tepi
         }
     }
 
-    // No Premium: top YouTube result in browser
+    // No Premium: top result on YouTube Music
     static class YouTubeLink
     {
         static readonly Regex Video = new Regex(@"""videoRenderer"":\{""videoId"":""(?<id>[\w-]{11})""", RegexOptions.Compiled);
@@ -294,13 +294,13 @@ namespace Tepi
             if (id == null) Log.Write("youtube: hasil tidak terbaca " + r.Status);
             if (id == null)
             {
-                try { Process.Start(new ProcessStartInfo(search) { UseShellExecute = true }); }
+                try { Process.Start(new ProcessStartInfo("https://music.youtube.com/search?q=" + Uri.EscapeDataString(query)) { UseShellExecute = true }); }
                 catch (Exception ex) { Log.Write("youtube buka: " + ex.Message); return Lang.T("Browser tidak bisa dibuka"); }
-                return Lang.F("Hasil YouTube untuk {0} dibuka, pilih sendiri", query);
+                return Lang.F("Hasil YouTube Music untuk {0} dibuka, pilih sendiri", query);
             }
             string video = title;
             if (title.Length == 0) title = query;
-            try { Island.OpenSong("https://www.youtube.com/watch?v=" + id, video); }
+            try { Island.OpenSong("https://music.youtube.com/watch?v=" + id, video); }
             catch (Exception ex) { Log.Write("youtube buka: " + ex.Message); return Lang.T("Browser tidak bisa dibuka"); }
             return null;
         }
@@ -311,8 +311,8 @@ namespace Tepi
     {
         static readonly Regex SongAsk = new Regex(@"^(?:putar|puter|putarin|puterin|play|mainkan|setel|setelin)\s+(?:(?:lagu|lagunya|musik|song|the song)\s+)?(?<q>.+?)(?:\s+(?:dari|oleh|by|punya)\s+(?<by>.+))?$", RegexOptions.IgnoreCase);
         // Player words, not titles
-        static readonly Regex NotATitle = new Regex(@"^(?:lagi|lagu|musik|music|song|berikutnya|selanjutnya|sebelumnya|tadi|next|previous|it|the music|spotify|di spotify|youtube|di youtube)$|^(?:volume|vol|suara|timer|alarm|pengingat|kecerahan|brightness|wi-?fi|bluetooth|mode)\b", RegexOptions.IgnoreCase);
-        static readonly Regex Where = new Regex(@"\s+(?:di|on|pakai|lewat|in)\s+(?<app>spotify|youtube|yt)$", RegexOptions.IgnoreCase);
+        static readonly Regex NotATitle = new Regex(@"^(?:lagi|lagu|musik|music|song|berikutnya|selanjutnya|sebelumnya|tadi|next|previous|it|the music|spotify|di spotify|youtube|di youtube|youtube music|di youtube music)$|^(?:volume|vol|suara|timer|alarm|pengingat|kecerahan|brightness|wi-?fi|bluetooth|mode)\b", RegexOptions.IgnoreCase);
+        static readonly Regex Where = new Regex(@"\s+(?:di|on|pakai|lewat|in)\s+(?<app>spotify|youtube music|yt music|ytmusic|youtube|yt)$", RegexOptions.IgnoreCase);
 
         internal static string SongQuery(string raw) { string app; return SongQuery(raw, out app); }
 
@@ -353,7 +353,7 @@ namespace Tepi
                 return err;
             }
             err = YouTubeLink.Play(query, out title);
-            said = Lang.F("Memutar {0} di YouTube", title);
+            said = Lang.F("Memutar {0} di YouTube Music", title);
             return err;
         }
 

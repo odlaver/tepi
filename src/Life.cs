@@ -84,7 +84,7 @@ namespace Tepi
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "2.6.2";
+        public const string AppVersion = "2.6.2.1";
         string newVersion, newUrl;
         bool newRebuild, checking, checkFailed;
         DateTime checkedUtc;

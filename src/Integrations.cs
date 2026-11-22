@@ -100,6 +100,40 @@ namespace Tepi
             }
 
             const string NotionTokenUrl = "https://www.notion.so/my-integrations", TodoistTokenUrl = "https://app.todoist.com/app/settings/integrations/developer";
+            const string KuliaUrl = "https://kulia.live", SpotifyDashUrl = "https://developer.spotify.com/dashboard", SpotifyRedirect = "http://127.0.0.1/callback";
+            const string GoogleCalUrl = "https://calendar.google.com/calendar/r/settings", ICloudCalUrl = "https://www.icloud.com/calendar/";
+            const string OutlookHomeUrl = "https://outlook.live.com/calendar/0/options/calendar/SharedCalendars", OutlookWorkUrl = "https://outlook.office.com/calendar/options/calendar/SharedCalendars";
+
+            // 0 Google, 1 Outlook, 2 iCloud, 3 other
+            int calFrom;
+            readonly HashSet<string> guideOpen = new HashSet<string>();
+
+            // Steps stay folded until asked
+            bool Guide(Action<KitRow> add, string id, string title)
+            {
+                bool open = guideOpen.Contains(id);
+                var b = Button(open ? Lang.T("Sembunyikan") : Lang.T("Lihat langkah"), false, delegate { if (!guideOpen.Remove(id)) guideOpen.Add(id); Rebuild(); });
+                b.AccessibleName = title;
+                add(Step('\uE897', title, null, b));
+                return open;
+            }
+
+            // Numbered setup row with its icon
+            KitRow Step(char glyph, string title, string detail, Control field)
+            {
+                var r = Row(title, detail, field);
+                r.Glyph = glyph;
+                return r;
+            }
+
+            KitButton CopyButton(string text, Func<KitRow> row)
+            {
+                return Button(Lang.T("Salin"), false, delegate
+                {
+                    try { Clipboard.SetText(text); Say(row(), Lang.F("{0} tersalin", text)); }
+                    catch (Exception ex) { Log.Write("salin: " + ex.Message); }
+                });
+            }
 
             Control Pair(Control a, Control b)
             {
@@ -122,11 +156,18 @@ namespace Tepi
                     HookSources();
                 }
                 cap("Kulia");
-                bool signed = island.KuliaOn;
-                add(Row("Kulia", signed ? island.kulia.Email : Lang.T("Belum masuk"),
-                    signed ? (Control)Button(Lang.T("Keluar dari Kulia"), false, delegate { island.SignOutKulia(); Rebuild(); })
-                           : Button(Lang.T("Masuk"), true, delegate { island.OpenLogin(); Rebuild(); })));
-                if (signed) add(Row(Lang.T("Tugas dan jadwal"), Lang.T("Diperbarui tiap 10 menit"), Button(Lang.T("Perbarui"), false, delegate { island.RefreshTasks(true); })));
+                if (island.KuliaOn)
+                {
+                    add(Row("Kulia", island.kulia.Email, Button(Lang.T("Keluar dari Kulia"), false, delegate { island.SignOutKulia(); Rebuild(); })));
+                    add(Row(Lang.T("Tugas dan jadwal"), Lang.T("Diperbarui tiap 10 menit"), Button(Lang.T("Perbarui"), false, delegate { island.RefreshTasks(true); })));
+                }
+                else
+                {
+                    bool open = Guide(add, "kulia", Lang.T("Cara masuk ke Kulia"));
+                    if (open) add(Step('\uE774', Lang.T("1. Siapkan akun Kulia"), Lang.T("Belum punya? Daftar dulu di kulia.live"), Button(Lang.T("Buka kulia.live"), false, delegate { OpenUrl(KuliaUrl); })));
+                    add(Step('\uE77B', open ? Lang.T("2. Masuk dengan email akun itu") : "Kulia", open ? Lang.T("Kode masuk dikirim ke email itu, lalu ketik di Tepi") : Lang.T("Belum masuk"),
+                        Button(Lang.T("Masuk"), true, delegate { island.OpenLogin(); Rebuild(); })));
+                }
                 var hub = island.sources;
                 if (hub == null) return;
                 cap("Notion");
@@ -176,22 +217,26 @@ namespace Tepi
                 var n = hub.Notion;
                 if (n == null)
                 {
+                    bool open = Guide(add, "notion", Lang.T("Cara menyambungkan Notion"));
+                    if (open)
+                    {
+                        add(Step('\uE774', Lang.T("1. Buat integrasi internal"), Lang.T("Tekan New integration, pilih workspace, lalu Save"), Button(Lang.T("Buka Notion"), false, delegate { OpenUrl(NotionTokenUrl); })));
+                        add(Step('\uE8D7', Lang.T("2. Beri izin baca dan ubah"), Lang.T("Di Capabilities, centang Read content dan Update content"), null));
+                        add(Step('\uE72D', Lang.T("3. Bagikan database tugasmu"), Lang.T("Buka database-nya di Notion: ••• › Connections › pilih integrasi tadi"), null));
+                    }
                     var field = new KitField(Ui, true, Lang.T("Token Notion"), 400);
                     KitRow row = null;
                     KitButton go = null;
                     go = Button(Lang.T("Hubungkan"), true, delegate { ConnectNotion(field, go, row); });
                     field.Submit = delegate { go.PerformClick(); };
-                    row = Row("Notion", Lang.T("Token integrasi atau token pribadi"), Pair(field, go));
+                    row = Step('\uE77F', open ? Lang.T("4. Tempel Internal Integration Secret") : "Notion", open ? Lang.T("Diawali ntn_ atau secret_") : Lang.T("Token integrasi internal"), Pair(field, go));
                     add(row);
-                    var make = Row(Lang.T("Buat token Notion"), Lang.T("Buat integrasi internal, salin tokennya, lalu bagikan database tugasmu ke integrasi itu"), Button(Lang.T("Buka"), false, delegate { OpenUrl(NotionTokenUrl); }));
-                    make.Glyph = '';
-                    add(make);
                     return;
                 }
                 var status = Row("Notion", Detail(n), Button(Lang.T("Lepas"), false, delegate { hub.DropNotion(); Rebuild(); }));
                 statusRows[n.Key] = status;
                 add(status);
-                if (n.Dbs.Count == 0) add(Row(Lang.T("Belum ada database"), Lang.T("Di Notion: ••• › Koneksi › integrasi ini"), null));
+                if (n.Dbs.Count == 0) add(Row(Lang.T("Belum ada database"), Lang.T("Di Notion: ••• › Connections › integrasi ini"), null));
                 foreach (var db in n.Dbs)
                 {
                     var d = db;
@@ -376,13 +421,16 @@ namespace Tepi
                     });
                 });
                 field.Submit = delegate { go.PerformClick(); };
-                row = Row("Spotify", Lang.T("Buat app di dashboard Spotify dengan Redirect URI http://127.0.0.1/callback dan Web API, lalu tempel Client ID-nya"), Pair(field, go));
-                add(row);
-                add(Row(Lang.T("Dashboard Spotify"), Lang.T("Butuh akun Premium, maksimal 5 pengguna per app"), Button(Lang.T("Buka"), false, delegate
+                bool open = Guide(add, "spotify", Lang.T("Cara menyambungkan Spotify"));
+                if (open)
                 {
-                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://developer.spotify.com/dashboard") { UseShellExecute = true }); }
-                    catch (Exception ex) { Log.Write("spotify dashboard: " + ex.Message); }
-                })));
+                    add(Step('\uE774', Lang.T("1. Buat app di dashboard Spotify"), Lang.T("Tekan Create app, isi nama dan deskripsi bebas"), Button(Lang.T("Buka dashboard"), false, delegate { OpenUrl(SpotifyDashUrl); })));
+                    KitRow uri = null;
+                    uri = Step('\uE8C8', Lang.T("2. Isi Redirect URIs"), Lang.F("Tempel {0}, centang Web API, lalu Save", SpotifyRedirect), CopyButton(SpotifyRedirect, () => uri));
+                    add(uri);
+                }
+                row = Step('\uE77F', open ? Lang.T("3. Tempel Client ID") : "Spotify", open ? Lang.T("Ada di halaman app tadi") : Lang.T("Butuh Premium. Client ID app-mu"), Pair(field, go));
+                add(row);
             }
 
             void TodoistRows(SourceHub hub, Action<KitRow> add)
@@ -419,11 +467,10 @@ namespace Tepi
                     });
                 });
                 field.Submit = delegate { go.PerformClick(); };
-                row = Row("Todoist", Lang.T("Token dari Integrasi › Developer"), Pair(field, go));
+                bool open = Guide(add, "todoist", Lang.T("Cara menyambungkan Todoist"));
+                if (open) add(Step('\uE774', Lang.T("1. Buka halaman Developer Todoist"), Lang.T("Masuk ke akun Todoist-mu kalau diminta"), Button(Lang.T("Buka Todoist"), false, delegate { OpenUrl(TodoistTokenUrl); })));
+                row = Step('\uE77F', open ? Lang.T("2. Salin API token, tempel di sini") : "Todoist", open ? Lang.T("Tombol salinnya di bagian API token") : Lang.T("Token API dari Todoist"), Pair(field, go));
                 add(row);
-                var make = Row(Lang.T("Ambil token Todoist"), Lang.T("Salin API token di halaman Developer"), Button(Lang.T("Buka"), false, delegate { OpenUrl(TodoistTokenUrl); }));
-                make.Glyph = '';
-                add(make);
             }
 
             void CalendarRows(SourceHub hub, Action<KitRow> add)
@@ -439,12 +486,44 @@ namespace Tepi
                     statusRows[f.Key] = row;
                     add(row);
                 }
+                string pasteTitle = Lang.T("Tambah kalender"), pasteNote = Lang.T("Tautan https atau webcal");
+                bool open = Guide(add, "kalender", Lang.T("Cara mengambil tautan iCal"));
+                if (open) add(Step('\uE787', Lang.T("Kalendermu ada di"), null, Seg(new[] { "Google", "Outlook", "iCloud", Lang.T("Lain") }, calFrom, i => { calFrom = i; Rebuild(); })));
+                if (open) switch (calFrom)
+                {
+                    case 0:
+                        add(Step('\uE774', Lang.T("1. Buka Setelan Google Calendar"), Lang.T("Lewat browser, aplikasi Google Calendar di HP tidak punya menu ini"), Button(Lang.T("Buka Setelan"), false, delegate { OpenUrl(GoogleCalUrl); })));
+                        add(Step('\uE713', Lang.T("2. Pilih kalendermu"), Lang.T("Di kiri: Setelan untuk kalender saya › nama kalender › Integrasikan kalender"), null));
+                        pasteTitle = Lang.T("3. Tempel alamat rahasia format iCal");
+                        pasteNote = Lang.T("Bukan alamat publik");
+                        break;
+                    case 1:
+                        add(Step('\uE774', Lang.T("1. Buka Kalender bersama di Outlook"), Lang.T("Pilih sesuai akun Microsoft-mu"), Pair(
+                            Button(Lang.T("Akun pribadi"), false, delegate { OpenUrl(OutlookHomeUrl); }),
+                            Button(Lang.T("Akun kantor/kampus"), false, delegate { OpenUrl(OutlookWorkUrl); }))));
+                        add(Step('\uE72D', Lang.T("2. Terbitkan kalender"), Lang.T("Pilih kalendernya, Dapat melihat semua detail, lalu Terbitkan"), null));
+                        pasteTitle = Lang.T("3. Salin tautan ICS, tempel di sini");
+                        pasteNote = Lang.T("Yang ICS, bukan HTML");
+                        break;
+                    case 2:
+                        add(Step('\uE774', Lang.T("1. Buka Kalender di iCloud"), Lang.T("Masuk dengan Apple ID yang dipakai iPhone-mu"), Button(Lang.T("Buka iCloud"), false, delegate { OpenUrl(ICloudCalUrl); })));
+                        add(Step('\uE72D', Lang.T("2. Jadikan kalendernya publik"), Lang.T("Klik ikon bagikan di samping nama kalender, centang kalender publik"), null));
+                        pasteTitle = Lang.T("3. Salin tautannya, tempel di sini");
+                        pasteNote = Lang.T("Diawali webcal://");
+                        break;
+                    default:
+                        add(Step('\uE721', Lang.T("1. Cari menu ekspor kalender"), Lang.T("Di pengaturan aplikasinya, biasanya bernama iCal, ICS, webcal, atau langganan"), null));
+                        add(Step('\uE946', Lang.T("Contoh: Moodle kampus"), Lang.T("Kalender › Impor atau ekspor kalender › Ekspor › Dapatkan URL kalender"), null));
+                        pasteTitle = Lang.T("2. Tempel tautannya di sini");
+                        pasteNote = Lang.T("Diawali https atau webcal");
+                        break;
+                }
                 var field = new KitField(Ui, false, Lang.T("Tautan iCal"), 2000);
                 KitRow addRow = null;
                 KitButton go = null;
                 go = Button(Lang.T("Tambah"), true, delegate { AddCalendar(field, go, addRow); });
                 field.Submit = delegate { go.PerformClick(); };
-                addRow = Row(Lang.T("Tambah kalender"), Lang.T("Tautan .ics atau webcal, misalnya alamat rahasia Google Calendar"), Pair(field, go));
+                addRow = Step('\uE77F', pasteTitle, pasteNote, Pair(field, go));
                 add(addRow);
             }
 

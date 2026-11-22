@@ -14,9 +14,14 @@
 
 # Tepi
 
-Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 1.869 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
+Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 1.883 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
 
 Sekarang juga ada [Tepi Android](https://github.com/odlaver/tepi-android): island di sekitar kamera depan HP, yang nyambung ke laptop cukup dengan memindai QR.
+
+## Baru di 2.6.2.1
+
+- **Lagu di YouTube Music**: minta lagu lewat Suruh Tepi atau suara, misalnya "putar Hindia", sekarang dibuka di YouTube Music, bukan YouTube biasa. Lagu favoritmu juga.
+- **Langkah di Integrasi**: Kulia, Notion, Todoist, Spotify, dan kalender punya tombol **Lihat langkah** di Pengaturan › Integrasi. Untuk kalender, pilih Google, Outlook, iCloud, atau lainnya, lalu ikuti cara mengambil tautan iCal-nya.
 
 ## Baru di 2.6.2
 

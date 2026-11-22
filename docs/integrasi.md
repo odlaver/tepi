@@ -14,17 +14,22 @@ Sesi login disimpan terenkripsi dengan DPAPI Windows dan hanya bisa dibuka oleh 
 
 ## Integrasi
 
-Buka **Pengaturan > Integrasi**:
+Buka **Pengaturan > Integrasi**. Tiap layanan yang belum tersambung punya tombol **Lihat langkah** yang membuka panduannya satu per satu, lengkap dengan tombol ke halaman yang dimaksud.
 
-- **Notion**: buat integrasi internal di [notion.so/my-integrations](https://www.notion.so/my-integrations) (tombol **Buat token Notion** di Tepi membukanya), salin tokennya, lalu bagikan database tugasmu ke integrasi itu (di Notion: **••• > Koneksi**). Pilih database, kolom tanggal, dan kolom selesai. Tugas bisa ditandai selesai dari Tepi kalau integrasinya diberi izin mengubah isi.
+- **Notion**: buat integrasi internal di [notion.so/my-integrations](https://www.notion.so/my-integrations) (tombol **Buat token Notion** di Tepi membukanya), salin tokennya, lalu bagikan database tugasmu ke integrasi itu (di Notion: **••• > Connections**). Pilih database, kolom tanggal, dan kolom selesai. Tugas bisa ditandai selesai dari Tepi kalau integrasinya diberi izin mengubah isi.
 - **Todoist**: tempel token API dari **Pengaturan > Integrasi > Developer** di Todoist (**Ambil token Todoist** di Tepi membuka halaman itu). Tugas aktif yang punya tenggat ikut tampil dan bisa ditutup dari Tepi.
-- **Kalender**: tempel tautan iCal (`https` atau `webcal`). Di Google Calendar, pakai **Secret address in iCal format** dari pengaturan kalender. Outlook, iCloud, dan aplikasi lain yang punya tautan iCal juga bisa. Paling banyak 12 kalender.
+- **Kalender**: tempel tautan iCal (`https` atau `webcal`). Paling banyak 12 kalender. Cara mengambil tautannya:
+  - **Google Calendar**: buka [Setelan](https://calendar.google.com/calendar/r/settings) lewat browser (aplikasi HP tidak punya menunya), pilih kalendermu di **Setelan untuk kalender saya**, lalu buka **Integrasikan kalender** dan salin **Alamat rahasia dalam format iCal**. Bukan alamat publik.
+  - **Outlook**: buka **Kalender bersama** ([akun pribadi](https://outlook.live.com/calendar/0/options/calendar/SharedCalendars) atau [akun kantor/kampus](https://outlook.office.com/calendar/options/calendar/SharedCalendars)), di **Terbitkan kalender** pilih kalendernya dan **Dapat melihat semua detail**, tekan **Terbitkan**, lalu salin tautan ICS.
+  - **iCloud**: buka [iCloud Kalender](https://www.icloud.com/calendar/), klik ikon bagikan di samping nama kalender, centang kalender publik, lalu salin tautan `webcal://`.
+  - **Moodle kampus**: **Kalender > Impor atau ekspor kalender > Ekspor > Dapatkan URL kalender**.
+  - Aplikasi lain: cari menu bernama iCal, ICS, webcal, atau langganan di pengaturan kalendernya.
 
 Data diperbarui tiap 10 menit, dan saat tab Tugas atau Jadwal dibuka. Token dan tautan kalender disimpan terenkripsi dengan DPAPI Windows dan tidak pernah ditulis ke log.
 
 ## Spotify
 
-Tanpa pengaturan apa pun, "putar Evaluasi dari Hindia" memutar hasil teratas YouTube di browser bawaanmu. Sambungkan Spotify kalau ingin lagunya main di aplikasi Spotify. Butuh Spotify **Premium**: Spotify hanya mengizinkan aplikasi lain memutar lagu untuk akun Premium, dan pemilik app developer juga wajib Premium. Tanpa Premium, "putar Evaluasi di Spotify" hanya membuka hasil pencarian Spotify.
+Tanpa pengaturan apa pun, "putar Evaluasi dari Hindia" memutar hasil teratas di YouTube Music lewat browser bawaanmu. Sambungkan Spotify kalau ingin lagunya main di aplikasi Spotify. Butuh Spotify **Premium**: Spotify hanya mengizinkan aplikasi lain memutar lagu untuk akun Premium, dan pemilik app developer juga wajib Premium. Tanpa Premium, "putar Evaluasi di Spotify" hanya membuka hasil pencarian Spotify.
 
 1. Buka [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) dengan akun Spotify-mu, lalu **Create app**.
 2. Isi nama dan deskripsi bebas. Di **Redirect URIs**, isi `http://127.0.0.1/callback` (tanpa port, bukan `localhost`). Centang **Web API**, lalu simpan.

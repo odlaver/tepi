@@ -35,7 +35,7 @@ namespace Tepi
             // A Mix list is named after its first video
             if (v == null && l != null && l.StartsWith("RD", StringComparison.Ordinal) && l.Length == 13) v = l.Substring(2);
             if (v == null && l == null) return null;
-            string url = "https://www.youtube.com/watch?";
+            string url = "https://music.youtube.com/watch?";
             if (v != null) url += "v=" + v;
             if (l != null) url += (v != null ? "&" : "") + "list=" + l;
             return url;

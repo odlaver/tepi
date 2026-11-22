@@ -20,6 +20,15 @@ namespace Tepi
         {
             new Note
             {
+                Version = "2.6.2.1",
+                Items = new[]
+                {
+                    new[] { "Lagu di YouTube Music", "Minta lagu lewat Suruh Tepi atau suara, misalnya \"putar Hindia\", sekarang dibuka di YouTube Music, bukan YouTube biasa. Lagu favoritmu juga.", "\uE8D6" },
+                    new[] { "Langkah di Integrasi", "Kulia, Notion, Todoist, Spotify, dan kalender punya tombol Lihat langkah di Pengaturan › Integrasi. Untuk kalender, pilih Google, Outlook, iCloud, atau lainnya, lalu ikuti cara mengambil tautan iCal-nya.", "\uE897" },
+                },
+            },
+            new Note
+            {
                 Version = "2.6.2",
                 Items = new[]
                 {
@@ -102,6 +111,12 @@ namespace Tepi
                 var v = Parse(n.Version);
                 if (v <= cur && (string.IsNullOrEmpty(seen) ? v == cur : v > last)) list.Add(n);
             }
+            // A micro release brings its base release
+            if (cur.Revision > 0)
+            {
+                var b = For(cur.Major + "." + cur.Minor + "." + cur.Build);
+                if (b != null && !list.Contains(b)) list.Add(b);
+            }
             return list;
         }
 
@@ -177,11 +192,32 @@ namespace Tepi
         // Heading in the Settings voice
         protected override void OnPaintBackground(PaintEventArgs e)
         {
-            e.Graphics.Clear(KitInk.Window);
+            var g = e.Graphics;
+            g.Clear(KitInk.Window);
             float s = Ui;
+            // Micro digit drawn small: 2.6.2.1
+            string[] parts = notes[0].Version.Split('.');
+            string ver = parts.Length > 3 ? string.Join(".", parts, 0, 3) : notes[0].Version;
+            string tail = parts.Length > 3 ? "." + string.Join(".", parts, 3, parts.Length - 3) : "";
+            string head = Lang.F("Baru di Tepi {0}", ver);
+            var at = new Point((int)(26 * s), (int)(22 * s));
             using (var f = UiFont(24f))
-                TextRenderer.DrawText(e.Graphics, Lang.F("Baru di Tepi {0}", notes[0].Version), f, new Point((int)(26 * s), (int)(22 * s)), KitInk.Text, TextFormatFlags.NoPrefix);
+            {
+                TextRenderer.DrawText(g, head, f, at, KitInk.Text, TextFormatFlags.NoPrefix);
+                if (tail.Length == 0) return;
+                const TextFormatFlags tight = TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
+                using (var small = UiFont(14f))
+                {
+                    int padded = TextRenderer.MeasureText(g, head, f, Size.Empty, TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine).Width;
+                    int bare = TextRenderer.MeasureText(g, head, f, Size.Empty, tight).Width;
+                    float x = at.X + (padded - bare) / 2f + bare + 1 * s;
+                    float baseline = at.Y + Ascent(f);
+                    TextRenderer.DrawText(g, tail, small, new Point((int)Math.Round(x), (int)Math.Round(baseline - Ascent(small))), KitInk.Sub, tight);
+                }
+            }
         }
+
+        static float Ascent(Font f) { return f.Size * f.FontFamily.GetCellAscent(f.Style) / f.FontFamily.GetEmHeight(f.Style); }
 
         public override void Relayout()
         {
