@@ -70,6 +70,7 @@ namespace Tepi
             catch (Exception ex) { Log.Write("lyric offsets: " + ex.Message); }
             ApplyLyricOffset(lyrics);
             lyricIndex = lyricPrev = -1;
+            SyncLyricWin();
             Kick();
         }
 
@@ -80,16 +81,21 @@ namespace Tepi
         }
 
         // Right click on the lyrics
-        void LyricMenu()
+        void LyricMenu() { LyricMenu(-1); }
+
+        void LyricMenu(int line)
         {
             if (lyrics == null || lyrics.Key != mediaInfo.Key) return;
             int now = LyricOffset(lyrics.Key);
             var m = new ContextMenuStrip();
             m.Items.Add(new ToolStripMenuItem(now == 0 ? Lang.T("Waktu lirik asli") : Lang.F("Waktu lirik digeser {0}", ShiftText(now))) { Enabled = false });
             m.Items.Add(new ToolStripSeparator());
+            if (line >= 0 && lyrics.State == LyricState.Synced) m.Items.Add(Lang.T("Samakan waktu ke baris ini"), null, delegate { MatchLyricLine(line); });
             m.Items.Add(Lang.T("Lirik lebih awal 0,5 dtk"), null, delegate { NudgeLyrics(-LyricStep); });
             m.Items.Add(Lang.T("Lirik lebih lambat 0,5 dtk"), null, delegate { NudgeLyrics(LyricStep); });
             if (now != 0) m.Items.Add(Lang.T("Kembalikan waktu asli"), null, delegate { NudgeLyrics(0); });
+            m.Items.Add(new ToolStripSeparator());
+            m.Items.Add(LyricWinWanted ? Lang.T("Kembalikan lirik ke island") : Lang.T("Buka jendela lirik"), null, delegate { ToggleLyricWin(); });
             StyleMenu(m);
             m.Closed += delegate { BeginInvoke(new Action(m.Dispose)); };
             m.Show(Control.MousePosition);

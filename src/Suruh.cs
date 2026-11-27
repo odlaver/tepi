@@ -304,6 +304,8 @@ namespace Tepi
                     }
                     var dev = RunCmd(key, amount);
                     return dev == null ? null : new ChatAct { Glyph = dev.Glyph, Text = dev.Text };
+                case "tepi":
+                    return DoTepiTool(s("action"), s("section"), s("tab"));
                 case "add_task":
                     if (s("text").Length == 0 || sources == null) return null;
                     string to = sources.Find("todoist") != null ? "todoist" : "notion";
@@ -343,6 +345,7 @@ namespace Tepi
                 Fn("set_volume", "Set the system volume or mute it.", new Dictionary<string, object> { { "percent", P("integer", "Volume to set, 0-100") }, { "change", P("integer", "Relative step in points, e.g. 10 or -10") }, { "mute", P("boolean", "True mutes, false unmutes") } }, new string[0]),
                 Fn("open_app", "Open an installed app by name, e.g. Spotify, Brave, Calculator. \"browser\" opens the default browser.", new Dictionary<string, object> { { "name", P("string", "App name as the user said it") } }, new[] { "name" }),
                 Fn("control_device", "Switch Wi-Fi, Bluetooth, dark mode, screen brightness, the microphone, do not disturb, keep awake, or lock the screen.", new Dictionary<string, object> { { "action", Pick("What to do", new List<string>(DeviceTools.Keys).ToArray()) }, { "percent", P("integer", "Brightness 0-100 for brightness_set, or the step for brightness_up and brightness_down") } }, new[] { "action" }),
+                Fn("tepi", "Control Tepi itself: its settings (optionally one section), the Suruh Tepi chat, the lyric window, the top bar look, the dock, Mini mode, a panel tab, the panel, hiding the island, the teleprompter. Use this, not open_app, when the user means Tepi's own features.", new Dictionary<string, object> { { "action", Pick("What to do", TepiActions) }, { "section", Pick("Settings section for open_settings", TepiSections) }, { "tab", Pick("Panel tab for open_tab", TepiTabs) } }, new[] { "action" }),
                 Fn("reply", "Talk to the user: answers, follow-ups, or what the other tools cannot do.", new Dictionary<string, object> { { "text", P("string", "Plain text in the user's language") } }, new[] { "text" }),
             };
             tools.Add(Fn("play_song", "Play a specific song by title: on Spotify when connected with Premium, else the top result on YouTube Music in the browser. Use control_music for play, pause, or skip without a title.", new Dictionary<string, object> { { "query", P("string", "Song title, with the artist if the user named one") } }, new[] { "query" }));
@@ -417,6 +420,10 @@ namespace Tepi
                 var o = AddOneShot(at, what);
                 return Did(Ink.IcoBell, ReminderSaid(at, what), o);
             }
+
+            // Tepi's own features before apps and devices
+            var own = TryTepi(tepiCalled ? "tepi " + raw : raw);
+            if (own != null) return own;
 
             var cmd = TryCommand(text);
             if (cmd != null) return cmd;

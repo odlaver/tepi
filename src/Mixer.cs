@@ -188,6 +188,52 @@ namespace Tepi
             ducked.Clear();
         }
 
+        // Wheel on a dock icon: every session of these exes moves together; done gets -1 when none plays
+        public void StepApp(ICollection<string> exes, float step, Action<float> done)
+        {
+            Do(delegate
+            {
+                float level = -1;
+                IMMDevice dev;
+                object o;
+                var iid = typeof(IAudioSessionManager2).GUID;
+                if (deviceEnum == null || deviceEnum.GetDefaultAudioEndpoint(0, 1, out dev) != 0 || dev == null || dev.Activate(ref iid, 23, IntPtr.Zero, out o) != 0) { done(level); return; }
+                var mgr = (IAudioSessionManager2)o;
+                IAudioSessionEnumerator list;
+                int count;
+                var hit = new List<IAudioSessionControl2>();
+                if (mgr.GetSessionEnumerator(out list) == 0 && list.GetCount(out count) == 0)
+                {
+                    for (int i = 0; i < count; i++)
+                    {
+                        IAudioSessionControl2 s;
+                        if (list.GetSession(i, out s) != 0 || s == null) continue;
+                        int state;
+                        uint pid;
+                        if (s.GetState(out state) == 0 && state != 2 && s.IsSystemSoundsSession() != 0 && s.GetProcessId(out pid) == 0 && pid != 0 && exes.Contains(ShellApp.ProcessPath((int)pid))) hit.Add(s);
+                        else Marshal.ReleaseComObject(s);
+                    }
+                    Marshal.ReleaseComObject(list);
+                }
+                Marshal.ReleaseComObject(mgr);
+                if (hit.Count > 0)
+                {
+                    float now;
+                    ((ISimpleAudioVolume)hit[0]).GetMasterVolume(out now);
+                    // Whole steps of 5%
+                    level = Ease.Clamp01((float)Math.Round((now + step) * 20) / 20);
+                    foreach (var s in hit)
+                    {
+                        var v = (ISimpleAudioVolume)s;
+                        v.SetMasterVolume(level, ref ctx);
+                        if (step > 0) v.SetMute(false, ref ctx);
+                        Marshal.ReleaseComObject(s);
+                    }
+                }
+                done(level);
+            });
+        }
+
         public void SetApp(string name, float level, bool mute)
         {
             Do(delegate

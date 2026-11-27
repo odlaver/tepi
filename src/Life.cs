@@ -84,7 +84,7 @@ namespace Tepi
         }
 
         // Daily release check; never downloads anything
-        public const string AppVersion = "2.6.2.1";
+        public const string AppVersion = "2.6.3";
         string newVersion, newUrl;
         bool newRebuild, checking, checkFailed;
         DateTime checkedUtc;
@@ -244,6 +244,7 @@ namespace Tepi
                 trackToAnnounce = null;
                 if (!expanded) ShowToast(View.Track, 3.2, 1, false);
             }
+            SyncLyricWin();
             Kick();
         }
 
@@ -270,6 +271,7 @@ namespace Tepi
             ApplyLyricOffset(l);
             lyrics = l;
             lyricIndex = lyricPrev = -1;
+            SyncLyricWin();
             Kick();
         }
 
@@ -277,7 +279,7 @@ namespace Tepi
 
         bool LyricOnIsland()
         {
-            if (!settings.GetBool("lyrics", true) || !LyricsReady || !mediaInfo.Playing) return false;
+            if (!settings.GetBool("lyrics", true) || !LyricsReady || !mediaInfo.Playing || LyricWinShown) return false;
             double pos = mediaInfo.Position(DateTime.UtcNow);
             int i = lyrics.IndexAt(pos);
             if (i < 0 || lyrics.Lines[i].Text.Length == 0) return false;

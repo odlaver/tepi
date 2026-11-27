@@ -84,6 +84,7 @@ namespace Tepi
             if (key == "dock") ResetFrost();
             else if (key == "notif") notifWatcher.Enabled = NotifOn;
             else if (key == "lyrics.online") { lyrics = null; SyncLyrics(); }
+            else if (key == "lyrics.win") { SyncLyricWin(); Kick(); }
             else if (key == "shots") ApplyClips();
             else if (key == "clipboard")
             {
@@ -1212,6 +1213,9 @@ namespace Tepi
                         break;
                     case "music":
                         add(Row(Lang.T("Lirik di island"), null, Switch("lyrics", true, null)));
+                        add(Row(Lang.T("Jendela lirik"), Lang.T("Lirik di jendela sendiri yang bisa digeser dan diubah ukurannya"), Switch("lyrics.win", false, null)));
+                        string lk = island.LyricLook;
+                        add(Row(Lang.T("Latar jendela lirik"), null, Seg(new[] { Lang.T("Sampul album"), Lang.T("Kaca"), Lang.T("Tembus") }, lk == "kaca" ? 1 : lk == "tembus" ? 2 : 0, i => island.SetLyricLook(i == 1 ? "kaca" : i == 2 ? "tembus" : "album"))));
                         add(Row(Lang.T("Cari lirik online"), Lang.T("Judul, artis, dan durasi ke LRCLIB, cadangannya NetEase"), Switch("lyrics.online", true, null)));
                         add(Row(Lang.T("Visualizer"), null, Switch("visualizer", true, null)));
                         add(FavRow());

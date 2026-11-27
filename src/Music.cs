@@ -390,11 +390,14 @@ namespace Tepi
             AddHit(cover, "cover", OpenPlayer, null, PlayerMenu);
             DrawTransport(cover.X + cover.Width / 2, 214, false);
             float tx = 166, tw = w - tx - 24;
-            FitText(mediaInfo.Title, 18f, 14f, p.T.Text, tx, 78, tw - 40);
+            FitText(mediaInfo.Title, 18f, 14f, p.T.Text, tx, 78, tw - 84);
             p.Text(mediaInfo.Artist, Ink.Text(13f), p.T.Sub, tx, 101, tw, StringAlignment.Near);
+            DrawLyricWinButton(w - 24 - 31 - 22, 78);
             DrawBars(w - 24, 78, 6, 18, 3f, 2.6f);
             double pt = Prof.T();
-            DrawTeleprompter(new RectangleF(tx, 118, tw, h - 118 - 56), now);
+            var lyricBox = new RectangleF(tx, 118, tw, h - 118 - 56);
+            if (LyricWinShown) DrawLyricsAway(lyricBox);
+            else DrawTeleprompter(lyricBox, now);
             Prof.Add("lyrics", pt);
             g.Restore(st);
         }
@@ -415,8 +418,9 @@ namespace Tepi
             Prof.Add("cover", pc);
             float tx = 252, tw = w - tx - 26;
             double pt = Prof.T();
-            FitText(mediaInfo.Title, 22f, 15f, p.T.Text, tx, 92, tw);
+            FitText(mediaInfo.Title, 22f, 15f, p.T.Text, tx, 92, tw - 44);
             p.Text(mediaInfo.Artist, Ink.Text(13.5f), p.T.Sub, tx, 118, tw, StringAlignment.Near);
+            DrawLyricWinButton(tx + tw - 16, 92);
             Prof.Add("titles", pt);
             double pb = Prof.T();
             DrawWideBars(tx, 182, tw, 42);

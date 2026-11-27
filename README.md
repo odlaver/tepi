@@ -14,25 +14,21 @@
 
 # Tepi
 
-Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 1.883 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
+Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 1.976 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
 
 Sekarang juga ada [Tepi Android](https://github.com/odlaver/tepi-android): island di sekitar kamera depan HP, yang nyambung ke laptop cukup dengan memindai QR.
 
-## Baru di 2.6.2.1
+## Baru di 2.6.3
 
-- **Lagu di YouTube Music**: minta lagu lewat Suruh Tepi atau suara, misalnya "putar Hindia", sekarang dibuka di YouTube Music, bukan YouTube biasa. Lagu favoritmu juga.
-- **Langkah di Integrasi**: Kulia, Notion, Todoist, Spotify, dan kalender punya tombol **Lihat langkah** di Pengaturan › Integrasi. Untuk kalender, pilih Google, Outlook, iCloud, atau lainnya, lalu ikuti cara mengambil tautan iCal-nya.
+- **Tampilan bar atas**: bar di tepi atas dengan menu aplikasi, status, dan jam, dan island jadi notch di tengahnya. Jendela berhenti di bawah bar, atau bar sembunyi sampai kursor menyentuh tepi atas. Pilih di Pengaturan › Dock; **Biasa** mengembalikan setelan lamamu.
+- **Jendela lirik**: lirik pindah ke jendela sendiri yang bisa digeser dan diubah ukurannya, berlatar sampul album, kaca, atau tembus. Klik kanan satu baris untuk menyamakan waktunya.
+- **Volume, Rak, Unduhan, dan Recycle Bin di Dock**: gulir di atas ikon aplikasi untuk mengatur volumenya. Jatuhkan berkas ke Rak atau Recycle Bin, dan klik Unduhan untuk sepuluh berkas terbaru.
+- **Disk dan kecepatan internet**: widget baru di Dock dan bar atas.
+- **Suruh Tepi mengatur Tepi**: "Tepi, buka pengaturan dock", "buka jendela lirik", "Tepi, pakai bar atas", atau "Tepi, buka rak", tanpa internet.
 
-## Baru di 2.6.2
+Tetap ringan: island diam memakai 0,7% CPU satu core, sama dengan 2.6.2, dan jendela lirik lebih hemat daripada lirik di island. Angkanya di [Performa](docs/performa.md#263).
 
-- **Siapkan suara dan AI**: halaman baru di Pengaturan yang mengecek mikrofon, mesin dikte, layanan teks, dan pengenal ucapan, lalu memandu yang kurang: key Groq gratis, model offline, Ollama, atau layanan lain.
-- **Dengarkan terus**: ucapkan "Tepi, pause", "Tepi, open Spotify", atau "Tepi, turn on wifi" tanpa menekan tombol. Dikenali offline, dalam bahasa Inggris.
-- **Perintah perangkat dan lagu**: Suruh Tepi menyalakan Wi-Fi dan Bluetooth, mengatur kecerahan, membuka aplikasi, dan memutar lagu dari judulnya.
-- **Lagu favorit**: tempel tautan YouTube di Pengaturan › Musik, lalu bilang "putar lagu biasa".
-- **Pesan yang menunjukkan jalan**: saat dikte, rapat, atau Dengarkan terus belum bisa jalan, notifikasinya menyebut sebabnya. Klik untuk membuka tempat memperbaikinya, misalnya izin mikrofon Windows.
-- **Lebih halus**: toast bisa digeser, dan pesan, isi rak, serta tugas yang dihapus atau ditandai selesai bisa diurungkan selama 5 detik.
-- **Dock lebih lengkap**: pengaturan cepat bergaya Windows 11, pencarian Start yang paham singkatan seperti "wa" untuk WhatsApp dan bisa mencari berkas, serta jendela yang mengecil masuk ke ikonnya saat diminimalkan.
-- **Dari laporan pengguna**: Kirim saran terkirim lagi, Dock tetap di atas jendela lain, menu tertutup saat diklik di luar, klik ikon aplikasi yang di depan untuk meminimalkannya, tile Wi-Fi menyebut nama jaringan, dan alat **Coret** di Edit gambar.
+Sejak 2.6.2: **Dengarkan terus** tanpa menekan tombol, **perintah perangkat dan lagu** lewat suara, dan halaman **Siapkan suara dan AI**.
 
 Sejak 2.6.1: **island di mana saja**, **Dock** yang bisa menggantikan taskbar, **Ngobrol dengan Tepi**, serta **perbaiki dan terjemahkan** teks.
 
@@ -44,7 +40,7 @@ Catatan lengkapnya ada di [halaman rilis](https://github.com/odlaver/tepi/releas
 
 | | |
 |---|---|
-| **Musik dan lirik** | Spotify, YouTube, Apple Music, dan pemutar lain. Lirik tersinkron menyapu kata demi kata, visualizer membaca suara yang benar-benar diputar. |
+| **Musik dan lirik** | Spotify, YouTube, Apple Music, dan pemutar lain. Lirik tersinkron menyapu kata demi kata, atau tampil di jendela lirik sendiri; visualizer membaca suara yang benar-benar diputar. |
 | **Agent coding** | Claude Code, Codex, Antigravity, dan Copilot CLI, tiap sesi bertanda agentnya. Status sesi, rencana kerja, kuota tiap agent, dan izin yang bisa dijawab dari island. [Selengkapnya](docs/agen.md) |
 | **Kuliah** | Tugas dan jadwal dari [Kulia](https://kulia.live), Notion, Todoist, dan kalender iCal. [Selengkapnya](docs/integrasi.md) |
 | **Pesan** | WhatsApp, Telegram, Discord, Teams, Slack, dan email dari pusat notifikasi Windows. Satu pesan, satu banner: tidak dobel dengan banner Windows atau HP. |
@@ -54,6 +50,7 @@ Catatan lengkapnya ada di [halaman rilis](https://github.com/odlaver/tepi/releas
 | **Kontrol** | Volume per aplikasi, kecerahan, Wi-Fi, Bluetooth, mikrofon, mode gelap, laptop tetap terjaga, dan timer. |
 | **Pengingat** | Sholat (dihitung di laptop, tanpa internet), cuaca dan hujan, minum, istirahat mata, peregangan. |
 | **Mini** | Sliver kecil yang tembus klik, dengan dua mata yang berkedip dan berekspresi. |
+| **Dock dan bar atas** | Dock kaca di tepi bawah yang bisa menggantikan taskbar, dan tampilan bar atas dengan menu, status, dan jam, dengan island sebagai notch. Keduanya pilihan, tidak menyala sendiri saat dipasang. |
 | **Lainnya** | [Teleprompter](docs/teleprompter.md), cermin kamera, catatan kilat, preview screenshot, mode rapat, flashdisk, [skrip](docs/skrip.md), dan navigasi keyboard penuh. |
 
 Daftar fitur lengkap dan cara pakainya ada di [Fitur dan cara pakai](docs/fitur.md).

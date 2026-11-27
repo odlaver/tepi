@@ -200,21 +200,33 @@ namespace Tepi
                 if (Environment.GetEnvironmentVariable("TEPI_DIR") != null) return;
                 string exe = Process.GetCurrentProcess().MainModule.FileName;
                 if (exe.StartsWith(Path.GetTempPath(), StringComparison.OrdinalIgnoreCase)) return;
-                string lnk = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Tepi.lnk");
-                if (File.Exists(lnk) && string.Equals(ReadLink(lnk).Target, exe, StringComparison.OrdinalIgnoreCase)) return;
-                object o = new ShellLinkObject();
-                try
-                {
-                    var sl = (IShellLinkW)o;
-                    sl.SetPath(exe);
-                    sl.SetWorkingDirectory(Path.GetDirectoryName(exe));
-                    sl.SetDescription("Tepi");
-                    sl.SetIconLocation(exe, 0);
-                    ((IPersistFile)o).Save(lnk, true);
-                }
-                finally { Marshal.ReleaseComObject(o); }
+                string programs = Environment.GetFolderPath(Environment.SpecialFolder.Programs);
+                SaveLink(Path.Combine(programs, "Tepi.lnk"), exe, "", "Tepi");
+                // Found from Windows search if the taskbar ever stays hidden
+                SaveLink(Path.Combine(programs, Lang.T("Pulihkan taskbar (Tepi)") + ".lnk"), exe, "--restore", Lang.T("Tampilkan lagi taskbar Windows"));
             }
             catch (Exception ex) { Log.Write("start entry: " + ex.Message); }
+        }
+
+        static void SaveLink(string lnk, string exe, string args, string description)
+        {
+            if (File.Exists(lnk))
+            {
+                var now = ReadLink(lnk);
+                if (string.Equals(now.Target, exe, StringComparison.OrdinalIgnoreCase) && now.Args == args) return;
+            }
+            object o = new ShellLinkObject();
+            try
+            {
+                var sl = (IShellLinkW)o;
+                sl.SetPath(exe);
+                if (args.Length > 0) sl.SetArguments(args);
+                sl.SetWorkingDirectory(Path.GetDirectoryName(exe));
+                sl.SetDescription(description);
+                sl.SetIconLocation(exe, 0);
+                ((IPersistFile)o).Save(lnk, true);
+            }
+            finally { Marshal.ReleaseComObject(o); }
         }
 
         // Start menu name of an item

@@ -278,8 +278,9 @@ namespace Tepi
                 int pw2 = (int)Math.Ceiling(w * scale), ph2 = (int)Math.Ceiling(h * scale);
                 int cx = anchor.X + anchor.Width / 2;
                 int left = Math.Max(mon.Left + (int)(8 * scale), Math.Min(mon.Right - (int)(8 * scale) - pw2, cx - pw2 / 2));
-                // Above the bar, and above a magnified icon too
-                int top = Math.Min(barTop, anchor.Top) - (int)(10 * scale) - ph2;
+                // Above the bar, and above a magnified icon too; beneath a top bar button
+                down = anchor.Bottom < mon.Top + mon.Height / 3;
+                int top = down ? anchor.Bottom + (int)(8 * scale) : Math.Min(barTop, anchor.Top) - (int)(10 * scale) - ph2;
                 baseY = top;
                 if (pw2 != cw || ph2 != ch) MakeCanvas(pw2, ph2);
                 // Already up: glide from where it stands
@@ -307,7 +308,9 @@ namespace Tepi
                 Render();
             }
 
-            int Rise() { return Anim.Reduced ? 0 : (int)Math.Round((1 - open.Value) * 8 * scale); }
+            bool down;
+
+            int Rise() { return Anim.Reduced ? 0 : (int)Math.Round((1 - open.Value) * 8 * scale) * (down ? -1 : 1); }
 
             void TakePlate(DockPlate pl)
             {

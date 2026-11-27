@@ -15,10 +15,13 @@ namespace Tepi
         // Keys apart from "dock", which glues the island to its edge
         bool DockBarOn { get { return settings.GetBool("dockbar.on", false); } }
 
-        static readonly string[] DockWidgetIds = { "clock", "media", "ai", "timer", "weather", "battery", "system" };
-        static readonly string[] DockWidgetNames = { "Jam", "Musik", "Kuota AI dan agen", "Timer", "Cuaca", "Baterai", "Sistem" };
+        static readonly string[] DockWidgetIds = { "clock", "media", "ai", "timer", "weather", "battery", "system", "disk", "net" };
+        static readonly string[] DockWidgetNames = { "Jam", "Musik", "Kuota AI dan agen", "Timer", "Cuaca", "Baterai", "Sistem", "Disk", "Kecepatan internet" };
 
-        bool DockWidget(string id) { return settings.GetBool("dockbar.w." + id, id != "system"); }
+        // Readers that poll stay off until asked for
+        static bool DockWidgetDefault(string id) { return id != "system" && id != "disk" && id != "net"; }
+
+        bool DockWidget(string id) { return settings.GetBool("dockbar.w." + id, DockWidgetDefault(id)); }
 
         void ApplyDock()
         {
@@ -36,6 +39,7 @@ namespace Tepi
                 dockWin = null;
             }
             else if (dockWin != null) dockWin.Changed();
+            ApplyTopBar();
         }
 
         // Something on screen moved: dock glass and apps look again

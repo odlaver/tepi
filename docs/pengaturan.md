@@ -29,11 +29,11 @@ Bagian di samping dikelompokkan: **Umum**, **Tampilan**, **Dynamic Island**, **D
 
 ### Dock
 
-- **Dock**: bar aplikasi dan widget di tepi bawah, mati sampai dinyalakan. Ganti taskbar Windows (Start, tray, Quick Settings, dan jam pindah ke dock; taskbar kembali saat dimatikan), bentuk (mengambang atau selebar layar), ukuran ikon, perbesar saat disorot, sembunyikan dock (selalu tampil, otomatis, atau saat tertutup jendela), tetap tampil di desktop kosong, tampil di rekaman layar, sisakan ruang, pratinjau jendela, angka notifikasi, tombol cari dan semua jendela, tombol Windows membuka Tepi Start, widget (jam, musik, kuota AI dan agen, timer, cuaca, baterai, CPU dan RAM), dan aplikasi tersemat.
+- **Dock**: tampilan desktop (Biasa atau Bar atas, dengan disk dan kecepatan internet di bar), lalu bar aplikasi dan widget di tepi bawah, mati sampai dinyalakan. Ganti taskbar Windows (Start, tray, Quick Settings, dan jam pindah ke dock; taskbar kembali saat dimatikan), bentuk (mengambang atau selebar layar), ukuran ikon, perbesar saat disorot, sembunyikan dock (selalu tampil, otomatis, atau saat tertutup jendela), tetap tampil di desktop kosong, tampil di rekaman layar, sisakan ruang, pratinjau jendela, angka notifikasi, tombol cari dan semua jendela, tombol Windows membuka Tepi Start, widget (jam, musik, kuota AI dan agen, timer, cuaca, baterai, CPU dan RAM), dan aplikasi tersemat.
 
 ### Fitur
 
-- **Musik**: lirik di island, lirik online, visualizer, dan lagu favorit (tautan YouTube yang diputar saat kamu bilang "putar lagu biasa").
+- **Musik**: lirik di island, jendela lirik, lirik online, visualizer, dan lagu favorit (tautan YouTube yang diputar saat kamu bilang "putar lagu biasa").
 - **Pesan**: notifikasi pesan dan isinya, aplikasi chat tambahan, pengirim prioritas (nama atau kata yang tetap muncul saat Senyap dan rapat). Banner pesan (Otomatis atau Tepi) dan mode berbagi layar (Otomatis, Nyala, Mati). **Tepi penerima utama** mematikan banner Windows untuk aplikasi chat, panggilan, dan Snipping Tool sekali klik (notifikasinya tetap di pusat notifikasi untuk dibaca Tepi), dan **Kembalikan banner Windows** membatalkannya.
 - **Sistem**: HUD Caps Lock, Num Lock dan Scroll Lock, bahasa input; pengingat cabut charger di 80, 85, atau 90%, flashdisk; kelas yang berlangsung, progres unduhan, mode rapat.
 - **Rak dan berkas**: rak berkas, simpan isi rak, kosongkan rak otomatis; ubah format, riwayat clipboard, preview screenshot.
@@ -59,6 +59,11 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `theme` | `gelap` | `gelap`, `terang`, atau `otomatis` (mengikuti mode aplikasi Windows) |
 | `lyrics` | `1` | Lirik tersinkron di island |
 | `lyrics.online` | `1` | Cari lirik di LRCLIB dan NetEase |
+| `lyrics.win` | `0` | Jendela lirik terpisah; selama terbuka, island tidak menampilkan lirik |
+| `lyrics.win.top` | `1` | Jendela lirik selalu di atas jendela lain |
+| `lyrics.win.look` | `album` | Latar jendela lirik: `album`, `kaca` (wallpaper di belakangnya, blur tipis), atau `tembus` |
+| `lyrics.win.text` | `100` | Ukuran huruf jendela lirik, persen (80–160) |
+| `lyrics.win.at` | kosong | Posisi dan ukuran jendela lirik dalam piksel: `x,y,lebar,tinggi` |
 | `visualizer` | `1` | Visualizer musik |
 | `music.view` | `auto` | `auto`, `lyrics`, atau `album` |
 | `notif` | `1` | Notifikasi pesan |
@@ -79,6 +84,9 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `place.y` | `22` | Tinggi island di sisi kiri atau kanan, persen dari atas layar |
 | `home.cards` | `quota,media,agents,timer,class,messages,shelf` | Kartu Ringkasan dan urutannya; tambahan: `weather`, `battery`, `clips`, `pray` |
 | `home.sort` | `auto` | `auto`: yang sedang berjalan naik; `list`: sesuai `home.cards` |
+| `desk` | `biasa` | `biasa` atau `bar` (bar atas + Dock bersih); setelan Dock dan letak island sebelumnya disimpan di `desk.prev` dan dikembalikan saat kembali ke `biasa` |
+| `bar.disk`, `bar.net` | `1`, `1` | Disk dan kecepatan internet di bar atas |
+| `bar.hide` | `0` | Bar atas tersembunyi dan muncul dari tepi atas; tanpa memesan ruang layar |
 | `dockbar.on` | `0` | Dock di tepi bawah |
 | `dockbar.replace` | `0` | Dock menggantikan taskbar Windows; taskbar kembali saat dimatikan atau Tepi keluar |
 | `dockbar.reserve` | `1` | Jendela yang dimaksimalkan berhenti di atas dock |
@@ -91,10 +99,12 @@ Semua kunci di `%APPDATA%\Tepi\settings.ini` (ubah saat Tepi tidak berjalan):
 | `dockbar.clickmin` | `1` | Klik ikon aplikasi yang sedang di depan untuk meminimalkan jendelanya; `0`: pindah ke jendela berikutnya |
 | `dockbar.fly` | `1` | Jendela mengecil masuk ke ikonnya saat diminimalkan lewat Dock, dan tumbuh lagi saat dibuka |
 | `dockbar.badges` | `1` | Angka notifikasi Windows di ikon aplikasi |
+| `dockbar.shelf` | `1` | Tombol Rak di ujung deretan aplikasi: jatuhkan berkas untuk menyimpannya, klik untuk membuka tab Rak |
+| `dockbar.downloads`, `dockbar.trash` | `1` di bar atas, `0` di Biasa | Tombol Unduhan dan Recycle Bin setelah Rak |
 | `dockbar.search`, `dockbar.taskview` | `1`, `0` | Tombol cari dan semua jendela saat menggantikan taskbar |
 | `dockbar.tray` | `1` | Ikon tray pindah ke dock saat menggantikan taskbar |
 | `dockbar.capture` | `0` | Dock ikut screenshot dan screen share; kacanya diganti latar polos |
-| `dockbar.w.clock`, `dockbar.w.media`, `dockbar.w.ai`, `dockbar.w.timer`, `dockbar.w.weather`, `dockbar.w.battery`, `dockbar.w.system` | `1` (`system`: `0`) | Widget dock |
+| `dockbar.w.clock`, `dockbar.w.media`, `dockbar.w.ai`, `dockbar.w.timer`, `dockbar.w.weather`, `dockbar.w.battery`, `dockbar.w.system`, `dockbar.w.disk`, `dockbar.w.net` | `1` (`system`, `disk`, `net`: `0`) | Widget dock; `disk` satu bar per drive tetap, paling banyak empat, ruang kosong saat disorot (dibaca tiap menit); `net` kecepatan unduh dan unggah dengan grafik semenit terakhir (tiap 2 detik) |
 | `dockbar.pins` | dari taskbar | Aplikasi tersemat dipisah `\|`: shortcut, exe, atau `shell:AppsFolder\<id>`; diisi dari taskbar Windows saat dock pertama kali nyala |
 | `notif.muted` | kosong | Aplikasi yang banner Windows-nya dimatikan oleh Tepi penerima utama |
 | `panel.width` | `560` | Lebar panel, `440` sampai `640`; dari sekitar `570` Ringkasan memakai tiga kolom |

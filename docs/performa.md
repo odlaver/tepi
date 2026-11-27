@@ -12,6 +12,44 @@ Ringan. Island tidak menggambar apa pun selama tidak ada yang bergerak; bagian k
 
 Persen CPU dihitung terhadap satu core; Task Manager membaginya lagi dengan jumlah thread, jadi angka di sana lebih kecil. Sejak 2.2, bagian yang hidup digambar tepat pada refresh layar, tanpa frame kosong di antaranya, jadi musik sekitar sepertiga lebih ringan. Di 2.5, visualizer turun ke 24 kali per detik dan penangkap suaranya hanya bangun sekali per frame. Diukur 2 November 2026 dengan menghitung siklus CPU, 2.5 dan 2.4 berjalan berdampingan: musik dengan visualizer 7% lebih ringan, island diam dengan musik 10% lebih ringan, panel terbuka sama, memori selisih 1 MB. Sambungan HP mati sampai dinyalakan; selama menyala, Tepi hanya menunggu pesan dari HP.
 
+## 2.6.3
+
+Diukur 27 November 2026 di laptop yang sama, saat laptop juga dipakai bekerja. Tepi uji berjalan terpisah dari Tepi yang terpasang, dengan pengaturan sendiri, lagu dan wallpaper tiruan, dan semua jendelanya di luar layar. Tiap kondisi dibiarkan tenang 4 detik lalu diukur 8 detik.
+
+2.6.2.1 dan 2.6.3 dijalankan bergantian dengan alat ukur yang sama, dua kali masing-masing (median 6 putaran; panel Musik 15 putaran):
+
+| Kondisi | 2.6.2.1 | 2.6.3 |
+|---|---|---|
+| Island diam | 0,7% CPU | 0,7% CPU |
+| Musik, lirik di island | 2,4% CPU | 2,4% CPU |
+| Musik, panel Musik terbuka | 3,5% CPU | 3,9% CPU |
+| Dock tanpa widget | 0,7% CPU | 0,4% CPU |
+
+Selisih di panel Musik masih di dalam derau: rentang putarannya 2,5–6,6% untuk 2.6.2.1 dan 2,7–5,6% untuk 2.6.3.
+
+Fitur baru, median 9 putaran dalam pengukuran terpisah. Baris pertama diukur ulang di putaran yang sama sebagai pembanding, jadi angkanya berbeda dari tabel di atas:
+
+| Kondisi | CPU |
+|---|---|
+| Musik, lirik di island | 3,3% |
+| Musik, jendela lirik terbuka, latar sampul album | 1,6% |
+| Musik, jendela lirik terbuka, latar kaca | 1,8% |
+| Dock tanpa widget | 0,8% |
+| Dock dengan widget disk dan internet | 1,2% |
+| Bar atas dan Dock | 1,2% |
+| Bar atas dan Dock, musik diputar | 4,1% |
+
+Selama jendela lirik terbuka, island berhenti menyapu lirik, jadi CPU saat musik justru turun. Disk dibaca sekali semenit (0,07 ms) dan kecepatan internet tiap 2 detik (0,14 ms). Kaca bar atas dan jendela lirik dipotong dari salinan wallpaper berukuran seperempat yang hanya dibuat ulang saat wallpaper berganti. Mode **Sembunyikan bar atas otomatis** memeriksa posisi kursor 10 kali per detik, sekitar 5 µs sekali periksa, dan hanya selama mode itu menyala.
+
+| Memori (private working set) | MB |
+|---|---|
+| Island diam | 8 |
+| Jendela lirik terbuka | 18–22 |
+| Bar atas, Dock, dan widget | 11–28 |
+| Tepi terpasang setelah 12 menit dipakai (bar atas, Dock, widget sistem) | 23 |
+
+Exe 2.6.3 berukuran 1.976 KB, naik 93 KB dari 2.6.2.1.
+
 ## 2.6.2
 
 Diukur 17 November 2026 di laptop yang sama, saat laptop juga menjalankan pekerjaan lain (terminal dan beberapa proses build), jadi angkanya lebih berisik daripada pengukuran sebelumnya. Tiap kondisi dibiarkan tenang 4 detik lalu diukur 8 detik; angka di bawah adalah median dari 3 putaran.

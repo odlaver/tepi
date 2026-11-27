@@ -121,6 +121,9 @@ namespace Tepi
             s.Save();
         }
 
+        // Every bar visible, whatever Tepi remembered
+        public static void ShowAll() { foreach (var h in Bars()) Native.ShowWindow(h, 8); }
+
         // Something showed it again
         public static bool Showing()
         {

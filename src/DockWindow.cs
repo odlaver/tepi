@@ -138,6 +138,7 @@ namespace Tepi
             // Only the island closes the dock; outside WM_CLOSE is ignored
             public void Shutdown()
             {
+                if (netsWatch != null) System.Net.NetworkInformation.NetworkChange.NetworkAddressChanged -= netsWatch;
                 allowClose = true;
                 Close();
             }
@@ -536,6 +537,12 @@ namespace Tepi
                 return true;
             }
 
+            // A card, sheet or menu from the dock is open
+            public bool Busy { get { return card != null || sheet != null || MenuGuard.Showing; } }
+
+            // Something drawn on the dock changed elsewhere, like the Rak count
+            public void Redraw() { if (!IsDisposed && !closing) Render(); }
+
             // Windows moved behind: the glass looks again
             public void Nudge()
             {
@@ -566,6 +573,10 @@ namespace Tepi
                 if (HideMode == "auto" && StayOnDesktop && !wantShown && DesktopFront()) Reveal(true);
                 if (Replacing && !Dry && Taskbar.Showing()) Taskbar.Rehide();
                 if (tickN % 3 == 0) ReadSystem();
+                // Just switched on: read now, then once a minute
+                if (tickN % 60 == 1 || (disks.Length == 0 && isle.WantsDisk)) ReadDisk();
+                if (tickN % 2 == 0) ReadNet();
+                if (tickN % 10 == 1) ReadBin();
                 // Shell hooks cover most changes; this catches the rest
                 if (tickN % 10 == 0 && watch.Rescan()) Refresh(false);
                 if (tickN % 5 == 0) ApplyBadges();
@@ -581,8 +592,9 @@ namespace Tepi
                 var mi = isle.mediaInfo;
                 if (mi.Present) sb.Append(mi.Title).Append(mi.Playing);
                 if (isle.TimerOn) sb.Append(isle.TimerClock());
-                sb.Append(isle.battery).Append(isle.onAc).Append(cpuPct).Append(ramPct).Append(isle.BusyCount()).Append(isle.quotaVersion);
+                sb.Append(isle.battery).Append(isle.onAc).Append(cpuPct).Append(ramPct).Append(diskSig).Append(NetShown(netDown)).Append(NetShown(netUp)).Append(isle.BusyCount()).Append(isle.quotaVersion);
                 sb.Append(isle.vol).Append(isle.muted).Append(isle.unread).Append(Ink.Epoch).Append(Lang.English);
+                if (DownloadsTile) sb.Append((int)(DownloadProgress() * 50));
                 if (isle.weather != null) sb.Append(isle.weather.Temp);
                 return sb.ToString();
             }
@@ -672,6 +684,102 @@ namespace Tepi
                 var m = new MemStatus { Length = (uint)Marshal.SizeOf(typeof(MemStatus)) };
                 if (GlobalMemoryStatusEx(ref m)) ramPct = (int)m.Load;
             }
+
+            // Fixed drives: free space once a minute, at most four shown
+            public sealed class Disk { public string Name; public long Free, Total; }
+
+            // What the top bar reads from the dock
+            public Disk[] Disks { get { return disks; } }
+            public long DiskSig { get { return diskSig; } }
+            public double NetDown { get { return netDown; } }
+            public double NetUp { get { return netUp; } }
+            public float[] NetHist { get { return netHist; } }
+            public int NetHistAt { get { return netHistAt; } }
+            public List<TrayIcon> TrayInline() { return InlineTray(); }
+            Disk[] disks = new Disk[0];
+            long diskSig;
+
+            void ReadDisk()
+            {
+                if (!isle.WantsDisk) { disks = new Disk[0]; return; }
+                var list = new List<Disk>();
+                try
+                {
+                    foreach (var d in System.IO.DriveInfo.GetDrives())
+                    {
+                        if (d.DriveType != System.IO.DriveType.Fixed || !d.IsReady || d.TotalSize <= 0) continue;
+                        list.Add(new Disk { Name = d.Name.Substring(0, 1), Free = d.AvailableFreeSpace, Total = d.TotalSize });
+                        if (list.Count == 4) break;
+                    }
+                }
+                catch (Exception ex) { Log.Write("dock disk: " + ex.Message); }
+                disks = list.ToArray();
+                diskSig = 0;
+                foreach (var d in disks) diskSig = diskSig * 31 + d.Free / 1048576;
+            }
+
+            // Adapters that are up, listed again only when the network changes; their byte counters every 2 s
+            System.Net.NetworkInformation.NetworkInterface[] nets;
+            volatile bool netsStale = true;
+            System.Net.NetworkInformation.NetworkAddressChangedEventHandler netsWatch;
+            long netIn0 = -1, netOut0;
+            long netAt0;
+            double netDown = -1, netUp;
+            // Last minute of download speed for the sparkline
+            readonly float[] netHist = new float[30];
+            int netHistAt;
+
+            void ReadNet()
+            {
+                if (!isle.WantsNet) { netDown = -1; nets = null; netIn0 = -1; return; }
+                try
+                {
+                    if (netsWatch == null)
+                    {
+                        netsWatch = delegate { netsStale = true; };
+                        System.Net.NetworkInformation.NetworkChange.NetworkAddressChanged += netsWatch;
+                    }
+                    if (nets == null || netsStale)
+                    {
+                        netsStale = false;
+                        var up = new List<System.Net.NetworkInformation.NetworkInterface>();
+                        foreach (var n in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                        {
+                            var t = n.NetworkInterfaceType;
+                            if (n.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up && t != System.Net.NetworkInformation.NetworkInterfaceType.Loopback && t != System.Net.NetworkInformation.NetworkInterfaceType.Tunnel) up.Add(n);
+                        }
+                        nets = up.ToArray();
+                        netIn0 = -1;
+                    }
+                    long rx = 0, tx = 0;
+                    foreach (var n in nets)
+                    {
+                        var st = n.GetIPStatistics();
+                        rx += st.BytesReceived;
+                        tx += st.BytesSent;
+                    }
+                    long now = System.Diagnostics.Stopwatch.GetTimestamp();
+                    if (netIn0 >= 0)
+                    {
+                        double secs = (double)(now - netAt0) / System.Diagnostics.Stopwatch.Frequency;
+                        if (secs > 0.2)
+                        {
+                            netDown = Math.Max(0, (rx - netIn0) / secs);
+                            netUp = Math.Max(0, (tx - netOut0) / secs);
+                            netHist[netHistAt] = (float)netDown;
+                            netHistAt = (netHistAt + 1) % netHist.Length;
+                        }
+                    }
+                    else if (netDown < 0) netDown = netUp = 0;
+                    netIn0 = rx;
+                    netOut0 = tx;
+                    netAt0 = now;
+                }
+                catch (Exception ex) { nets = null; Log.Write("dock net: " + ex.Message); }
+            }
+
+            // Redraw only when the shown figure changes
+            static string NetShown(double perSec) { return perSec < 1024 ? "0" : Fmt.Bytes((long)perSec); }
         }
     }
 }

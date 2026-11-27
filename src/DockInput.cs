@@ -143,7 +143,7 @@ namespace Tepi
             void SetHover(string id)
             {
                 hoverKey = id;
-                bool label = id != null && (id.StartsWith("app:", StringComparison.Ordinal) || id.StartsWith("sys:", StringComparison.Ordinal) || id.StartsWith("tray:", StringComparison.Ordinal));
+                bool label = id != null && (id.StartsWith("app:", StringComparison.Ordinal) || id.StartsWith("sys:", StringComparison.Ordinal) || id.StartsWith("tray:", StringComparison.Ordinal) || id == "w_disk");
                 var app = AppById(id);
                 bool previewing = card != null && card.Kind == DockCard.WindowsKind && app != null && card.App == app;
                 labelShow.Target = label && !previewing ? 1 : 0;
@@ -219,9 +219,44 @@ namespace Tepi
             protected override void OnMouseWheel(MouseEventArgs e)
             {
                 base.OnMouseWheel(e);
+                var app = AppById(hoverKey);
+                if (app != null) { WheelApp(app, e.Delta); return; }
                 if (hoverKey != "status") return;
                 float step = 0.02f * e.Delta / 120f;
                 isle.volume.Set(Ease.Clamp01(isle.vol + step));
+                Render();
+            }
+
+            // Per-app volume: the label shows the level for a moment
+            DockApp volApp;
+            float volLevel;
+            DateTime volUtc = DateTime.MinValue;
+            readonly System.Windows.Forms.Timer volHide = new System.Windows.Forms.Timer { Interval = 1600 };
+
+            bool VolShown(DockApp a) { return a != null && a == volApp && (DateTime.UtcNow - volUtc).TotalSeconds < 1.5; }
+
+            void WheelApp(DockApp a, int delta)
+            {
+                var exes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (a.Exe.Length > 0) exes.Add(a.Exe);
+                foreach (var w in a.Wins) if (w.Exe.Length > 0) exes.Add(w.Exe);
+                if (exes.Count == 0) return;
+                isle.volume.StepApp(exes, 0.05f * delta / 120f, level =>
+                {
+                    try { BeginInvoke(new Action(delegate { ShowAppVolume(a, level); })); } catch (Exception) { }
+                });
+            }
+
+            void ShowAppVolume(DockApp a, float level)
+            {
+                if (IsDisposed) return;
+                volApp = a;
+                volLevel = level;
+                volUtc = DateTime.UtcNow;
+                if (volHide.Tag == null) { volHide.Tag = 1; volHide.Tick += delegate { volHide.Stop(); Animate(); Render(); }; }
+                volHide.Stop();
+                volHide.Start();
+                Animate();
                 Render();
             }
 
@@ -396,6 +431,30 @@ namespace Tepi
             public Bitmap TrayPicture(TrayIcon ic) { return tray != null ? tray.Picture(ic) : null; }
 
             GlassSheet sheet;
+
+            // From the top bar: cards open beneath its button
+            public void OpenSheetFrom(string kind, Rectangle anchor)
+            {
+                if (sheet != null)
+                {
+                    bool same = sheet.Kind == kind;
+                    SheetDone(sheet);
+                    if (same) return;
+                }
+                CloseCard();
+                sheet = MakeSheet(kind);
+                sheet.OpenAt(anchor, Rectangle.Empty, mon, mon.Bottom, scale);
+            }
+
+            public void TrayCardFrom(Rectangle anchor)
+            {
+                bool wasTray = card != null && card.Kind == DockCard.TrayKind;
+                CloseCard();
+                if (wasTray) return;
+                TrayPromo.Invalidate();
+                card = new DockCard(isle, this, DockCard.TrayKind);
+                card.ShowTray(OverflowTray(), anchor, mon, mon.Bottom, scale);
+            }
 
             // One card; its button toggles it
             void ToggleSheet(string kind)
@@ -858,9 +917,11 @@ namespace Tepi
                 var app = AppById(id);
                 var files = e.Data.GetDataPresent(DataFormats.FileDrop) ? e.Data.GetData(DataFormats.FileDrop) as string[] : null;
                 e.Effect = DragDropEffects.None;
-                if (app != null && files != null && OpensFiles(app)) e.Effect = DragDropEffects.Copy;
+                if (id == "sys:shelf" && files != null) e.Effect = DragDropEffects.Copy;
+                else if (id == "sys:trash" && files != null) e.Effect = DragDropEffects.Move;
+                else if (app != null && files != null && OpensFiles(app)) e.Effect = DragDropEffects.Copy;
                 else if (app == null && files != null && Array.TrueForAll(files, Pinnable)) e.Effect = DragDropEffects.Link;
-                if (id != dropHover) { dropHover = id; dropSinceUtc = DateTime.UtcNow; }
+                if (id != dropHover) { dropHover = id; dropSinceUtc = DateTime.UtcNow; Render(); }
                 else if (app != null && app.Running && (DateTime.UtcNow - dropSinceUtc).TotalMilliseconds > 700)
                 {
                     var w = app.Recent();
@@ -885,10 +946,13 @@ namespace Tepi
                 base.OnDragDrop(e);
                 var files = e.Data.GetData(DataFormats.FileDrop) as string[];
                 var app = AppById(dropHover);
+                bool toShelf = dropHover == "sys:shelf", toBin = dropHover == "sys:trash";
                 dropHover = null;
                 inside = false;
                 hover.Target = 0;
                 if (files == null || files.Length == 0) return;
+                if (toShelf) { isle.AddToShelf(files); Render(); return; }
+                if (toBin) { Recycle(files); return; }
                 if (app != null && OpensFiles(app))
                 {
                     var args = new System.Text.StringBuilder();

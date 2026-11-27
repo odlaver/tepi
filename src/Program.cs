@@ -15,7 +15,20 @@ namespace Tepi
             if (args.Length > 0 && args[0] == "--notify") return NotifyCommand.Run(args);
             if (args.Length > 0 && args[0] == "--run") return RunCommand.Run(args);
             if (args.Length > 0 && args[0] == "--statusline") return StatusLine.Run(args);
+            if (args.Length > 0 && args[0] == "--restore") return RestoreDesk();
             return RunIsland();
+        }
+
+        // Taskbar back after Tepi stopped without giving it back
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static int RestoreDesk()
+        {
+            var s = new Settings();
+            Lang.English = s.Get("lang", "id") == "en";
+            Taskbar.Restore(s);
+            Taskbar.ShowAll();
+            System.Windows.Forms.MessageBox.Show(Lang.T("Taskbar Windows sudah dikembalikan."), "Tepi");
+            return 0;
         }
 
         // Old copy may still be closing after an update

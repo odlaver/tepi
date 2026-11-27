@@ -20,6 +20,18 @@ namespace Tepi
         {
             new Note
             {
+                Version = "2.6.3",
+                Items = new[]
+                {
+                    new[] { "Tampilan bar atas", "Bar di tepi atas dengan menu aplikasi, status, dan jam, dan island jadi notch di tengahnya. Jendela berhenti di bawah bar, atau bar sembunyi sampai kursor menyentuh tepi atas. Pilih di Pengaturan › Dock; Biasa mengembalikan setelan lamamu.", "\uE7F4" },
+                    new[] { "Jendela lirik", "Lirik pindah ke jendela sendiri yang bisa digeser dan diubah ukurannya, berlatar sampul album, kaca, atau tembus. Klik kanan satu baris untuk menyamakan waktunya.", "\uE8D6" },
+                    new[] { "Volume, Rak, Unduhan, dan Recycle Bin di Dock", "Gulir di atas ikon aplikasi untuk mengatur volumenya. Jatuhkan berkas ke Rak atau Recycle Bin, dan klik Unduhan untuk sepuluh berkas terbaru.", "\uE8A9" },
+                    new[] { "Disk dan kecepatan internet", "Widget baru di Dock dan bar atas: sisa ruang tiap disk dan kecepatan unduh serta unggah.", "\uEDA2" },
+                    new[] { "Suruh Tepi mengatur Tepi", "Bilang \"Tepi, buka pengaturan dock\", \"buka jendela lirik\", \"Tepi, pakai bar atas\", atau \"Tepi, buka rak\". Jalan tanpa internet.", "\uE765" },
+                },
+            },
+            new Note
+            {
                 Version = "2.6.2.1",
                 Items = new[]
                 {

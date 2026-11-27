@@ -302,7 +302,12 @@ namespace Tepi
                     case "start": act = delegate { ToggleSheet("start"); }; menu = QuickMenu; break;
                     case "search": act = delegate { ToggleSheet("start"); }; break;
                     case "taskview": act = delegate { ShellVerb("WindowSwitcher"); }; break;
+                    case "shelf": act = shelfAct ?? (shelfAct = delegate { isle.shelfSeg = 0; isle.OpenFromDock(PageShelf); }); break;
+                    case "downloads": act = DownloadsMenu; menu = delegate { Launch(DownloadsFolder()); }; break;
+                    case "trash": act = OpenBin; menu = TrashMenu; break;
                 }
+                // Files held over Rak or the bin light it up
+                if ((s.Id == "shelf" || s.Id == "trash") && dropHover == id) hk = 1;
                 Hit(s.Hit, id, act, menu);
                 Plate(OnBar(s.Icon, 0, dk), hk, dk, 1);
                 if (keyMode && keySel == id) FocusRing(s.Icon);
@@ -317,7 +322,40 @@ namespace Tepi
                         break;
                     case "search": p.Icon('\uE721', 16 * u, ink, cx, cy); break;
                     case "taskview": p.Icon('\uE7C4', 16 * u, ink, cx, cy); break;
+                    case "shelf":
+                        DrawTray(cx, cy, u * 1.15f, ink);
+                        int n = isle.shelf.Count;
+                        if (n > 0) Count(r, n);
+                        break;
+                    case "downloads": DrawDownloads(r, cx, cy, u, ink); break;
+                    case "trash": DrawTrash(r, cx, cy, u, ink); break;
                 }
+            }
+
+            Action shelfAct;
+
+            // The island's Rak glyph: a tray with a lip
+            void DrawTray(float cx, float cy, float k, Color c)
+            {
+                var pen = p.P(c, 1.5f * k);
+                using (var tray = Ink.Round(new RectangleF(cx - 8 * k, cy - 5.5f * k, 16 * k, 12 * k), 3.5f * k)) g.DrawPath(pen, tray);
+                g.DrawLines(pen, new[]
+                {
+                    new PointF(cx - 8 * k, cy + 0.5f * k), new PointF(cx - 3.2f * k, cy + 0.5f * k), new PointF(cx - 2 * k, cy + 2.6f * k),
+                    new PointF(cx + 2 * k, cy + 2.6f * k), new PointF(cx + 3.2f * k, cy + 0.5f * k), new PointF(cx + 8 * k, cy + 0.5f * k)
+                });
+            }
+
+            // How many files wait in Rak: neutral, not an alert
+            void Count(RectangleF r, int n)
+            {
+                string s = n > 99 ? "99+" : n.ToString();
+                var f = Ink.SmallSemi(11f);
+                float h = 17, w = Math.Max(h, p.Measure(s, f) + 9);
+                var b = new RectangleF(r.Right - w * 0.7f, r.Top - h * 0.28f, w, h);
+                p.FillRound(Inset(b, -1.2f), (h + 2.4f) / 2, Ink.A(Ink.Base.Bg, 0.55f));
+                p.FillRound(b, h / 2, p.T.Text);
+                p.TextCenter(s, f, Ink.Base.Bg, b.X + b.Width / 2, b.Y + h / 2);
             }
 
             void DrawApp(Slot s)
@@ -605,7 +643,7 @@ namespace Tepi
                     sb.Append(isle.quotaVersion).Append(isle.BusyCount());
                     if (isle.TimerOn) sb.Append(isle.TimerClock()).Append(isle.timerPaused).Append(isle.TimerLabel()).Append((int)(isle.TimerFraction() * 300));
                     if (isle.weather != null) sb.Append(isle.weather.Temp).Append(isle.weather.Code);
-                    sb.Append(isle.battery).Append(isle.onAc).Append(cpuPct).Append(ramPct);
+                    sb.Append(isle.battery).Append(isle.onAc).Append(cpuPct).Append(ramPct).Append(diskSig).Append((long)netDown).Append((long)netUp);
                 }
                 else
                 {
@@ -690,12 +728,21 @@ namespace Tepi
                 anchor = RectangleF.Empty;
                 if (string.IsNullOrEmpty(id) || dragApp != null) return "";
                 foreach (var s in slots)
-                    if (s.Id == id && s.App != null) { anchor = s.Icon; return s.App.Name; }
+                    if (s.Id == id && s.App != null)
+                    {
+                        anchor = s.Icon;
+                        if (!VolShown(s.App)) return s.App.Name;
+                        return volLevel < 0 ? Lang.F("{0} · tidak bersuara", s.App.Name) : s.App.Name + " · " + (int)Math.Round(volLevel * 100) + "%";
+                    }
                     else if (s.Id == id.Replace("sys:", "") && id.StartsWith("sys:", StringComparison.Ordinal))
                     {
                         anchor = s.Icon;
-                        return s.Id == "start" ? "Start" : s.Id == "search" ? Lang.T("Cari") : Lang.T("Semua jendela");
+                        return s.Id == "start" ? "Start" : s.Id == "search" ? Lang.T("Cari") : s.Id == "shelf" ? Lang.T("Rak") : s.Id == "downloads" || s.Id == "trash" ? StackLabel(s.Id) : Lang.T("Semua jendela");
                     }
+                // Disk: free space only on hover
+                if (id == "w_disk" && disks.Length > 0)
+                    foreach (var kv in hits)
+                        if (kv.Value == id) { anchor = kv.Key; return DiskLabel(); }
                 foreach (var kv in hits)
                     if (kv.Value == id && id.StartsWith("tray:", StringComparison.Ordinal))
                     {
@@ -719,7 +766,7 @@ namespace Tepi
 
             void AimLabel(string id, string text, RectangleF anchor, float t)
             {
-                float w = Math.Min(300, p.Measure(text, Ink.Semi(12f)) + 22);
+                float w = Math.Min(420, p.Measure(text, Ink.Semi(12f)) + 22);
                 float cx = Math.Max(w / 2 + 4, Math.Min(cw / scale - w / 2 - 4, anchor.X + anchor.Width / 2));
                 bool hidden = t < 0.05f || labelAnchor.IsEmpty || Anim.Reduced;
                 // Same icon, already arrived: follow magnification exactly
@@ -756,6 +803,14 @@ namespace Tepi
                 }
                 p.Alpha = t * k;
                 p.Text(labelText, f, p.T.Text, cx, r.Y + h / 2, w - 22, StringAlignment.Center);
+                // Level under the words while the wheel turns it
+                var va = AppById(labelId);
+                if (VolShown(va) && volLevel >= 0)
+                {
+                    var track = new RectangleF(r.X + 11, r.Bottom - 5, w - 22, 2);
+                    p.FillRound(track, 1, Ink.A(p.T.Text, 0.18f));
+                    p.FillRound(new RectangleF(track.X, track.Y, Math.Max(2, track.Width * volLevel), 2), 1, p.T.Text);
+                }
                 p.Alpha = 1;
             }
 
@@ -959,6 +1014,8 @@ namespace Tepi
                     case "weather": open = delegate { ToggleSheet("weather"); }; break;
                     case "battery": open = delegate { isle.OpenFromDock(PageControl); }; break;
                     case "system": open = delegate { Open("taskmgr.exe"); }; break;
+                    case "disk": open = delegate { Open("shell:MyComputerFolder"); }; break;
+                    case "net": open = delegate { Open("ms-settings:network-status"); }; break;
                 }
                 Hit(r, hid, open, null);
                 if (open != null && pressId == hid && hoverKey == hid) p.FillRound(r, 12, p.T.FillPressed);
@@ -991,6 +1048,8 @@ namespace Tepi
                         Meter(r.X + 10, cy - 8, r.Width - 18, "CPU", cpuPct);
                         Meter(r.X + 10, cy + 10, r.Width - 18, "RAM", ramPct);
                         break;
+                    case "disk": DrawDisks(r, cy); break;
+                    case "net": DrawNet(r, cy); break;
                 }
             }
 
@@ -1070,6 +1129,85 @@ namespace Tepi
                 g.DrawEllipse(p.P(p.T.Line, 2.4f), rect);
                 float sweep = 360f * Ease.Clamp01(f);
                 if (sweep > 0.5f) g.DrawArc(p.P(quiet ? p.T.Faint : p.T.Progress, 2.4f), rect, -90, sweep);
+            }
+
+            // One bar per drive, stacked; free space waits for the hover label
+            void DrawDisks(RectangleF r, float cy)
+            {
+                int n = disks.Length;
+                float x = r.X + 12, w = r.Width - 22;
+                float pitch = n <= 2 ? 16 : n == 3 ? 11 : 9, thick = n == 1 ? 5 : n <= 2 ? 4 : 3;
+                var f = Ink.SmallSemi(n <= 2 ? 11f : 9.5f);
+                float top = cy - pitch * (n - 1) / 2;
+                for (int i = 0; i < n; i++)
+                {
+                    var d = disks[i];
+                    float y = top + i * pitch, used = (float)(d.Total - d.Free) / d.Total;
+                    p.Text(d.Name, f, p.T.Sub, x, y, 12, StringAlignment.Near);
+                    var track = new RectangleF(x + 13, y - thick / 2, w - 13, thick);
+                    p.FillRound(track, thick / 2, p.T.Line);
+                    p.FillRound(new RectangleF(track.X, track.Y, Math.Max(thick, track.Width * used), thick), thick / 2, used >= 0.9f ? p.T.Negative : p.T.Progress);
+                }
+            }
+
+            string DiskLabel()
+            {
+                var sb = new System.Text.StringBuilder();
+                foreach (var d in disks)
+                {
+                    sb.Append(sb.Length == 0 ? Lang.T("Ruang kosong") + ": " : "  ·  ");
+                    sb.Append(d.Name).Append(' ').Append(DiskText(d.Free));
+                }
+                return sb.ToString();
+            }
+
+            // Sparkline of the last minute, then down and up as number and small unit
+            void DrawNet(RectangleF r, float cy)
+            {
+                var box = new RectangleF(r.X + 10, cy - 11, 34, 22);
+                float peak = 1024 * 64;
+                foreach (var v in netHist) if (v > peak) peak = v;
+                int n = netHist.Length;
+                var pts = new PointF[n + 2];
+                for (int i = 0; i < n; i++)
+                {
+                    float v = netHist[(netHistAt + i) % n];
+                    pts[i] = new PointF(box.X + box.Width * i / (n - 1), box.Bottom - box.Height * Math.Min(1, v / peak));
+                }
+                pts[n] = new PointF(box.Right, box.Bottom);
+                pts[n + 1] = new PointF(box.X, box.Bottom);
+                g.FillPolygon(p.B(Ink.A(p.T.Progress, 0.22f)), pts);
+                var line = new PointF[n];
+                Array.Copy(pts, line, n);
+                g.DrawLines(p.P(p.T.Progress, 1.3f), line);
+                float tx = box.Right + 10;
+                Speed(tx, cy - 8, r.Right - 8, true, netDown);
+                Speed(tx, cy + 9, r.Right - 8, false, netUp);
+            }
+
+            void Speed(float x, float cy, float right, bool down, double perSec)
+            {
+                string num, unit;
+                if (perSec < 1024) { num = "0"; unit = "KB/s"; }
+                else if (perSec < 1048576) { num = ((int)(perSec / 1024)).ToString(); unit = "KB/s"; }
+                else { double mb = perSec / 1048576; num = mb.ToString(mb >= 10 ? "0" : "0.0", Fmt.Id); unit = "MB/s"; }
+                float s = 3f, ax = x + 3;
+                var pts = down
+                    ? new[] { new PointF(ax - s, cy - 1.5f), new PointF(ax + s, cy - 1.5f), new PointF(ax, cy + s - 1) }
+                    : new[] { new PointF(ax - s, cy + 1.5f), new PointF(ax + s, cy + 1.5f), new PointF(ax, cy - s + 1) };
+                g.FillPolygon(p.B(down ? p.T.Text : p.T.Sub), pts);
+                var nf = Ink.Semi(12.5f);
+                float nw = p.Measure(num, nf);
+                p.Text(num, nf, p.T.Text, x + 10, cy, nw + 2, StringAlignment.Near);
+                p.Text(unit, Ink.Small(10f), p.T.Sub, x + 12 + nw, cy + 0.5f, Math.Max(4, right - x - 12 - nw), StringAlignment.Near);
+            }
+
+            // Whole gigabytes once there are ten or more
+            static string DiskText(long bytes)
+            {
+                double gb = bytes / 1073741824.0;
+                if (gb >= 1000) return (gb / 1024).ToString(gb >= 10240 ? "0" : "0.0", Fmt.Id) + " TB";
+                return gb.ToString(gb >= 10 ? "0" : "0.0", Fmt.Id) + " GB";
             }
 
             void Meter(float x, float cy, float w, string name, int pct)

@@ -154,6 +154,15 @@ namespace Tepi
                     if (apps.Count > 0) slots.Add(new Slot { Id = "sep", Sep = true });
                 }
                 foreach (var a in apps) slots.Add(new Slot { Id = "app:" + a.Key, App = a, Show = Ease.Clamp01(a.Show.Value) });
+                // Rak closes the row, like a stack beside the apps
+                bool shelf = S.GetBool("dockbar.shelf", true);
+                if (shelf || DownloadsTile || TrashTile)
+                {
+                    if (slots.Count > 0) slots.Add(new Slot { Id = "sepShelf", Sep = true });
+                    if (shelf) slots.Add(new Slot { Id = "shelf" });
+                    if (DownloadsTile) slots.Add(new Slot { Id = "downloads" });
+                    if (TrashTile) slots.Add(new Slot { Id = "trash" });
+                }
                 // The dragged app leaves a gap that follows the pointer
                 if (dragApp != null) InsertDragGap();
             }
@@ -387,7 +396,8 @@ namespace Tepi
 
             float RightWidth()
             {
-                if (!Replacing) return 0;
+                // Bar atas holds the tray, status and clock
+                if (!Replacing || isle.TopBarOn) return 0;
                 float w = 0;
                 foreach (var ic in InlineTray()) w += 26;
                 if (OverflowTray().Count > 0) w += 24;
@@ -413,6 +423,8 @@ namespace Tepi
             List<string> LeftWidgets()
             {
                 var list = new List<string>();
+                // Bar atas: a clean dock, apps only
+                if (isle.TopBarOn) return list;
                 if (!Replacing && isle.DockWidget("clock")) list.Add("clock");
                 if (isle.DockWidget("media") && isle.HomeHasMedia) list.Add("media");
                 if (isle.DockWidget("ai") && (isle.QuotaCount(false) > 0 || isle.BusyCount() > 0)) list.Add("ai");
@@ -420,6 +432,8 @@ namespace Tepi
                 if (isle.DockWidget("weather") && isle.WeatherOn && isle.weather != null) list.Add("weather");
                 if (!Replacing && isle.DockWidget("battery") && isle.hasBattery) list.Add("battery");
                 if (isle.DockWidget("system") && cpuPct >= 0) list.Add("system");
+                if (isle.DockWidget("disk") && disks.Length > 0) list.Add("disk");
+                if (isle.DockWidget("net") && netDown >= 0) list.Add("net");
                 if (list.Count > widgetCap) list.RemoveRange(widgetCap, list.Count - widgetCap);
                 return list;
             }
@@ -434,6 +448,8 @@ namespace Tepi
                     case "timer": return 98;
                     case "weather": return 92;
                     case "system": return 106;
+                    case "disk": return 92;
+                    case "net": return 128;
                     case "battery": return 112;
                 }
                 return 80;

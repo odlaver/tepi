@@ -310,6 +310,8 @@ namespace Tepi
             foreach (var reg in new[] { powerSrc, powerPct, powerDisplay })
                 if (reg != IntPtr.Zero) Native.UnregisterPowerSettingNotification(reg);
             ReleaseApprovals();
+            // Bar first: its strip of screen goes back before the dock's
+            if (topBar != null) { topBar.Shutdown(); topBar = null; }
             if (dockWin != null) { dockWin.Shutdown(); dockWin = null; }
             CleanShots(true);
             CloseMirror();
@@ -1808,6 +1810,7 @@ namespace Tepi
                 fullscreen = fs;
                 // Fullscreen app closes the panel
                 if (fs) expanded = false;
+                SyncLyricWin();
                 Kick();
             }
         }
@@ -1903,6 +1906,8 @@ namespace Tepi
             var keysItem = new ToolStripMenuItem(Lang.T("Navigasi keyboard"), null, delegate { EnterKeyboard(); }) { ShortcutKeyDisplayString = HotkeyText(KeysHotkey) };
             var miniItem = new ToolStripMenuItem(Lang.T("Mini"), null, delegate { ToggleMini(); }) { ShortcutKeyDisplayString = HotkeyText(MiniHotkey) };
             var prompterItem = new ToolStripMenuItem(Lang.T("Teleprompter"), null, delegate { if (!PrompterOn) OpenPrompter(); });
+            var lyricWinItem = new ToolStripMenuItem(Lang.T("Jendela lirik"), null, delegate { ToggleLyricWin(); });
+            var barItem = new ToolStripMenuItem(Lang.T("Bar atas"), null, delegate { SetDesk(!TopBarOn); });
             var focusItem = new ToolStripMenuItem(Lang.T("Timer"));
             var noteItem = new ToolStripMenuItem(Lang.T("Catatan kilat"), null, delegate { OpenNote(); }) { ShortcutKeyDisplayString = HotkeyText(NoteHotkey) };
             var rapatItem = new ToolStripMenuItem(Lang.T("Rekam rapat"), null, delegate { ToggleRapat(); });
@@ -1912,7 +1917,7 @@ namespace Tepi
             var screenTextItem = new ToolStripMenuItem(Lang.T("Salin teks dari layar"), null, delegate { BeginInvoke(new Action(ReadScreenText)); });
             var exit = new ToolStripMenuItem(Lang.T("Keluar"), null, delegate { Close(); });
             var prefsItem = new ToolStripMenuItem(Lang.T("Pengaturan…"), null, delegate { OpenPrefs(); });
-            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, suruhItem, rapatItem, mirrorItem, pickerItem, screenTextItem, prompterItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
+            menu.Items.AddRange(new ToolStripItem[] { title, new ToolStripSeparator(), updateItem, miniItem, hideItem, keysItem, focusItem, noteItem, suruhItem, rapatItem, mirrorItem, pickerItem, screenTextItem, prompterItem, lyricWinItem, barItem, hookItem, kuliaItem, new ToolStripSeparator(), prefsItem, dataItem, exit });
             menu.Opening += delegate
             {
                 // Style submenus after they're rebuilt
@@ -1932,6 +1937,8 @@ namespace Tepi
                 hideItem.Checked = hiddenByUser;
                 miniItem.Checked = MiniWanted();
                 prompterItem.Checked = PrompterOn;
+                lyricWinItem.Checked = LyricWinWanted;
+                barItem.Checked = TopBarOn;
                 // Running script: controls live here
                 prompterItem.DropDownItems.Clear();
                 if (PrompterOn)

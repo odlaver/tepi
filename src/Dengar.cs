@@ -235,7 +235,10 @@ namespace Tepi
             string rest;
             if (!ForTepi(text, out rest)) { Log.Write("dengar: bukan untuk Tepi"); return; }
             if (rest.Length == 0 || Words.Phantom(rest)) { DictSay(Lang.T("Ucapkan perintahnya sekalian"), Lang.T("Misalnya \"Tepi, buka Spotify\""), true); return; }
-            RunSuruh(rest);
+            // Called by name: the sentence is for Tepi
+            tepiCalled = true;
+            try { RunSuruh(rest); }
+            finally { tepiCalled = false; }
         }
 
         static readonly Regex WakeLead = new Regex(@"^\W*(?:(?:hey|hei|hai|halo|oke|okay|ok)\W+)?(?<w>[\p{L}']+)\W*(?<rest>.*)$", RegexOptions.Singleline | RegexOptions.IgnoreCase);

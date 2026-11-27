@@ -18,6 +18,23 @@ namespace Tepi
             void DockRows(Action<string> cap, Action<KitRow> add)
             {
                 bool on = settings.GetBool("dockbar.on", false), replacing = settings.GetBool("dockbar.replace", false);
+                // The whole desktop look in one choice
+                var desk = Seg(new[] { Lang.T("Biasa"), Lang.T("Bar atas") }, island.TopBarOn ? 1 : 0, i => { island.SetDesk(i == 1); Relayout(); });
+                var deskRow = Row(Lang.T("Tampilan desktop"), Lang.T("Bar di tepi atas dengan menu, status, dan jam; island jadi notch di tengahnya"), desk);
+                deskRow.Glyph = (char)0xE7F4;
+                add(deskRow);
+                if (island.TopBarOn)
+                {
+                    var hideRow = Row(Lang.T("Sembunyikan bar atas otomatis"), Lang.T("Muncul saat kursor menyentuh tepi atas; aplikasi memakai layar penuh"), Switch("bar.hide", false, v => island.SetBarHide(v)));
+                    hideRow.Glyph = (char)0xE8A0;
+                    add(hideRow);
+                    var diskRow = Row(Lang.T("Disk di bar atas"), null, Switch("bar.disk", true, null));
+                    diskRow.Glyph = (char)0xEDA2;
+                    add(diskRow);
+                    var netRow = Row(Lang.T("Kecepatan internet di bar atas"), null, Switch("bar.net", true, null));
+                    netRow.Glyph = (char)0xE701;
+                    add(netRow);
+                }
                 var dock = Row(Lang.T("Dock"), Lang.T("Aplikasi, widget, dan jam di tepi bawah layar"), Switch("dockbar.on", false, v => { island.SetFlag("dockbar.on", v); Relayout(); }));
                 dock.Glyph = (char)0xE8A9;
                 add(dock);
@@ -87,6 +104,21 @@ namespace Tepi
                 var badgeRow = Row(Lang.T("Angka notifikasi"), Lang.T("Jumlah notifikasi Windows di ikon aplikasinya"), badges);
                 badgeRow.Glyph = (char)0xEA8F;
                 add(badgeRow);
+                var shelfOn = Switch("dockbar.shelf", true, null);
+                shelfOn.Enabled = on;
+                var shelfRow = Row(Lang.T("Rak di Dock"), Lang.T("Jatuhkan berkas ke Rak, klik untuk membuka isinya"), shelfOn);
+                shelfRow.Glyph = (char)0xE7B8;
+                add(shelfRow);
+                var dlOn = Switch("dockbar.downloads", island.TopBarOn, v => { island.SetFlag("dockbar.downloads", v); });
+                dlOn.Enabled = on;
+                var dlRow = Row(Lang.T("Unduhan di Dock"), Lang.T("Klik untuk sepuluh berkas terbaru; cincin tampil selama mengunduh"), dlOn);
+                dlRow.Glyph = (char)0xE896;
+                add(dlRow);
+                var binOn = Switch("dockbar.trash", island.TopBarOn, v => { island.SetFlag("dockbar.trash", v); });
+                binOn.Enabled = on;
+                var binRow = Row(Lang.T("Recycle Bin di Dock"), Lang.T("Jatuhkan berkas untuk membuangnya; klik kanan untuk mengosongkan"), binOn);
+                binRow.Glyph = (char)0xE74D;
+                add(binRow);
                 if (replacing)
                 {
                     var search = Switch("dockbar.search", true, null);
@@ -103,13 +135,13 @@ namespace Tepi
                 }
 
                 cap(Lang.T("Widget"));
-                string[] notes = { "Jam dan tanggal; klik membuka Ringkasan", "Sampul, judul, dan tombol putar", "Pemakaian tertinggi dan agen yang bekerja", "Saat timer berjalan", "Butuh kota di Pengaturan › Sistem", "Hanya di laptop", "CPU dan RAM, dibaca tiap 3 detik" };
-                char[] glyphs = { (char)0xE823, (char)0xE8D6, (char)0xEC4A, (char)0xE916, (char)0xE753, (char)0xE83F, (char)0xE9D9 };
+                string[] notes = { "Jam dan tanggal; klik membuka Ringkasan", "Sampul, judul, dan tombol putar", "Pemakaian tertinggi dan agen yang bekerja", "Saat timer berjalan", "Butuh kota di Pengaturan › Sistem", "Hanya di laptop", "CPU dan RAM, dibaca tiap 3 detik", "Satu bar per drive; ruang kosong saat disorot", "Unduh dan unggah, grafik semenit terakhir" };
+                char[] glyphs = { (char)0xE823, (char)0xE8D6, (char)0xEC4A, (char)0xE916, (char)0xE753, (char)0xE83F, (char)0xE9D9, (char)0xEDA2, (char)0xE701 };
                 for (int i = 0; i < DockWidgetIds.Length; i++)
                 {
                     // Clock and battery sit in the tray corner while replacing
                     if (replacing && (DockWidgetIds[i] == "clock" || DockWidgetIds[i] == "battery")) continue;
-                    var ws = Switch("dockbar.w." + DockWidgetIds[i], DockWidgetIds[i] != "system", null);
+                    var ws = Switch("dockbar.w." + DockWidgetIds[i], DockWidgetDefault(DockWidgetIds[i]), null);
                     ws.Enabled = on;
                     var wr = Row(Lang.T(DockWidgetNames[i]), Lang.T(notes[i]), ws);
                     wr.Glyph = glyphs[i];

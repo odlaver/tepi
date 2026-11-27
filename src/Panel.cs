@@ -78,7 +78,8 @@ namespace Tepi
                     if (y > box.Bottom + LyricLineH) break;
                     if (lyrics.Lines[i].Text.Length == 0 || y <= box.Top || y >= box.Bottom) continue;
                     double at = lyrics.Lines[i].AtMs;
-                    AddHit(new RectangleF(box.X, y - LyricLineH / 2, box.Width, LyricLineH), "ly" + i, delegate { media.Seek(at + 50); }, null, LyricMenu);
+                    int li = i;
+                    AddHit(new RectangleF(box.X, y - LyricLineH / 2, box.Width, LyricLineH), "ly" + i, delegate { media.Seek(at + 50); }, null, delegate { LyricMenu(li); });
                 }
             // List scrolls alone
             LiveRect(box, t => PaintTeleprompter(box, t));

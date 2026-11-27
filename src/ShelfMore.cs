@@ -109,6 +109,7 @@ namespace Tepi
         // shelf.keep: ticks and path per line
         void SaveShelf()
         {
+            if (dockWin != null) dockWin.Redraw();
             try
             {
                 if (!settings.GetBool("shelf.keep", false))
