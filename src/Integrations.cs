@@ -165,7 +165,7 @@ namespace Tepi
                 {
                     bool open = Guide(add, "kulia", Lang.T("Cara masuk ke Kulia"));
                     if (open) add(Step('\uE774', Lang.T("1. Siapkan akun Kulia"), Lang.T("Belum punya? Daftar dulu di kulia.live"), Button(Lang.T("Buka kulia.live"), false, delegate { OpenUrl(KuliaUrl); })));
-                    add(Step('\uE77B', open ? Lang.T("2. Masuk dengan email akun itu") : "Kulia", open ? Lang.T("Kode masuk dikirim ke email itu, lalu ketik di Tepi") : Lang.T("Belum masuk"),
+                    add(Step('\uE77B', open ? Lang.T("2. Masuk lewat browser") : "Kulia", open ? Lang.T("Tepi membuka kulia.live, lalu tekan Hubungkan Tepi") : Lang.T("Belum masuk"),
                         Button(Lang.T("Masuk"), true, delegate { island.OpenLogin(); Rebuild(); })));
                 }
                 var hub = island.sources;

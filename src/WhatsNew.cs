@@ -20,6 +20,14 @@ namespace Tepi
         {
             new Note
             {
+                Version = "2.6.3.1",
+                Items = new[]
+                {
+                    new[] { "Masuk ke Kulia lewat browser", "Tombol Masuk sekarang membuka kulia.live. Masuk di sana, lalu tekan Hubungkan Tepi. Cara lama dengan kode email gagal sejak kulia.live memakai verifikasi keamanan.", "" },
+                },
+            },
+            new Note
+            {
                 Version = "2.6.3",
                 Items = new[]
                 {

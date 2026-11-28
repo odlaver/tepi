@@ -96,7 +96,9 @@ namespace Tepi
                     { "code_challenge_method", "S256" }, { "code_challenge", challenge }, { "state", state },
                 });
                 Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-                var query = WaitForCallback(listener, TimeSpan.FromMinutes(3));
+                var query = WaitForCallback(listener, TimeSpan.FromMinutes(3), "/callback", q => q.ContainsKey("code")
+                    ? new[] { Lang.T("Tepi tersambung ke Spotify"), Lang.T("Tab ini boleh ditutup.") }
+                    : new[] { Lang.T("Login Spotify dibatalkan"), Lang.T("Tab ini boleh ditutup.") });
                 if (query == null) return Lang.T("Login Spotify tidak selesai dalam 3 menit");
                 string err;
                 if (query.TryGetValue("error", out err)) return err == "access_denied" ? Lang.T("Izin Spotify ditolak") : Lang.F("Spotify menolak: {0}", err);
@@ -123,32 +125,40 @@ namespace Tepi
             finally { try { listener.Stop(); } catch (Exception) { } }
         }
 
-        // One request: the redirect with ?code=
-        internal static Dictionary<string, string> WaitForCallback(TcpListener listener, TimeSpan wait)
+        // One redirect to path; answer gives title and text; null on timeout or Stop()
+        internal static Dictionary<string, string> WaitForCallback(TcpListener listener, TimeSpan wait, string path, Func<Dictionary<string, string>, string[]> answer)
         {
             var until = DateTime.UtcNow + wait;
-            while (DateTime.UtcNow < until)
+            try
             {
-                if (!listener.Pending()) { Thread.Sleep(100); continue; }
-                using (var c = listener.AcceptTcpClient())
+                while (DateTime.UtcNow < until)
                 {
-                    c.ReceiveTimeout = 5000;
-                    var s = c.GetStream();
-                    var line = new StreamReader(s, Encoding.ASCII).ReadLine() ?? "";
-                    var m = Regex.Match(line, @"^GET /callback\?(\S*) HTTP");
-                    // Favicon and the like: not ours
-                    if (!m.Success) { Reply(s, 404, "", ""); continue; }
-                    var q = new Dictionary<string, string>();
-                    foreach (var pair in m.Groups[1].Value.Split('&'))
+                    if (!listener.Pending()) { Thread.Sleep(100); continue; }
+                    using (var c = listener.AcceptTcpClient())
                     {
-                        int eq = pair.IndexOf('=');
-                        if (eq > 0) q[Uri.UnescapeDataString(pair.Substring(0, eq))] = Uri.UnescapeDataString(pair.Substring(eq + 1).Replace('+', ' '));
+                        c.ReceiveTimeout = 5000;
+                        var s = c.GetStream();
+                        string line;
+                        // Dropped connection: wait for the next one
+                        try { line = new StreamReader(s, Encoding.ASCII).ReadLine() ?? ""; }
+                        catch (IOException) { continue; }
+                        var m = Regex.Match(line, "^GET " + Regex.Escape(path) + @"\?(\S*) HTTP");
+                        // Favicon and the like: not ours
+                        if (!m.Success) { try { Reply(s, 404, "", ""); } catch (IOException) { } continue; }
+                        var q = new Dictionary<string, string>();
+                        foreach (var pair in m.Groups[1].Value.Split('&'))
+                        {
+                            int eq = pair.IndexOf('=');
+                            if (eq > 0) q[Uri.UnescapeDataString(pair.Substring(0, eq))] = Uri.UnescapeDataString(pair.Substring(eq + 1).Replace('+', ' '));
+                        }
+                        var say = answer(q);
+                        try { Reply(s, 200, say[0], say[1]); } catch (IOException) { }
+                        return q;
                     }
-                    bool ok = q.ContainsKey("code");
-                    Reply(s, 200, ok ? Lang.T("Tepi tersambung ke Spotify") : Lang.T("Login Spotify dibatalkan"), Lang.T("Tab ini boleh ditutup."));
-                    return q;
                 }
             }
+            catch (InvalidOperationException) { }
+            catch (SocketException) { }
             return null;
         }
 

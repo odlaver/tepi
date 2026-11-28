@@ -5,8 +5,8 @@
 ## Kulia
 
 1. Buka tab **Tugas** (atau klik kanan ikon Tepi, lalu **Kulia > Masuk ke Kulia**).
-2. Isi email yang kamu pakai di [kulia.live](https://kulia.live).
-3. Masukkan kode yang dikirim ke email itu.
+2. Browser membuka [kulia.live](https://kulia.live). Masuk di sana kalau belum.
+3. Tekan **Hubungkan Tepi**. Tab browser boleh ditutup sesudahnya.
 
 Selesai. Tugas aktif dan jadwal kelasmu langsung tampil, lalu diperbarui tiap 10 menit. Kalau belum punya akun, daftar dulu di kulia.live.
 

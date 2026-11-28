@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -75,26 +78,27 @@ namespace Tepi
             return h;
         }
 
-        public string SendCode(string address)
+        // Captcha blocks OTP here; kulia.live/tepi signs in instead
+        public static string LinkUrl(int port, string state)
         {
-            var r = Web.Send("POST", url + "/auth/v1/otp", Headers(false), Json.Encode(new Dictionary<string, object> { { "email", address }, { "create_user", false } }), 15000);
-            if (r.Ok) return null;
-            if (r.Status == 0) return Lang.T("Kulia tidak terjangkau");
-            if (r.Status == 429) return Lang.T("Kode baru bisa diminta lagi dalam ±1 menit");
-            if (r.Body.IndexOf("signup", StringComparison.OrdinalIgnoreCase) >= 0 || r.Status == 422) return Lang.T("Email ini belum terdaftar di Kulia");
-            return Lang.T("Kode gagal terkirim (") + r.Status + ")";
+            return "https://kulia.live/tepi?port=" + port + "&state=" + state;
         }
 
-        public string Verify(string address, string code)
+        // One-time token from kulia.live/tepi; null on success
+        public string Redeem(string tokenHash)
         {
             var r = Web.Send("POST", url + "/auth/v1/verify", Headers(false),
-                Json.Encode(new Dictionary<string, object> { { "type", "email" }, { "email", address }, { "token", code } }), 15000);
+                Json.Encode(new Dictionary<string, object> { { "type", "magiclink" }, { "token_hash", tokenHash } }), 15000);
             if (r.Status == 0) return Lang.T("Kulia tidak terjangkau");
-            if (!r.Ok) return Lang.T("Kode salah atau kedaluwarsa");
+            if (!r.Ok) { Log.Write("kulia redeem " + r.Status); return Lang.T("Tautan masuk kedaluwarsa, coba lagi"); }
             lock (sync)
             {
-                Take(Json.Parse(r.Body));
-                email = address;
+                var session = Json.Parse(r.Body);
+                Take(session);
+                var user = Json.Obj(session, "user");
+                email = user != null ? Json.Str(user, "email") : "";
+                classLabel = null;
+                classKnown = false;
                 Persist();
             }
             return null;
@@ -335,15 +339,15 @@ namespace Tepi
         }
     }
 
-    // Email + 6-digit code, like kulia.live/masuk
+    // Sign-in finishes on kulia.live, back via loopback
     class KuliaLogin : Form
     {
         readonly KuliaClient client;
         readonly Label heading = new Label(), hint = new Label(), status = new Label();
-        readonly TextBox field = new KitText();
-        readonly Button primary = new Button(), back = new Button();
-        string address;
-        bool codeStep;
+        readonly Button primary = new Button(), cancel = new Button();
+        readonly object gate = new object();
+        TcpListener listener;
+        int round;
 
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
 
@@ -357,7 +361,7 @@ namespace Tepi
             AutoScaleMode = AutoScaleMode.None;
             Load += delegate { KitWindow.ScaleToDpi(this); };
             HandleCreated += delegate { Native.RoundCorners(Handle); };
-            ClientSize = new Size(400, 236);
+            ClientSize = new Size(400, 214);
             ShowInTaskbar = true;
             TopMost = true;
             var bg = Ink.Light ? Color.FromArgb(245, 245, 245) : Color.FromArgb(10, 10, 10);
@@ -370,32 +374,28 @@ namespace Tepi
             heading.SetBounds(24, 20, 352, 30);
             heading.Font = Ink.Display(20f);
             heading.Text = Lang.T("Masuk ke Kulia");
-            hint.SetBounds(24, 54, 352, 40);
+            hint.SetBounds(24, 56, 352, 44);
             hint.ForeColor = sub;
-            field.SetBounds(24, 100, 352, 30);
-            field.BorderStyle = BorderStyle.FixedSingle;
-            field.BackColor = Ink.Light ? Color.White : Color.FromArgb(24, 24, 24);
-            field.ForeColor = fg;
-            field.Font = Ink.Text(15f);
-            status.SetBounds(24, 136, 352, 36);
+            hint.Text = Lang.T("Browser terbuka di kulia.live. Masuk di sana, lalu tekan Hubungkan Tepi.");
+            status.SetBounds(24, 108, 352, 44);
             status.ForeColor = fg;
 
-            primary.SetBounds(236, 184, 140, 34);
+            primary.SetBounds(236, 162, 140, 34);
             Style(primary, fg, bg);
-            back.SetBounds(24, 184, 140, 34);
-            Style(back, bg, fg);
-            back.FlatAppearance.BorderColor = sub;
-            back.FlatAppearance.BorderSize = 1;
-            back.Text = Lang.T("Ganti email");
-            back.Click += delegate { ShowEmailStep(); };
-            primary.Click += delegate { Submit(); };
+            primary.Text = Lang.T("Buka lagi");
+            cancel.SetBounds(24, 162, 140, 34);
+            Style(cancel, bg, fg);
+            cancel.FlatAppearance.BorderColor = sub;
+            cancel.FlatAppearance.BorderSize = 1;
+            cancel.Text = Lang.T("Batal");
+            cancel.Click += delegate { Close(); };
+            primary.Click += delegate { Start(); };
             AcceptButton = primary;
-            KeyPreview = true;
-            KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) Close(); };
+            CancelButton = cancel;
+            Shown += delegate { Start(); };
+            FormClosed += delegate { Stop(); };
 
-            Controls.AddRange(new Control[] { heading, hint, field, status, primary, back });
-            ShowEmailStep();
-            if (client.Email.Length > 0) field.Text = client.Email;
+            Controls.AddRange(new Control[] { heading, hint, status, primary, cancel });
         }
 
         static void Style(Button b, Color bg, Color fg)
@@ -415,73 +415,66 @@ namespace Tepi
             try { DwmSetWindowAttribute(Handle, 20, ref dark, 4); } catch (Exception) { }
         }
 
-        void ShowEmailStep()
+        void Stop()
         {
-            codeStep = false;
-            hint.Text = Lang.T("Email akun kulia.live");
-            field.Text = address ?? client.Email;
-            field.MaxLength = 120;
-            Native.SendMessage(field.Handle, 0x1501, (IntPtr)1, "email@contoh.com");
-            primary.Text = Lang.T("Kirim kode");
-            back.Visible = false;
-            status.Text = "";
-            field.Focus();
-        }
-
-        void ShowCodeStep()
-        {
-            codeStep = true;
-            hint.Text = Lang.T("Kode masuk terkirim ke ") + address;
-            field.Text = "";
-            field.MaxLength = 14;
-            Native.SendMessage(field.Handle, 0x1501, (IntPtr)1, Lang.T("Kode dari email"));
-            primary.Text = Lang.T("Masuk");
-            back.Visible = true;
-            status.Text = "";
-            field.Focus();
-        }
-
-        void Submit()
-        {
-            string value = field.Text.Trim();
-            if (!codeStep)
+            lock (gate)
             {
-                if (!Regex.IsMatch(value, @"^[^@\s]+@[^@\s]+\.[^@\s]+$")) { status.Text = Lang.T("Format email belum lengkap"); return; }
-                address = value;
-                Busy(Lang.T("Mengirim kode…"));
-                ThreadPool.QueueUserWorkItem(delegate
-                {
-                    string err;
-                    try { err = client.SendCode(address); } catch (Exception ex) { err = "Gagal mengirim kode"; Log.Write("kulia otp: " + ex.Message); }
-                    Finish(err, delegate { ShowCodeStep(); });
-                });
-                return;
+                round++;
+                if (listener != null) try { listener.Stop(); } catch (Exception) { }
+                listener = null;
             }
-            value = value.Replace(" ", "").Replace("-", "");
-            if (!Regex.IsMatch(value, @"^\d{6,10}$")) { status.Text = Lang.T("Kode berisi 6 sampai 10 angka"); return; }
-            Busy(Lang.T("Memeriksa kode…"));
+        }
+
+        // Fresh port and state each round
+        void Start()
+        {
+            Stop();
+            TcpListener l;
+            int mine;
+            string state = Guid.NewGuid().ToString("N");
+            try
+            {
+                l = new TcpListener(IPAddress.Loopback, 0);
+                l.Start();
+            }
+            catch (Exception ex) { Log.Write("kulia listen: " + ex.Message); status.Text = Lang.T("Tepi tidak bisa menunggu balasan browser"); return; }
+            lock (gate) { listener = l; mine = round; }
+            int port = ((IPEndPoint)l.LocalEndpoint).Port;
+            try { Process.Start(new ProcessStartInfo(KuliaClient.LinkUrl(port, state)) { UseShellExecute = true }); }
+            catch (Exception ex) { Log.Write("kulia browser: " + ex.Message); }
+            status.Text = Lang.T("Menunggu kulia.live…");
+
             ThreadPool.QueueUserWorkItem(delegate
             {
-                string err;
-                try { err = client.Verify(address, value); } catch (Exception ex) { err = "Gagal memeriksa kode"; Log.Write("kulia verify: " + ex.Message); }
-                Finish(err, delegate { DialogResult = DialogResult.OK; Close(); });
+                string err = Lang.T("Belum ada balasan dari kulia.live dalam 10 menit. Tekan Buka lagi.");
+                var got = SpotifyLink.WaitForCallback(l, TimeSpan.FromMinutes(10), "/kulia", q =>
+                {
+                    string s, hash;
+                    if (!q.TryGetValue("state", out s) || s != state || !q.TryGetValue("token_hash", out hash)) err = Lang.T("Tautan masuk tidak cocok. Tekan Buka lagi.");
+                    else
+                    {
+                        try { err = client.Redeem(hash); }
+                        catch (Exception ex) { err = Lang.T("Gagal masuk ke Kulia"); Log.Write("kulia redeem: " + ex.Message); }
+                    }
+                    return err == null
+                        ? new[] { Lang.T("Tepi tersambung ke Kulia"), Lang.T("Tab ini boleh ditutup.") }
+                        : new[] { Lang.T("Tepi belum tersambung"), err };
+                });
+                try { l.Stop(); } catch (Exception) { }
+                lock (gate) { if (mine != round) return; }
+                Finish(got == null && err == null ? Lang.T("Gagal masuk ke Kulia") : err);
             });
         }
 
-        void Busy(string text)
-        {
-            status.Text = text;
-            primary.Enabled = field.Enabled = back.Enabled = false;
-        }
-
-        void Finish(string error, Action ok)
+        void Finish(string error)
         {
             if (IsDisposed || !IsHandleCreated) return;
             BeginInvoke(new Action(delegate
             {
-                primary.Enabled = field.Enabled = back.Enabled = true;
-                if (error != null) { status.Text = error; field.Focus(); return; }
-                ok();
+                if (IsDisposed) return;
+                if (error != null) { status.Text = error; return; }
+                DialogResult = DialogResult.OK;
+                Close();
             }));
         }
     }

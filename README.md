@@ -14,9 +14,13 @@
 
 # Tepi
 
-Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 1.976 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
+Tepi duduk tenang di tepi atas layar, lalu membesar saat ada yang terjadi: lagu dan liriknya, agent coding yang minta izin, tugas yang mendekati tenggat, pesan masuk, timer, sampai waktu sholat. Tampilannya Liquid Glass dengan gerak pegas. Exe-nya 1.978 KB, native C# tanpa browser engine, dalam bahasa Indonesia dan Inggris.
 
 Sekarang juga ada [Tepi Android](https://github.com/odlaver/tepi-android): island di sekitar kamera depan HP, yang nyambung ke laptop cukup dengan memindai QR.
+
+## Baru di 2.6.3.1
+
+- **Masuk ke Kulia lewat browser**: tombol Masuk sekarang membuka kulia.live. Masuk di sana, lalu tekan **Hubungkan Tepi**. Cara lama dengan kode email gagal sejak kulia.live memakai verifikasi keamanan.
 
 ## Baru di 2.6.3
 
